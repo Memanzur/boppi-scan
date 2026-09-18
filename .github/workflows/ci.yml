@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+      - run: npm run smoke
+      - name: Check packed file list
+        run: |
+          npm pack --dry-run --json > pack-report.json
+          node -e "
+            const files = require('./pack-report.json')[0].files.map(f => f.path);
+            const require_ = p => { if (!files.includes(p)) { throw new Error('tarball is missing ' + p); } };
+            require_('bin/boppi.js');
+            require_('src/engine/models.js');
+            if (files.some(p => p.startsWith('test/'))) throw new Error('test/ leaked into the tarball');
+            console.log('tarball OK: ' + files.length + ' files');
+          "
