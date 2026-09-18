@@ -1,0 +1,39 @@
+{
+  "name": "boppi",
+  "version": "0.1.0",
+  "description": "Local AI agent security scanner: discovers Claude Desktop, Claude Code, and Cursor MCP configurations, maps what your agents can reach, and reports potential exposure paths. Runs 100% locally.",
+  "bin": {
+    "boppi": "bin/boppi.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Memanzur/boppi-scan"
+  },
+  "homepage": "https://github.com/Memanzur/boppi-scan#readme",
+  "bugs": {
+    "url": "https://github.com/Memanzur/boppi-scan/issues"
+  },
+  "keywords": [
+    "mcp",
+    "ai-security",
+    "ai-agents",
+    "claude",
+    "cursor",
+    "security-scanner",
+    "attack-path"
+  ],
+  "scripts": {
+    "test": "node test/run-all.js",
+    "smoke": "node bin/boppi.js scan --help"
+  }
+}
