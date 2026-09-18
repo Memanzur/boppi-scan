@@ -47,7 +47,7 @@ function usage() {
     '  --only <clients>    limit discovery, e.g. --only claude-desktop,cursor',
     '  --config <path>     scan one explicit config file (skip discovery)',
     '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
-    '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity (CI usage)',
+    '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity, 4 if a client could not be analyzed (CI usage)',
     '  --quiet             one summary line only',
     '  --verbose           all paths, per-server capability provenance',
     '  --no-color          plain-text output (NO_COLOR env is also respected)',
@@ -186,7 +186,7 @@ async function run(argv) {
       });
       providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer }));
     } catch (error) {
-      client.files.forEach(f => { if (f.status === 'found') f.status = 'unreadable'; });
+      client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = error.message; } });
     }
   }
 
@@ -201,8 +201,15 @@ async function run(argv) {
       process.stderr.write(`Scan failed: ${result.error || 'unknown error'}\n`);
       return 3;
     }
+    for (const providerResult of result.providerResults || []) {
+      if (providerResult.status !== 'failed') continue;
+      const client = discovery.clients.find(c => `cli-${c.clientKey}` === providerResult.providerId);
+      if (client) client.scanError = providerResult.error || 'provider_failed';
+    }
     inventory = result.inventory;
   }
+  const incomplete = discovery.clients.filter(c => c.scanError).map(c => c.label);
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from the results.\n`);
 
   const graph = securityGraph.buildGraph(inventory);
   const paths = exposurePathEngine.findPaths(graph);
@@ -234,6 +241,7 @@ async function run(argv) {
       ...inventory.findings.filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status)).map(f => SEVERITY_ORDER[f.severity] || 0),
       ...paths.map(p => SEVERITY_ORDER[p.severity] || 0));
     if (worst >= threshold) return 1;
+    if (incomplete.length) return 4;
   }
   return 0;
 }

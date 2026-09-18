@@ -135,7 +135,28 @@ function runCli(args, home) {
   fs.mkdirSync(path.join(brokenHome, '.cursor'), { recursive: true });
   fs.writeFileSync(path.join(brokenHome, '.cursor', 'mcp.json'), '{ not json');
   const broken = runCli(['scan'], brokenHome);
-  ok('invalid JSON config is reported and skipped', broken.code === 0 && broken.stdout.includes('could not be parsed'));
+  ok('invalid JSON config is reported and skipped', broken.code === 0 && broken.stdout.includes('could not be scanned (invalid JSON)'));
+
+  section('Server names that resemble secret keys still scan');
+  const vaultHome = path.join(root, 'vault-home');
+  fs.mkdirSync(path.join(vaultHome, 'Library', 'Application Support', 'Claude'), { recursive: true });
+  fs.writeFileSync(path.join(vaultHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({
+    mcpServers: {
+      '1password': { command: 'npx', args: ['-y', '@1password/mcp'] },
+      'desktop-commander': { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] },
+      fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
+    },
+  }));
+  const vault = runCli(['scan', '--only', 'claude-desktop'], vaultHome);
+  ok('a server named 1password does not drop the Claude Desktop agent', vault.code === 0 && vault.stdout.includes('1 agent ') && vault.stdout.includes('3 MCP servers'));
+  const credentialPath = (vault.stdout.split('EP-B')[1] || '').split('\n')[1] || '';
+  ok('credential exposure path (EP-B) through 1password is reported', credentialPath.includes('1password') && credentialPath.includes('access credentials'));
+  ok('no client is reported as missing from the results', !vault.stdout.includes('analysis failed') && !vault.stderr.includes('Scan incomplete'));
+  const secretName = path.join(root, 'secret-name-home');
+  fs.mkdirSync(path.join(secretName, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(secretName, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { 'sk-abcdefghijklmnopqrstuv': { command: 'npx', args: ['-y', 'x'] } } }));
+  const rejected = runCli(['scan', '--only', 'cursor'], secretName);
+  ok('a config rejected by the sanitizer shows the reason instead of "invalid JSON"', rejected.code === 0 && rejected.stdout.includes('could not be scanned (') && rejected.stdout.includes('secret material'));
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
