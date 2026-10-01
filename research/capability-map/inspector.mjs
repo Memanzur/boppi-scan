@@ -179,6 +179,12 @@ export function signalTableHash() {
   return 'sha256-' + crypto.createHash('sha256').update(JSON.stringify(SIGNALS, (k, v) => v instanceof RegExp ? v.toString() : v)).digest('hex');
 }
 
+function summarizeSkips(skipped) {
+  const byReason = {};
+  for (const s of skipped) byReason[s.reason] = (byReason[s.reason] || 0) + 1;
+  return { count: skipped.length, byReason, examples: skipped.slice(0, 10) };
+}
+
 function main() {
   const target = process.argv[2];
   if (target) {
@@ -194,7 +200,7 @@ function main() {
     const result = inspectPackage(root);
     return {
       name: entry.name, version: entry.version, registryIntegrity: entry.registryIntegrity, contentHash: entry.contentHash,
-      scannedFileCount: result.scannedFiles.length, skipped: result.skipped, minifiedFiles: result.minifiedFiles,
+      scannedFileCount: result.scannedFiles.length, skipped: summarizeSkips(result.skipped), minifiedFiles: result.minifiedFiles,
       categories: result.categories, importOnly: result.hits.filter(h => h.strength === 'import_only').map(h => ({ signal: h.signal, file: h.evidence[0].file, line: h.evidence[0].line })),
     };
   });
