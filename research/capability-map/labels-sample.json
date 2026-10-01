@@ -1,0 +1,357 @@
+{
+  "seed": 20261001,
+  "size": 50,
+  "corpusBuiltAt": "2026-10-01T20:27:45.398Z",
+  "packages": [
+    {
+      "name": "@azure-devops/mcp",
+      "version": "2.10.0",
+      "contentHash": "sha256-5dfe3bfc6de687b70118d650495c7d5bb4b67fa16ad9900d343daf4314d07280",
+      "root": "corpus/packages/@azure-devops/mcp/2.10.0",
+      "fileCount": 29
+    },
+    {
+      "name": "@blaxel/core",
+      "version": "0.3.25",
+      "contentHash": "sha256-2e5e59d5b114502a260c0d80445a12bac698371c5cb1002bbc86538c5723c212",
+      "root": "corpus/packages/@blaxel/core/0.3.25",
+      "fileCount": 610
+    },
+    {
+      "name": "@bytebase/dbhub",
+      "version": "1.4.0",
+      "contentHash": "sha256-6c2a1d7d707398a4372bcf5caf42ee57b85550677a0ec37458474d5ae30fcf61",
+      "root": "corpus/packages/@bytebase/dbhub/1.4.0",
+      "fileCount": 35
+    },
+    {
+      "name": "@clerk/mcp-tools",
+      "version": "0.6.0",
+      "contentHash": "sha256-2fd026bfbebac716a0b83b7e0bec374dda935c74f83924cc7eb0ececa6854a29",
+      "root": "corpus/packages/@clerk/mcp-tools/0.6.0",
+      "fileCount": 23
+    },
+    {
+      "name": "@cloudbase/cloudbase-mcp",
+      "version": "2.34.8",
+      "contentHash": "sha256-301aee50bc12a66f4fa5aac69929cffabf4af3816cff2325b8e449723f7c8ec5",
+      "root": "corpus/packages/@cloudbase/cloudbase-mcp/2.34.8",
+      "fileCount": 12
+    },
+    {
+      "name": "@copilotkit/aimock",
+      "version": "1.43.0",
+      "contentHash": "sha256-905e2e771ecd8aa25b81bd9ad17822eb6116428407ca0aee832674695916bfc9",
+      "root": "corpus/packages/@copilotkit/aimock/1.43.0",
+      "fileCount": 658
+    },
+    {
+      "name": "@copilotkit/mcp-apps-renderer",
+      "version": "1.76.0",
+      "contentHash": "sha256-fda1f30e48493d3ad34389cf933dc3fe973ee140e9ffeed9358134267e844079",
+      "root": "corpus/packages/@copilotkit/mcp-apps-renderer/1.76.0",
+      "fileCount": 47
+    },
+    {
+      "name": "@devframes/agentic",
+      "version": "1.1.0",
+      "contentHash": "sha256-a334ddf7766bd361429af3029df5a43c5625e5712f102bd8de6847363fda43a5",
+      "root": "corpus/packages/@devframes/agentic/1.1.0",
+      "fileCount": 8
+    },
+    {
+      "name": "@drawio/mcp",
+      "version": "1.6.3",
+      "contentHash": "sha256-b72d663bb24d588c71543db4a83b1e0c0134983a80dc02e6e6ca5dce765c0567",
+      "root": "corpus/packages/@drawio/mcp/1.6.3",
+      "fileCount": 24
+    },
+    {
+      "name": "@ericthered926/duckduckgo-mcp-server",
+      "version": "0.6.0",
+      "contentHash": "sha256-5e61fe444ddc3f0f985fd69d3901556b9d4ad3febf2e5eb5bee14a49007855d1",
+      "root": "corpus/packages/@ericthered926/duckduckgo-mcp-server/0.6.0",
+      "fileCount": 7
+    },
+    {
+      "name": "@foldkit/devtools-mcp",
+      "version": "0.23.0",
+      "contentHash": "sha256-deaf846df069a79c6b48e9c13082b7b780fb3b35eb42e8e158e338cd7cea9f1c",
+      "root": "corpus/packages/@foldkit/devtools-mcp/0.23.0",
+      "fileCount": 21
+    },
+    {
+      "name": "@hasna/conversations",
+      "version": "0.10.0",
+      "contentHash": "sha256-fc257c3875b78c2bb186a32bbe4bd8f19b0d46c5330c62e4faefd24f71b5af36",
+      "root": "corpus/packages/@hasna/conversations/0.10.0",
+      "fileCount": 153
+    },
+    {
+      "name": "@hasna/files",
+      "version": "0.4.1",
+      "contentHash": "sha256-856abf1ab3cca8104140665f61ed5680018bdf9901e50efd081076ad8c23c2d0",
+      "root": "corpus/packages/@hasna/files/0.4.1",
+      "fileCount": 189
+    },
+    {
+      "name": "@hasna/mementos",
+      "version": "0.17.8",
+      "contentHash": "sha256-26d021e4377d82b053f605aa6c7a1e2cc9a6df189ce33f835192cfdd5a174aee",
+      "root": "corpus/packages/@hasna/mementos/0.17.8",
+      "fileCount": 595
+    },
+    {
+      "name": "@hubspot/mcp-server",
+      "version": "0.4.0",
+      "contentHash": "sha256-62ed80dc1fc3f657cc446938f8533530f8efae9093746a665d8077a40bd2d4d4",
+      "root": "corpus/packages/@hubspot/mcp-server/0.4.0",
+      "fileCount": 38
+    },
+    {
+      "name": "@langchain/mcp-adapters",
+      "version": "2.0.0",
+      "contentHash": "sha256-def88eef7115c1b6729008c0049af9853cd483e28d87d74458616f76396f0898",
+      "root": "corpus/packages/@langchain/mcp-adapters/2.0.0",
+      "fileCount": 76
+    },
+    {
+      "name": "@letoribo/mcp-graphql-enhanced",
+      "version": "4.15.3",
+      "contentHash": "sha256-a3e7b8f4cf6ea9dfcbf600fe8514e085bfe63513e742a61fa16f78da68bb1f50",
+      "root": "corpus/packages/@letoribo/mcp-graphql-enhanced/4.15.3",
+      "fileCount": 38
+    },
+    {
+      "name": "@mcp-ui/client",
+      "version": "7.1.1",
+      "contentHash": "sha256-8dbeca5ea302957279e1b4394f59601fe14b7110e97e6b91cea27e0c83fc98e3",
+      "root": "corpus/packages/@mcp-ui/client/7.1.1",
+      "fileCount": 22
+    },
+    {
+      "name": "@n8n/mcp-apps",
+      "version": "0.18.3",
+      "contentHash": "sha256-f0bd4a3703f7d8db09f473553e468295d386390a7cfe3c5ed800db8865bcd08d",
+      "root": "corpus/packages/@n8n/mcp-apps/0.18.3",
+      "fileCount": 30
+    },
+    {
+      "name": "@nitrostack/core",
+      "version": "1.0.17",
+      "contentHash": "sha256-845ede72b3e63cfc720e06c6e999311bdcde408fbb8d02db6da9ef89795e7f96",
+      "root": "corpus/packages/@nitrostack/core/1.0.17",
+      "fileCount": 296
+    },
+    {
+      "name": "@paperclipai/mcp-server",
+      "version": "2026.916.1",
+      "contentHash": "sha256-fd0bf0dde5c78c601d12c39de7128386774bc9d07e071025353196f2a05c15bd",
+      "root": "corpus/packages/@paperclipai/mcp-server/2026.916.1",
+      "fileCount": 31
+    },
+    {
+      "name": "@productbrain/mcp",
+      "version": "0.0.1-beta.8361",
+      "contentHash": "sha256-026b8b0c977cc185001bdf43b534742e98fade934f644cacabb2821b4caf1f57",
+      "root": "corpus/packages/@productbrain/mcp/0.0.1-beta.8361",
+      "fileCount": 17
+    },
+    {
+      "name": "@raishin/vanguard-frontier-agentic",
+      "version": "3.14.0",
+      "contentHash": "sha256-a0b58eba5e579954c5afbafa8b958ce7def09f8f447eee686f19e69eeec895d8",
+      "root": "corpus/packages/@raishin/vanguard-frontier-agentic/3.14.0",
+      "fileCount": 13497
+    },
+    {
+      "name": "@sap-ux/fiori-mcp-server",
+      "version": "1.15.0",
+      "contentHash": "sha256-992a1998db2e0e56dbc036be8ddc0219e4cae4a1ce050d929fdbfb39a365ea6a",
+      "root": "corpus/packages/@sap-ux/fiori-mcp-server/1.15.0",
+      "fileCount": 26
+    },
+    {
+      "name": "@shopify/ucp-cli",
+      "version": "0.9.0",
+      "contentHash": "sha256-ee02f9aa8728c195bebfc7597910400a2da565c39a4e634ce06447489637d971",
+      "root": "corpus/packages/@shopify/ucp-cli/0.9.0",
+      "fileCount": 58
+    },
+    {
+      "name": "@softeria/ms-365-mcp-server",
+      "version": "0.157.2",
+      "contentHash": "sha256-27153736a8bae6a6f402ccb62cbb552d7608fc705be8d2ca8252bc621bbbeaf1",
+      "root": "corpus/packages/@softeria/ms-365-mcp-server/0.157.2",
+      "fileCount": 80
+    },
+    {
+      "name": "@tanstack/ai-mcp",
+      "version": "0.6.0",
+      "contentHash": "sha256-b51f96eacf8808a43e1bf6d75b2ba26903cf61c4b636caf13987a8a177285b6a",
+      "root": "corpus/packages/@tanstack/ai-mcp/0.6.0",
+      "fileCount": 128
+    },
+    {
+      "name": "@testsprite/testsprite-mcp",
+      "version": "0.0.46",
+      "contentHash": "sha256-fa03251fb6b3a717295dde4f2ae8cdd84709123db15f06c4b4c00ada188857f6",
+      "root": "corpus/packages/@testsprite/testsprite-mcp/0.0.46",
+      "fileCount": 181
+    },
+    {
+      "name": "@transcend-io/mcp",
+      "version": "1.6.0",
+      "contentHash": "sha256-0e01b0c270800c38d79c89431cd7db4aabb4b13ad879bd9c191f10268e37dccd",
+      "root": "corpus/packages/@transcend-io/mcp/1.6.0",
+      "fileCount": 11
+    },
+    {
+      "name": "@transcend-io/mcp-server-assessment",
+      "version": "2.1.13",
+      "contentHash": "sha256-191fc8d8c1da06d0eaad6239e86763ad6099bdb1655e296376b35f321e4ca2d2",
+      "root": "corpus/packages/@transcend-io/mcp-server-assessment/2.1.13",
+      "fileCount": 11
+    },
+    {
+      "name": "@transcend-io/mcp-server-consent",
+      "version": "1.3.0",
+      "contentHash": "sha256-d0c633a9765b3d6ac183aec96995a7283f3697c20fab593a3a7147b1995ac9ce",
+      "root": "corpus/packages/@transcend-io/mcp-server-consent/1.3.0",
+      "fileCount": 11
+    },
+    {
+      "name": "@upstash/context7-mcp",
+      "version": "4.1.1",
+      "contentHash": "sha256-a4efce0b4f2fd904dc00742e8a0f1f1086a3ec5d51f790b5f33d5b706dc14e32",
+      "root": "corpus/packages/@upstash/context7-mcp/4.1.1",
+      "fileCount": 24
+    },
+    {
+      "name": "@wonderwhy-er/desktop-commander",
+      "version": "0.2.52",
+      "contentHash": "sha256-fb646534fd0fe0f18a596743059f22a91d64a75be8b44e1dd467eebc91662ff6",
+      "root": "corpus/packages/@wonderwhy-er/desktop-commander/0.2.52",
+      "fileCount": 249
+    },
+    {
+      "name": "@z_ai/mcp-server",
+      "version": "0.1.5",
+      "contentHash": "sha256-945b81ce0fbeac9770829ba215fd38042e444c055ab4f62c13453c0c9f476277",
+      "root": "corpus/packages/@z_ai/mcp-server/0.1.5",
+      "fileCount": 30
+    },
+    {
+      "name": "agent-install",
+      "version": "0.0.8",
+      "contentHash": "sha256-c9251ff24832caa3ec39c821790afdfcd02fd22c62c205acde0ae70c3bb69c22",
+      "root": "corpus/packages/agent-install/0.0.8",
+      "fileCount": 40
+    },
+    {
+      "name": "chrome-devtools-mcp",
+      "version": "1.10.1",
+      "contentHash": "sha256-23c64317d3c785d6e6795e3ddf7485d12d9528dfcd233da5bcd5f0de9b75b6af",
+      "root": "corpus/packages/chrome-devtools-mcp/1.10.1",
+      "fileCount": 359
+    },
+    {
+      "name": "claude-flow",
+      "version": "3.49.0",
+      "contentHash": "sha256-bd03bdc8f5c880bbc9fcd0119764e53aa6d395765c6b66a6fb8925ad63f32bb7",
+      "root": "corpus/packages/claude-flow/3.49.0",
+      "fileCount": 1846
+    },
+    {
+      "name": "context-mode",
+      "version": "1.0.169",
+      "contentHash": "sha256-9e3f2a936c8926afbfabe3a8655b178be3f0fddd506c4e9fd63402ee15aaaee2",
+      "root": "corpus/packages/context-mode/1.0.169",
+      "fileCount": 354
+    },
+    {
+      "name": "easy-skills",
+      "version": "1.3.0",
+      "contentHash": "sha256-a52f7e31a5cc5cbb3b2dc18f414580c937891e41c2b0ed65cc6d43e2bda06492",
+      "root": "corpus/packages/easy-skills/1.3.0",
+      "fileCount": 149
+    },
+    {
+      "name": "eve",
+      "version": "0.69.0",
+      "contentHash": "sha256-106291611d2c4072c141d6e53ee8e54d844c9e17b75961749139aa9883593368",
+      "root": "corpus/packages/eve/0.69.0",
+      "fileCount": 3762
+    },
+    {
+      "name": "fastify-mcp",
+      "version": "3.0.0",
+      "contentHash": "sha256-575ece77cacddfe09346618c39a633f9708eaabd230ffd171d2833bda895ae0c",
+      "root": "corpus/packages/fastify-mcp/3.0.0",
+      "fileCount": 11
+    },
+    {
+      "name": "gitnexus",
+      "version": "1.6.12",
+      "contentHash": "sha256-20ea5e41fc0fcbd925adc7c5175a92798cef1b735bbd3f707248f5522a7b8d46",
+      "root": "corpus/packages/gitnexus/1.6.12",
+      "fileCount": 2374
+    },
+    {
+      "name": "hevy-mcp",
+      "version": "6.1.18",
+      "contentHash": "sha256-a91713fd09e966de95da9249173755e772a52bd3116f5f48156aad64dff99de9",
+      "root": "corpus/packages/hevy-mcp/6.1.18",
+      "fileCount": 11
+    },
+    {
+      "name": "hostinger-api-mcp",
+      "version": "2.7.0",
+      "contentHash": "sha256-0ad2dae7473633c7266c92636e1a60f78092752946475020488359ab0365b373",
+      "root": "corpus/packages/hostinger-api-mcp/2.7.0",
+      "fileCount": 89
+    },
+    {
+      "name": "instar",
+      "version": "1.3.1312",
+      "contentHash": "sha256-23be098914844f600ceb0a0b60fd341310d0bc7864fabc81c32fd79107546557",
+      "root": "corpus/packages/instar/1.3.1312",
+      "fileCount": 11397
+    },
+    {
+      "name": "mcp-auth",
+      "version": "1.0.0-beta.1",
+      "contentHash": "sha256-544c4727f4c06ce55eec49346c208b17456eb97b9233dacf776a423b607899f0",
+      "root": "corpus/packages/mcp-auth/1.0.0-beta.1",
+      "fileCount": 18
+    },
+    {
+      "name": "nx-mcp",
+      "version": "0.25.0",
+      "contentHash": "sha256-aeaeb65ac16502a9e88d37eb92fc25f9c57ebd7f3a77e1f0e732a5613b0466b2",
+      "root": "corpus/packages/nx-mcp/0.25.0",
+      "fileCount": 4
+    },
+    {
+      "name": "task-master-ai",
+      "version": "0.43.1",
+      "contentHash": "sha256-c2d6d8090ee20e289e7894111e6aec7c5d080dd34d71a7643de89a699ac9941a",
+      "root": "corpus/packages/task-master-ai/0.43.1",
+      "fileCount": 57
+    },
+    {
+      "name": "use-mcp",
+      "version": "0.0.21",
+      "contentHash": "sha256-c230467699dfccc80e4e1565541c19c1a95f9a792901fe98ea232916d212c717",
+      "root": "corpus/packages/use-mcp/0.0.21",
+      "fileCount": 8
+    },
+    {
+      "name": "xcodebuildmcp",
+      "version": "2.7.0",
+      "contentHash": "sha256-daad6d9a49b5f6f0725aaa9489b60c444290777e446879cb0de70d5a4208b18c",
+      "root": "corpus/packages/xcodebuildmcp/2.7.0",
+      "fileCount": 1055
+    }
+  ]
+}
