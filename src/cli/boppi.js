@@ -233,7 +233,7 @@ async function performScan(options) {
   const diagnostics = overlay
     ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected }, shadow, applied }
     : { shadow: [], applied: [] };
-  return { startedAt, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport };
+  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -263,7 +263,9 @@ function exportPayload(scan) {
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
     discovery: scan.portableDiscovery,
-    diagnostics: scan.diagnostics,
+    diagnostics: scan.diagnostics.overlay
+      ? { ...scan.diagnostics, overlay: { ...scan.diagnostics.overlay, file: portablePath(scan.diagnostics.overlay.file, scan.home) } }
+      : scan.diagnostics,
     generatedBy: `boppi-cli/${VERSION}`,
   };
 }
