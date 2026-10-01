@@ -35,7 +35,9 @@
     const raw = text(value, 'endpoint', 1000);
     try {
       const url = new URL(raw);
-      return `${url.protocol}//${url.host}${url.pathname || '/'}`;
+      // URL paths can contain bearer tokens, signed paths, tenant IDs, or
+      // other credentials. The origin is enough to classify network access.
+      return `${url.protocol}//${url.host}`;
     } catch (_) {
       return null;
     }
@@ -46,6 +48,14 @@
     if (/^https?:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw)) return pathFingerprint(raw);
     return raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
+  }
+  function sanitizeCommand(value) {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const basename = value.trim().split(/[\\/]/).pop();
+    if (!basename || SENSITIVE_NAME.test(basename) || /(?:sk|ghp|xox[baprs])-?[A-Za-z0-9_-]{12,}/i.test(basename)) {
+      return '[redacted-sensitive-command]';
+    }
+    return basename.slice(0, 240);
   }
   function sanitizeEnv(env) {
     if (env == null) return { names:[], credentialReferences:[] };
@@ -91,7 +101,7 @@
         id:models.stableId('mcp', [input.source, configPath, serverName, server.command || server.url || '']),
         serverId:models.stableId('mcp-server', [input.source, serverName, server.command || server.url || '']),
         agentId:agent.id, name:serverName,
-        command:typeof server.command === 'string' && server.command.trim() ? server.command.split(/[\\/]/).pop() : null,
+        command:sanitizeCommand(server.command),
         arguments:args, endpoint:sanitizeEndpoint(server.url || server.endpoint), configPath,
         exposedTools:tools, capabilities:[...new Set(capabilities)], trustStatus:trustStatus(server.trustStatus),
         filesystemPathCount:Array.isArray(server.filesystemPaths) ? server.filesystemPaths.length : 0,

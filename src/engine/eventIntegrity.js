@@ -14,11 +14,6 @@
     if (value && typeof value === 'object') return `{${Object.keys(value).filter(k => k !== 'integrity').sort().map(k => `${JSON.stringify(k)}:${canonical(value[k])}`).join(',')}}`;
     return JSON.stringify(value ?? null);
   }
-  function fallbackHash(value) {
-    let h = 2166136261;
-    for (const ch of String(value)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
-    return (h >>> 0).toString(16).padStart(8, '0');
-  }
   async function digest(value) {
     const input = canonical(value);
     const cryptoApi = typeof crypto !== 'undefined' ? crypto : globalThis.crypto;
@@ -26,9 +21,15 @@
       const bytes = await cryptoApi.subtle.digest('SHA-256', new TextEncoder().encode(input));
       return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
     }
-    // Node versions without Web Crypto still get deterministic test coverage;
-    // the extension runtime always has crypto.subtle.
-    return `fallback-${fallbackHash(input)}`;
+    // Keep the Node 18 path cryptographic too. A short non-cryptographic hash
+    // would make local storage integrity forgeable by an attacker who can edit
+    // the extension's persisted state.
+    if (typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+      try {
+        return require('crypto').createHash('sha256').update(input, 'utf8').digest('hex');
+      } catch (_) {}
+    }
+    throw new Error('SHA-256 is unavailable; refusing to create an unauthenticated integrity record');
   }
   async function sealEvents(events = []) {
     let previousHash = GENESIS;

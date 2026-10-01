@@ -208,7 +208,9 @@ async function run(argv) {
     }
     inventory = result.inventory;
   }
-  const incomplete = discovery.clients.filter(c => c.scanError).map(c => c.label);
+  const incomplete = discovery.clients
+    .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable'))
+    .map(c => c.label);
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from the results.\n`);
 
   const graph = securityGraph.buildGraph(inventory);
@@ -243,6 +245,7 @@ async function run(argv) {
     if (worst >= threshold) return 1;
     if (incomplete.length) return 4;
   }
+  if (incomplete.length) return 4;
   return 0;
 }
 

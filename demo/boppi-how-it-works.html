@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280, height=720">
+<title>Boppi — How it works</title>
+<style>
+  :root { --bg:#07111f; --panel:#0f2035; --ink:#f5f8ff; --muted:#9fb0c9; --cyan:#62e6ff; --green:#65f3b2; --amber:#ffc857; --red:#ff6b75; }
+  * { box-sizing:border-box; } body { margin:0; width:1280px; height:720px; overflow:hidden; background:radial-gradient(circle at 75% 10%,#12365a 0,#07111f 52%); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif; }
+  .wrap { padding:72px 86px; height:100%; position:relative; } .brand { color:var(--cyan); font-weight:800; letter-spacing:.08em; text-transform:uppercase; font-size:18px; }
+  h1 { font-size:58px; line-height:1.05; max-width:900px; margin:24px 0 18px; letter-spacing:-.04em; } h2 { font-size:36px; margin:16px 0 28px; letter-spacing:-.03em; }
+  p { color:var(--muted); font-size:23px; line-height:1.45; max-width:850px; } .kicker { color:var(--green); font-size:20px; font-weight:700; }
+  .footer { position:absolute; bottom:42px; color:#7286a3; font-size:16px; } .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:34px; max-width:1100px; }
+  .card { background:rgba(15,32,53,.92); border:1px solid #23415e; border-radius:16px; padding:24px; min-height:150px; box-shadow:0 16px 42px rgba(0,0,0,.2); } .card strong { display:block; font-size:22px; margin-bottom:9px; } .card span { color:var(--muted); font-size:17px; line-height:1.35; }
+  .pill { display:inline-block; border-radius:999px; padding:7px 14px; font-size:14px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; } .critical { color:#2a080b; background:var(--red); } .safe { color:#062118; background:var(--green); } .warn { color:#291d00; background:var(--amber); }
+  .flow { display:flex; align-items:center; gap:12px; margin-top:44px; } .node { background:var(--panel); border:1px solid #2c5272; border-radius:14px; padding:20px 22px; font-size:20px; font-weight:700; min-width:170px; text-align:center; } .node small { display:block; color:var(--muted); font-size:14px; font-weight:500; margin-top:5px; } .arrow { color:var(--cyan); font-size:30px; }
+  .graph { position:relative; height:360px; margin-top:20px; } .graph .node { position:absolute; } .graph .a { left:0; top:120px; } .graph .b { left:280px; top:45px; } .graph .c { left:280px; top:220px; } .graph .d { left:600px; top:45px; } .graph .e { left:600px; top:220px; } .graph .f { left:900px; top:130px; } .line { position:absolute; height:3px; background:var(--red); transform-origin:left center; } .l1 { left:176px; top:178px; width:115px; transform:rotate(-25deg); } .l2 { left:176px; top:205px; width:115px; transform:rotate(25deg); } .l3 { left:456px; top:106px; width:150px; } .l4 { left:456px; top:278px; width:150px; } .l5 { left:776px; top:180px; width:130px; transform:rotate(-15deg); }
+  .fix { display:flex; align-items:center; gap:24px; margin-top:35px; } .fixbox { border:1px solid #3b6a62; background:#102f36; border-radius:16px; padding:22px 26px; font-size:22px; } .check { color:var(--green); font-size:58px; }
+</style>
+</head>
+<body>
+<main class="wrap" id="scene"></main>
+<script>
+const frame = Number(new URLSearchParams(location.search).get('frame') || 0);
+const scenes = [
+  `<div class="brand">Boppi · AI agent security</div><h1>See what your AI agents can reach before attackers do.</h1><p>Boppi maps the tools and permissions connected to developer AI agents, then finds dangerous combinations before they become an incident.</p><div class="footer">A short example using fictional company data</div>`,
+  `<div class="brand">01 · Discover</div><h2>Boppi starts with the local agent environment.</h2><p>It reads MCP configuration metadata for tools like Claude Desktop, Claude Code, and Cursor—locally, without collecting secrets or file contents.</p><div class="grid"><div class="card"><strong>Claude Desktop</strong><span>4 MCP servers discovered</span></div><div class="card"><strong>Cursor</strong><span>1 MCP server discovered</span></div><div class="card"><strong>Secrets stay local</strong><span>Values are never collected</span></div></div>`,
+  `<div class="brand">02 · Map access</div><h2>Connections become an access graph.</h2><p>Each agent, MCP server, capability, data category, credential, and external destination is represented with evidence and confidence.</p><div class="flow"><div class="node">Claude Desktop<small>AI agent</small></div><div class="arrow">→</div><div class="node">Filesystem MCP<small>read files</small></div><div class="arrow">→</div><div class="node">Sensitive data<small>customer exports</small></div><div class="arrow">→</div><div class="node">Fetch MCP<small>external network</small></div></div>`,
+  `<div class="brand">03 · Find attack paths</div><h2>Individually normal. Together dangerous.</h2><p>Boppi flags the combination of sensitive-data access and an external destination as a potential data-exfiltration path.</p><div class="graph"><div class="node a">AI agent<small>Claude Desktop</small></div><div class="node b">Filesystem<small>read files</small></div><div class="node c">Fetch server<small>external network</small></div><div class="node d">Sensitive data<small>customer exports</small></div><div class="node e">External API<small>untrusted destination</small></div><div class="node f"><span class="pill critical">Critical</span><small>potential path</small></div><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div><div class="line l4"></div><div class="line l5"></div></div>`,
+  `<div class="brand">04 · Recommend the smallest fix</div><h2>Reduce risk with a targeted change.</h2><p>Instead of asking a team to remove every tool, Boppi simulates each candidate change and ranks the one that breaks the most risky paths.</p><div class="fix"><div class="fixbox"><span class="pill warn">Recommended</span><br><br>Remove external network access from the Fetch MCP server</div><div class="check">→</div><div class="fixbox">Breaks <strong>2 of 3</strong> exposure paths</div></div>`,
+  `<div class="brand">05 · Verify remediation</div><h2>Rescan and prove the change worked.</h2><p>Boppi re-simulates the graph after the proposed fix. The result shows what remains, instead of assuming the problem is solved.</p><div class="grid"><div class="card"><span class="pill safe">Resolved</span><strong>Data exfiltration path</strong><span>No longer reachable</span></div><div class="card"><span class="pill safe">Resolved</span><strong>Credential exposure path</strong><span>No longer reachable</span></div><div class="card"><span class="pill warn">Review</span><strong>Privilege path</strong><span>One separate issue remains</span></div></div>`,
+  `<div class="brand">Boppi</div><h1>Visibility and attack-path management for AI agents.</h1><p>Discover what agents can access. Understand the blast radius. Fix the smallest thing that matters. Verify the result.</p><div class="footer">All data shown in this video is fictional example data.</div>`
+];
+document.getElementById('scene').innerHTML = scenes[Math.max(0, Math.min(frame, scenes.length - 1))];
+</script>
+</body>
+</html>

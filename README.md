@@ -106,7 +106,7 @@ boppi paths                    exposure paths only
 --version           print the version
 ```
 
-Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed under `--fail-on`.
+Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed.
 
 ### Use it in CI
 
@@ -114,7 +114,7 @@ Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan 
 npx boppi scan --fail-on critical --quiet
 ```
 
-Fails the job when a critical path exists on the runner, or when a client config could not be analyzed.
+Fails the job when a critical path exists on the runner, or when a client config could not be analyzed. Incomplete scans return 4 even without `--fail-on`.
 
 ## Privacy
 
