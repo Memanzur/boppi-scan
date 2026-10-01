@@ -1,0 +1,262 @@
+{
+  "createdAt": "2026-10-01T21:04:07.020Z",
+  "seed": 20261002,
+  "method": "dev = the 50 V1-labeled packages. held-out = 40 drawn by seeded LCG shuffle from the remaining packages after removing any package sharing an npm scope or a name stem (mcp/server tokens and separators removed) with a dev package.",
+  "corpusSize": 200,
+  "poolSize": 110,
+  "excludedByScopeOrStem": 40,
+  "development": [
+    "@azure-devops/mcp",
+    "@blaxel/core",
+    "@bytebase/dbhub",
+    "@clerk/mcp-tools",
+    "@cloudbase/cloudbase-mcp",
+    "@copilotkit/aimock",
+    "@copilotkit/mcp-apps-renderer",
+    "@devframes/agentic",
+    "@drawio/mcp",
+    "@ericthered926/duckduckgo-mcp-server",
+    "@foldkit/devtools-mcp",
+    "@hasna/conversations",
+    "@hasna/files",
+    "@hasna/mementos",
+    "@hubspot/mcp-server",
+    "@langchain/mcp-adapters",
+    "@letoribo/mcp-graphql-enhanced",
+    "@mcp-ui/client",
+    "@n8n/mcp-apps",
+    "@nitrostack/core",
+    "@paperclipai/mcp-server",
+    "@productbrain/mcp",
+    "@raishin/vanguard-frontier-agentic",
+    "@sap-ux/fiori-mcp-server",
+    "@shopify/ucp-cli",
+    "@softeria/ms-365-mcp-server",
+    "@tanstack/ai-mcp",
+    "@testsprite/testsprite-mcp",
+    "@transcend-io/mcp",
+    "@transcend-io/mcp-server-assessment",
+    "@transcend-io/mcp-server-consent",
+    "@upstash/context7-mcp",
+    "@wonderwhy-er/desktop-commander",
+    "@z_ai/mcp-server",
+    "agent-install",
+    "chrome-devtools-mcp",
+    "claude-flow",
+    "context-mode",
+    "easy-skills",
+    "eve",
+    "fastify-mcp",
+    "gitnexus",
+    "hevy-mcp",
+    "hostinger-api-mcp",
+    "instar",
+    "mcp-auth",
+    "nx-mcp",
+    "task-master-ai",
+    "use-mcp",
+    "xcodebuildmcp"
+  ],
+  "heldOut": [
+    {
+      "name": "@absolutejs/manifest",
+      "version": "0.10.0",
+      "contentHash": "sha256-7811efc7a0180c469068ca011d8cbb34822f1ba90c7cbe7481e83fa6f36a9b7d"
+    },
+    {
+      "name": "@brave/brave-search-mcp-server",
+      "version": "2.1.4",
+      "contentHash": "sha256-11fb05393510b83d91270d5937a59eab0aaa5c49d30cbc4d467f289ae1eb3c44"
+    },
+    {
+      "name": "@claude-flow/cli",
+      "version": "3.49.0",
+      "contentHash": "sha256-6ca2f3ac298cee35fd510353a99df76195eb3843ef2bd828774b5fabcf723cec"
+    },
+    {
+      "name": "@deepseek-ai/dsh-mcp-client",
+      "version": "0.0.1-rc.1",
+      "contentHash": "sha256-56052a24f42db90fe23c612f971dca6e0ef68c2d880f61c5d29ffa4581543b0b"
+    },
+    {
+      "name": "@executeautomation/playwright-mcp-server",
+      "version": "1.0.12",
+      "contentHash": "sha256-8c2045a30538c1b5e9e72d63dce0d9df307e72f4824d57e9e8ba855ac118a948"
+    },
+    {
+      "name": "@gitkraken/gk",
+      "version": "3.1.76",
+      "contentHash": "sha256-f3edd551da66925229e77499798390c6b2ca530de9e782cd9eaeb35808e845b0"
+    },
+    {
+      "name": "@google-cloud/observability-mcp",
+      "version": "0.2.3",
+      "contentHash": "sha256-61f71b5ed36867935d1c1f7f8f13384d452fc134098dc0724a26f6c42ff5a5a8"
+    },
+    {
+      "name": "@inkeep/open-knowledge",
+      "version": "0.79.13",
+      "contentHash": "sha256-9bc38ef2c2c367785c269f94851043dd2507d68c083f0f30a1020407aa38defc"
+    },
+    {
+      "name": "@lovable.dev/mcp-js",
+      "version": "3.0.4",
+      "contentHash": "sha256-58d55a79eaf8d42c13e6329d9396834e0cb219764085e2e83df012d9804be280"
+    },
+    {
+      "name": "@lushly-dev/afd-server",
+      "version": "1.0.0",
+      "contentHash": "sha256-15885e57de885aa6e33641c7a273dbcb6a258ca6e7962b4fd78c4b37b95af51b"
+    },
+    {
+      "name": "@mcp-b/transports",
+      "version": "5.1.0",
+      "contentHash": "sha256-c6eb8eeb33f76c5d7477c0446856181efc66295e4a6d3a92dadb6661559ec5b0"
+    },
+    {
+      "name": "@mcp-use/cli",
+      "version": "4.2.0",
+      "contentHash": "sha256-1f29ebb69f6f25be8b93c7bffbf6b223bdd41aeea6f65c2882ca3536ffc2bd8b"
+    },
+    {
+      "name": "@microsoft/jsts-upgrade-assistant",
+      "version": "0.1.15",
+      "contentHash": "sha256-4653e30f8928b5baacf3d33c69141da4701aba76d352632950e313b879c4fee8"
+    },
+    {
+      "name": "@microsoft/postgres-mcp",
+      "version": "0.2.0",
+      "contentHash": "sha256-946e96821cca5e9c729b2fb69188a558e08c548e06d343b9ee3493802831de5e"
+    },
+    {
+      "name": "@payloadcms/plugin-mcp",
+      "version": "3.90.2",
+      "contentHash": "sha256-1b4b44052740110c02673a8dfa30c773125bbb5a6bfdc1b8e4009190a0ea7ea1"
+    },
+    {
+      "name": "@swmansion/argent",
+      "version": "0.26.0",
+      "contentHash": "sha256-9bcb3a34c354999bf8ead2aa3e0a1ff9098cc387f649c5f7ac8f94f3d3a43d9a"
+    },
+    {
+      "name": "@taazkareem/clickup-mcp-server",
+      "version": "0.14.5",
+      "contentHash": "sha256-bfca413bfcc17115b87eda5d6d017ac949449f061b4cd604be84bfee9e50f639"
+    },
+    {
+      "name": "@tacticlaunch/mcp-linear",
+      "version": "1.4.3",
+      "contentHash": "sha256-78048bf90f3713f0bb34a6a397710724bb655bad10cfb52dc9b0dee8f05c2b58"
+    },
+    {
+      "name": "@tobilu/qmd",
+      "version": "2.8.3",
+      "contentHash": "sha256-ef4fd94a438a7bfaf732f77ae755bc6a1c0b34fc540227b4a79f0301919c43d0"
+    },
+    {
+      "name": "add-mcp",
+      "version": "2.4.1",
+      "contentHash": "sha256-b9a89934f87bd04391905c0d3ea024216bf76c94dc42f74de45405a1740f4342"
+    },
+    {
+      "name": "agentic-flow",
+      "version": "2.1.3",
+      "contentHash": "sha256-314bfdcb6110baf3fc8216ceb094a0c9d2d458d22d7e48132e0cca191b2ff250"
+    },
+    {
+      "name": "aiwg",
+      "version": "2026.9.24",
+      "contentHash": "sha256-ed7235cd68520e7f9a32b1dd017546ac938fe779405a8587cf97aa04302a3f77"
+    },
+    {
+      "name": "alvin-bot",
+      "version": "5.156.1",
+      "contentHash": "sha256-1df2e01fddc80dcf70777e34d692550be29756a0a8781e67e1f6561e196bfa4a"
+    },
+    {
+      "name": "argocd-mcp",
+      "version": "0.9.0",
+      "contentHash": "sha256-664288e7d4d67283a5821103b2c9c07955daba1435e7071cb8db206f7c1b76eb"
+    },
+    {
+      "name": "claude-cup",
+      "version": "0.9.12",
+      "contentHash": "sha256-4d04ed42e70c8f7eca5e568846546dad5b5b70cd25da9d1371cebd5c69309bb5"
+    },
+    {
+      "name": "clerk",
+      "version": "3.4.0",
+      "contentHash": "sha256-9b81da9b75ca518d6acd971dc866907dee5977c95f33a07d0a31b1071a1c4926"
+    },
+    {
+      "name": "codebase-memory-mcp",
+      "version": "0.11.0",
+      "contentHash": "sha256-309ca2fca7ab9cb41bcdf3a82329d616efd2e422a823f873105efe9917c81d30"
+    },
+    {
+      "name": "creem",
+      "version": "1.13.0",
+      "contentHash": "sha256-232ab8cf47fdb40cbeb1256f99271faeae8e1284ccb9dd42e7bf91df90b9ed0d"
+    },
+    {
+      "name": "davinci-resolve-mcp",
+      "version": "4.8.26",
+      "contentHash": "sha256-c92af20806aa93b66857d7bb300b44320e119102fe8d303c6275cad8e364b4a7"
+    },
+    {
+      "name": "decocms",
+      "version": "4.427.15",
+      "contentHash": "sha256-78c542563304cc464a37220486a89e5ed553bc34860a35c1af85085c67e1a37a"
+    },
+    {
+      "name": "exa-mcp-server",
+      "version": "3.4.1",
+      "contentHash": "sha256-bada2194c4c48f68fe0824ba0beb577108e96481695fa6912f5aada0c59ce938"
+    },
+    {
+      "name": "freee-mcp",
+      "version": "0.36.3",
+      "contentHash": "sha256-79c0630924e18ffe72306f122f738967c7ecd03b2aca04fbacdf85783592eef6"
+    },
+    {
+      "name": "frog",
+      "version": "1.1.0",
+      "contentHash": "sha256-3920b7c6114521360e305f02a57162b1db21b975abf5578ae0967a0e93af9957"
+    },
+    {
+      "name": "hlims-mcp",
+      "version": "1.0.0",
+      "contentHash": "sha256-93736cb982eba92beb8519f1992d229e8a375118af52eaddaa649c22bb28eae3"
+    },
+    {
+      "name": "hono-mcp-server-sse-transport",
+      "version": "0.0.7",
+      "contentHash": "sha256-703cda315ffa3c5058d355ec1092315cc7644233288f15832736ac3743d3e594"
+    },
+    {
+      "name": "mcp-evals",
+      "version": "2.0.1",
+      "contentHash": "sha256-17590ce791b23a993619f0aa58453b320a7aeba37a06329352002dfb257603ab"
+    },
+    {
+      "name": "next-devtools-mcp",
+      "version": "0.4.0",
+      "contentHash": "sha256-d2f9c65fdc7585ede2c149cac7c43b7e04e68bd788616cb217801f431eb90c39"
+    },
+    {
+      "name": "slack-mcp-server",
+      "version": "1.3.0",
+      "contentHash": "sha256-34a8ab337a9d6e0da10b0d680698ae13a95befe7adcd699c8ed06eba2b60cef3"
+    },
+    {
+      "name": "veryfront",
+      "version": "0.1.1269",
+      "contentHash": "sha256-1a5f4a6fdb43f712a5642552e8f5171786320baee0e607ba275379369356f69c"
+    },
+    {
+      "name": "xmcp",
+      "version": "1.1.3",
+      "contentHash": "sha256-cde807b0909436f99a193e81d2cf881674cae2a80ee52d9c82016b54d7626dd1"
+    }
+  ]
+}
