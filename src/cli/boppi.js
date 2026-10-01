@@ -26,6 +26,7 @@ const rootCauseEngine = require('../engine/rootCauseEngine');
 
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
+const predict = require('./predict');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 
@@ -144,15 +145,8 @@ function discover(options) {
   return { clients, filesRead: [...filesRead] };
 }
 
-async function run(argv) {
-  let options;
-  try { options = parseArgs(argv); } catch (error) {
-    process.stderr.write(`${error.message}\n\n${usage()}\n`);
-    return 2;
-  }
-  if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
-  if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
-
+/** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
+async function performScan(options) {
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
 
@@ -168,6 +162,7 @@ async function run(argv) {
         source: client.source, consent: true, dryRun: true,
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
+      client.agentId = scannerResult.agent.id;
       providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer }));
     } catch (error) {
       client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = error.message; } });
@@ -181,10 +176,7 @@ async function run(argv) {
   let inventory = { agents: [], integrations: [], permissions: [], mcpServers: [], findings: [] };
   if (providers.length) {
     const result = await controller.runScan({ requestedBy: 'boppi-cli' });
-    if (result.status === 'failed') {
-      process.stderr.write(`Scan failed: ${result.error || 'unknown error'}\n`);
-      return 3;
-    }
+    if (result.status === 'failed') return { failed: result.error || 'unknown error' };
     for (const providerResult of result.providerResults || []) {
       if (providerResult.status !== 'failed') continue;
       const client = discovery.clients.find(c => `cli-${c.clientKey}` === providerResult.providerId);
@@ -195,25 +187,61 @@ async function run(argv) {
   const incomplete = discovery.clients
     .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable'))
     .map(c => c.label);
-  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from the results.\n`);
 
   const graph = securityGraph.buildGraph(inventory);
   const paths = exposurePathEngine.findPaths(graph);
   const prioritization = exposurePathEngine.prioritize(paths);
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
-  const remediationPlan = rootCauseEngine.recommendRemediationPlan(graph, paths, { severityFloor: 'high' });
+  const predictions = discovery.clients
+    .filter(c => c.agentId && !c.scanError)
+    .flatMap(client => predict.predictForClient({ client, inventory, paths, observedAt: startedAt, home: options.home, scannerVersion: VERSION }));
+  const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
+  const storageExport = await controller.getExport();
+
+  return { startedAt, durationMs: Date.now() - startMs, discovery, inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, incomplete, storageExport };
+}
+
+function exportPayload(scan) {
+  return {
+    ...scan.storageExport,
+    engineVersion: models.ENGINE_VERSION,
+    exposurePaths: scan.paths,
+    prioritization: scan.prioritization,
+    rootCauses: scan.rootCauses,
+    predictions: scan.predictions,
+    remediationPlan: scan.remediationPlan,
+    discovery: { clients: scan.discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: scan.discovery.filesRead },
+    generatedBy: `boppi-cli/${VERSION}`,
+  };
+}
+
+async function run(argv) {
+  let options;
+  try { options = parseArgs(argv); } catch (error) {
+    process.stderr.write(`${error.message}\n\n${usage()}\n`);
+    return 2;
+  }
+  if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
+  if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
+
+  const scan = await performScan(options);
+  if (scan.failed) {
+    process.stderr.write(`Scan failed: ${scan.failed}\n`);
+    return 3;
+  }
+  const { discovery, inventory, paths, incomplete } = scan;
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from the results.\n`);
 
   const report = {
-    version: VERSION, startedAt, durationMs: Date.now() - startMs,
+    version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead,
-    inventory, paths, prioritization, rootCauses, remediationPlan, inferenceByClient,
+    inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient,
   };
 
   process.stdout.write(terminal.renderReport(report, options) + '\n');
 
   if (options.json) {
-    const exportPayload = { ...(await controller.getExport()), engineVersion: models.ENGINE_VERSION, exposurePaths: paths, prioritization, rootCauses, remediationPlan, discovery: { clients: discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: discovery.filesRead }, generatedBy: `boppi-cli/${VERSION}` };
-    fs.writeFileSync(options.json, JSON.stringify(exportPayload, null, 2));
+    fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));
     process.stdout.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
@@ -240,4 +268,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { run, parseArgs, discover, VERSION };
+module.exports = { run, parseArgs, discover, performScan, exportPayload, VERSION };

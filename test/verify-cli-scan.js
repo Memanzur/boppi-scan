@@ -59,7 +59,7 @@ function runCli(args, home) {
   ok('exposure paths include privilege path (EP-E)', scan.stdout.includes('EP-E'));
   ok('rule-engine findings appear (AE rules)', /AE-\d{3}/.test(scan.stdout));
   ok('report explains inference honestly', scan.stdout.includes('inferred from evidenced identity'));
-  ok('root-cause section names the single highest-leverage fix', scan.stdout.includes('ROOT CAUSE') && /breaks \d+ of \d+ path/.test(scan.stdout));
+  ok('root-cause section names the single highest-leverage fix', scan.stdout.includes('ROOT CAUSE') && /breaks \d+ of \d+ exposure/.test(scan.stdout));
   ok('minimal remediation plan is shown', scan.stdout.includes('Full plan to break all'));
 
   section('Privacy footer lists exactly the files read');
@@ -86,6 +86,25 @@ function runCli(args, home) {
   ok('export prioritization has severity counts', exported.prioritization && typeof exported.prioritization.counts.critical === 'number');
   ok('export includes root causes with verified elimination counts', exported.rootCauses && exported.rootCauses.causes.length > 0 && typeof exported.rootCauses.causes[0].eliminatedCount === 'number');
   ok('export includes a remediation plan that breaks the targeted paths', exported.remediationPlan && typeof exported.remediationPlan.breaksAll === 'boolean');
+
+  section('Predictions: every count comes from a rescan without the server');
+  const predictions = exported.predictions;
+  const PREDICTION_FIELDS = ['schemaVersion', 'predictionId', 'engineVersion', 'scannerVersion', 'createdAt', 'client', 'agentId', 'configFingerprint', 'edit', 'serverId', 'before', 'predictedEliminated', 'predictedSurviving', 'inventoryHash'];
+  ok('export carries predictions', Array.isArray(predictions) && predictions.length > 0);
+  ok('every prediction has the documented shape', predictions.every(p => PREDICTION_FIELDS.every(f => f in p) && p.schemaVersion === 1 && p.engineVersion === engineVersion && p.scannerVersion === exported.generatedBy.split('/')[1] && p.edit.action === 'remove_server' && typeof p.edit.server === 'string' && /^path_[0-9a-f]{16}$/.test(p.configFingerprint) && /^inventory_[0-9a-f]{16}$/.test(p.inventoryHash)));
+  ok('eliminated and surviving partition the before set', predictions.every(p => [...p.predictedEliminated, ...p.predictedSurviving].sort().join() === [...p.before.exposureKeys].sort().join() && !p.predictedEliminated.some(k => p.predictedSurviving.includes(k))));
+  const keysByAgent = agentId => exported.exposurePaths.filter(x => x.agentId === agentId).map(x => x.exposureKey).sort();
+  ok('a prediction\'s before set is the agent\'s scanned exposures', predictions.every(p => p.before.exposureKeys.join() === keysByAgent(p.agentId).join()));
+  const participating = exported.inventory.real.mcpServers.filter(m => exported.exposurePaths.some(x => x.agentId === m.agentId && x.nodes.some(n => n.id === m.id || exported.inventory.real.permissions.some(q => q.id === n.id && q.integrationId === m.id))));
+  ok('exactly one prediction per server that takes part in a path', participating.length > 0 && participating.length === predictions.length && participating.every(m => predictions.some(p => p.serverId === m.id && p.edit.server === m.name)));
+  ok('a server with no exposure of its own gets no prediction', !predictions.some(p => p.edit.server === 'github'));
+  const fetchPrediction = predictions.find(p => p.edit.server === 'fetch');
+  ok('removing fetch from the desktop fixture breaks all three of its exposures', fetchPrediction && fetchPrediction.predictedEliminated.length === 3 && fetchPrediction.predictedSurviving.length === 0);
+  const filesystemPrediction = predictions.find(p => p.edit.server === 'filesystem');
+  ok('removing filesystem breaks only the exfiltration exposure', filesystemPrediction && filesystemPrediction.predictedEliminated.length === 1 && filesystemPrediction.predictedEliminated[0].startsWith('EP-A:'));
+  const topCount = Math.max(...predictions.map(p => p.predictedEliminated.length));
+  ok('the terminal root cause states the top prediction\'s count over all exposures', scan.stdout.includes(`breaks ${topCount} of ${exported.exposurePaths.length} exposures`));
+  ok('the remediation plan is built from predictions and covers every high-or-critical exposure', exported.remediationPlan.breaksAll === true && exported.remediationPlan.steps.every(st => predictions.some(p => p.predictionId === st.predictionId)) && exported.remediationPlan.steps.reduce((n, st) => n + st.breaksCount, 0) === exported.remediationPlan.targetedExposures);
   ok('export records discovery provenance', Array.isArray(exported.discovery.filesRead) && exported.discovery.filesRead.length === 3);
   const serverIds = new Map(exported.inventory.real.mcpServers.map(m => [m.id, m]));
   const permissions = exported.inventory.real.permissions;
@@ -107,11 +126,14 @@ function runCli(args, home) {
   ok('agent ids are stable across runs', JSON.stringify(ids(exported).agents) === JSON.stringify(ids(exported2).agents));
   ok('finding ids are stable across runs', JSON.stringify(ids(exported).findings) === JSON.stringify(ids(exported2).findings));
   ok('path ids are stable across runs', JSON.stringify(ids(exported).paths) === JSON.stringify(ids(exported2).paths));
+  ok('prediction ids are stable across runs', JSON.stringify(exported.predictions.map(p => p.predictionId).sort()) === JSON.stringify(exported2.predictions.map(p => p.predictionId).sort()));
+  ok('inventory hashes are stable across runs', JSON.stringify(exported.predictions.map(p => p.inventoryHash).sort()) === JSON.stringify(exported2.predictions.map(p => p.inventoryHash).sort()));
 
   section('HTML report');
   const htmlOut = fs.readFileSync(htmlPath, 'utf8');
   ok('HTML report is written and self-contained', htmlOut.startsWith('<!doctype html>') && !/<script src=|<link rel/.test(htmlOut));
   ok('HTML report includes paths and privacy section', htmlOut.includes('Potential exposure paths') && htmlOut.includes('Privacy.'));
+  ok('HTML root cause states the same honest count as the terminal', htmlOut.includes(`Breaks <b>${topCount} of ${exported.exposurePaths.length}</b> exposures`));
 
   section('Subcommands and filters');
   const agentsOnly = runCli(['agents'], home);

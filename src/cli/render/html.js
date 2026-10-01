@@ -1,5 +1,6 @@
 /** Self-contained HTML report renderer for the Boppi CLI. */
 'use strict';
+const { rankPredictions } = require('../predict');
 
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
 
@@ -19,6 +20,9 @@ function renderHtml(report) {
     .sort((a, b) => (SEVERITY_ORDER[b.severity] || 0) - (SEVERITY_ORDER[a.severity] || 0));
   const toolCount = inventory.mcpServers.reduce((sum, m) => sum + (m.exposedTools || []).length, 0);
   const counts = prioritization.counts;
+  const ranked = rankPredictions(report.predictions || [], paths);
+  const plan = report.remediationPlan;
+  const editSentence = step => `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration.`;
 
   return `<!doctype html>
 <html lang="en">
@@ -71,12 +75,12 @@ function renderHtml(report) {
     <div class="tile"><div class="label">Open findings</div><div class="value">${openFindings.length}</div></div>
   </div>
 
-  ${report.rootCauses && report.rootCauses.causes.length ? `
-  <h2>Root cause — the single highest-leverage fix</h2>
+  ${ranked.length ? `
+  <h2>Root cause: the single config edit that breaks the most exposures</h2>
   <div class="card" style="border-left:3px solid var(--accent)">
-    <b>${esc(report.rootCauses.causes[0].remediation)}</b>
-    <div class="kv">Breaks <b>${report.rootCauses.causes[0].eliminatedCount} of ${report.rootCauses.totalPaths}</b> exposure paths${report.rootCauses.causes[0].eliminatedSeverity.critical ? ` (${report.rootCauses.causes[0].eliminatedSeverity.critical} critical)` : ''}; ${report.rootCauses.causes[0].residualCount} would remain.</div>
-    ${report.remediationPlan && report.remediationPlan.steps.length > 1 ? `<div class="kv muted small">Minimal plan to break all ${report.remediationPlan.targetedPaths} high-or-critical paths (${report.remediationPlan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${report.remediationPlan.steps.map(st => `<li>${esc(st.remediation)} <b>(breaks ${st.breaksTargetedCount})</b></li>`).join('')}</ol>` : ''}
+    <b>${esc(editSentence(ranked[0].prediction))}</b>
+    <div class="kv">Breaks <b>${ranked[0].prediction.predictedEliminated.length} of ${paths.length}</b> exposures${ranked[0].eliminatedSeverity.critical ? ` (${ranked[0].eliminatedSeverity.critical} critical)` : ''}; ${paths.length - ranked[0].prediction.predictedEliminated.length} would remain. Checked by rescanning without the server.</div>
+    ${plan && plan.steps.length > 1 ? `<div class="kv muted small">Plan to break all ${plan.targetedExposures} high-or-critical exposures (${plan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${plan.steps.map(st => `<li>${esc(editSentence(st))} <b>(breaks ${st.breaksCount})</b></li>`).join('')}</ol>` : ''}
   </div>` : ''}
 
   <h2>Potential exposure paths (${paths.length})</h2>

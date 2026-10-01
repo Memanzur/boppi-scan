@@ -1,5 +1,6 @@
 /** ANSI terminal report renderer for the Boppi CLI. */
 'use strict';
+const { rankPredictions } = require('../predict');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -42,27 +43,14 @@ function coveredKeys(paths) {
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
 
-/**
- * Exact edit instructions for a root cause or plan step: which server entry to
- * remove from which scanned config file. Resolves granting servers back through
- * the inventory's source id to the discovery client that read the file, so the
- * printed path is the one this scan actually observed.
- */
-function editLocations(causeOrStep, report) {
-  const servers = causeOrStep.entityType === 'mcp_server'
-    ? [{ recordId: causeOrStep.recordId, label: null }]
-    : (causeOrStep.grantingServers || []);
-  const lines = new Set();
-  for (const target of servers) {
-    const server = (report.inventory.mcpServers || []).find(m => m.id === target.recordId);
-    if (!server || !server.source) continue;
-    const client = (report.discovery || []).find(c => server.source.id === `local-mcp-${c.clientKey}` || server.source.id.endsWith(c.clientKey));
-    const files = client ? client.files.filter(f => f.status === 'found').map(f => f.path) : [];
-    for (const file of files.length ? files : []) {
-      lines.add(`remove the "${server.name}" entry from ${file}`);
-    }
-  }
-  return [...lines];
+function editSentence(step) {
+  return `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration. Rescan afterward to verify the change landed.`;
+}
+
+/** The scanned config files the edit applies to, so the instruction names a real file. */
+function editLocations(step, report) {
+  const client = (report.discovery || []).find(c => c.clientKey === step.client.key);
+  return client ? client.files.filter(f => f.status === 'found').map(f => `remove the "${step.edit.server}" entry from ${f.path}`) : [];
 }
 
 function summaryLine(report) {
@@ -137,21 +125,23 @@ function renderReport(report, options = {}) {
     }
   }
 
-  if ((command === 'paths' || command === 'scan') && report.rootCauses && report.rootCauses.causes.length) {
+  const ranked = (command === 'paths' || command === 'scan') ? rankPredictions(report.predictions || [], report.paths) : [];
+  if (ranked.length) {
     out('');
-    const top = report.rootCauses.causes[0];
-    out(s.bold('ROOT CAUSE  '), s.dim('the single change that breaks the most exposure paths'));
-    out('  ', s.green('▸ '), s.bold(`Fix: ${top.remediation}`));
+    const { prediction: top, eliminatedSeverity } = ranked[0];
+    const total = report.paths.length;
+    out(s.bold('ROOT CAUSE  '), s.dim('the single config edit that breaks the most exposures, checked by rescanning without it'));
+    out('  ', s.green('▸ '), s.bold(`Fix: ${editSentence(top)}`));
     for (const line of editLocations(top, report)) out('    ', s.dim('edit: '), line);
-    const brk = [`${top.eliminatedCount} of ${report.rootCauses.totalPaths} path${top.eliminatedCount === 1 ? '' : 's'}`];
-    if (top.eliminatedSeverity.critical) brk.push(`${top.eliminatedSeverity.critical} critical`);
-    if (top.eliminatedSeverity.high) brk.push(`${top.eliminatedSeverity.high} high`);
-    out('    ', s.dim('breaks '), s.bold(brk.join(' · ')), s.dim(`  (leaves ${top.residualCount})`));
+    const brk = [`${top.predictedEliminated.length} of ${total} exposure${total === 1 ? '' : 's'}`];
+    if (eliminatedSeverity.critical) brk.push(`${eliminatedSeverity.critical} critical`);
+    if (eliminatedSeverity.high) brk.push(`${eliminatedSeverity.high} high`);
+    out('    ', s.dim('breaks '), s.bold(brk.join(' · ')), s.dim(`  (leaves ${total - top.predictedEliminated.length})`));
     const plan = report.remediationPlan;
     if (plan && plan.steps.length > 1) {
-      out('  ', s.dim(`Full plan to break all ${plan.targetedPaths} high-or-critical paths — ${plan.steps.length} change${plan.steps.length === 1 ? '' : 's'}${plan.breaksAll ? '' : ` (${plan.residualPathIds.length} would remain)`}:`));
+      out('  ', s.dim(`Full plan to break all ${plan.targetedExposures} high-or-critical exposures, ${plan.steps.length} changes${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}:`));
       plan.steps.forEach((step, i) => {
-        out(s.dim(`     ${i + 1}. `), step.remediation, s.dim(` (breaks ${step.breaksTargetedCount})`));
+        out(s.dim(`     ${i + 1}. `), editSentence(step), s.dim(` (breaks ${step.breaksCount})`));
         for (const line of editLocations(step, report)) out(s.dim('        edit: '), line);
       });
     }
