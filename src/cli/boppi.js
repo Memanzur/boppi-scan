@@ -25,6 +25,7 @@ const rootCauseEngine = require('../engine/rootCauseEngine');
 
 const { inferCapabilities } = require('./knownServers');
 const { createConfigProvider } = require('./provider');
+const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 
@@ -48,6 +49,7 @@ function usage() {
     '  --config <path>     scan one explicit config file (skip discovery)',
     '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
     '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity, 4 if a client could not be analyzed (CI usage)',
+    '  --overlay <file>    apply a capability claims file; validated claims add inferred permissions, experimental ones are only reported',
     '  --quiet             one summary line only',
     '  --verbose           all paths, per-server capability provenance',
     '  --no-color          plain-text output (NO_COLOR env is also respected)',
@@ -61,11 +63,11 @@ function usage() {
 function parseArgs(argv) {
   const options = {
     command: 'scan', json: null, html: null, only: null, config: null, source: 'claude-desktop',
-    failOn: null, quiet: false, verbose: false,
+    failOn: null, overlay: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--overlay']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -83,6 +85,7 @@ function parseArgs(argv) {
       else if (arg === '--config') options.config = value;
       else if (arg === '--source') options.source = value;
       else if (arg === '--fail-on') options.failOn = value;
+      else if (arg === '--overlay') options.overlay = value;
       else if (arg === '--home') options.home = value;
       else if (arg === '--cwd') options.cwd = value;
     } else throw new Error(`Unknown argument: ${arg}`);
@@ -144,20 +147,33 @@ function discover(options) {
 }
 
 /** Inject catalog-inferred capabilities into a raw config before scanning. */
-function enrich(client, options) {
+function enrich(client, options, overlay) {
   const inferenceByServer = {};
+  const overlayByServer = {};
   const mcpServers = {};
   for (const [name, server] of Object.entries(client.mergedServers)) {
     if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
     const inference = inferCapabilities(name, server, { home: options.home });
     inferenceByServer[name] = inference;
+    overlayByServer[name] = overlayModule.matchClaims(overlay, name, server);
     mcpServers[name] = {
       ...server,
       capabilities: inference.capabilities,
       filesystemPaths: inference.filesystemPaths.length ? inference.filesystemPaths : server.filesystemPaths,
     };
   }
-  return { config: { mcpServers }, inferenceByServer };
+  return { config: { mcpServers }, inferenceByServer, overlayByServer };
+}
+
+/** Shadow entries: what experimental claims would have added. Reported, never applied. */
+function shadowEntries(client, overlayByServer) {
+  const entries = [];
+  for (const [serverName, match] of Object.entries(overlayByServer)) {
+    for (const claim of match.experimental) {
+      entries.push({ client: client.clientKey, server: serverName, package: match.package.name, claimId: claim.id, capability: claim.capability, status: claim.status, evidence: overlayModule.citedEvidence(claim) });
+    }
+  }
+  return entries;
 }
 
 async function run(argv) {
@@ -173,18 +189,30 @@ async function run(argv) {
   const startMs = Date.now();
 
   const discovery = discover(options);
+  let overlay = null;
+  if (options.overlay) {
+    try { overlay = overlayModule.loadOverlay(options.overlay); } catch (error) {
+      process.stderr.write(`Could not load overlay ${options.overlay}: ${error.message}\n`);
+      return 2;
+    }
+    discovery.filesRead.push(overlay.file);
+  }
+  const shadow = [];
+  const applied = [];
   const providers = [];
   const inferenceByClient = {};
   for (const client of discovery.clients) {
     if (!client.primaryPath) continue; // nothing found for this client
-    const { config, inferenceByServer } = enrich(client, options);
+    const { config, inferenceByServer, overlayByServer } = enrich(client, options, overlay);
     inferenceByClient[client.clientKey] = inferenceByServer;
+    shadow.push(...shadowEntries(client, overlayByServer));
+    for (const [serverName, match] of Object.entries(overlayByServer)) for (const claim of match.validated) applied.push({ client: client.clientKey, server: serverName, package: match.package.name, claimId: claim.id, capability: claim.capability });
     try {
       const scannerResult = scanner.scanConfig({
         source: client.source, consent: true, dryRun: true,
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
-      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer }));
+      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer }));
     } catch (error) {
       client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = error.message; } });
     }
@@ -228,7 +256,8 @@ async function run(argv) {
   process.stdout.write(terminal.renderReport(report, options) + '\n');
 
   if (options.json) {
-    const exportPayload = { ...(await controller.getExport()), exposurePaths: paths, prioritization, rootCauses, remediationPlan, discovery: { clients: discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: discovery.filesRead }, generatedBy: `boppi-cli/${VERSION}` };
+    const diagnostics = overlay ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected }, shadow, applied } : { shadow: [], applied: [] };
+    const exportPayload = { ...(await controller.getExport()), exposurePaths: paths, prioritization, rootCauses, remediationPlan, discovery: { clients: discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: discovery.filesRead }, diagnostics, generatedBy: `boppi-cli/${VERSION}` };
     fs.writeFileSync(options.json, JSON.stringify(exportPayload, null, 2));
     process.stdout.write(`\nJSON export written to ${options.json}\n`);
   }

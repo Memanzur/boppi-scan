@@ -10,6 +10,7 @@ const SUITES = [
   'verify-exposure-paths.js',
   'verify-root-cause.js',
   'verify-agent-security-event-integrity.js',
+  'verify-overlay.js',
 ];
 
 let failures = 0;
