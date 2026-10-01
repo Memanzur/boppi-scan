@@ -76,6 +76,10 @@ function runCli(args, home) {
   section('JSON export (export v2 schema + exposure paths)');
   const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   ok('export uses schema exportVersion 2', exported.exportVersion === 2);
+  const engineVersion = require('../src/engine/models').ENGINE_VERSION;
+  ok('export is stamped with the engine version', /^\d+\.\d+\.\d+$/.test(engineVersion) && exported.engineVersion === engineVersion);
+  ok('every exposure path carries the engine version', exported.exposurePaths.length > 0 && exported.exposurePaths.every(p => p.engineVersion === engineVersion));
+  ok('every finding carries the engine version', exported.inventory.real.findings.length > 0 && exported.inventory.real.findings.every(f => f.engineVersion === engineVersion));
   ok('export contains 3 real agents', exported.inventory.real.agents.length === 3);
   ok('export contains exposure paths with template ids', Array.isArray(exported.exposurePaths) && ['EP-A', 'EP-B', 'EP-E'].every(id => exported.exposurePaths.some(p => p.templateId === id)));
   ok('export findings include AE-002 (credential exposure)', exported.inventory.real.findings.some(f => f.ruleId === 'AE-002'));

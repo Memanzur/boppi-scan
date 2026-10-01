@@ -193,6 +193,7 @@
 
     return {
       schemaVersion: SCHEMA_VERSION,
+      engineVersion: models.ENGINE_VERSION,
       id: models.stableId('path', [template.id, agentNode.id, orderedEdges.map(e => e.id).sort()]),
       templateId: template.id,
       category: template.category,

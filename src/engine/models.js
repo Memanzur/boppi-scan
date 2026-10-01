@@ -13,6 +13,9 @@
   'use strict';
 
   const SCHEMA_VERSION = 1;
+  // Version of the analysis logic, independent of the npm package version.
+  // Bump when ids, path semantics, templates, or inference change meaning.
+  const ENGINE_VERSION = '1.0.0';
   const FORBIDDEN_KEY = /(token|secret|password|private[_-]?key|file[_-]?contents?|raw[_-]?contents?|env(?:ironment)?[_-]?values?)/i;
   const SECRET_VALUE = /(-----BEGIN [^-]*PRIVATE KEY-----|(?:sk|ghp|xox[baprs])-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*\S+)/i;
   const SAFE_TRUST = new Set(['verified', 'unverified', 'unknown']);
@@ -188,6 +191,7 @@
       agentId: requiredString(clean.agentId, 'riskFinding.agentId'),
       ruleId: requiredString(clean.ruleId, 'riskFinding.ruleId'),
       ruleVersion: requiredString(clean.ruleVersion || '1', 'riskFinding.ruleVersion'),
+      engineVersion: optionalString(clean.engineVersion, 'riskFinding.engineVersion') || ENGINE_VERSION,
       severity: requiredString(clean.severity || 'low', 'riskFinding.severity'),
       category: requiredString(clean.category || 'unknown', 'riskFinding.category'),
       title: requiredString(clean.title, 'riskFinding.title'),
@@ -310,5 +314,5 @@
     return [...map.values()];
   }
 
-  return { SCHEMA_VERSION, EVIDENCE_CLASSES: [...EVIDENCE_CLASSES], HISTORY_LIMIT, stableId, createAgent, createIntegration, createPermission, createMCPServer, createRiskFinding, createScan, createScanSource, createLocalIdentity, createRemediationTask, createComment, validateRecord, mergeAgents, dedupeById, safeValue };
+  return { SCHEMA_VERSION, ENGINE_VERSION, EVIDENCE_CLASSES: [...EVIDENCE_CLASSES], HISTORY_LIMIT, stableId, createAgent, createIntegration, createPermission, createMCPServer, createRiskFinding, createScan, createScanSource, createLocalIdentity, createRemediationTask, createComment, validateRecord, mergeAgents, dedupeById, safeValue };
 });

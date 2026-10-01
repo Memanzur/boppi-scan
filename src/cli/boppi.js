@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+const models = require('../engine/models');
 const scanner = require('../engine/localMcpScanner');
 const Storage = require('../engine/agentSecurityStorage');
 const Registry = require('../engine/providerRegistry');
@@ -228,7 +229,7 @@ async function run(argv) {
   process.stdout.write(terminal.renderReport(report, options) + '\n');
 
   if (options.json) {
-    const exportPayload = { ...(await controller.getExport()), exposurePaths: paths, prioritization, rootCauses, remediationPlan, discovery: { clients: discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: discovery.filesRead }, generatedBy: `boppi-cli/${VERSION}` };
+    const exportPayload = { ...(await controller.getExport()), engineVersion: models.ENGINE_VERSION, exposurePaths: paths, prioritization, rootCauses, remediationPlan, discovery: { clients: discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: discovery.filesRead }, generatedBy: `boppi-cli/${VERSION}` };
     fs.writeFileSync(options.json, JSON.stringify(exportPayload, null, 2));
     process.stdout.write(`\nJSON export written to ${options.json}\n`);
   }
