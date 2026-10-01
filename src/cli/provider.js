@@ -50,6 +50,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt) {
       const inferred = isInferred(capability, server, inference);
       permissions.push(models.createPermission({
         agentId: agent.id,
+        integrationId: server.id,
         rawPermission: `${server.name} (${capability})`,
         normalizedCategory,
         accessLevel: capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',

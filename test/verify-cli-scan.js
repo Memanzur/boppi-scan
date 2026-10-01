@@ -87,6 +87,10 @@ function runCli(args, home) {
   ok('export includes root causes with verified elimination counts', exported.rootCauses && exported.rootCauses.causes.length > 0 && typeof exported.rootCauses.causes[0].eliminatedCount === 'number');
   ok('export includes a remediation plan that breaks the targeted paths', exported.remediationPlan && typeof exported.remediationPlan.breaksAll === 'boolean');
   ok('export records discovery provenance', Array.isArray(exported.discovery.filesRead) && exported.discovery.filesRead.length === 3);
+  const serverIds = new Map(exported.inventory.real.mcpServers.map(m => [m.id, m]));
+  const permissions = exported.inventory.real.permissions;
+  ok('every derived permission points at the server record it came from', permissions.length > 0 && permissions.every(p => serverIds.has(p.integrationId) && serverIds.get(p.integrationId).agentId === p.agentId));
+  ok('every scanned server with capabilities owns at least one permission', exported.inventory.real.mcpServers.filter(m => m.capabilities.length).every(m => permissions.some(p => p.integrationId === m.id)));
   const serialized = JSON.stringify(exported);
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
