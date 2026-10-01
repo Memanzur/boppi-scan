@@ -152,6 +152,13 @@
     return groups;
   }
 
+  /**
+   * Identity of an exposure. The engine emits at most one path per template
+   * per agent, so the pair is the unit. path.id is the route fingerprint and
+   * changes when a different chain evidences the same exposure.
+   */
+  function exposureKey(path) { return `${path.templateId}:${path.agentId}`; }
+
   function assemblePath(template, agentNode, branches, nodesById, incomingUserEdge) {
     const orderedEdges = [];
     const seenEdges = new Set();
@@ -195,6 +202,7 @@
       schemaVersion: SCHEMA_VERSION,
       engineVersion: models.ENGINE_VERSION,
       id: models.stableId('path', [template.id, agentNode.id, orderedEdges.map(e => e.id).sort()]),
+      exposureKey: exposureKey({ templateId: template.id, agentId: agentNode.id }),
       templateId: template.id,
       category: template.category,
       label: template.label,
@@ -344,5 +352,5 @@
     return { counts, perAgent, total: (paths || []).length };
   }
 
-  return { SCHEMA_VERSION, MAX_DEPTH, MAX_PATHS, TEMPLATES, DISCLAIMER, findPaths, prioritize, blastRadius };
+  return { SCHEMA_VERSION, MAX_DEPTH, MAX_PATHS, TEMPLATES, DISCLAIMER, exposureKey, findPaths, prioritize, blastRadius };
 });

@@ -8,7 +8,9 @@
  * This module is a deterministic layer over the security graph and the exposure
  * path engine. It never invents a claim: "removing X breaks N paths" is
  * computed by ACTUALLY removing X from the graph and re-running the exact same
- * bounded path finder, then comparing path ids. What survives is what survives.
+ * bounded path finder, then comparing exposure keys (template:agent). A path
+ * id is a route fingerprint; a second route to the same exposure is not an
+ * elimination. What survives is what survives.
  *
  * Three capabilities:
  *   simulateNodeRemoval(graph, ids)      — pure: a graph with nodes+edges gone
@@ -111,7 +113,7 @@
     const baseline = Array.isArray(baselinePaths) ? baselinePaths : exposurePaths.findPaths(graph);
     if (!baseline.length) return { schemaVersion: SCHEMA_VERSION, totalPaths: 0, causes: [] };
 
-    const baselineIds = new Set(baseline.map(p => p.id));
+    const baselineKeys = new Set(baseline.map(p => p.exposureKey));
     const agentNameForNode = new Map();
     const candidateIds = new Set();
     for (const path of baseline) {
@@ -136,8 +138,8 @@
       const node = nodesById.get(nodeId);
       if (!node) continue;
       const reduced = simulateNodeRemoval(graph, new Set([nodeId]));
-      const survivingIds = new Set(exposurePaths.findPaths(reduced).map(p => p.id));
-      const eliminated = baseline.filter(p => !survivingIds.has(p.id));
+      const survivingKeys = new Set(exposurePaths.findPaths(reduced).map(p => p.exposureKey));
+      const eliminated = baseline.filter(p => !survivingKeys.has(p.exposureKey));
       if (!eliminated.length) continue;
       const grantors = grantorsByCapability.get(nodeId) || [];
       const agentName = agentNameForNode.get(nodeId);
@@ -154,6 +156,7 @@
           .filter(g => g.entityType === 'mcp_server')
           .map(g => ({ nodeId: g.id, recordId: g.recordId || null, label: g.label }))
           .sort((a, b) => a.nodeId.localeCompare(b.nodeId)),
+        eliminatedExposureKeys: eliminated.map(p => p.exposureKey).sort(),
         eliminatedPathIds: eliminated.map(p => p.id).sort(),
         eliminatedCount: eliminated.length,
         eliminatedSeverity: severityBreakdown(eliminated),
@@ -172,7 +175,7 @@
       a.nodeId.localeCompare(b.nodeId));
 
     const limit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : causes.length;
-    return { schemaVersion: SCHEMA_VERSION, totalPaths: baseline.length, totalPathIds: [...baselineIds].sort(), causes: causes.slice(0, limit) };
+    return { schemaVersion: SCHEMA_VERSION, totalPaths: baseline.length, totalExposureKeys: [...baselineKeys].sort(), totalPathIds: baseline.map(p => p.id).sort(), causes: causes.slice(0, limit) };
   }
 
   /**
@@ -184,15 +187,16 @@
    */
   function recommendRemediationPlan(graph, baselinePaths, options = {}) {
     const cluster = clusterRootCauses(graph, baselinePaths);
-    if (!cluster.totalPaths) return { schemaVersion: SCHEMA_VERSION, targetedPaths: 0, steps: [], residualPathIds: [], breaksAll: true };
+    if (!cluster.totalPaths) return { schemaVersion: SCHEMA_VERSION, targetedPaths: 0, steps: [], residualExposureKeys: [], residualPathIds: [], breaksAll: true };
 
     const severityFloor = options.severityFloor && SEVERITY_RANK[options.severityFloor] ? SEVERITY_RANK[options.severityFloor] : 1;
     const baseline = Array.isArray(baselinePaths) ? baselinePaths : exposurePaths.findPaths(graph);
-    const targeted = new Set(baseline.filter(p => (SEVERITY_RANK[p.severity] || 0) >= severityFloor).map(p => p.id));
-    if (!targeted.size) return { schemaVersion: SCHEMA_VERSION, targetedPaths: 0, steps: [], residualPathIds: [], breaksAll: true };
+    const pathIdByKey = new Map(baseline.map(p => [p.exposureKey, p.id]));
+    const targeted = new Set(baseline.filter(p => (SEVERITY_RANK[p.severity] || 0) >= severityFloor).map(p => p.exposureKey));
+    if (!targeted.size) return { schemaVersion: SCHEMA_VERSION, targetedPaths: 0, steps: [], residualExposureKeys: [], residualPathIds: [], breaksAll: true };
 
     const remaining = new Set(targeted);
-    const pool = cluster.causes.map(c => ({ ...c, eliminatedSet: new Set(c.eliminatedPathIds) }));
+    const pool = cluster.causes.map(c => ({ ...c, eliminatedSet: new Set(c.eliminatedExposureKeys) }));
     const steps = [];
     while (remaining.size) {
       let best = null, bestGain = 0;
@@ -203,16 +207,18 @@
         if (gain > bestGain || (gain === bestGain && gain > 0 && best && cause.nodeId.localeCompare(best.nodeId) < 0)) { best = cause; bestGain = gain; }
       }
       if (!best || bestGain === 0) break; // no candidate reduces the remaining set further
-      const newlyBroken = [...remaining].filter(id => best.eliminatedSet.has(id));
-      for (const id of newlyBroken) remaining.delete(id);
-      steps.push({ nodeId: best.nodeId, entityType: best.entityType, label: best.label, remediation: best.remediation, agentName: best.agentName || null, grantingServers: best.grantingServers || [], breaksTargetedCount: newlyBroken.length, breaksTargetedPathIds: newlyBroken.sort() });
+      const newlyBroken = [...remaining].filter(key => best.eliminatedSet.has(key)).sort();
+      for (const key of newlyBroken) remaining.delete(key);
+      steps.push({ nodeId: best.nodeId, entityType: best.entityType, label: best.label, remediation: best.remediation, agentName: best.agentName || null, grantingServers: best.grantingServers || [], breaksTargetedCount: newlyBroken.length, breaksTargetedExposureKeys: newlyBroken, breaksTargetedPathIds: newlyBroken.map(key => pathIdByKey.get(key)).sort() });
     }
+    const residual = [...remaining].sort();
     return {
       schemaVersion: SCHEMA_VERSION,
       targetedPaths: targeted.size,
       severityFloor: options.severityFloor || 'low',
       steps,
-      residualPathIds: [...remaining].sort(),
+      residualExposureKeys: residual,
+      residualPathIds: residual.map(key => pathIdByKey.get(key)).sort(),
       breaksAll: remaining.size === 0,
     };
   }

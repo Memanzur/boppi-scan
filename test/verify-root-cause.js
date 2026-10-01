@@ -7,6 +7,9 @@ const models = require(root('models'));
 const graphMod = require(root('securityGraph'));
 const pathsMod = require(root('exposurePathEngine'));
 const rc = require(root('rootCauseEngine'));
+const scanner = require(root('localMcpScanner'));
+const { inferCapabilities } = require(path.join(__dirname, '..', 'src', 'cli', 'knownServers'));
+const { createConfigProvider } = require(path.join(__dirname, '..', 'src', 'cli', 'provider'));
 
 let passed = 0, failed = 0;
 function ok(name, condition) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}`); } }
@@ -24,6 +27,26 @@ function mcp(agentId, name, capabilities, trust = 'unknown') {
   return models.createMCPServer({ id: `mcp-${agentId}-${name}`, serverId: `${agentId}:${name}`, agentId, name, capabilities, exposedTools: [], trustStatus: trust, confidence: 0.9, source: SOURCE, createdAt: now, updatedAt: now });
 }
 function buildFrom(inv) { return graphMod.buildGraph({ integrations: [], permissions: [], mcpServers: [], ...inv }); }
+const keysOf = pathList => pathList.map(p => p.exposureKey).sort();
+
+/** Runs a raw config fixture through the CLI's own inference and provider path. */
+function inventoryFromFixture(file, source = 'claude-desktop') {
+  const raw = JSON.parse(require('fs').readFileSync(path.join(__dirname, 'fixtures', file), 'utf8'));
+  const inferenceByServer = {};
+  const mcpServers = {};
+  for (const [name, server] of Object.entries(raw.mcpServers)) {
+    inferenceByServer[name] = inferCapabilities(name, server, { home: '/nonexistent' });
+    mcpServers[name] = { ...server, capabilities: inferenceByServer[name].capabilities };
+  }
+  const scanned = scanner.scanConfig({ source, consent: true, dryRun: true, config: { mcpServers }, configPath: `/fixtures/${file}`, observedAt: now });
+  const normalized = createConfigProvider({ clientKey: source, label: file, scannerResult: scanned, inferenceByServer }).normalize(scanned, { now });
+  return { agents: normalized.agents, integrations: [], permissions: normalized.permissions, mcpServers: normalized.mcpServers };
+}
+/** The graph nodes a remove_server config edit takes away: the server and every permission derived from it. */
+function serverRemovalSet(inventory, serverName) {
+  const server = inventory.mcpServers.find(m => m.name === serverName);
+  return new Set([server.id, ...inventory.permissions.filter(p => p.integrationId === server.id).map(p => p.id)]);
+}
 
 (function main() {
   // An agent with a clean data-exfiltration toxic combination (EP-A):
@@ -59,11 +82,12 @@ function buildFrom(inv) { return graphMod.buildGraph({ integrations: [], permiss
   let allClaimsHold = true;
   for (const cause of cluster.causes) {
     const after = pathsMod.findPaths(rc.simulateNodeRemoval(exfilGraph, new Set([cause.nodeId])));
-    const afterIds = new Set(after.map(p => p.id));
-    const actuallyEliminated = exfilPaths.filter(p => !afterIds.has(p.id)).map(p => p.id).sort();
-    if (JSON.stringify(actuallyEliminated) !== JSON.stringify(cause.eliminatedPathIds)) allClaimsHold = false;
+    const afterKeys = new Set(keysOf(after));
+    const actuallyEliminated = exfilPaths.filter(p => !afterKeys.has(p.exposureKey)).map(p => p.exposureKey).sort();
+    if (JSON.stringify(actuallyEliminated) !== JSON.stringify(cause.eliminatedExposureKeys)) allClaimsHold = false;
+    if (cause.eliminatedCount !== cause.eliminatedExposureKeys.length) allClaimsHold = false;
   }
-  ok('every "breaks N" claim matches an independent re-simulation', allClaimsHold);
+  ok('every "breaks N" claim matches an independent re-simulation by exposure key', allClaimsHold);
   ok('empty graph yields zero causes, not a crash', rc.clusterRootCauses(buildFrom({ agents: [] }), []).causes.length === 0);
 
   section('Root-cause clustering: one fix breaks many paths');
@@ -86,14 +110,13 @@ function buildFrom(inv) { return graphMod.buildGraph({ integrations: [], permiss
 
   section('recommendRemediationPlan: correct cover');
   const plan = rc.recommendRemediationPlan(exfilGraph, exfilPaths);
-  ok('the plan breaks all targeted paths', plan.breaksAll === true && plan.residualPathIds.length === 0);
+  ok('the plan breaks all targeted paths', plan.breaksAll === true && plan.residualExposureKeys.length === 0);
   ok('the plan has at least one step', plan.steps.length >= 1);
   // Verify the plan by actually removing every step's node and re-running.
   const planNodes = new Set(plan.steps.map(s => s.nodeId));
   const afterPlan = pathsMod.findPaths(rc.simulateNodeRemoval(exfilGraph, planNodes));
-  const afterPlanIds = new Set(afterPlan.map(p => p.id));
-  const targeted = exfilPaths.map(p => p.id);
-  ok('re-running after applying the whole plan leaves no targeted path', targeted.every(id => !afterPlanIds.has(id)));
+  const afterPlanKeys = new Set(keysOf(afterPlan));
+  ok('re-running after applying the whole plan leaves no targeted exposure', exfilPaths.every(p => !afterPlanKeys.has(p.exposureKey)));
 
   section('severityFloor targeting');
   const highOnlyPlan = rc.recommendRemediationPlan(exfilGraph, exfilPaths, { severityFloor: 'critical' });
@@ -104,6 +127,20 @@ function buildFrom(inv) { return graphMod.buildGraph({ integrations: [], permiss
   const c1 = JSON.stringify(rc.clusterRootCauses(multiGraph, multiPaths).causes.map(c => c.nodeId));
   const c2 = JSON.stringify(rc.clusterRootCauses(buildFrom(multiInv), pathsMod.findPaths(buildFrom(multiInv))).causes.map(c => c.nodeId));
   ok('identical evidence yields an identical root-cause ranking', c1 === c2);
+
+  section('Reroute fixture: a second route to the same exposure is not an elimination');
+  const reroute = inventoryFromFixture('reroute.json');
+  const rerouteGraph = buildFrom(reroute);
+  const reroutePaths = pathsMod.findPaths(rerouteGraph);
+  ok('fixture yields exactly one EP-A exposure', reroutePaths.length === 1 && reroutePaths[0].templateId === 'EP-A');
+  const withoutFetch = pathsMod.findPaths(rc.simulateNodeRemoval(rerouteGraph, serverRemovalSet(reroute, 'fetch')));
+  ok('removing fetch changes the route id (the defect an id comparison cannot see)', withoutFetch.length === 1 && withoutFetch[0].id !== reroutePaths[0].id);
+  ok('removing fetch eliminates 0 exposures', JSON.stringify(keysOf(withoutFetch)) === JSON.stringify(keysOf(reroutePaths)));
+  const withoutFilesystem = pathsMod.findPaths(rc.simulateNodeRemoval(rerouteGraph, serverRemovalSet(reroute, 'filesystem')));
+  ok('removing filesystem eliminates 1 exposure', withoutFilesystem.length === 0);
+  const rerouteCluster = rc.clusterRootCauses(rerouteGraph, reroutePaths);
+  ok('the fetch server is not reported as a root cause', !rerouteCluster.causes.some(c => c.entityType === 'mcp_server' && c.label.includes('"fetch"')));
+  ok('every reported cause names the exposure key it eliminates', rerouteCluster.causes.every(c => c.eliminatedExposureKeys.length === c.eliminatedCount && c.eliminatedExposureKeys.every(k => rerouteCluster.totalExposureKeys.includes(k))));
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
