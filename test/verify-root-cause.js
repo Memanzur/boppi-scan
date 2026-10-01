@@ -7,9 +7,7 @@ const models = require(root('models'));
 const graphMod = require(root('securityGraph'));
 const pathsMod = require(root('exposurePathEngine'));
 const rc = require(root('rootCauseEngine'));
-const scanner = require(root('localMcpScanner'));
-const { inferCapabilities } = require(path.join(__dirname, '..', 'src', 'cli', 'knownServers'));
-const { createConfigProvider } = require(path.join(__dirname, '..', 'src', 'cli', 'provider'));
+const simulate = require(path.join(__dirname, '..', 'src', 'cli', 'simulate'));
 
 let passed = 0, failed = 0;
 function ok(name, condition) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}`); } }
@@ -29,18 +27,9 @@ function mcp(agentId, name, capabilities, trust = 'unknown') {
 function buildFrom(inv) { return graphMod.buildGraph({ integrations: [], permissions: [], mcpServers: [], ...inv }); }
 const keysOf = pathList => pathList.map(p => p.exposureKey).sort();
 
-/** Runs a raw config fixture through the CLI's own inference and provider path. */
 function inventoryFromFixture(file, source = 'claude-desktop') {
   const raw = JSON.parse(require('fs').readFileSync(path.join(__dirname, 'fixtures', file), 'utf8'));
-  const inferenceByServer = {};
-  const mcpServers = {};
-  for (const [name, server] of Object.entries(raw.mcpServers)) {
-    inferenceByServer[name] = inferCapabilities(name, server, { home: '/nonexistent' });
-    mcpServers[name] = { ...server, capabilities: inferenceByServer[name].capabilities };
-  }
-  const scanned = scanner.scanConfig({ source, consent: true, dryRun: true, config: { mcpServers }, configPath: `/fixtures/${file}`, observedAt: now });
-  const normalized = createConfigProvider({ clientKey: source, label: file, scannerResult: scanned, inferenceByServer }).normalize(scanned, { now });
-  return { agents: normalized.agents, integrations: [], permissions: normalized.permissions, mcpServers: normalized.mcpServers };
+  return simulate.clientInventory({ mergedServers: raw.mcpServers, clientKey: source, label: file, source, configPath: `/fixtures/${file}`, observedAt: now, home: '/nonexistent' });
 }
 /** The graph nodes a remove_server config edit takes away: the server and every permission derived from it. */
 function serverRemovalSet(inventory, serverName) {

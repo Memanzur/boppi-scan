@@ -24,8 +24,8 @@ const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const rootCauseEngine = require('../engine/rootCauseEngine');
 
-const { inferCapabilities } = require('./knownServers');
 const { createConfigProvider } = require('./provider');
+const { enrich } = require('./simulate');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 
@@ -144,23 +144,6 @@ function discover(options) {
   return { clients, filesRead: [...filesRead] };
 }
 
-/** Inject catalog-inferred capabilities into a raw config before scanning. */
-function enrich(client, options) {
-  const inferenceByServer = {};
-  const mcpServers = {};
-  for (const [name, server] of Object.entries(client.mergedServers)) {
-    if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
-    const inference = inferCapabilities(name, server, { home: options.home });
-    inferenceByServer[name] = inference;
-    mcpServers[name] = {
-      ...server,
-      capabilities: inference.capabilities,
-      filesystemPaths: inference.filesystemPaths.length ? inference.filesystemPaths : server.filesystemPaths,
-    };
-  }
-  return { config: { mcpServers }, inferenceByServer };
-}
-
 async function run(argv) {
   let options;
   try { options = parseArgs(argv); } catch (error) {
@@ -178,7 +161,7 @@ async function run(argv) {
   const inferenceByClient = {};
   for (const client of discovery.clients) {
     if (!client.primaryPath) continue; // nothing found for this client
-    const { config, inferenceByServer } = enrich(client, options);
+    const { config, inferenceByServer } = enrich(client.mergedServers, options.home);
     inferenceByClient[client.clientKey] = inferenceByServer;
     try {
       const scannerResult = scanner.scanConfig({

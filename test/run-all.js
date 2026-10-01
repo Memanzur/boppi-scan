@@ -10,6 +10,7 @@ const SUITES = [
   'verify-stable-ids.js',
   'verify-exposure-paths.js',
   'verify-root-cause.js',
+  'verify-config-edit.js',
   'verify-agent-security-event-integrity.js',
 ];
 
