@@ -117,6 +117,13 @@ function runCli(args, home) {
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
+  section('Export carries no raw filesystem paths');
+  ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/')) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
+  ok('the Claude Desktop config is listed by its ~ path', exported.discovery.filesRead.includes('~/Library/Application Support/Claude/claude_desktop_config.json'));
+  ok('the export never contains the scanned home directory', !serialized.includes(home));
+  ok('the export never contains the real home directory or username', !serialized.includes(os.homedir()) && !serialized.includes(os.userInfo().username));
+  ok('discovery block has no mergedServers (raw config) payload', exported.discovery.clients.every(c => !('mergedServers' in c)));
+
   section('Deterministic identity across runs');
   const jsonPath2 = path.join(root, 'export2.json');
   runCli(['scan', '--json', jsonPath2], home);
@@ -136,6 +143,7 @@ function runCli(args, home) {
   const htmlOut = fs.readFileSync(htmlPath, 'utf8');
   ok('HTML report is written and self-contained', htmlOut.startsWith('<!doctype html>') && !/<script src=|<link rel/.test(htmlOut));
   ok('HTML report includes paths and privacy section', htmlOut.includes('Potential exposure paths') && htmlOut.includes('Privacy.'));
+  ok('HTML report lists files read by ~ path and never the home directory', htmlOut.includes('~/.cursor/mcp.json') && !htmlOut.includes(home) && !htmlOut.includes(os.homedir()));
   ok('HTML root cause states the same honest count as the terminal', htmlOut.includes(`Breaks <b>${topCount} of ${exported.exposurePaths.length}</b> exposures`));
 
   section('Subcommands and filters');
@@ -152,6 +160,12 @@ function runCli(args, home) {
   const explicit = runCli(['scan', '--config', path.join(home, '.cursor', 'mcp.json'), '--source', 'cursor'], home);
   ok('explicit config scan works', explicit.code === 0 && explicit.stdout.includes('1 agent '));
   ok('explicit config reports its file in the privacy footer', explicit.stdout.includes(path.join(home, '.cursor', 'mcp.json')));
+  const outsideHome = path.join(root, 'outside.json');
+  fs.copyFileSync(path.join(home, '.cursor', 'mcp.json'), outsideHome);
+  const outsideJson = path.join(root, 'outside-export.json');
+  runCli(['scan', '--config', outsideHome, '--source', 'cursor', '--json', outsideJson, '--quiet'], home);
+  const outsideExport = JSON.parse(fs.readFileSync(outsideJson, 'utf8'));
+  ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{16}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
 
   section('Exit codes (--fail-on and errors)');
   ok('--fail-on critical exits 1 when critical exposure exists', runCli(['scan', '--fail-on', 'critical', '--quiet'], home).code === 1);

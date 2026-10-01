@@ -117,7 +117,7 @@ function renderHtml(report) {
 
   <div class="privacy">
     <b>Privacy.</b> This report was generated entirely on this machine. Files read (metadata only, sanitized in memory):
-    ${report.filesRead.length ? `<br>${report.filesRead.map(f => `<code>${esc(f)}</code>`).join('<br>')}` : ' none.'}
+    ${report.portableFilesRead.length ? `<br>${report.portableFilesRead.map(f => `<code>${esc(f)}</code>`).join('<br>')}` : ' none.'}
     <br>Secret values, file contents, and raw path names are never collected; paths become fingerprints. Capabilities marked as inferred come from the server's evidenced identity (package names, directory arguments, environment variable names).
   </div>
 </div></body></html>`;

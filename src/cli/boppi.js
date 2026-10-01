@@ -205,7 +205,24 @@ async function performScan(options) {
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
   const storageExport = await controller.getExport();
 
-  return { startedAt, durationMs: Date.now() - startMs, discovery, inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, incomplete, storageExport };
+  return { startedAt, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, incomplete, storageExport };
+}
+
+/** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
+function portablePath(file, home) {
+  const root = path.resolve(home);
+  if (file === root || file.startsWith(root + path.sep)) return '~' + file.slice(root.length).split(path.sep).join('/');
+  return scanner.pathFingerprint(file);
+}
+function portableDiscovery(discovery, home) {
+  return {
+    clients: discovery.clients.map(({ mergedServers, ...client }) => ({
+      ...client,
+      primaryPath: client.primaryPath ? portablePath(client.primaryPath, home) : null,
+      files: client.files.map(file => ({ ...file, path: portablePath(file.path, home) })),
+    })),
+    filesRead: discovery.filesRead.map(file => portablePath(file, home)),
+  };
 }
 
 function exportPayload(scan) {
@@ -217,7 +234,7 @@ function exportPayload(scan) {
     rootCauses: scan.rootCauses,
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
-    discovery: { clients: scan.discovery.clients.map(({ mergedServers, ...rest }) => rest), filesRead: scan.discovery.filesRead },
+    discovery: scan.portableDiscovery,
     generatedBy: `boppi-cli/${VERSION}`,
   };
 }
@@ -282,7 +299,7 @@ async function run(argv) {
 
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
-    discovery: discovery.clients, filesRead: discovery.filesRead,
+    discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
     inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient,
   };
 
