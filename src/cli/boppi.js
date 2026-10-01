@@ -27,13 +27,14 @@ const rootCauseEngine = require('../engine/rootCauseEngine');
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const predict = require('./predict');
+const verify = require('./verify');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 
 const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify']);
 
 function usage() {
   return [
@@ -42,6 +43,7 @@ function usage() {
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
+    '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '',
     'Options:',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
@@ -53,6 +55,7 @@ function usage() {
     '  --quiet             one summary line only',
     '  --verbose           all paths, per-server capability provenance',
     '  --no-color          plain-text output (NO_COLOR env is also respected)',
+    '  --contradictions-dir <dir>  where verify writes boppi-contradiction-<id>.json (default: cwd)',
     '  --version, -v       print the version and exit',
     '',
     'Privacy: runs 100% locally. Reads only MCP configuration metadata; secret values,',
@@ -66,8 +69,9 @@ function parseArgs(argv) {
     failOn: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
+    input: null, contradictionsDir: null,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -87,8 +91,11 @@ function parseArgs(argv) {
       else if (arg === '--fail-on') options.failOn = value;
       else if (arg === '--home') options.home = value;
       else if (arg === '--cwd') options.cwd = value;
-    } else throw new Error(`Unknown argument: ${arg}`);
+      else if (arg === '--contradictions-dir') options.contradictionsDir = value;
+    } else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
+    else throw new Error(`Unknown argument: ${arg}`);
   }
+  if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.failOn && !SEVERITY_ORDER[options.failOn]) throw new Error(`--fail-on must be one of: ${Object.keys(SEVERITY_ORDER).join(', ')}`);
   if (!scanner.supportedSources.includes(options.source)) throw new Error(`--source must be one of: ${scanner.supportedSources.join(', ')}`);
   return options;
@@ -194,7 +201,7 @@ async function performScan(options) {
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
   const predictions = discovery.clients
     .filter(c => c.agentId && !c.scanError)
-    .flatMap(client => predict.predictForClient({ client, inventory, paths, observedAt: startedAt, home: options.home, scannerVersion: VERSION }));
+    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, scannerVersion: VERSION }));
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
   const storageExport = await controller.getExport();
 
@@ -215,6 +222,46 @@ function exportPayload(scan) {
   };
 }
 
+/** boppi verify: rescan with the same discovery options and grade each earlier prediction. */
+async function runVerify(options) {
+  let previous;
+  try {
+    previous = JSON.parse(fs.readFileSync(options.input, 'utf8'));
+  } catch (error) {
+    process.stderr.write(`verify: cannot read ${options.input}: ${error.message}\n`);
+    return 2;
+  }
+  if (!previous || !Array.isArray(previous.predictions)) {
+    process.stderr.write(`verify: ${options.input} has no predictions[]; it must be a --json export from boppi scan\n`);
+    return 2;
+  }
+  const scan = await performScan(options);
+  if (scan.failed) {
+    process.stderr.write(`Scan failed: ${scan.failed}\n`);
+    return 3;
+  }
+  const result = verify.resolveAll(previous, scan, { explicitConfig: !!options.config });
+  process.stdout.write(verify.renderTable(result, options.color) + '\n');
+
+  const written = [];
+  const dir = options.contradictionsDir || options.cwd;
+  for (const resolution of result.resolutions) {
+    if (resolution.status !== verify.STATUS.PARTIAL && resolution.status !== verify.STATUS.CONTRADICTED) continue;
+    const prediction = previous.predictions.find(p => p.predictionId === resolution.predictionId);
+    const file = path.join(dir, `boppi-contradiction-${resolution.predictionId}.json`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(verify.contradictionBundle(prediction, resolution, previous, scan), null, 2));
+    written.push(file);
+  }
+  for (const file of written) process.stdout.write(`contradiction fixture written to ${file}\n`);
+  if (options.json) {
+    const payload = { schemaVersion: 1, verifiedAt: scan.startedAt, engineVersion: models.ENGINE_VERSION, previous: { generatedBy: previous.generatedBy || null, engineVersion: previous.engineVersion || null }, summary: result.summary, engineChanged: result.engineChanged, resolutions: result.resolutions, contradictionFiles: written };
+    fs.writeFileSync(options.json, JSON.stringify(payload, null, 2));
+    process.stdout.write(`verification written to ${options.json}\n`);
+  }
+  return 0;
+}
+
 async function run(argv) {
   let options;
   try { options = parseArgs(argv); } catch (error) {
@@ -223,6 +270,7 @@ async function run(argv) {
   }
   if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
   if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
+  if (options.command === 'verify') return runVerify(options);
 
   const scan = await performScan(options);
   if (scan.failed) {

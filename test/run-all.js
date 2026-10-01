@@ -11,6 +11,7 @@ const SUITES = [
   'verify-exposure-paths.js',
   'verify-root-cause.js',
   'verify-config-edit.js',
+  'verify-predictions.js',
   'verify-agent-security-event-integrity.js',
 ];
 

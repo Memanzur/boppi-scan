@@ -21,25 +21,32 @@ function inventoryDigest(inventory, agentId) {
   });
 }
 
-/** Servers whose record, or a permission derived from it, is a node on one of the agent's paths. */
-function participatingServers(inventory, agentId, agentPaths) {
+/**
+ * Servers that take part in one of the agent's paths: the record or a
+ * permission derived from it is a path node, or grants an edge into one. The
+ * second case catches a server on an alternative route the chosen chain did
+ * not use, whose removal is still a candidate edit worth predicting.
+ */
+function participatingServers(inventory, agentId, agentPaths, graph) {
   const nodeIds = new Set(agentPaths.flatMap(p => p.nodes.map(n => n.id)));
+  const involved = new Set(nodeIds);
+  for (const edge of graph.edges) if (nodeIds.has(edge.toEntityId)) involved.add(edge.fromEntityId);
   const ownerOf = new Map((inventory.permissions || []).map(p => [p.id, p.integrationId]));
-  const owners = new Set([...nodeIds].map(id => ownerOf.get(id)).filter(Boolean));
-  return (inventory.mcpServers || []).filter(s => s.agentId === agentId && (nodeIds.has(s.id) || owners.has(s.id)));
+  const owners = new Set([...involved].map(id => ownerOf.get(id)).filter(Boolean));
+  return (inventory.mcpServers || []).filter(s => s.agentId === agentId && (involved.has(s.id) || owners.has(s.id)));
 }
 
 /**
  * One prediction per participating server of one scanned client.
  * client: a discovery client with agentId and mergedServers set.
  */
-function predictForClient({ client, inventory, paths, observedAt, home, scannerVersion }) {
+function predictForClient({ client, inventory, graph, paths, observedAt, home, scannerVersion }) {
   const agentPaths = paths.filter(p => p.agentId === client.agentId);
   if (!agentPaths.length) return [];
   const agentContext = { clientKey: client.clientKey, label: client.label, source: client.source, configPath: client.primaryPath, observedAt, home };
   const inventoryHash = inventoryDigest(inventory, client.agentId);
   const configFingerprint = scanner.pathFingerprint(client.primaryPath);
-  return participatingServers(inventory, client.agentId, agentPaths).map(server => {
+  return participatingServers(inventory, client.agentId, agentPaths, graph).map(server => {
     const edit = { action: 'remove_server', server: server.name };
     const sim = simulateConfigEdit({ rawConfig: { mcpServers: client.mergedServers }, agentContext, edit });
     return {

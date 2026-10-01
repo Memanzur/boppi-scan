@@ -93,6 +93,7 @@ Every path is potential. The scanner sees configuration, not behavior. It cannot
 boppi scan                     discover configs, scan, print the full report
 boppi agents                   inventory table only
 boppi paths                    exposure paths only
+boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
 
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
@@ -104,7 +105,10 @@ boppi paths                    exposure paths only
 --verbose           all paths, per-server capability provenance
 --no-color          plain text (NO_COLOR is also respected)
 --version           print the version
+--contradictions-dir <dir>  where verify writes boppi-contradiction-<id>.json (default: cwd)
 ```
+
+`boppi verify` takes the same discovery flags as `scan`. Each prediction in the export ("removing server X eliminates these exposures") is graded against the fresh scan: CONFIRMED, PARTIAL, CONTRADICTED, or UNRESOLVED when the edit was not applied or the agent was not scanned. PARTIAL and CONTRADICTED write a self-contained fixture file for an engine issue.
 
 Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed.
 

@@ -95,7 +95,10 @@ function runCli(args, home) {
   ok('eliminated and surviving partition the before set', predictions.every(p => [...p.predictedEliminated, ...p.predictedSurviving].sort().join() === [...p.before.exposureKeys].sort().join() && !p.predictedEliminated.some(k => p.predictedSurviving.includes(k))));
   const keysByAgent = agentId => exported.exposurePaths.filter(x => x.agentId === agentId).map(x => x.exposureKey).sort();
   ok('a prediction\'s before set is the agent\'s scanned exposures', predictions.every(p => p.before.exposureKeys.join() === keysByAgent(p.agentId).join()));
-  const participating = exported.inventory.real.mcpServers.filter(m => exported.exposurePaths.some(x => x.agentId === m.agentId && x.nodes.some(n => n.id === m.id || exported.inventory.real.permissions.some(q => q.id === n.id && q.integrationId === m.id))));
+  const exportedGraph = require('../src/engine/securityGraph').buildGraph(exported.inventory.real);
+  const pathNodeIds = new Set(exported.exposurePaths.flatMap(x => x.nodes.map(n => n.id)));
+  const involvedIds = new Set([...pathNodeIds, ...exportedGraph.edges.filter(e => pathNodeIds.has(e.toEntityId)).map(e => e.fromEntityId)]);
+  const participating = exported.inventory.real.mcpServers.filter(m => involvedIds.has(m.id) || exported.inventory.real.permissions.some(q => q.integrationId === m.id && involvedIds.has(q.id)));
   ok('exactly one prediction per server that takes part in a path', participating.length > 0 && participating.length === predictions.length && participating.every(m => predictions.some(p => p.serverId === m.id && p.edit.server === m.name)));
   ok('a server with no exposure of its own gets no prediction', !predictions.some(p => p.edit.server === 'github'));
   const fetchPrediction = predictions.find(p => p.edit.server === 'fetch');
