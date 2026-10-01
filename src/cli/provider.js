@@ -7,6 +7,7 @@
  */
 'use strict';
 const models = require('../engine/models');
+const overlay = require('./overlay');
 
 const CAP_TO_CATEGORY = Object.freeze({
   filesystem_access: 'read_files',
@@ -23,6 +24,28 @@ const RISK_WEIGHT = Object.freeze({
   filesystem_access: 2, network_access: 2, browser_automation: 2, untrusted_external_content: 2,
   environment_access: 1,
 });
+const CATEGORY_RISK_WEIGHT = Object.freeze({
+  run_shell_commands: 3, execute_code: 3, access_credentials: 3,
+  read_files: 2, write_files: 2, delete_files: 2, call_external_api: 2, browser_automation: 2, send_email: 2, send_external_message: 2, untrusted_external_content: 2,
+});
+
+/** One inferred permission per validated overlay claim, carrying the claim id and its evidence line. */
+function overlayPermission(agent, server, claim, observedAt) {
+  const cited = overlay.citedEvidence(claim);
+  const subject = claim.subjectVersion ? `${claim.subject}@${claim.subjectVersion}` : claim.subject;
+  return models.createPermission({
+    agentId: agent.id,
+    rawPermission: `${server.name} (${claim.capability}, claim ${claim.id})`,
+    normalizedCategory: claim.capability,
+    accessLevel: 'broad',
+    riskWeight: CATEGORY_RISK_WEIGHT[claim.capability] || 1,
+    normalizationConfidence: 0.7,
+    normalizationReason: `Validated capability claim ${claim.id} for ${subject}: evidence at ${cited}.`,
+    source: { ...agent.source, id: `overlay-claim:${claim.id}`, name: `Capability claim ${claim.id} (${cited})`, evidenceClass: 'inferred', evidenceRef: cited },
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  });
+}
 
 function reasonFor(capability, server, inference) {
   if (capability === 'environment_access') return 'Environment variable names are configured for this server; values are never collected.';
@@ -40,10 +63,11 @@ function isInferred(capability, server, inference) {
   return !!(inference && inference.inferences.some(entry => entry.capabilities.includes(capability)));
 }
 
-function derivePermissions(agent, servers, inferenceByServer, observedAt) {
+function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}) {
   const permissions = [];
   for (const server of servers) {
     const inference = inferenceByServer[server.name] || null;
+    for (const claim of (overlayByServer[server.name] || {}).validated || []) permissions.push(overlayPermission(agent, server, claim, observedAt));
     for (const capability of server.capabilities || []) {
       const normalizedCategory = CAP_TO_CATEGORY[capability];
       if (!normalizedCategory) continue;
@@ -67,7 +91,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt) {
 }
 
 /** Build a scanController provider from one client's scanner result. */
-function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {} }) {
+function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {} }) {
   return {
     id: `cli-${clientKey}`,
     version: '0.1.0',
@@ -79,7 +103,7 @@ function createConfigProvider({ clientKey, label, scannerResult, inferenceByServ
       return {
         agents: [raw.agent],
         integrations: [],
-        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt),
+        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer),
         mcpServers: raw.records,
         diagnostics: raw.diagnostics || [],
       };

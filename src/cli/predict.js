@@ -40,10 +40,10 @@ function participatingServers(inventory, agentId, agentPaths, graph) {
  * One prediction per participating server of one scanned client.
  * client: a discovery client with agentId and mergedServers set.
  */
-function predictForClient({ client, inventory, graph, paths, observedAt, home, scannerVersion }) {
+function predictForClient({ client, inventory, graph, paths, observedAt, home, overlay = null, scannerVersion }) {
   const agentPaths = paths.filter(p => p.agentId === client.agentId);
   if (!agentPaths.length) return [];
-  const agentContext = { clientKey: client.clientKey, label: client.label, source: client.source, configPath: client.primaryPath, observedAt, home };
+  const agentContext = { clientKey: client.clientKey, label: client.label, source: client.source, configPath: client.primaryPath, observedAt, home, overlay };
   const inventoryHash = inventoryDigest(inventory, client.agentId);
   const configFingerprint = scanner.pathFingerprint(client.primaryPath);
   return participatingServers(inventory, client.agentId, agentPaths, graph).map(server => {

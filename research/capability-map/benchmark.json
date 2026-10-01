@@ -1,0 +1,2008 @@
+{
+  "generatedAt": "2026-10-01T20:51:06.005Z",
+  "labels": {
+    "total": 50,
+    "scored": 47,
+    "unknown": 3,
+    "reviewer": "claude",
+    "humanReviewed": false,
+    "seed": 20261001
+  },
+  "categories": [
+    "read_files",
+    "write_files",
+    "delete_files",
+    "read_email",
+    "send_email",
+    "read_calendar",
+    "modify_calendar",
+    "read_source_code",
+    "modify_source_code",
+    "access_customer_data",
+    "access_financial_data",
+    "execute_code",
+    "run_shell_commands",
+    "call_external_api",
+    "send_external_message",
+    "create_or_modify_records",
+    "make_purchase",
+    "access_credentials",
+    "access_environment_variables",
+    "browser_automation",
+    "access_production_system",
+    "untrusted_external_content"
+  ],
+  "catalog": {
+    "perCategory": {
+      "read_files": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 15,
+        "tn": 32,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "write_files": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 11,
+        "tn": 36,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "delete_files": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "tn": 44,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "read_email": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "send_email": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "read_calendar": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "modify_calendar": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "read_source_code": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 45,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "modify_source_code": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_customer_data": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "tn": 44,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_financial_data": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "execute_code": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 45,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "run_shell_commands": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 13,
+        "tn": 33,
+        "precision": 100,
+        "recall": 7.1,
+        "fpRate": 0,
+        "fnRate": 92.9
+      },
+      "call_external_api": {
+        "tp": 3,
+        "fp": 1,
+        "fn": 26,
+        "tn": 17,
+        "precision": 75,
+        "recall": 10.3,
+        "fpRate": 5.6,
+        "fnRate": 89.7
+      },
+      "send_external_message": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "tn": 44,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "create_or_modify_records": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 10,
+        "tn": 37,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "make_purchase": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 45,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_credentials": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "tn": 42,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_environment_variables": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 18,
+        "tn": 29,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "browser_automation": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "tn": 45,
+        "precision": 100,
+        "recall": 50,
+        "fpRate": 0,
+        "fnRate": 50
+      },
+      "access_production_system": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "untrusted_external_content": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 8,
+        "tn": 37,
+        "precision": 100,
+        "recall": 20,
+        "fpRate": 0,
+        "fnRate": 80
+      }
+    },
+    "micro": {
+      "tp": 7,
+      "fp": 1,
+      "fn": 129,
+      "tn": 897,
+      "precision": 87.5,
+      "recall": 5.1,
+      "fpRate": 0.1,
+      "fnRate": 94.9
+    },
+    "macro": {
+      "precision": 17,
+      "recall": 4
+    },
+    "coverage": {
+      "packages": 5,
+      "of": 47,
+      "pct": 10.6
+    },
+    "errors": [
+      {
+        "package": "@azure-devops/mcp",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "read_source_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@bytebase/dbhub",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@bytebase/dbhub",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@drawio/mcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@drawio/mcp",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@drawio/mcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@drawio/mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@foldkit/devtools-mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "send_external_message",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "delete_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hubspot/mcp-server",
+        "category": "access_customer_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hubspot/mcp-server",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hubspot/mcp-server",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@letoribo/mcp-graphql-enhanced",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@letoribo/mcp-graphql-enhanced",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@paperclipai/mcp-server",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@paperclipai/mcp-server",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@paperclipai/mcp-server",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "make_purchase",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "read_email",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "send_email",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "read_calendar",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "modify_calendar",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "send_external_message",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "delete_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-assessment",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-assessment",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-consent",
+        "category": "access_customer_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-consent",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-consent",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@upstash/context7-mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@upstash/context7-mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "@upstash/context7-mcp",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@z_ai/mcp-server",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "@z_ai/mcp-server",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@z_ai/mcp-server",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "execute_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "claude-flow",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "browser_automation",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "context-mode",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "context-mode",
+        "category": "execute_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "context-mode",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "context-mode",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "context-mode",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "read_source_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "modify_source_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "delete_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_customer_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_financial_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "make_purchase",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_production_system",
+        "kind": "false negative"
+      },
+      {
+        "package": "instar",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "instar",
+        "category": "send_external_message",
+        "kind": "false negative"
+      },
+      {
+        "package": "instar",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "instar",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "xcodebuildmcp",
+        "category": "read_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "xcodebuildmcp",
+        "category": "write_files",
+        "kind": "false negative"
+      },
+      {
+        "package": "xcodebuildmcp",
+        "category": "run_shell_commands",
+        "kind": "false negative"
+      },
+      {
+        "package": "xcodebuildmcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      }
+    ],
+    "packagesWithFalsePositive": 1
+  },
+  "inspector": {
+    "perCategory": {
+      "read_files": {
+        "tp": 15,
+        "fp": 18,
+        "fn": 0,
+        "tn": 14,
+        "precision": 45.5,
+        "recall": 100,
+        "fpRate": 56.3,
+        "fnRate": 0
+      },
+      "write_files": {
+        "tp": 11,
+        "fp": 18,
+        "fn": 0,
+        "tn": 18,
+        "precision": 37.9,
+        "recall": 100,
+        "fpRate": 50,
+        "fnRate": 0
+      },
+      "delete_files": {
+        "tp": 3,
+        "fp": 22,
+        "fn": 0,
+        "tn": 22,
+        "precision": 12,
+        "recall": 100,
+        "fpRate": 50,
+        "fnRate": 0
+      },
+      "read_email": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "send_email": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "read_calendar": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "modify_calendar": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "read_source_code": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 45,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "modify_source_code": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_customer_data": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "tn": 44,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_financial_data": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "execute_code": {
+        "tp": 2,
+        "fp": 14,
+        "fn": 0,
+        "tn": 31,
+        "precision": 12.5,
+        "recall": 100,
+        "fpRate": 31.1,
+        "fnRate": 0
+      },
+      "run_shell_commands": {
+        "tp": 14,
+        "fp": 7,
+        "fn": 0,
+        "tn": 26,
+        "precision": 66.7,
+        "recall": 100,
+        "fpRate": 21.2,
+        "fnRate": 0
+      },
+      "call_external_api": {
+        "tp": 25,
+        "fp": 10,
+        "fn": 4,
+        "tn": 8,
+        "precision": 71.4,
+        "recall": 86.2,
+        "fpRate": 55.6,
+        "fnRate": 13.8
+      },
+      "send_external_message": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "tn": 44,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "create_or_modify_records": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 10,
+        "tn": 37,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "make_purchase": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 45,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_credentials": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 4,
+        "tn": 42,
+        "precision": 100,
+        "recall": 20,
+        "fpRate": 0,
+        "fnRate": 80
+      },
+      "access_environment_variables": {
+        "tp": 17,
+        "fp": 8,
+        "fn": 1,
+        "tn": 21,
+        "precision": 68,
+        "recall": 94.4,
+        "fpRate": 27.6,
+        "fnRate": 5.6
+      },
+      "browser_automation": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 45,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "access_production_system": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 46,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      },
+      "untrusted_external_content": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 10,
+        "tn": 37,
+        "precision": null,
+        "recall": 0,
+        "fpRate": 0,
+        "fnRate": 100
+      }
+    },
+    "micro": {
+      "tp": 88,
+      "fp": 97,
+      "fn": 48,
+      "tn": 801,
+      "precision": 47.6,
+      "recall": 64.7,
+      "fpRate": 10.8,
+      "fnRate": 35.3
+    },
+    "macro": {
+      "precision": 18.8,
+      "recall": 31.8
+    },
+    "coverage": {
+      "packages": 38,
+      "of": 47,
+      "pct": 80.9
+    },
+    "errors": [
+      {
+        "package": "@azure-devops/mcp",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "read_source_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@azure-devops/mcp",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@blaxel/core",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@blaxel/core",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "@blaxel/core",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "@bytebase/dbhub",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@clerk/mcp-tools",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@clerk/mcp-tools",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@clerk/mcp-tools",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "@clerk/mcp-tools",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@cloudbase/cloudbase-mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@copilotkit/aimock",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@copilotkit/aimock",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@copilotkit/aimock",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@copilotkit/aimock",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "@copilotkit/aimock",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "@drawio/mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@drawio/mcp",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@ericthered926/duckduckgo-mcp-server",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@ericthered926/duckduckgo-mcp-server",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@foldkit/devtools-mcp",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@foldkit/devtools-mcp",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@foldkit/devtools-mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@foldkit/devtools-mcp",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "send_external_message",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/conversations",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/files",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@hasna/mementos",
+        "category": "access_credentials",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hubspot/mcp-server",
+        "category": "access_customer_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "@hubspot/mcp-server",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@letoribo/mcp-graphql-enhanced",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@letoribo/mcp-graphql-enhanced",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@mcp-ui/client",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@n8n/mcp-apps",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@nitrostack/core",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@nitrostack/core",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@nitrostack/core",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@nitrostack/core",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "@nitrostack/core",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "@nitrostack/core",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "@paperclipai/mcp-server",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@productbrain/mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@raishin/vanguard-frontier-agentic",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@raishin/vanguard-frontier-agentic",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@raishin/vanguard-frontier-agentic",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "@shopify/ucp-cli",
+        "category": "make_purchase",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "read_email",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "send_email",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "read_calendar",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "modify_calendar",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "send_external_message",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@softeria/ms-365-mcp-server",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@tanstack/ai-mcp",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@tanstack/ai-mcp",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@tanstack/ai-mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@tanstack/ai-mcp",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@tanstack/ai-mcp",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "@tanstack/ai-mcp",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "@testsprite/testsprite-mcp",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@transcend-io/mcp",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-assessment",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-assessment",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-consent",
+        "category": "access_customer_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-consent",
+        "category": "call_external_api",
+        "kind": "false negative"
+      },
+      {
+        "package": "@transcend-io/mcp-server-consent",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "@upstash/context7-mcp",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@upstash/context7-mcp",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "@wonderwhy-er/desktop-commander",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "@z_ai/mcp-server",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "@z_ai/mcp-server",
+        "category": "access_environment_variables",
+        "kind": "false negative"
+      },
+      {
+        "package": "agent-install",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "agent-install",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "agent-install",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "agent-install",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "agent-install",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "browser_automation",
+        "kind": "false negative"
+      },
+      {
+        "package": "chrome-devtools-mcp",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "claude-flow",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "claude-flow",
+        "category": "browser_automation",
+        "kind": "false negative"
+      },
+      {
+        "package": "claude-flow",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "context-mode",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "context-mode",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "context-mode",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "context-mode",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "easy-skills",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "easy-skills",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "easy-skills",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "easy-skills",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "easy-skills",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "eve",
+        "category": "access_environment_variables",
+        "kind": "false positive"
+      },
+      {
+        "package": "gitnexus",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "gitnexus",
+        "category": "read_source_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "modify_source_code",
+        "kind": "false negative"
+      },
+      {
+        "package": "gitnexus",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "hevy-mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_customer_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_financial_data",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "create_or_modify_records",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "make_purchase",
+        "kind": "false negative"
+      },
+      {
+        "package": "hostinger-api-mcp",
+        "category": "access_production_system",
+        "kind": "false negative"
+      },
+      {
+        "package": "instar",
+        "category": "read_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "instar",
+        "category": "write_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "instar",
+        "category": "delete_files",
+        "kind": "false positive"
+      },
+      {
+        "package": "instar",
+        "category": "execute_code",
+        "kind": "false positive"
+      },
+      {
+        "package": "instar",
+        "category": "run_shell_commands",
+        "kind": "false positive"
+      },
+      {
+        "package": "instar",
+        "category": "send_external_message",
+        "kind": "false negative"
+      },
+      {
+        "package": "instar",
+        "category": "untrusted_external_content",
+        "kind": "false negative"
+      },
+      {
+        "package": "mcp-auth",
+        "category": "call_external_api",
+        "kind": "false positive"
+      },
+      {
+        "package": "xcodebuildmcp",
+        "category": "delete_files",
+        "kind": "false positive"
+      }
+    ],
+    "packagesWithFalsePositive": 36
+  },
+  "rule": {
+    "recallGainPoints": 15,
+    "maxInspectorErrorsOf50": 5
+  },
+  "secondary": {
+    "serversOnly": {
+      "n": 30,
+      "catalog": {
+        "micro": {
+          "tp": 7,
+          "fp": 1,
+          "fn": 129,
+          "tn": 523,
+          "precision": 87.5,
+          "recall": 5.1,
+          "fpRate": 0.2,
+          "fnRate": 94.9
+        },
+        "coverage": {
+          "packages": 5,
+          "of": 30,
+          "pct": 16.7
+        }
+      },
+      "inspector": {
+        "micro": {
+          "tp": 88,
+          "fp": 50,
+          "fn": 48,
+          "tn": 474,
+          "precision": 63.8,
+          "recall": 64.7,
+          "fpRate": 9.5,
+          "fnRate": 35.3
+        },
+        "coverage": {
+          "packages": 26,
+          "of": 30,
+          "pct": 86.7
+        },
+        "packagesWithFalsePositive": 24
+      }
+    },
+    "callStrengthOnly": {
+      "micro": {
+        "tp": 87,
+        "fp": 96,
+        "fn": 49,
+        "tn": 802,
+        "precision": 47.5,
+        "recall": 64,
+        "fpRate": 10.7,
+        "fnRate": 36
+      },
+      "coverage": {
+        "packages": 38,
+        "of": 47,
+        "pct": 80.9
+      },
+      "packagesWithFalsePositive": 36
+    }
+  },
+  "decision": {
+    "recallGain": 59.6,
+    "precisionHeld": false,
+    "inspectorWrongPackages": [
+      "@azure-devops/mcp",
+      "@blaxel/core",
+      "@bytebase/dbhub",
+      "@clerk/mcp-tools",
+      "@cloudbase/cloudbase-mcp",
+      "@copilotkit/aimock",
+      "@drawio/mcp",
+      "@foldkit/devtools-mcp",
+      "@hasna/conversations",
+      "@hasna/files",
+      "@hasna/mementos",
+      "@letoribo/mcp-graphql-enhanced",
+      "@mcp-ui/client",
+      "@n8n/mcp-apps",
+      "@nitrostack/core",
+      "@productbrain/mcp",
+      "@raishin/vanguard-frontier-agentic",
+      "@shopify/ucp-cli",
+      "@softeria/ms-365-mcp-server",
+      "@tanstack/ai-mcp",
+      "@testsprite/testsprite-mcp",
+      "@upstash/context7-mcp",
+      "@wonderwhy-er/desktop-commander",
+      "@z_ai/mcp-server",
+      "agent-install",
+      "chrome-devtools-mcp",
+      "claude-flow",
+      "context-mode",
+      "easy-skills",
+      "eve",
+      "gitnexus",
+      "hevy-mcp",
+      "hostinger-api-mcp",
+      "instar",
+      "mcp-auth",
+      "xcodebuildmcp"
+    ],
+    "errorsOk": false,
+    "verdict": "inspector does not win; the capability map stays a hand-curated catalog"
+  }
+}

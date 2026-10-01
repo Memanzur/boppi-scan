@@ -28,6 +28,7 @@ const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const predict = require('./predict');
 const verify = require('./verify');
+const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 
@@ -52,6 +53,7 @@ function usage() {
     '  --config <path>     scan one explicit config file (skip discovery)',
     '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
     '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity, 4 if a client could not be analyzed (CI usage)',
+    '  --overlay <file>    apply a capability claims file; validated claims add inferred permissions, experimental ones are only reported',
     '  --quiet             one summary line only',
     '  --verbose           all paths, per-server capability provenance',
     '  --no-color          plain-text output (NO_COLOR env is also respected)',
@@ -66,12 +68,12 @@ function usage() {
 function parseArgs(argv) {
   const options = {
     command: 'scan', json: null, html: null, only: null, config: null, source: 'claude-desktop',
-    failOn: null, quiet: false, verbose: false,
+    failOn: null, overlay: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -89,6 +91,7 @@ function parseArgs(argv) {
       else if (arg === '--config') options.config = value;
       else if (arg === '--source') options.source = value;
       else if (arg === '--fail-on') options.failOn = value;
+      else if (arg === '--overlay') options.overlay = value;
       else if (arg === '--home') options.home = value;
       else if (arg === '--cwd') options.cwd = value;
       else if (arg === '--contradictions-dir') options.contradictionsDir = value;
@@ -152,25 +155,47 @@ function discover(options) {
   return { clients, filesRead: [...filesRead] };
 }
 
+/** Shadow entries: what experimental claims would have added. Reported, never applied. */
+function shadowEntries(client, overlayByServer) {
+  const entries = [];
+  for (const [serverName, match] of Object.entries(overlayByServer)) {
+    for (const claim of match.experimental) {
+      entries.push({ client: client.clientKey, server: serverName, package: match.package.name, claimId: claim.id, capability: claim.capability, status: claim.status, evidence: overlayModule.citedEvidence(claim) });
+    }
+  }
+  return entries;
+}
+
 /** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
 async function performScan(options) {
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
 
   const discovery = discover(options);
+  let overlay = null;
+  if (options.overlay) {
+    try { overlay = overlayModule.loadOverlay(options.overlay); } catch (error) {
+      return { failed: `Could not load overlay ${options.overlay}: ${error.message}`, exitCode: 2 };
+    }
+    discovery.filesRead.push(overlay.file);
+  }
+  const shadow = [];
+  const applied = [];
   const providers = [];
   const inferenceByClient = {};
   for (const client of discovery.clients) {
     if (!client.primaryPath) continue; // nothing found for this client
-    const { config, inferenceByServer } = enrich(client.mergedServers, options.home);
+    const { config, inferenceByServer, overlayByServer } = enrich(client.mergedServers, options.home, overlay);
     inferenceByClient[client.clientKey] = inferenceByServer;
+    shadow.push(...shadowEntries(client, overlayByServer));
+    for (const [serverName, match] of Object.entries(overlayByServer)) for (const claim of match.validated) applied.push({ client: client.clientKey, server: serverName, package: match.package.name, claimId: claim.id, capability: claim.capability });
     try {
       const scannerResult = scanner.scanConfig({
         source: client.source, consent: true, dryRun: true,
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
       client.agentId = scannerResult.agent.id;
-      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer }));
+      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer }));
     } catch (error) {
       client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = error.message; } });
     }
@@ -201,11 +226,14 @@ async function performScan(options) {
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
   const predictions = discovery.clients
     .filter(c => c.agentId && !c.scanError)
-    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, scannerVersion: VERSION }));
+    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION }));
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
   const storageExport = await controller.getExport();
 
-  return { startedAt, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, incomplete, storageExport };
+  const diagnostics = overlay
+    ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected }, shadow, applied }
+    : { shadow: [], applied: [] };
+  return { startedAt, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -235,6 +263,7 @@ function exportPayload(scan) {
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
     discovery: scan.portableDiscovery,
+    diagnostics: scan.diagnostics,
     generatedBy: `boppi-cli/${VERSION}`,
   };
 }
@@ -255,7 +284,7 @@ async function runVerify(options) {
   const scan = await performScan(options);
   if (scan.failed) {
     process.stderr.write(`Scan failed: ${scan.failed}\n`);
-    return 3;
+    return scan.exitCode || 3;
   }
   const result = verify.resolveAll(previous, scan, { explicitConfig: !!options.config });
   process.stdout.write(verify.renderTable(result, options.color) + '\n');
@@ -292,7 +321,7 @@ async function run(argv) {
   const scan = await performScan(options);
   if (scan.failed) {
     process.stderr.write(`Scan failed: ${scan.failed}\n`);
-    return 3;
+    return scan.exitCode || 3;
   }
   const { discovery, inventory, paths, incomplete } = scan;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from the results.\n`);

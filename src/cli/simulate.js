@@ -10,29 +10,32 @@ const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const { inferCapabilities } = require('./knownServers');
 const { createConfigProvider } = require('./provider');
+const overlayModule = require('./overlay');
 
-/** Inject catalog-inferred capabilities into raw server entries before scanning. */
-function enrich(mergedServers, home) {
+/** Inject catalog-inferred capabilities into raw server entries before scanning, and match overlay claims per server. */
+function enrich(mergedServers, home, overlay = null) {
   const inferenceByServer = {};
+  const overlayByServer = {};
   const mcpServers = {};
   for (const [name, server] of Object.entries(mergedServers || {})) {
     if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
     const inference = inferCapabilities(name, server, { home });
     inferenceByServer[name] = inference;
+    overlayByServer[name] = overlayModule.matchClaims(overlay, name, server);
     mcpServers[name] = {
       ...server,
       capabilities: inference.capabilities,
       filesystemPaths: inference.filesystemPaths.length ? inference.filesystemPaths : server.filesystemPaths,
     };
   }
-  return { config: { mcpServers }, inferenceByServer };
+  return { config: { mcpServers }, inferenceByServer, overlayByServer };
 }
 
 /** The inventory one client's raw servers produce, through the provider path a scan uses. */
-function clientInventory({ mergedServers, clientKey, label, source, configPath, observedAt, home }) {
-  const { config, inferenceByServer } = enrich(mergedServers, home);
+function clientInventory({ mergedServers, clientKey, label, source, configPath, observedAt, home, overlay = null }) {
+  const { config, inferenceByServer, overlayByServer } = enrich(mergedServers, home, overlay);
   const scannerResult = scanner.scanConfig({ source, consent: true, dryRun: true, config, configPath, observedAt });
-  const normalized = createConfigProvider({ clientKey, label, scannerResult, inferenceByServer }).normalize(scannerResult, { now: observedAt });
+  const normalized = createConfigProvider({ clientKey, label, scannerResult, inferenceByServer, overlayByServer }).normalize(scannerResult, { now: observedAt });
   return { agents: normalized.agents, integrations: [], permissions: normalized.permissions, mcpServers: normalized.mcpServers, inferenceByServer };
 }
 

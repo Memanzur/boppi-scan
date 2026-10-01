@@ -1,0 +1,1851 @@
+{
+  "reviewer": "claude",
+  "humanReviewed": false,
+  "seed": 20261001,
+  "corpusBuiltAt": "2026-10-01T20:27:45.398Z",
+  "labeledAt": "2026-10-01T20:48:25.583Z",
+  "method": "LABELING.md",
+  "packageCount": 50,
+  "unknownCount": 3,
+  "packages": [
+    {
+      "name": "@azure-devops/mcp",
+      "version": "2.10.0",
+      "contentHash": "sha256-5dfe3bfc6de687b70118d650495c7d5bb4b67fa16ad9900d343daf4314d07280",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_credentials",
+          "evidence": {
+            "file": "dist/auth.js",
+            "line": 56,
+            "text": "nativeBrokerPlugin: new NativeBrokerPlugin(),"
+          },
+          "evidenceVerified": true,
+          "note": "Interactive auth uses the MSAL OS native broker (Windows WAM / platform account store) via @azure/msal-node-extensions; the azcli/env modes use DefaultAzureCredential and AzureCliCredential, which read the Azure CLI token cache. Not a generic secrets manager, so treat this as a borderline label."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/auth.js",
+            "line": 138,
+            "text": "const b64Pat = process.env[\"PERSONAL_ACCESS_TOKEN\"];"
+          },
+          "evidenceVerified": true,
+          "note": "Read inside the authenticator closure invoked when a connection is created; ADO_MCP_AUTH_TOKEN is read the same way at dist/auth.js:152."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/tools/search.js",
+            "line": 48,
+            "text": "const response = await fetch(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "All tools call Azure DevOps REST APIs, either via direct fetch or the azure-devops-node-api WebApi connection built in dist/index.js:64."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/tools/work-items.js",
+            "line": 568,
+            "text": "const newWorkItem = await workItemApi.createWorkItem(null, document, resolvedProject, workItemType);"
+          },
+          "evidenceVerified": true,
+          "note": "wit_work_item_write creates/updates work items; other write tools create PRs, PR threads, branches, wiki pages, test plans, and run pipelines."
+        },
+        {
+          "category": "read_source_code",
+          "evidence": {
+            "file": "dist/tools/repositories.js",
+            "line": 455,
+            "text": "const stream = await gitApi.getItemText(repositoryId, path, project, undefined, undefined, undefined, undefined, false, versionDescriptor, true);"
+          },
+          "evidenceVerified": true,
+          "note": "repo_file tool returns file content from Azure Repos; search_code also searches repository source."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "dist/tools/work-items.js",
+            "line": 461,
+            "text": "return createExternalContentResponse(buffer.toString(\"utf-8\"), \"work item attachment\");"
+          },
+          "evidenceVerified": true,
+          "note": "Content is authored by whoever can write to the Azure DevOps org (work items, attachments, wiki pages, PR comments), not necessarily the public; the package itself wraps these responses as untrusted via dist/shared/content-safety.js. Borderline by the recipe's definition."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/tools/work-items.js",
+            "line": 454,
+            "text": "fs.writeFileSync(localFilePath, buffer);"
+          },
+          "evidenceVerified": true,
+          "note": "wit_work_item_attachment tool saves the downloaded attachment to a caller-supplied relative savePath; pipelines_artifact download also writes a zip via createWriteStream (dist/tools/pipelines.js:344-347)."
+        }
+      ],
+      "notes": "Left out run_shell_commands: the package does not spawn processes itself; AzureCliCredential (a dependency) may run the az CLI, and `open` launches the system browser for OAuth login, neither with caller-controlled arguments. Left out modify_source_code: repo tools create PRs, PR comments, and branches (gitApi.updateRefs at dist/tools/repositories.js:926) but never push file content. Left out access_production_system: pipelines_write can trigger pipeline runs (dist/tools/pipelines.js:28) but nothing marks the target as production. Left out read_files: the only local reads are the org-tenant cache in ~/.ado_orgs.cache (dist/org-tenants.js:11), which is the server's own cache, not caller-named files. Left out browser_automation: `open(url)` only launches the default browser for sign-in. Labels were read from dist/ (no src/ shipped); the code is unminified tsc output."
+    },
+    {
+      "name": "@blaxel/core",
+      "version": "0.3.25",
+      "contentHash": "sha256-2e5e59d5b114502a260c0d80445a12bac698371c5cb1002bbc86538c5723c212",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "SDK for the Blaxel platform (agents, sandboxes, jobs, models, volumes). It ships no bin and registers no MCP tools; dist/esm/mcp/server.js is only a WebSocket transport class (BlaxelMcpServerTransport) and dist/esm/mcp/client.js an MCP client. The SDK does read host files in library calls a consumer may invoke (sandbox filesystem upload reads a local path at dist/esm/sandbox/filesystem/filesystem.js:124 and writes downloads at :235; image build writes a Dockerfile at dist/esm/image/image.js:554 and rmSync's build dirs at :564), reads ~/.blaxel/config.yaml and .env for credentials (dist/esm/common/settings.js:53, dist/esm/common/env.js:33), and makes HTTP/WebSocket calls to the Blaxel API (axios, @hey-api/client-fetch, ws). Remote sandbox process exec and code execution happen on Blaxel's side, not on the host. Per rule 6 these are library behaviors, so no categories were assigned. Only dist/ is shipped; it is readable tsc output, and *.test.js files were ignored."
+    },
+    {
+      "name": "@bytebase/dbhub",
+      "version": "1.4.0",
+      "contentHash": "sha256-6c2a1d7d707398a4372bcf5caf42ee57b85550677a0ec37458474d5ae30fcf61",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/chunk-MJVIE3QY.js",
+            "line": 652,
+            "text": "const dbPassword = process.env.DB_PASSWORD;"
+          },
+          "evidenceVerified": true,
+          "note": "Read during startup configuration, not inside a tool handler. DBHUB_AUTH_TOKEN is read the same way at dist/chunk-MJVIE3QY.js:818."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 301,
+            "text": "result = await connector.executeSQL(sql, executeOptions);"
+          },
+          "evidenceVerified": true,
+          "note": "execute_sql tool runs caller-supplied SQL against the configured database over a driver connection (pg Pool at dist/postgres-DC5BDEMU.js:230, mysql2 createPool at dist/mysql-XXIHWQGR.js:131, plus mariadb, sqlserver, oracle, sqlite); optionally through an ssh2 tunnel (dist/chunk-MJVIE3QY.js:367)."
+        }
+      ],
+      "notes": "Bundled by tsup into chunk files but unminified and readable. Left out read_files: local file reads are config-time only (SSL PEM files at dist/postgres-DC5BDEMU.js:67, SSH private key at dist/chunk-MJVIE3QY.js:285, ssh config at :86, demo SQL at dist/demo-loader-PSMTLZ2T.js:26); the sqlite connector opens a DSN-named database file through the driver. Left out create_or_modify_records, access_customer_data, and access_production_system: execute_sql can run INSERT/UPDATE/DELETE when READONLY is not set, and the data depends entirely on which database is configured; the recipe asks for a vendor API, and a generic SQL connection is not one. No eval, child_process, email, or messaging code found outside node_modules."
+    },
+    {
+      "name": "@clerk/mcp-tools",
+      "version": "0.6.0",
+      "contentHash": "sha256-2fd026bfbebac716a0b83b7e0bec374dda935c74f83924cc7eb0ececa6854a29",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Helper library for adding Clerk OAuth to MCP servers and clients (Next.js, Express, Hono adapters, protected-resource metadata, and client session stores). It registers no tools; the only MCP SDK usage is in doc comments and type signatures. The stores (dist/stores/fs.mjs:46 fs.writeFile, dist/stores/sqlite.mjs:24 better-sqlite3, dist/stores/redis.mjs:35, postgres) persist OAuth client state for the consuming app, and dist/server.mjs:53 fetches Clerk's OAuth metadata. It reads process.env.CLERK_PUBLISHABLE_KEY (dist/express/index.mjs:89) and NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY (dist/next/index.mjs:51), which are public keys. Per rule 6 no categories assigned. Only readable dist/*.mjs is shipped."
+    },
+    {
+      "name": "@cloudbase/cloudbase-mcp",
+      "version": "2.34.8",
+      "contentHash": "sha256-301aee50bc12a66f4fa5aac69929cffabf4af3816cff2325b8e449723f7c8ec5",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 147,
+            "text": "return process.env.CLOUDBASE_API_KEY || process.env.CLOUDBASE_APIKEY || undefined;"
+          },
+          "evidenceVerified": true,
+          "note": "Used by the auth layer to authenticate API calls; TENCENTCLOUD_SECRETID/SECRETKEY are also consulted (dist/index.js:507)."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 9849,
+            "text": "result = await cloudbase.commonService(service, resolvedVersion).call({"
+          },
+          "evidenceVerified": true,
+          "note": "callCloudApi forwards arbitrary Tencent Cloud API calls; every other tool uses @cloudbase/manager-node commonService calls to CloudBase APIs (functions, hosting, cloudrun, database, storage, logs, gateway, permissions)."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 14522,
+            "text": "const text = await insertDocuments({"
+          },
+          "evidenceVerified": true,
+          "note": "writeNoSqlDatabaseContent inserts/updates/deletes documents in CloudBase NoSQL collections; manage* PG/MySQL tools and modifyDataModel also mutate hosted data."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 18847,
+            "text": "sqlText = node_fs_1.default.readFileSync(file, \"utf-8\");"
+          },
+          "evidenceVerified": true,
+          "note": "deployApply reads local migration SQL files from the project's migrations dir (detectDestructiveMigrations, called at dist/index.js:19066); manageCloudRun also reads package.json/index.js from the target path (dist/index.js:10305, 10314)."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 12454,
+            "text": "child = (0, child_process_1.spawn)(process.execPath, ['-e', script], {"
+          },
+          "evidenceVerified": true,
+          "note": "manageCloudRun action 'run' spawns a detached node process running @cloudbase/functions-framework in a caller-supplied targetPath with caller-supplied env vars (runOptions.envParams)."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 11828,
+            "text": "fs_1.default.writeFileSync(path_1.default.join(projectDir, 'package.json'), JSON.stringify(packageJson, null, 2));"
+          },
+          "evidenceVerified": true,
+          "note": "manageCloudRun scaffolds project files (package.json, index.js, cloudbaserc.json, README.md) into a caller-named directory; downloadTemplate also copies downloaded template files into the workspace (dist/index.js:33531)."
+        }
+      ],
+      "notes": "The bin entry dist/cli.cjs is minified (13 lines, 5.4 MB) and was not read; labels come from dist/index.js, the package.json 'module' entry, which is an unminified webpack bundle containing the same tool registrations (44 registerTool calls). Left out delete_files: the only fs.rm calls remove the package's own temp directories (dist/index.js:32261, 33930). Left out access_production_system: deployApply, manageFunctions, manageHosting, and manageCloudRun deploy to live CloudBase environments, which is arguably production, but nothing in the code distinguishes production from dev environments. Left out send_external_message: manageMessagePush sends CloudBase app push notifications to end users, not chat/SMS. Left out untrusted_external_content: searchKnowledgeBase reads CloudBase's own docs. No eval/new Function, browser automation, email, or keychain access found."
+    },
+    {
+      "name": "@copilotkit/aimock",
+      "version": "1.43.0",
+      "contentHash": "sha256-905e2e771ecd8aa25b81bd9ad17822eb6116428407ca0aee832674695916bfc9",
+      "serverShape": "other",
+      "unknown": false,
+      "categories": [],
+      "notes": "Test double for AI provider APIs (OpenAI, Anthropic, Gemini, Bedrock, Ollama, etc.) plus mock MCP, A2A and AG-UI servers, used in test suites; shipped as a library and two CLIs (aimock, llmock). The mock MCP handler (dist/mcp-handler.js:49-76) only returns fixture content or calls handlers the test author registered in-process; it performs no host actions itself. The HTTP mock has opt-in --record/--proxy-only modes that forward unmatched requests to upstream provider URLs (e.g. dist/openrouter-video.js:702 fetch(target)) and write recorded fixtures to disk (dist/recorder.js:241 fs.writeFileSync), and it loads fixture files at startup (dist/fixture-loader.js:97). These were left out because they are test-tooling behaviors of the LLM mock, not capabilities an agent gains from the MCP mock. No child_process, eval, keychain, or email code found; process.env.AIMOCK_DUMMY_KEY_MARKER (dist/provider-auth.js:16) is a test marker, not a secret. Only readable dist/ is shipped."
+    },
+    {
+      "name": "@copilotkit/mcp-apps-renderer",
+      "version": "1.76.0",
+      "contentHash": "sha256-fda1f30e48493d3ad34389cf933dc3fe973ee140e9ffeed9358134267e844079",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Browser-side UI library that renders MCP Apps (ext-apps) widgets inside a sandboxed iframe for CopilotKit hosts (dist/session.mjs, dist/sandbox.mjs). It has no server, no bin, no tool handlers, and no Node fs/child_process/env usage; it relays postMessage between host and widget. Only readable dist/*.mjs/*.cjs is shipped."
+    },
+    {
+      "name": "@devframes/agentic",
+      "version": "1.1.0",
+      "contentHash": "sha256-a334ddf7766bd361429af3029df5a43c5625e5712f102bd8de6847363fda43a5",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Framework adapter for devframe: createMcpServer (dist/mcp/index.mjs:66) builds a stdio MCP server whose tools/call dispatches to the consuming app's own devframe agent tools via ctx.agent.invoke (dist/mcp/index.mjs:218), so any capability comes from the app, not this package. startConnectServer (dist/connect/index.mjs) is a gateway MCP server with two tools that discover running devframe dev servers on the local machine and call their tools over Streamable HTTP to http://localhost:<port> with an optional bearer (dist/connect/index.mjs:196). That is a loopback MCP client call rather than an external API, so call_external_api was left out; instance discovery (listLiveDevframeInstances) lives in the devframe dependency. No fs, child_process, eval, or process.env secret reads in this package's code. No bin; only readable dist/*.mjs is shipped."
+    },
+    {
+      "name": "@drawio/mcp",
+      "version": "1.6.3",
+      "contentHash": "sha256-b72d663bb24d588c71543db4a83b1e0c0134983a80dc02e6e6ca5dce765c0567",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "src/cdn-cache.js",
+            "line": 188,
+            "text": "var res = await fetch(source.url,"
+          },
+          "evidenceVerified": true,
+          "note": "search_shapes loads the shape index and ELK/libavoid bundles from a CDN on first use with ETag revalidation, and queries https://icons.diagrams.net/api/icons (src/icon-search.js:17)."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "src/index.js",
+            "line": 698,
+            "text": "const fileText = readFileSync(filePath, \"utf8\");"
+          },
+          "evidenceVerified": true,
+          "note": "list_pages/get_page/set_page read a caller-named .drawio file; assertPagePath (src/pages.js) restricts allowed paths."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "src/index.js",
+            "line": 272,
+            "text": "child = spawn(\"open\", [url], { shell: false, stdio: \"ignore\" });"
+          },
+          "evidenceVerified": true,
+          "note": "open_drawio_xml/csv/mermaid tools call openBrowser (src/index.js:897), which spawns open / xdg-open / cmd start with a generated app.diagrams.net URL; arguments are not caller-controlled beyond the diagram payload."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "src/pages.js",
+            "line": 180,
+            "text": "writeFileSync(tmpPath, data, \"utf8\");"
+          },
+          "evidenceVerified": true,
+          "note": "set_page tool (src/index.js:735 writePageXml) rewrites the caller-named .drawio file atomically via a temp file plus rename."
+        }
+      ],
+      "notes": "Readable src/ shipped. Left out browser_automation: the server only launches the default browser with a URL, it does not drive it. Left out delete_files: unlinkSync calls only remove the package's own temp files. Left out untrusted_external_content: search_shapes results come from draw.io's own icon service and shape index, not arbitrary third parties. No env vars with secret-like names (DRAWIO_BASE_URL, DRAWIO_ICON_SERVICE_URL, XDG_CACHE_HOME only). vendor/libavoid is a WASM routing library."
+    },
+    {
+      "name": "@ericthered926/duckduckgo-mcp-server",
+      "version": "0.6.0",
+      "contentHash": "sha256-5e61fe444ddc3f0f985fd69d3901556b9d4ad3febf2e5eb5bee14a49007855d1",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "build/index.js",
+            "line": 364,
+            "text": "const searchResults = await DDG.search(query, {"
+          },
+          "evidenceVerified": true,
+          "note": "duckduckgo_web_search and duckduckgo_news_search (DDG.searchNews at build/index.js:406) call DuckDuckGo over HTTP via duck-duck-scrape."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "build/index.js",
+            "line": 461,
+            "text": "return { content: [{ type: \"text\", text: results }], isError: false };"
+          },
+          "evidenceVerified": true,
+          "note": "Returns web/news search result titles, snippets and URLs controlled by third-party sites."
+        }
+      ],
+      "notes": "Single-file readable build/index.js (tsc output). Only env vars read are DDG_* tuning values, RATE_LIMIT_*, and LOG_LEVEL, none secret-like. No fs, child_process, eval, or messaging code."
+    },
+    {
+      "name": "@foldkit/devtools-mcp",
+      "version": "0.23.0",
+      "contentHash": "sha256-deaf846df069a79c6b48e9c13082b7b780fb3b35eb42e8e158e338cd7cea9f1c",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/webSocketClient.js",
+            "line": 16,
+            "text": "const socket = new WebSocket(url);"
+          },
+          "evidenceVerified": true,
+          "note": "Every tool (foldkit_get_model, foldkit_dispatch_message, etc.) dispatches a request frame over this ws client (dist/webSocketClient.js:100 socket.send). Target is a local Foldkit dev-server relay (ws://localhost:<port> by default; host/port overridable via FOLDKIT_DEVTOOLS_MCP_HOST/PORT)."
+        }
+      ],
+      "notes": "bin is dist/server.js, a 42k-line bundle of effect + the package's own modules; the same code ships unbundled as dist/tools.js, dist/webSocketClient.js, dist/relayRegistry.js, dist/relayLocation.js, dist/install.js, which is what was read. Tools only read/dispatch Foldkit runtime state (Model snapshots, message history, dispatch messages, time-travel). relayRegistry.js reads/renames/removes relay record JSON files under XDG_RUNTIME_DIR or tmpdir to discover the relay; that is the server locating its own config, not caller-named files, so read_files/write_files/delete_files were left out. dist/install.js writes .mcp.json but only for the `init` CLI subcommand, not on a tool path. No process.env names containing key/token/secret/password/credential/auth. No child_process, eval, or credential stores."
+    },
+    {
+      "name": "@hasna/conversations",
+      "version": "0.10.0",
+      "contentHash": "sha256-fc257c3875b78c2bb186a32bbe4bd8f19b0d46c5330c62e4faefd24f71b5af36",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_credentials",
+          "evidence": {
+            "file": "bin/mcp.js",
+            "line": 23963,
+            "text": "resolved = resolveStorageClient(APP, resolverEnv, { credentials, ...options.transport });"
+          },
+          "evidenceVerified": true,
+          "note": "Hand-off to the bundled @hasna/contracts resolver with keychain.enabled=true for ambient process.env (bin/mcp.js:21316). That resolver runs /usr/bin/security find-generic-password to read the API key from the macOS Keychain (bin/mcp.js:20088, 20354, 20398). Reached on every tool call through getStore()."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "bin/mcp.js",
+            "line": 26859,
+            "text": "const token = process.env.TELEGRAM_BOT_TOKEN;"
+          },
+          "evidenceVerified": true,
+          "note": "Read in registerTelegramChannel at server connect; HASNA_CONVERSATIONS_API_KEY is also resolved through the contracts env-key helpers (bin/mcp.js:21285 clientTransportEnvKeys2)."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "bin/mcp.js",
+            "line": 23397,
+            "text": "const body = await this.client.create(\"messages\", {"
+          },
+          "evidenceVerified": true,
+          "note": "ApiStore (cloud-http transport) backs every messaging/channel/project/agent tool via getStore(); the client is the bundled @hasna/contracts storage client whose fetch call is at bin/mcp.js:20990. The Telegram bridge also calls fetch directly (bin/mcp.js:26847)."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "bin/mcp.js",
+            "line": 26995,
+            "text": "execFileSync(\"tmux\", [\"send-keys\", \"-t\", target, \"-l\", message]);"
+          },
+          "evidenceVerified": true,
+          "note": "tmuxSend is called by the tmux_send and tmux_broadcast tools (src/mcp/tools/tmux.ts region, bin/mcp.js:27030-27110); target and message are caller-supplied."
+        },
+        {
+          "category": "send_external_message",
+          "evidence": {
+            "file": "bin/mcp.js",
+            "line": 26883,
+            "text": "const result = await telegramRequest(token, \"sendMessage\", {"
+          },
+          "evidenceVerified": true,
+          "note": "telegram_send tool, registered when TELEGRAM_BOT_TOKEN is set; posts to https://api.telegram.org/bot<token>/sendMessage (bin/mcp.js:26846-26847)."
+        }
+      ],
+      "notes": "Entry: bin/mcp.js (conversations-mcp), a Bun bundle (28,614 lines, not minified; own code starts at line 21280 with `// src/...` region markers). Left out: read_files, because the attachment reader (bin/mcp.js:22123 readFileSync2(attachment.safeSource)) is only reachable from ApiStore.sendMessage when opts.attachments is passed, and none of the MCP messaging tools pass attachments (they pass from/to/content/priority/blocking/project_id/metadata, bin/mcp.js:24931-24939); it is a CLI path. Agent-id/session identity files under the home dir are read/written at startup (bin/mcp.js:24046-24076) as the server's own config. untrusted_external_content left out: inbound Telegram messages are delivered as MCP channel notifications (bin/mcp.js:26903), not as a tool result. The Bun.serve HTTP mode (bin/mcp.js:28338) is an inbound transport, not outbound."
+    },
+    {
+      "name": "@hasna/files",
+      "version": "0.4.1",
+      "contentHash": "sha256-856abf1ab3cca8104140665f61ed5680018bdf9901e50efd081076ad8c23c2d0",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_credentials",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 40888,
+            "text": "keychain.enabled = isAmbientFilesEnv(env);"
+          },
+          "evidenceVerified": true,
+          "note": "filesResolverInputs hands credential resolution to the bundled @hasna/contracts resolver, which runs /usr/bin/security find-generic-password against the macOS Keychain (dist/mcp/index.js:39145, 39391). Reached when the cloud ApiStore is resolved for tool calls."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 35500,
+            "text": "if (process.env.GOOGLE_ACCESS_TOKEN)"
+          },
+          "evidenceVerified": true,
+          "note": "getValidAccessToken3 in the package's own src/lib/google-drive-client.ts region, called by the Google Drive tools (list_google_drive_items, sync_google_drive). GOOGLE_CLIENT_SECRET is read at 35544."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 45059,
+            "text": "const resp = await fetch(fileUrl);"
+          },
+          "evidenceVerified": true,
+          "note": "import_from_url fetches a caller-supplied URL. Also: S3 PutObject/GetObject via @aws-sdk (dist/mcp/index.js:12653, 12681) from upload_file/copy_file/download_file; Google Drive REST via requestGoogleDrive (dist/mcp/index.js:35494) from sync_google_drive (43996); cloud ApiStore via bundled @hasna/contracts transport."
+        },
+        {
+          "category": "delete_files",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 44990,
+            "text": "unlinkSync(jp(source.path, file.path));"
+          },
+          "evidenceVerified": true,
+          "note": "delete_file with hard_delete=true on a local source (gated by a 'destructive' MCP capability check at 44982); S3 sources call deleteFromS3."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 45140,
+            "text": "copyFileSync4(srcPath, finalPath);"
+          },
+          "evidenceVerified": true,
+          "note": "import_from_local tool copies/moves a caller-supplied absolute path into a managed source. Other readers: upload_file reads local_path for S3 upload (dist/mcp/index.js:44221), index_source walks source roots with readdirSync (dist/mcp/index.js:18553), get_file_content returns local text content (dist/mcp/index.js:44490)."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 44175,
+            "text": "writeFileSync10(outPath2, Buffer.concat(chunks));"
+          },
+          "evidenceVerified": true,
+          "note": "download_file writes to the caller's dest (default ~/Downloads). import_from_url/import_from_local, move_file (renameSync, 44889), copy_file (copyFileSync, 44920) also write under configured source roots."
+        }
+      ],
+      "notes": "Entry: dist/mcp/index.js (files-mcp), a Bun bundle (45,474 lines, not minified; `// src/...` markers). Lines ~18823-35334 are the bundled @hasna/connectors package (Gmail/GitHub/Stripe/iMessage env reads, tokens.json profile files, and a spawn(\"bun\", [\"run\", cliPath]) at 35302); none of those are called from the files package's own code (no own-code caller of runConnectorCommand/runLegacyConnectorCommand), so run_shell_commands and the connector env reads were not assigned. untrusted_external_content left out: import_from_url and sync_google_drive store outside content but the tool result is a status string; get_file_content could later return it. Credential profile files (~/.hasna/.../tokens.json) are file reads, not a secrets manager, so they were not counted as access_credentials on their own. The chokidar watcher (dist/mcp/index.js:14380) watches configured local source paths."
+    },
+    {
+      "name": "@hasna/mementos",
+      "version": "0.17.8",
+      "contentHash": "sha256-26d021e4377d82b053f605aa6c7a1e2cc9a6df189ce33f835192cfdd5a174aee",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_credentials",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 1207,
+            "text": "keychain.enabled = isAmbientMementosEnv(env2);"
+          },
+          "evidenceVerified": true,
+          "note": "Hand-off to @hasna/contracts credential resolution with Keychain enabled; the resolver itself is not bundled into this package (external dependency, same contracts 1.0.2 that the sibling @hasna packages bundle, where it runs /usr/bin/security find-generic-password). The package's own error text confirms the source: 'Keychain item hasna.credentials.mementos.api-key (macOS only)' (dist/mcp/index.js:1332)."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 70185,
+            "text": "if (args.image_url && process.env.OPENAI_API_KEY && !description) {"
+          },
+          "evidenceVerified": true,
+          "note": "Inside the memory_save_image handler. Providers also read ANTHROPIC_API_KEY, OPENAI_API_KEY, CEREBRAS_API_KEY, XAI_API_KEY (7131, 7337, 7361, 7385) and HASNA_MEMENTOS_API_KEY via src/lib/env.ts (302)."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 70187,
+            "text": "const resp = await fetch(\"https://api.openai.com/v1/chat/completions\", {"
+          },
+          "evidenceVerified": true,
+          "note": "memory_save_image tool. Other tool-path network calls: Anthropic Messages API from memory_save (63480), synthesis/reflect LLM calls (67818, 67852), OpenAI embeddings (3348) from memory_search_semantic, webhook POST (8536) from hooks, PostgreSQL via pg from mementos_storage_push/pull, and the curl-based API mode above."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 66279,
+            "text": "entries = readdirSync3(current);"
+          },
+          "evidenceVerified": true,
+          "note": "build_file_dep_graph tool walks the caller-supplied root_dir and reads each source file (readFileSync4 at 66350) to extract import/require edges. The session watcher (62278-62295) also reads ~/.claude project .jsonl transcripts when auto-inject is enabled."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/mcp/index.js",
+            "line": 1387,
+            "text": "const proc = Bun.spawnSync(args, {"
+          },
+          "evidenceVerified": true,
+          "note": "args[0] is \"curl\" (dist/mcp/index.js:1346-1360). apiRequestRaw is the API-mode transport used by the memory DB functions (e.g. listMemories at 3706 `if (!db && isApiMode())`) that back memory_* tools when a hosted credential is configured. Startup also spawns a sidecar: Bun.spawn([\"mementos-serve\"]) at 72693 in ensureRestServerRunning (not a tool path)."
+        }
+      ],
+      "notes": "Entry: dist/mcp/index.js (mementos-mcp), a Bun bundle (72,785 lines, not minified; own code at lines 68-15800 and 61977-end, pg and other deps in between). ~110 tools. Not assigned: execute_code (no eval/vm), delete_files (only its own temp request-body files are unlinked), send_external_message (clean_expired_locks and memory broadcasts notify agents through the Hasna conversations API and MCP channel notifications, not a public chat service), untrusted_external_content (webhooks and LLM responses are operator-configured). read_source_code was not used because the file-dependency scan reads local files rather than a vendor API; it is covered by read_files. The local SQLite store writes under ~/.hasna/mementos (own data dir) and the storage config file read at 570 is startup config."
+    },
+    {
+      "name": "@hubspot/mcp-server",
+      "version": "0.4.0",
+      "contentHash": "sha256-62ed80dc1fc3f657cc446938f8533530f8efae9093746a665d8077a40bd2d4d4",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_customer_data",
+          "evidence": {
+            "file": "dist/tools/objects/listObjectsTool.js",
+            "line": 82,
+            "text": "const response = await this.client.get(`/crm/v3/objects/${args.objectType}?${queryParams.toString()}`);"
+          },
+          "evidenceVerified": true,
+          "note": "hubspot-list-objects / hubspot-search-objects (searchObjectsTool.js:125) / hubspot-batch-read-objects return CRM contacts, companies, deals, tickets and their properties."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/utils/client.js",
+            "line": 10,
+            "text": "process.env.PRIVATE_APP_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN || '';"
+          },
+          "evidenceVerified": true,
+          "note": "Read in the HubSpotClient constructor, instantiated per tool; also read in dist/tools/oauth/getUserDetailsTool.js:39. dotenv/config is loaded in dist/index.js:2."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/utils/client.js",
+            "line": 48,
+            "text": "const response = await fetch(url, requestOptions);"
+          },
+          "evidenceVerified": true,
+          "note": "HubSpotClient.request, used by every tool; baseUrl defaults to https://api.hubspot.com (BASE_URL_OVERRIDE env)."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/tools/objects/batchCreateObjectsTool.js",
+            "line": 66,
+            "text": "const response = await this.client.post(`/crm/v3/objects/${args.objectType}/batch/create`, {"
+          },
+          "evidenceVerified": true,
+          "note": "Also batchUpdateObjectsTool.js:56, createEngagementTool.js:110, updateEngagementTool, createPropertyTool/updatePropertyTool, batchCreateAssociationsTool."
+        }
+      ],
+      "notes": "Entry dist/index.js (stdio). Plain compiled ESM, fully readable. Not assigned: access_financial_data (deal objects carry amounts but nothing in the code targets financial records specifically), untrusted_external_content (CRM tickets and engagements may contain customer-authored text, but the code does not distinguish that; left out to stay conservative), send_email (engagement types are limited to NOTE and TASK; EMAIL is explicitly unsupported, createEngagementTool.js:78). No file I/O, child_process, eval, or credential stores."
+    },
+    {
+      "name": "@langchain/mcp-adapters",
+      "version": "2.0.0",
+      "contentHash": "sha256-def88eef7115c1b6729008c0049af9853cd483e28d87d74458616f76396f0898",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Client-side adapter (MultiServerMCPClient) that turns remote MCP servers' tools into LangChain tools; it is not an MCP server and exposes no tools of its own. For completeness: it connects to configured servers over StreamableHTTP/SSE (dist/connection.js:244, 260) and spawns configured stdio servers through @modelcontextprotocol/client's StdioClientTransport (dist/connection.js:264 `return new StdioClientTransport({`), with commands coming from the host application's config, not from an agent request. No eval, credential stores, or process.env reads of its own. Readable compiled ESM/CJS."
+    },
+    {
+      "name": "@letoribo/mcp-graphql-enhanced",
+      "version": "4.15.3",
+      "contentHash": "sha256-a3e7b8f4cf6ea9dfcbf600fe8514e085bfe63513e742a61fa16f78da68bb1f50",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 391,
+            "text": "response = await fetch(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "query-graphql tool POSTs the caller's query to each configured GraphQL endpoint (GET fallback at 407). introspect-schema also fetches endpoints (199, 208; helpers/introspection.js:13). Mutations are gated by ALLOW_MUTATIONS."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 330,
+            "text": "const queryGraphqlHandler = async ({ query, variables, headers, endpoint, _request_meta }) => {"
+          },
+          "evidenceVerified": true,
+          "note": "The tool accepts a caller-supplied `endpoint` (overrides env.ENDPOINT at 356-360) and returns that server's JSON response body (`result = await response.json();` at 417) to the agent; the default ENDPOINT is a third-party public demo (dist/index.js:45)."
+        }
+      ],
+      "notes": "Entry dist/index.js (stdio, optional HTTP). Readable compiled CJS. Not assigned: read_files, because introspectLocalSchema (helpers/introspection.js:31 readFile) only reads the path in the SCHEMA env var set by the operator at startup; access_environment_variables, because the only secret-bearing env var is HEADERS (a JSON blob merged into outbound requests, dist/index.js:50-60) whose name does not match the rule; helpers/container.js reads /proc/1/cgroup for container detection. dist/worker.js is a Cloudflare-worker variant of the same server. No child_process, eval, or credential stores."
+    },
+    {
+      "name": "@mcp-ui/client",
+      "version": "7.1.1",
+      "contentHash": "sha256-8dbeca5ea302957279e1b4394f59601fe14b7110e97e6b91cea27e0c83fc98e3",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "React component library (UIResourceRenderer, HTML/remote-DOM iframe renderers, ext-apps host bridge) that runs inside an MCP host UI; it is not a server and has no tools. dist/index.js is minified (78 lines, 170k-char lines); dist/index.mjs is a readable 5,908-line bundle and was used. The single `new Function(\"\")` at dist/index.mjs:181 is a feature probe inside a try/catch, not evaluation of runtime content; the iframe/postMessage usage is the sandboxed UI channel. No fetch of its own, no process.env, no file I/O."
+    },
+    {
+      "name": "@n8n/mcp-apps",
+      "version": "0.18.3",
+      "contentHash": "sha256-f0bd4a3703f7d8db09f473553e468295d386390a7cfe3c5ed800db8865bcd08d",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Server-side helper library consumed by n8n's own MCP server: registerMcpAppTool wraps server.registerTool with UI metadata (dist/server/register-mcp-app-tool.js:9) and registerWorkflowPreviewApp registers a single resource that returns the package's bundled dist/apps/workflow-preview.html (dist/server/apps/workflow-preview.js:27, dist/server/resource-loader.js:17). The resource handler reads only the package's own shipped HTML (file name validated against the apps manifest), not caller-named files, so read_files was not assigned. No network calls, child_process, eval, env reads, or credential access. Readable compiled CJS."
+    },
+    {
+      "name": "@nitrostack/core",
+      "version": "1.0.17",
+      "contentHash": "sha256-845ede72b3e63cfc720e06c6e999311bdcde408fbb8d02db6da9ef89795e7f96",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "MCP server framework (decorators, DI container, stdio/HTTP transports, guards, OAuth/JWT/API-key modules); tools and resources are supplied by the application built on it, so by itself it exposes no tools. Framework code that touches capabilities, for a reviewer: when an app enables OAuth, the request path fetches the auth server's metadata and token-introspection endpoints (dist/core/oauth-module.js:94, dist/auth/token-validation.js:94) and reads OAUTH_CLIENT_SECRET / TOKEN_* env vars (dist/core/oauth-module.js:254, 492-495); FileTokenStore reads/writes an encrypted token file (dist/auth/token-store.js:86, 106); dist/ui-next/index.js uses execSync and writes files but only as a build/scaffold helper for the Next.js UI, not on a request path; readFileSync calls in config-module, component, widget-registry, streamable-http load the app's own config, component HTML, manifests and logo. Readable compiled ESM."
+    },
+    {
+      "name": "@paperclipai/mcp-server",
+      "version": "2026.916.1",
+      "contentHash": "sha256-fd0bf0dde5c78c601d12c39de7128386774bc9d07e071025353196f2a05c15bd",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/tools.js",
+            "line": 27,
+            "text": "const token = process.env.PAPERCLIP_RUNTIME_TOOLS_TOKEN?.trim();"
+          },
+          "evidenceVerified": true,
+          "note": "Read inside callRuntimeConnectionTool on the connections_search / connection_request tool path. PAPERCLIP_API_KEY is also read at startup in dist/config.js:16 via an env parameter defaulting to process.env."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/client.js",
+            "line": 76,
+            "text": "const response = await fetch(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "PaperclipApiClient.requestJson; every tool in dist/tools.js calls client.requestJson against PAPERCLIP_API_URL (41 call sites)."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/tools.js",
+            "line": 353,
+            "text": "return client.requestJson(\"POST\", path, { body });"
+          },
+          "evidenceVerified": true,
+          "note": "paperclipApprovalDecision handler (approve/reject/request revision/resubmit an approval). Other write tools: paperclipCreateIssue (line 298), paperclipUpdateIssue, paperclipAddComment, paperclipUpsertIssueDocument, paperclipCreateApproval."
+        }
+      ],
+      "notes": "Plain unminified ESM in dist/ (no src/). Stdio MCP server with ~45 tools that are thin wrappers over the Paperclip REST API; no fs, child_process, eval, or messaging code. paperclipControlIssueWorkspaceServices (dist/tools.js:258-264) starts/stops/restarts issue execution workspace runtime services through the API; left out of access_production_system because it is not clearly a production system. paperclipApiRequest (line 358) is a generic JSON request to any /api endpoint. dist/tools.test.js skipped."
+    },
+    {
+      "name": "@productbrain/mcp",
+      "version": "0.0.1-beta.8361",
+      "contentHash": "sha256-026b8b0c977cc185001bdf43b534742e98fade934f644cacabb2821b4caf1f57",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/chunk-JRPTAOCM.js",
+            "line": 1073,
+            "text": "const fromEnv = process.env.PRODUCTBRAIN_API_KEY;"
+          },
+          "evidenceVerified": true,
+          "note": "getActiveApiKey, called per gateway request. The HTTP transport (dist/http.js:62) also reads MCP_REFRESH_SECRET."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/chunk-JRPTAOCM.js",
+            "line": 1263,
+            "text": "res = await fetch(`${siteUrl}/api/aki`, {"
+          },
+          "evidenceVerified": true,
+          "note": "callGateway, the transport behind kernelQuery/kernelMutation used by every tool handler in dist/chunk-K5Y2FES2.js; also PostHog telemetry via posthog-node."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/chunk-K5Y2FES2.js",
+            "line": 2114,
+            "text": "const result2 = await kernelMutation(\"chain.createEntry\", {"
+          },
+          "evidenceVerified": true,
+          "note": "Capture/commit/update entries, relations and sessions in the Product Brain workspace (chain.createEntry, chain.updateEntry, chain.commitEntry, ...)."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/chunk-K5Y2FES2.js",
+            "line": 3282,
+            "text": "const content = readFileSync(schemaPath, \"utf-8\");"
+          },
+          "evidenceVerified": true,
+          "note": "parseConvexSchema, called from handleVerifyChain (verify-chain action, dispatched at line 11096) which reads convex/schema.ts under the project root resolved from WORKSPACE_PATH or cwd. Coherence resolver also reads registry files under the project root (line 6838). Paths are fixed relative to the configured root, not caller-named."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/chunk-K5Y2FES2.js",
+            "line": 7004,
+            "text": "const raw = execSync(\"git diff --name-only HEAD 2>/dev/null || git diff --name-only\", {"
+          },
+          "evidenceVerified": true,
+          "note": "detectTouchedRegistries, called from runWrapupReview (line 11464) inside the session tool's wrapup action. Fixed git command with cwd set to the project root; no caller-controlled arguments."
+        }
+      ],
+      "notes": "tsup bundle, readable with // src/... module markers; dist/chunk-K5Y2FES2.js holds the server and tools, dist/chunk-JRPTAOCM.js the gateway client and analytics, dist/http.js an Express/OAuth HTTP transport. Left out: the `setup` CLI subcommand (dist/setup-KZT763MJ.js) writes MCP client config and .cursor/rules files and runs execSync(\"open ...\") to open a browser, and chunk-JRPTAOCM.js:470 writes client config; these are setup-only, not on the tool path. dist/index.js reads .env.mcp from cwd at startup (own config). No eval/vm, credential stores, email or chat messaging found."
+    },
+    {
+      "name": "@raishin/vanguard-frontier-agentic",
+      "version": "3.14.0",
+      "contentHash": "sha256-a0b58eba5e579954c5afbafa8b958ce7def09f8f447eee686f19e69eeec895d8",
+      "serverShape": "other",
+      "unknown": false,
+      "categories": [],
+      "notes": "Not an MCP server. It is a marketplace of agent/skill/rule content: 8,118 .md and 4,336 .json files plus .toml agent definitions (13,497 files total, no node_modules, no runtime dependencies). mcp/ contains only AGENTS.md and metadata/markdown references to third-party MCP servers (AWS, Azure, Oracle); no server code. The only bin, scripts/export-marketplace-agents.mjs, is a build-time exporter that copies agent definitions into .claude/.cursor/.codex directories; the other scripts/ and tests/ files are repo validators and generators (rule 3: build scripts do not count). Nothing a client would gain by configuring it as an MCP server."
+    },
+    {
+      "name": "@sap-ux/fiori-mcp-server",
+      "version": "1.15.0",
+      "contentHash": "sha256-992a1998db2e0e56dbc036be8ddc0219e4cae4a1ce050d929fdbfb39a365ea6a",
+      "serverShape": "server",
+      "unknown": true,
+      "categories": [],
+      "notes": "unknown per rule 5: dist/index.js is a single 14.2 MB esbuild bundle with minified identifiers (lines up to 263,538 characters, 861 lines over 1,000 characters, no module markers) and no src/ is shipped. Grep signals for a reviewer: tool names list_fiori_apps, list_functionality, get_functionality_details, execute_functionality, generate_fiori_app_odata, generate_fiori_app_cap, search_docs; embedded @sap-ux/project-access, @sap-ux/fe-fpm-writer, @sap-ux/adp-tooling, @sap/generator-fiori, @sap-ux/store, @sap/cds; 767 occurrences of 'playwright' plus a browsers.json browser manifest; dist/prebuilds/keyring.*.node native keyring binaries (@sap-ux/store system-credential storage); 76 child_process references, 17 writeFileSync, 395 process.env. The README says the server generates and modifies Fiori apps and CAP projects on disk and can use saved SAP system connections. None of this is cited as evidence because the bundle cannot be read line by line."
+    },
+    {
+      "name": "@shopify/ucp-cli",
+      "version": "0.9.0",
+      "contentHash": "sha256-ee02f9aa8728c195bebfc7597910400a2da565c39a4e634ce06447489637d971",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "src/core/http-client.ts",
+            "line": 152,
+            "text": "const response = await fetchImpl(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "ucpFetch; every UCP operation (catalog, cart, checkout, order) dispatches over HTTPS or JSON-RPC-over-HTTP (src/core/mcp-client.ts:93, src/core/agent.ts:570) to the business endpoint."
+        },
+        {
+          "category": "make_purchase",
+          "evidence": {
+            "file": "src/services/shopping.ts",
+            "line": 72,
+            "text": "export const completeCheckout = op('complete_checkout', 'checkout')"
+          },
+          "evidenceVerified": true,
+          "note": "Comment at lines 61-66: complete_checkout places an order with the business (idempotency-key required)."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "src/cli/input.ts",
+            "line": 62,
+            "text": "? await readers.readFile(source.slice(1))"
+          },
+          "evidenceVerified": true,
+          "note": "buildOperationInput: an `input` value starting with '@' is read from that host path; prepareOperation (src/cli.ts:952) is not gated by inMcpMode. The content is JSON-parsed and sent as the operation body, not returned to the caller."
+        }
+      ],
+      "notes": "A CLI built on `incur` that becomes a stdio MCP server when launched with --mcp (src/cli.ts:1352, served at src/cli.ts:1407: `await createUcpCli({ inMcpMode }).serve(serveArgv)`); commands marked `mcp: false` (use, doctor, profile *) are hidden from MCP clients. Labeled from src/ (shipped; dist/bin.js is a bundle). Left out: the checkout escalation hook spawns a shell (src/core/escalation.ts:187) but is skipped in MCP mode (line 158 returns reason 'mcp-mode'); discovery cache and profile writes under ~/.ucp (src/core/cache.ts:418, src/core/profile-store.ts:445) are the tool's own cache/config, not caller-named files; env reads are UCP_HOME/UCP_BUSINESS/UCP_PROFILE/UCP_VERBOSE etc., none matching the sensitive-name rule. No eval, credential store, email or chat messaging."
+    },
+    {
+      "name": "@softeria/ms-365-mcp-server",
+      "version": "0.157.2",
+      "contentHash": "sha256-27153736a8bae6a6f402ccb62cbb552d7608fc705be8d2ca8252bc621bbbeaf1",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_credentials",
+          "evidence": {
+            "file": "dist/secrets.js",
+            "line": 26,
+            "text": "client.getSecret(\"ms365-mcp-client-id\"),"
+          },
+          "evidenceVerified": true,
+          "note": "KeyVaultSecretsProvider reads the app client id/secret from Azure Key Vault when MS365_MCP_KEYVAULT_URL is set. The MSAL token cache is also read from the OS keychain via keytar (dist/token-cache-storage.js:458) when enabled."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/secrets.js",
+            "line": 9,
+            "text": "clientSecret: process.env.MS365_MCP_CLIENT_SECRET,"
+          },
+          "evidenceVerified": true,
+          "note": "Also MS365_MCP_OAUTH_TOKEN (dist/auth.js:466) and MS365_MCP_TOKEN_CACHE_PATH."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/graph-client.js",
+            "line": 308,
+            "text": "return fetchWithResilience("
+          },
+          "evidenceVerified": true,
+          "note": "GraphClient.performRequest to Microsoft Graph; tool handlers in dist/graph-tools.js call graphClient.graphRequest (line 1437) and downloadToFile (line 807). fetchWithResilience wraps fetch at dist/lib/graph-resilience.js:131."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 1342,
+            "text": "\"toolName\": \"create-planner-task\","
+          },
+          "evidenceVerified": true,
+          "note": "Planner/To Do tasks, Outlook contacts, mail folders, mail rules, OneDrive items are created, updated and deleted through Graph."
+        },
+        {
+          "category": "modify_calendar",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 414,
+            "text": "\"toolName\": \"create-calendar-event\","
+          },
+          "evidenceVerified": true,
+          "note": "Also update/delete/accept/decline calendar event tools."
+        },
+        {
+          "category": "read_calendar",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 395,
+            "text": "\"toolName\": \"list-calendar-events\","
+          },
+          "evidenceVerified": true
+        },
+        {
+          "category": "read_email",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 12,
+            "text": "\"toolName\": \"list-mail-messages\","
+          },
+          "evidenceVerified": true,
+          "note": "dist/endpoints.json is loaded by dist/graph-tools.js:59 and each entry is registered as a tool; also get-mail-message, list-mail-folder-messages, shared-mailbox variants."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/token-cache-storage.js",
+            "line": 587,
+            "text": "child = spawnCommand(commandPath, args, { stdio: \"pipe\", shell: false });"
+          },
+          "evidenceVerified": true,
+          "note": "CommandTokenCacheStorage: only when the operator sets MS365_MCP_AUTH_CACHE_COMMAND (enabled from dist/index.js:68 with allowCommandStorage); the executable is operator-configured and invoked on token-cache load/save during token acquisition, not with caller-controlled arguments."
+        },
+        {
+          "category": "send_email",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 83,
+            "text": "\"toolName\": \"send-mail\","
+          },
+          "evidenceVerified": true,
+          "note": "POST /me/sendMail; also reply/replyAll/forward/send-draft tools. dist/lib/message-signoff.js:153 applies a sign-off to /sendMail bodies on the request path."
+        },
+        {
+          "category": "send_external_message",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 1653,
+            "text": "\"toolName\": \"send-chat-message\","
+          },
+          "evidenceVerified": true,
+          "note": "POST /chats/{chat-id}/messages (Teams); also channel message and reply tools. dist/lib/message-signoff.js:112-121 signs Teams sends on the request path."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "dist/endpoints.json",
+            "line": 75,
+            "text": "\"toolName\": \"get-mail-message\","
+          },
+          "evidenceVerified": true,
+          "note": "Returns inbound email bodies, Teams chat messages, and OneDrive/SharePoint file content."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/graph-tools.js",
+            "line": 807,
+            "text": "const result = await graphClient.downloadToFile(target, outputPath, {"
+          },
+          "evidenceVerified": true,
+          "note": "download-bytes-to-file tool writes Graph content to a caller-named absolute path on the server host (outputPath param, line 713); refuses to overwrite existing files. Disabled over HTTP unless MS365_MCP_HTTP_LOCAL_FILE_TOOLS is set."
+        }
+      ],
+      "notes": "src/ ships only endpoints.json and generated types, so dist/ (tsup, unminified) was read. Left out: delete-onedrive-file and similar delete remote Graph items, not host files; the `open` dependency launches a browser for the login flow only (not browser automation); dist/graph-client.js:274 unlink only removes a partially written download; dist/logger.js and audit-log.js write the server's own logs. Outlook contacts and /users directory tools were not labeled access_customer_data since they are the signed-in user's directory, not a CRM. dist/__tests__ skipped."
+    },
+    {
+      "name": "@tanstack/ai-mcp",
+      "version": "0.6.0",
+      "contentHash": "sha256-b51f96eacf8808a43e1bf6d75b2ba26903cf61c4b636caf13987a8a177285b6a",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Host-side MCP client library for TanStack AI plus a createMCPServer framework and a `tanstack-ai-mcp generate` codegen CLI; no tools of its own. src/stdio.ts wraps StdioClientTransport from @modelcontextprotocol/client (spawns whatever command the embedding app configures); src/server/create-server.ts registers tools the app defines; src/server/auth.ts only documents OAUTH_CLIENT_SECRET in a comment. The CLI (src/cli/bin.ts:18 writeFileSync, src/cli/config.ts:13 loads mcp.config.ts via jiti) is build tooling. Labeled from src/; dist/bin/ contains bundled prettier for the codegen path."
+    },
+    {
+      "name": "@testsprite/testsprite-mcp",
+      "version": "0.0.46",
+      "contentHash": "sha256-fa03251fb6b3a717295dde4f2ae8cdd84709123db15f06c4b4c00ada188857f6",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 74743,
+            "text": "return new TestSpriteAPIClient(process.env.API_KEY);"
+          },
+          "evidenceVerified": true,
+          "note": "getTestSpriteClient; also checkAccountInfo (line 151407) and TSMCP_API_KEY (line 147958)."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 75003,
+            "text": "this.client = axios.create({"
+          },
+          "evidenceVerified": true,
+          "note": "TestSpriteAPIClient (baseURL Envs.API_URL), obtained via getTestSpriteClient() in the test plan / code generation / account tools; also a WebSocket tunnel to TestSprite and a local http-proxy that exposes the app under test."
+        },
+        {
+          "category": "delete_files",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 150718,
+            "text": "fse.removeSync(filePath);"
+          },
+          "evidenceVerified": true,
+          "note": "generateCodeAndExecuteMCP deletes previous report files under projectPath; the local HTTP API also deletes uploaded PRD files (line 149964, confined to the project's PRD dir)."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 150833,
+            "text": "testPlan = fse.readFileSync(normalizedTestPlanFilePath, 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "_generateCodeAndExecute reads the test plan and PRD under the caller-supplied projectPath."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 150010,
+            "text": "await open(url);"
+          },
+          "evidenceVerified": true,
+          "note": "openModificationUI (testsprite_open_test_result_dashboard) uses the `open` package, which spawns the platform opener (open/xdg-open/powershell) to launch a browser at a localhost URL. The generateCodeAndExecute tool does not spawn; it returns a next_action asking the IDE agent to run `node dist/index.js generateCodeAndExecute` in a terminal."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/index.js",
+            "line": 151123,
+            "text": "fse.writeFileSync(filePath, item.code, 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "Writes generated test code files, config, reports and session env files under projectPath (testsprite_tests/)."
+        }
+      ],
+      "notes": "Single 156k-line rollup bundle (not minified) that interleaves own code with bundled deps (simple-git, express, http-proxy, ws, multer, open, commander); tool dispatch is at dist/index.js:156039. simple-git is bundled but no own-code call to it was found. Tests run in the TestSprite cloud; local app traffic is tunneled, which is covered by call_external_api. No eval/vm, credential store, email or chat messaging found. Line numbers are in a bundle, so a reviewer should expect them to shift between versions."
+    },
+    {
+      "name": "@transcend-io/mcp",
+      "version": "1.6.0",
+      "contentHash": "sha256-0e01b0c270800c38d79c89431cd7db4aabb4b13ad879bd9c191f10268e37dccd",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/cli.mjs",
+            "line": 23,
+            "text": "const graphqlClient = new TranscendGraphQLClient(auth, graphqlUrl);"
+          },
+          "evidenceVerified": true,
+          "note": "Own code builds the Transcend GraphQL and REST clients (createTranscendRestClient at line 25) and hands them to tool modules from the @transcend-io/mcp-server-* dependencies; the network call itself lives in @transcend-io/mcp-server-base, which is not in the tree."
+        }
+      ],
+      "notes": "Umbrella server: dist/cli.mjs and dist/oauth-scopes-H8XtK3F6.mjs (readable rolldown output) only compose a ToolRegistry from getDocsTools/getDSRTools/getConsentTools/getCustomFunctionsTools/getPreferenceTools/getInventoryTools/getDiscoveryTools/getAssessmentTools/getWorkflowTools/getPolicyTools/getAdminTools, all imported from sibling packages absent from this tarball. DSR, consent, preference and admin tools almost certainly reach customer records (access_customer_data, create_or_modify_records) and docs tools fetch documentation (untrusted_external_content), but no line in this package shows it, so those are left out. Auth/env reading (resolveStdioStartupAuthOptional, readSombraEnvConfig) is in mcp-server-base."
+    },
+    {
+      "name": "@transcend-io/mcp-server-assessment",
+      "version": "2.1.13",
+      "contentHash": "sha256-191fc8d8c1da06d0eaad6239e86763ad6099bdb1655e296376b35f321e4ca2d2",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/graphql-DBsQ8dwF.mjs",
+            "line": 8233,
+            "text": "const { nodes, totalCount } = (await this.makeRequest(ListAssessmentsDoc, {"
+          },
+          "evidenceVerified": true,
+          "note": "AssessmentsMixin extends TranscendGraphQLBase (from @transcend-io/mcp-server-base, not in tree) and every tool handler calls these methods; makeRequest performs the GraphQL call in the dependency."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/graphql-DBsQ8dwF.mjs",
+            "line": 108,
+            "text": "const result = await graphql.createAssessment({"
+          },
+          "evidenceVerified": true,
+          "note": "assessments_create handler; also create_group, create_template, add_section, answer_question, submit_response, update, update_assignees, write_comment tools."
+        }
+      ],
+      "notes": "Readable rolldown output with //#region src/... markers; 16 assessments_* tools. dist/cli.mjs delegates server startup, auth and env reading to createMCPServer in @transcend-io/mcp-server-base. Assessment data is internal privacy-program records (assignee names/emails appear in listings) and was not labeled access_customer_data. No fs, child_process, eval or messaging code."
+    },
+    {
+      "name": "@transcend-io/mcp-server-consent",
+      "version": "1.3.0",
+      "contentHash": "sha256-d0c633a9765b3d6ac183aec96995a7283f3697c20fab593a3a7147b1995ac9ce",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_customer_data",
+          "evidence": {
+            "file": "dist/scopes-BZWA00Wu.mjs",
+            "line": 413,
+            "text": "const result = await rest.getConsentPreferences(identifier, partition);"
+          },
+          "evidenceVerified": true,
+          "note": "consent_get_preferences returns the consent preferences recorded for a specific end-user identifier."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/scopes-BZWA00Wu.mjs",
+            "line": 20,
+            "text": "const id = (await graphql.makeRequest(FETCH_CONSENT_MANAGER_ID, {})).consentManager.consentManager.id;"
+          },
+          "evidenceVerified": true,
+          "note": "Every tool handler calls clients.graphql.makeRequest (Transcend GraphQL API); the client object comes from @transcend-io/mcp-server-base. consent_get_preferences also calls rest.getConsentPreferences (line 413)."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/scopes-BZWA00Wu.mjs",
+            "line": 67,
+            "text": "await clients.graphql.makeRequest(UPDATE_OR_CREATE_COOKIES, {"
+          },
+          "evidenceVerified": true,
+          "note": "consent_bulk_triage, consent_update_cookies, consent_update_data_flows, consent_delete_cookies (line 128) and consent_delete_data_flows (line 162) create, update or delete cookie and data-flow records in the Transcend consent manager."
+        }
+      ],
+      "notes": "Only dist is shipped (no src). Server is built with createMCPServer from @transcend-io/mcp-server-base (dist/cli.mjs line 6); the package's own code contains no process.env, fs, child_process or eval usage, so access_environment_variables is left out even though the base library almost certainly reads OAuth/API credentials. UI resources are inlined HTML strings for MCP App views."
+    },
+    {
+      "name": "@upstash/context7-mcp",
+      "version": "4.1.1",
+      "contentHash": "sha256-a4efce0b4f2fd904dc00742e8a0f1f1086a3ec5d51f790b5f33d5b706dc14e32",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/lib/encryption.js",
+            "line": 12,
+            "text": "const key = process.env.MCP_CLIENT_IP_ASSERTION_KEY;"
+          },
+          "evidenceVerified": true,
+          "note": "Read in generateHeaders on every upstream request. The API key is also read from process.env.CONTEXT7_API_KEY at dist/index.js line 530 in stdio mode, and OPENAI_APPS_CHALLENGE_TOKEN at dist/lib/constants.js line 25."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/lib/api.js",
+            "line": 111,
+            "text": "return await observeUpstreamRequest(\"search_libraries\", () => fetch(url, { headers, signal: abortSignal }), async (response) => {"
+          },
+          "evidenceVerified": true,
+          "note": "resolve-library-id calls searchLibraries and query-docs calls fetchLibraryContext (line 141); both fetch the Context7 API over HTTPS via undici/global fetch."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "dist/lib/api.js",
+            "line": 141,
+            "text": "return await observeUpstreamRequest(\"fetch_context\", () => fetch(url, { headers, signal: abortSignal }), async (response) => {"
+          },
+          "evidenceVerified": true,
+          "note": "query-docs returns documentation text and code snippets indexed from third-party repositories and sites (dist/index.js line 263 returns response.data verbatim)."
+        }
+      ],
+      "notes": "Only dist is shipped, unminified. Supports stdio and HTTP (express) transports. readFileSync in api.js line 61 only loads a CA bundle named by NODE_EXTRA_CA_CERTS at startup, and constants.js reads package.json, so read_files is left out. No child_process, eval, or messaging code."
+    },
+    {
+      "name": "@wonderwhy-er/desktop-commander",
+      "version": "0.2.52",
+      "contentHash": "sha256-fb646534fd0fe0f18a596743059f22a91d64a75be8b44e1dd467eebc91662ff6",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/tools/filesystem.js",
+            "line": 319,
+            "text": "const response = await fetch(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "read_file with isUrl=true fetches an arbitrary URL (readFileFromUrl). Usage telemetry and feature flags are also posted over HTTP (dist/utils/feature-flags.js line 156)."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/tools/filesystem.js",
+            "line": 442,
+            "text": "const result = await handler.read(validPath, {"
+          },
+          "evidenceVerified": true,
+          "note": "read_file, read_multiple_files, get_file_info and list_directory (fs.readdir at line 615) read caller-named paths, subject to the configured allowedDirectories."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/terminal-manager.js",
+            "line": 204,
+            "text": "const childProcess = spawn(spawnConfig.executable, spawnConfig.args, spawnOptions);"
+          },
+          "evidenceVerified": true,
+          "note": "start_process (dist/tools/improved-process-tools.js line 151 -> terminalManager.executeCommand) runs an arbitrary caller-supplied command in a shell; interact_with_process writes to its stdin; kill_process/force_terminate signal it. Searches also spawn ripgrep (dist/search-manager.js line 36)."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "dist/tools/filesystem.js",
+            "line": 319,
+            "text": "const response = await fetch(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "The body of the fetched URL (text, image or PDF) is returned to the caller as the tool result."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/tools/filesystem.js",
+            "line": 559,
+            "text": "await handler.write(validPath, content, mode);"
+          },
+          "evidenceVerified": true,
+          "note": "write_file (rewrite/append), edit_block (dist/tools/edit.js line 158), create_directory (fs.mkdir line 604), move_file (fs.rename line 671) and write_pdf (fs.writeFile line 871)."
+        }
+      ],
+      "notes": "Only dist is shipped. No delete tool exists (move_file only; no unlink/rm on a tool path), so delete_files is left out. No process.env reads with key/token/secret names. The bundled UI runtimes under dist/ui/*-runtime.js are minified browser bundles for MCP App views and were not read. dist/remote-device/* (Supabase realtime channel) is an opt-in remote mode started by dist/npm-scripts/remote.js, not the default stdio server path, so it is not cited. interact_with_process can drive a REPL (python, node) but that is process spawning, not in-process eval, so execute_code is left out."
+    },
+    {
+      "name": "@z_ai/mcp-server",
+      "version": "0.1.5",
+      "contentHash": "sha256-945b81ce0fbeac9770829ba215fd38042e444c055ab4f62c13453c0c9f476277",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "build/core/environment.js",
+            "line": 31,
+            "text": "const envConfig = { ...process.env };"
+          },
+          "evidenceVerified": true,
+          "note": "The spread copy is then read for Z_AI_API_KEY, ZAI_API_KEY (line 55) and ANTHROPIC_AUTH_TOKEN (line 62-64); getApiKey() supplies the bearer token on every request."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "build/core/chat-service.js",
+            "line": 50,
+            "text": "const response = await fetch(url, {"
+          },
+          "evidenceVerified": true,
+          "note": "Every tool (analyze_image, ui_to_artifact, extract_text_from_screenshot, diagnose_error_screenshot, analyze_diagram, analyze_data_visualization, ui_diff_check, analyze_video) posts to the Z.ai / Zhipu chat/completions endpoint with a bearer API key."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "build/core/file-service.js",
+            "line": 72,
+            "text": "const imageBuffer = fs.readFileSync(imageSource);"
+          },
+          "evidenceVerified": true,
+          "note": "Tools accept a local file path (image_source / video_source); the file is read and base64-encoded into the API request. Video path at line 89."
+        }
+      ],
+      "notes": "Only build/ is shipped, unminified. Remote image/video URLs are passed through to the vendor API rather than fetched locally, and the tool returns the model's analysis rather than the raw remote content, so untrusted_external_content is left out. No child_process, eval, or fs writes (logger only writes if ZAI_MCP_LOG_PATH is set)."
+    },
+    {
+      "name": "agent-install",
+      "version": "0.0.8",
+      "contentHash": "sha256-c9251ff24832caa3ec39c821790afdfcd02fd22c62c205acde0ae70c3bb69c22",
+      "serverShape": "cli",
+      "unknown": false,
+      "categories": [],
+      "notes": "A CLI and library for installing skills, MCP server entries and AGENTS.md files into agent config files (Claude Code, Codex, Cursor, etc.). It does not implement an MCP server: no @modelcontextprotocol import, no request path. Its CLI commands read and write config files (dist/mcp-D24Z3PhI.js lines 443, 464, 519) and rm skill directories (dist/cli.js line 596), but per rule 3 these are CLI actions, not tool handlers. No child_process or network code. The grep for process.env found only path-location vars (APPDATA, XDG_CONFIG_HOME, CODEX_HOME, CLINE_DIR)."
+    },
+    {
+      "name": "chrome-devtools-mcp",
+      "version": "1.10.1",
+      "contentHash": "sha256-23c64317d3c785d6e6795e3ddf7485d12d9528dfcd233da5bcd5f0de9b75b6af",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "browser_automation",
+          "evidence": {
+            "file": "build/src/BrowserManager.js",
+            "line": 214,
+            "text": "browser = await puppeteer.launch({"
+          },
+          "evidenceVerified": true,
+          "note": "Launches or connects to Chrome via puppeteer (connect at line 334); tools for navigation, clicking, typing, screenshots, network, performance, emulation and lighthouse all drive the page."
+        },
+        {
+          "category": "execute_code",
+          "evidence": {
+            "file": "build/src/tools/script.js",
+            "line": 182,
+            "text": "const fn = __addDisposableResource(env_2, await evaluatable.evaluateHandle(`(${fnString})`), false);"
+          },
+          "evidenceVerified": true,
+          "note": "evaluate_script evaluates a caller-supplied JavaScript function inside the browser page or service worker, not in the Node host process."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "build/src/tools/input.js",
+            "line": 577,
+            "text": "await handle.uploadFile(...filePaths);"
+          },
+          "evidenceVerified": true,
+          "note": "upload_file reads caller-named host files and uploads them into the page's file input. loadResource (McpContext.js line 626) also reads file: URLs but only for the embedded DevTools host binding."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "build/src/BrowserManager.js",
+            "line": 94,
+            "text": "const result = execSync(`ps -u $(id -u) -o pid= | xargs -I{} cat /proc/{}/environ 2>/dev/null | tr '\\\\0' '\\\\n' | grep -m1 '^DISPLAY=' | cut -d= -f2`);"
+          },
+          "evidenceVerified": true,
+          "note": "Fixed command, Linux only, run on the browser launch path when DISPLAY is unset. puppeteer.launch itself spawns the Chrome binary; the daemon mode spawns a node child (build/src/daemon/client.js line 90). Not caller-controlled."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "build/src/tools/pages.js",
+            "line": 193,
+            "text": "await page.pptrPage.goto(request.params.url, options);"
+          },
+          "evidenceVerified": true,
+          "note": "navigate_page loads any URL; take_snapshot, get_console_message(s), list_network_requests and evaluate_script return page-controlled content to the caller."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "build/src/McpContext.js",
+            "line": 487,
+            "text": "await fs.writeFile(resolved, data, {"
+          },
+          "evidenceVerified": true,
+          "note": "saveFile writes to a caller-provided path: take_screenshot filePath (build/src/tools/screenshot.js line 253), performance trace export (performance.js line 163), evaluate_script filePath (script.js line 189), lighthouse report (lighthouse.js line 108). Paths are validated against an allowlist."
+        }
+      ],
+      "notes": "Only build/src is shipped, unminified (third_party/ contains bundled DevTools and lighthouse code that was not read). Node-side fetch exists only in loadResource (McpContext.js line 618, used by the DevTools binding), the version check and the Clearcut telemetry sender, none of which a tool calls directly, so call_external_api is left out; outbound traffic happens inside Chrome. fs.rm in screencast.js line 73 only removes the server's own temp directory on a failed start, so delete_files is left out. No process.env reads with key/token/secret names."
+    },
+    {
+      "name": "claude-flow",
+      "version": "3.49.0",
+      "contentHash": "sha256-bd03bdc8f5c880bbc9fcd0119764e53aa6d395765c6b66a6fb8925ad63f32bb7",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/agent-execute-core.js",
+            "line": 104,
+            "text": "const anthropicKey = process.env.ANTHROPIC_API_KEY;"
+          },
+          "evidenceVerified": true,
+          "note": "Also OLLAMA_API_KEY (line 103), OPENROUTER_API_KEY (line 111), CLAUDE_API_KEY (managed-agent-tools.js line 27), SERAPHINA_METALLM_KEY, RUFLO_X_ADMIN_TOKEN, all read inside tool handlers."
+        },
+        {
+          "category": "browser_automation",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/browser-tools.js",
+            "line": 75,
+            "text": "result = execFileSync(npx.command, [...npx.argsPrefix, '--yes', 'agent-browser', ...fullArgs], {"
+          },
+          "evidenceVerified": true,
+          "note": "Browser tools drive a browser by shelling out to the external agent-browser CLI (downloaded via npx if not installed), not through an in-package puppeteer/playwright dependency."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/http-fetch-tools.js",
+            "line": 205,
+            "text": "const response = await fetch(parsed.toString(), {"
+          },
+          "evidenceVerified": true,
+          "note": "http_fetch probes arbitrary URLs. agent_execute posts to api.anthropic.com (agent-execute-core.js line 166) or OpenRouter/Ollama; managed-agent tools, seraphina and x-federation tools also fetch remote gateways."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/session-tools.js",
+            "line": 686,
+            "text": "parsed = JSON.parse(readFileSync(inputPath, 'utf-8'));"
+          },
+          "evidenceVerified": true,
+          "note": "session import reads a caller-supplied inputPath; memory import (memory-tools.js line 1566) and metaharness publicKeyPath (line 817) likewise. guidance tools walk and read SKILL.md files under the project."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/terminal-tools.js",
+            "line": 167,
+            "text": "output = execSync(command, {"
+          },
+          "evidenceVerified": true,
+          "note": "terminal_execute runs a caller-supplied command string in a shell (subject to a denylist). github_* tools run git/gh via execSync/execFileSync (github-tools.js lines 60, 74); testgen and metaharness tools spawn node scripts; browser tools run npx agent-browser."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/http-fetch-tools.js",
+            "line": 205,
+            "text": "const response = await fetch(parsed.toString(), {"
+          },
+          "evidenceVerified": true,
+          "note": "The decoded response body (bodyText, line 249) is returned to the caller, bounded by maxResponseBytes."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "v3/@claude-flow/cli/dist/src/mcp-tools/session-tools.js",
+            "line": 649,
+            "text": "writeFileSync(outputPath, JSON.stringify(session, null, 2), 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "session export writes to a caller-supplied outputPath; memory export does the same (memory-tools.js line 1520). Many other tools write the package's own state under .claude-flow/."
+        }
+      ],
+      "notes": "Umbrella package: bin/cli.js forwards to v3/@claude-flow/cli; the MCP server entry is v3/@claude-flow/cli/bin/mcp-server.js, which dispatches through dist/src/mcp-client.js callMCPTool (line 247 tool.handler) into dist/src/mcp-tools/*. Vendored node_modules were skipped. Left out: delete_files (hooks-tools.js line 2900 unlinks only the package's own .claude-flow data files); execute_code (no eval/new Function/vm on the tool path; code runs via child processes instead); access_credentials (dist/src/encryption/vault.js is env-var based, keychain support is a TODO); send_external_message (agentbbs/x-federation post to agent-federation gateways, not chat services); create_or_modify_records via github_pr_manage/github_issue_track is done by shelling out to the gh CLI and is covered under run_shell_commands rather than a vendor API."
+    },
+    {
+      "name": "context-mode",
+      "version": "1.0.169",
+      "contentHash": "sha256-9e3f2a936c8926afbfabe3a8655b178be3f0fddd506c4e9fd63402ee15aaaee2",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "build/server.js",
+            "line": 3009,
+            "text": "const result = await executor.execute({"
+          },
+          "evidenceVerified": true,
+          "note": "ctx_fetch_and_index builds a fetch script (buildFetchCode, line 3008) and runs it in a subprocess that fetches the caller-supplied URL with SSRF guards, writing the result to a temp file the server then reads (line 3041)."
+        },
+        {
+          "category": "execute_code",
+          "evidence": {
+            "file": "build/server.js",
+            "line": 1625,
+            "text": "const result = await executor.execute({ language, code: instrumentedCode, timeout: effTimeout, background, cwd });"
+          },
+          "evidenceVerified": true,
+          "note": "ctx_execute runs caller-supplied JavaScript/TypeScript/Python/bash/etc. source through PolyglotExecutor; ctx_execute_file (line 1899) and ctx_batch_execute do the same."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "build/server.js",
+            "line": 2144,
+            "text": "trackIndexed(fs.readFileSync(resolvedPath).byteLength);"
+          },
+          "evidenceVerified": true,
+          "note": "ctx_index reads a caller-named file into the search store (store.index at line 2148 also reads by path); ctx_execute_file reads the file named by path before executing it."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "build/executor.js",
+            "line": 376,
+            "text": "proc = spawn(spawnCmd, spawnArgs, { ...commonOpts, shell: false });"
+          },
+          "evidenceVerified": true,
+          "note": "PolyglotExecutor spawns the language runtime (node, bun, python, bash, ...) for every ctx_execute call; shell: true variant at line 373. The tool description explicitly invites child_process.execSync from within executed code."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "build/server.js",
+            "line": 3100,
+            "text": "server.registerTool(\"ctx_fetch_and_index\", {"
+          },
+          "evidenceVerified": true,
+          "note": "Fetched web pages are converted to markdown, indexed, and returned as previews; ctx_search later returns chunks of that content."
+        }
+      ],
+      "notes": "bin points at cli.bundle.mjs and the MCP server is launched via start.mjs -> server.bundle.mjs, both esbuild-minified; the unminified equivalent is shipped under build/ (build/server.js, build/executor.js) and was read instead, per rule 1. Writes on the tool path go only to the server's own SQLite store and temp files, not caller-named paths, so write_files/delete_files are left out. process.env reads are path/session vars (CLAUDE_PROJECT_DIR, CODEX_HOME, proxies), none with key/token/secret names. hooks/ and adapters/ contain per-platform hook scripts that were not labeled."
+    },
+    {
+      "name": "easy-skills",
+      "version": "1.3.0",
+      "contentHash": "sha256-a52f7e31a5cc5cbb3b2dc18f414580c937891e41c2b0ed65cc6d43e2bda06492",
+      "serverShape": "cli",
+      "unknown": false,
+      "categories": [],
+      "notes": "A CLI (esk/es/easy-skills) for installing, packing and publishing AI agent skill packages. No MCP server: no @modelcontextprotocol import or request path. CLI commands download from GitHub/registry via axios (dist/utils/github.js line 138), run child_process.exec (dist/utils/executor.js line 14), write and delete skill files (dist/utils/installer.js), and read process.env.EASY_SKILLS_TOKEN (dist/utils/config.js line 240); per rule 3 these are CLI actions rather than tool handlers, so no categories are assigned."
+    },
+    {
+      "name": "eve",
+      "version": "0.69.0",
+      "contentHash": "sha256-106291611d2c4072c141d6e53ee8e54d844c9e17b75961749139aa9883593368",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "eve is Vercel's agent framework plus its `eve` CLI (build, dev, deploy, init); it is not itself an MCP server that an agent configures. What an agent gains depends on the user-authored agent directory. The package does ship agent-side provided tools (bash via executeBashOnSandbox, read_file, write_file, glob, grep, web_fetch, web_search under dist/src/public/tools) and an MCP channel (dist/src/public/channels/mcp.js registering agent_start/agent_get/agent_update/agent_cancel, served by dist/src/internal/mcp/streamable-http-server.js) that can expose a deployed agent over MCP, but those files are esbuild-minified single-line modules (about 516 of 1600 non-vendored dist files have lines over 2000 chars), and the capabilities are those of the deployed agent, not fixed by the package. Labeled per rule 6 as a framework with an empty category list; a reviewer wanting to treat the MCP channel as a server should consider it unreadable (rule 5). dist/src/compiled/ contains vendored dependencies and was skipped."
+    },
+    {
+      "name": "fastify-mcp",
+      "version": "3.0.0",
+      "contentHash": "sha256-575ece77cacddfe09346618c39a633f9708eaabd230ffd171d2833bda895ae0c",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Fastify plugin that wires an SDK StreamableHTTPServerTransport / SSEServerTransport to Fastify routes (dist/streamable-http.js, dist/mcp-sse-plugin.js). The MCP server instance is supplied by the caller via options.createServer / options.server; the package registers no tools and performs no host or network actions of its own. Only readable source is dist/*.js (4 files, 222 lines total)."
+    },
+    {
+      "name": "gitnexus",
+      "version": "1.6.12",
+      "contentHash": "sha256-20ea5e41fc0fcbd925adc7c5175a92798cef1b735bbd3f707248f5522a7b8d46",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/core/embeddings/http-client.js",
+            "line": 155,
+            "text": "apiKey: process.env.GITNEXUS_EMBEDDING_API_KEY ?? 'unused',"
+          },
+          "evidenceVerified": true,
+          "note": "Same HTTP embedding path as above. dist/core/wiki/llm-client.js reads OPENAI_API_KEY / GITNEXUS_API_KEY / MINIMAX_API_KEY but that is the wiki CLI, not the MCP server."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/core/embeddings/http-client.js",
+            "line": 370,
+            "text": "attemptResp = await globalThis.fetch(input, { ...init, signal });"
+          },
+          "evidenceVerified": true,
+          "note": "Reached from the query tool: local-backend.js:2803 embedQuery -> dist/mcp/core/embedder.js:154 httpEmbedQuery when isHttpMode() (an HTTP embedding provider is configured). Default mode is a local ONNX model with no network call."
+        },
+        {
+          "category": "modify_source_code",
+          "evidence": {
+            "file": "dist/mcp/local/local-backend.js",
+            "line": 4953,
+            "text": "await fs.writeFile(fullPath, content.replace(wordReplace, new_name), 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "Multi-file symbol rename across the repository."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "dist/mcp/local/local-backend.js",
+            "line": 4924,
+            "text": "const content = await fs.readFile(assertSafePath(filePath), 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "Inside rename(): reads each candidate source file under the indexed repo root."
+        },
+        {
+          "category": "read_source_code",
+          "evidence": {
+            "file": "dist/mcp/local/local-backend.js",
+            "line": 4924,
+            "text": "const content = await fs.readFile(assertSafePath(filePath), 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "Tools context/explain/impact/trace/query serve indexed source and symbol data; rename reads the raw files directly."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "dist/mcp/local/local-backend.js",
+            "line": 4539,
+            "text": "diffOutput = execFileSync('git', diffArgs, {"
+          },
+          "evidenceVerified": true,
+          "note": "Inside detectChanges() (the detect_changes tool). Also execFileSync('rg', ...) at line 4890 inside rename(). dist/storage/git.js runs git status/ls-files/add/commit for index management."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "dist/mcp/local/local-backend.js",
+            "line": 4953,
+            "text": "await fs.writeFile(fullPath, content.replace(wordReplace, new_name), 'utf-8');"
+          },
+          "evidenceVerified": true,
+          "note": "rename tool with dry_run=false. group_sync also rewrites contracts.json (dist/mcp/tools.js:810)."
+        }
+      ],
+      "notes": "Entry: dist/cli/index.js (bin) with an mcp subcommand; MCP tools in dist/mcp/tools.js, handlers in dist/mcp/local/local-backend.js (7720 lines, readable TypeScript output). vendor/ (198M) and web/ not read. Left out execute_code: the cypher tool runs Cypher queries against the embedded LadybugDB graph, not JS eval; vm.runInNewContext('gc') in dist/storage/parsedfile-store.js only exposes the GC hook. Left out delete_files: no tool deletes host files (cli/uninstall.js is CLI only). dist/core/update-check.js fetches the npm registry from the MCP startup notifier (dist/cli/mcp.js:35), not a tool path. @scarf/scarf install analytics not counted."
+    },
+    {
+      "name": "hevy-mcp",
+      "version": "6.1.18",
+      "contentHash": "sha256-a91713fd09e966de95da9249173755e772a52bd3116f5f48156aad64dff99de9",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/config-CuS0Wd_p.mjs",
+            "line": 7499,
+            "text": "return { apiKey: env.HEVY_API_KEY || \"\" };"
+          },
+          "evidenceVerified": true,
+          "note": "parseConfig(process.env) is called at dist/runtime-DjV2AF4_.mjs:2940. Also process.env[\"HEVY_MCP_HTTP_BEARER_TOKEN\"] at runtime:1047 and process.env.OTEL_COLLECTOR_TOKEN at runtime:390."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/config-CuS0Wd_p.mjs",
+            "line": 1140,
+            "text": "const response = await globalThis.fetch(nativeRequest);"
+          },
+          "evidenceVerified": true,
+          "note": "Generated Hevy API client transport; createClient() at line 2316 defaults baseUrl to https://api.hevyapp.com and sends the api-key header (line 2317). Every tool goes through this client."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "dist/config-CuS0Wd_p.mjs",
+            "line": 6305,
+            "text": "name: \"create-workout\","
+          },
+          "evidenceVerified": true,
+          "note": "Write tools: create-workout, update-workout, create-routine, update-routine, create-routine-folder, create-exercise-template, create-body-measurement, update-body-measurement; they POST/PUT to the Hevy API."
+        }
+      ],
+      "notes": "Bundled by the build (dist/*.mjs, ~10.5k lines) but formatted and fully readable; cited dist since no src/ ships. Left out access_customer_data: the data is the API-key owner's own workout history, not customer records. dist/runtime-DjV2AF4_.mjs:2447-2474 fetches the npm registry and writes a version-check cache file at startup (not a tool path, so no write_files). Telemetry to https://otel.chrisdoc.dev and Sentry is on by default (runtime:389-421), not a tool capability."
+    },
+    {
+      "name": "hostinger-api-mcp",
+      "version": "2.7.0",
+      "contentHash": "sha256-0ad2dae7473633c7266c92636e1a60f78092752946475020488359ab0365b373",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_customer_data",
+          "evidence": {
+            "file": "src/core/tools/ecommerce.ts",
+            "line": 277,
+            "text": "\"name\": \"ecommerce_orders_list-store\","
+          },
+          "evidenceVerified": true,
+          "note": "Store orders and Reach marketing contacts belong to the account owner's customers."
+        },
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "src/core/oauth.ts",
+            "line": 66,
+            "text": "return process.env['HOSTINGER_API_TOKEN']"
+          },
+          "evidenceVerified": true,
+          "note": "Also API_TOKEN / APITOKEN aliases on the following lines."
+        },
+        {
+          "category": "access_financial_data",
+          "evidence": {
+            "file": "src/core/tools/billing.ts",
+            "line": 176,
+            "text": "\"name\": \"billing_payment-methods_list\","
+          },
+          "evidenceVerified": true,
+          "note": "Billing server: catalog, orders, payment methods, subscriptions."
+        },
+        {
+          "category": "access_production_system",
+          "evidence": {
+            "file": "src/core/tools/vps.ts",
+            "line": 256,
+            "text": "\"name\": \"vps_docker_restart\","
+          },
+          "evidenceVerified": true,
+          "note": "VPS server: restart/stop/delete Docker projects, firewall rules, post-install scripts; hosting server deploys sites."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "src/core/runtime.ts",
+            "line": 2604,
+            "text": "let response = await axios(config);"
+          },
+          "evidenceVerified": true,
+          "note": "executeApiCall(): generic path for every OpenAPI-derived operation invoked via the execute/batch meta-tools against https://developers.hostinger.com (API_BASE_URL)."
+        },
+        {
+          "category": "create_or_modify_records",
+          "evidence": {
+            "file": "src/core/tools/dns.ts",
+            "line": 148,
+            "text": "\"name\": \"dns_records_update\","
+          },
+          "evidenceVerified": true,
+          "note": "DNS records, mail aliases/autoreplies, Reach campaigns and contacts, ecommerce orders (cancel/fulfil)."
+        },
+        {
+          "category": "delete_files",
+          "evidence": {
+            "file": "src/core/runtime.ts",
+            "line": 396,
+            "text": "fs.unlinkSync(archivePath);"
+          },
+          "evidenceVerified": true,
+          "note": "agencyHosting_removeArchive(): deletes the caller-named archive when removeArchive=true."
+        },
+        {
+          "category": "make_purchase",
+          "evidence": {
+            "file": "src/core/tools/domains.ts",
+            "line": 834,
+            "text": "\"name\": \"domains_portfolio_purchase\","
+          },
+          "evidenceVerified": true,
+          "note": "Also billing_orders_create-purchase (src/core/tools/billing.ts:56); both charge the account's default payment method."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "src/core/runtime.ts",
+            "line": 528,
+            "text": "const fileStream = fs.createReadStream(filePath);"
+          },
+          "evidenceVerified": true,
+          "note": "agencyHosting_uploadFile(): the custom deploy tools (agency-hosting_deploy-node-static-website, hosting_deploy-* ) stream a caller-named archivePath from the host to Hostinger."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "src/core/oauth.ts",
+            "line": 368,
+            "text": "exec(cmd, (err) => {"
+          },
+          "evidenceVerified": true,
+          "note": "_openBrowser(): runs `open \"<url>\"` / `xdg-open` / `start` to launch the OAuth sign-in page. Reached from getAuthToken() on a tool call when no token is configured; the command is not caller-controlled."
+        }
+      ],
+      "notes": "Readable TypeScript in src/ alongside compiled .js; cited .ts. Entry src/servers/all.ts -> src/core/runtime.ts; tools are exposed as search/execute/batch meta-tools over a catalog in src/core/tools/*.ts. Left out send_email: mail tools manage mailboxes, aliases, autoreplies and API tokens; reach_campaigns_create-draft only drafts and no send operation was found. Left out write_files: src/core/oauth.ts:354 writes the OAuth credential cache under the user's config dir, which is the server's own state rather than a tool writing caller-named files."
+    },
+    {
+      "name": "instar",
+      "version": "1.3.1312",
+      "contentHash": "sha256-23be098914844f600ceb0a0b60fd341310d0bc7864fabc81c32fd79107546557",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "access_environment_variables",
+          "evidence": {
+            "file": "dist/threadline/mcp-stdio-entry.js",
+            "line": 155,
+            "text": "let agentToken = process.env.INSTAR_AUTH_TOKEN || '';"
+          },
+          "evidenceVerified": true,
+          "note": "Token used to authenticate the MCP subprocess to the local agent server."
+        },
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "dist/threadline/ThreadlineMCPServer.js",
+            "line": 896,
+            "text": "const res = await fetch(healthUrl);"
+          },
+          "evidenceVerified": true,
+          "note": "threadline_relay status: fetches the configured relay's /health (DEFAULT_RELAY_URL). threadline_registry_* tools call deps.registry.fetch('/v1/registry/...') against the Threadline registry; all other tools talk to the local agent server over localhost HTTP."
+        },
+        {
+          "category": "send_external_message",
+          "evidence": {
+            "file": "dist/threadline/ThreadlineMCPServer.js",
+            "line": 359,
+            "text": "const result = await this.deps.sendMessage({"
+          },
+          "evidenceVerified": true,
+          "note": "threadline_send tool. deps.sendMessage = sendMessageViaHttp (dist/threadline/mcp-stdio-entry.js:189) which POSTs to the local instar agent server, which delivers to another agent via the Threadline cloud relay and can mirror into the Telegram bridge."
+        },
+        {
+          "category": "untrusted_external_content",
+          "evidence": {
+            "file": "dist/threadline/ThreadlineMCPServer.js",
+            "line": 494,
+            "text": "const history = await this.deps.getThreadHistory(args.threadId, args.limit, args.before);"
+          },
+          "evidenceVerified": true,
+          "note": "threadline_history returns messages written by other agents; threadline_registry_search returns registry entries other parties control."
+        }
+      ],
+      "notes": "11397 files but no nested node_modules; src/ holds only 12 .ts files (scaffold/templates), the real code is in dist/ (1828 readable .js files), cited dist. The package is an agent-infrastructure CLI plus HTTP server; its MCP server is the Threadline component at dist/threadline/mcp-stdio-entry.js (launched via dist/threadline/mcpEntry.js path resolution), tools in dist/threadline/ThreadlineMCPServer.js. Left out write_files: ThreadlineMCPServer.js:996 writeFileSync rewrites the server's own config (relay enable/disable). Left out access_credentials: threadline_request_secret mints a one-time secret-drop handle, not a credential-store read. Did not label the wider agent server (dist/server, dist/messaging telegram adapter, ssh2, better-sqlite3) because those are not reachable through the MCP tool surface; the MCP subprocess only reaches them indirectly via the local HTTP API."
+    },
+    {
+      "name": "mcp-auth",
+      "version": "1.0.0-beta.1",
+      "contentHash": "sha256-544c4727f4c06ce55eec49346c208b17456eb97b9233dacf776a423b607899f0",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "OAuth bearer-token verifier for MCP servers (lib/mcp-auth.js, jose jwtVerify). On the request path it fetches the configured issuer's /.well-known metadata (lib/fetch-server-config.js:43 fetch(wellKnownUrl)) and JWKS (lib/auth-server-context.js:52 createRemoteJWKSet). Those are auth-server discovery calls to a URL the operator configures, not a capability an agent gains; registers no tools."
+    },
+    {
+      "name": "nx-mcp",
+      "version": "0.25.0",
+      "contentHash": "sha256-aeaeb65ac16502a9e88d37eb92fc25f9c57ebd7f3a77e1f0e732a5613b0466b2",
+      "serverShape": "server",
+      "unknown": true,
+      "categories": [],
+      "notes": "Shipped as a single minified bundle main.js (2.7 MB, 799 lines, longest line 582,081 chars) with no source or source maps in the tarball. Rule 5: minified beyond reading, so no categories assigned."
+    },
+    {
+      "name": "task-master-ai",
+      "version": "0.43.1",
+      "contentHash": "sha256-c2d6d8090ee20e289e7894111e6aec7c5d080dd34d71a7643de89a699ac9941a",
+      "serverShape": "server",
+      "unknown": true,
+      "categories": [],
+      "notes": "MCP entry dist/mcp-server.js is minified (44 lines, longest 68,210 chars) and its chunks (config-manager 77k-char lines, ai-services-unified 19k, dependency-manager 22k) are likewise minified with no source maps. The only readable file, index.js, is a commander CLI wrapper that spawns node for scripts/dev.js and is not the MCP path. Rule 5: unknown. Dependency list (fs-extra, simple-git, many @ai-sdk providers, @supabase/supabase-js, undici) suggests file, git, and network use but that is not citable."
+    },
+    {
+      "name": "use-mcp",
+      "version": "0.0.21",
+      "contentHash": "sha256-c230467699dfccc80e4e1565541c19c1a95f9a792901fe98ea232916d212c717",
+      "serverShape": "library",
+      "unknown": false,
+      "categories": [],
+      "notes": "Browser-side React hook (dist/react/index.js useMcp) that connects to a remote MCP server with the SDK's StreamableHTTPClientTransport / SSEClientTransport and handles OAuth via window.open and localStorage (dist/chunk-2RRQPJJO.js). It is an MCP client, not a server; registers no tools."
+    },
+    {
+      "name": "xcodebuildmcp",
+      "version": "2.7.0",
+      "contentHash": "sha256-daad6d9a49b5f6f0725aaa9489b60c444290777e446879cb0de70d5a4208b18c",
+      "serverShape": "server",
+      "unknown": false,
+      "categories": [
+        {
+          "category": "call_external_api",
+          "evidence": {
+            "file": "build/utils/xcodemake.js",
+            "line": 70,
+            "text": "const response = await deps.fetch(XCODEMAKE_DOWNLOAD_URL);"
+          },
+          "evidenceVerified": true,
+          "note": "installXcodemake() downloads the xcodemake script from GitHub, called from isXcodemakeAvailable() (line 111) on the build tool path only when xcodemake is enabled via environment (isXcodemakeEnabled). SHA-256 verified. Off by default."
+        },
+        {
+          "category": "read_files",
+          "evidence": {
+            "file": "build/mcp/tools/project-discovery/discover_projs.js",
+            "line": 34,
+            "text": "const entries = await fileSystemExecutor.readdir(currentDirAbs, { withFileTypes: true });"
+          },
+          "evidenceVerified": true,
+          "note": "discover_projs recursively lists a caller-named workspace root; screenshot/scaffold tools also read files."
+        },
+        {
+          "category": "run_shell_commands",
+          "evidence": {
+            "file": "build/utils/command.js",
+            "line": 47,
+            "text": "const childProcess = spawn(executable, args, spawnOpts);"
+          },
+          "evidenceVerified": true,
+          "note": "Default command executor used by build/test/simulator/device tools (e.g. build/mcp/tools/device/build_device.js:98 executeXcodeBuildCommand -> build-utils.js -> execution/index.js). Spawns xcodebuild, xcrun simctl, devicectl, lldb, the bundled axe binary, etc. with tool-derived arguments."
+        },
+        {
+          "category": "write_files",
+          "evidence": {
+            "file": "build/mcp/tools/project-scaffolding/scaffold_ios_project.js",
+            "line": 181,
+            "text": "await fileSystemExecutor.writeFile(finalDestPath, processedContent, \"utf-8\");"
+          },
+          "evidenceVerified": true,
+          "note": "scaffold_ios_project / scaffold_macos_project write a project tree to a caller-named output path; record_sim_video copies a recording to params.outputFile."
+        }
+      ],
+      "notes": "Readable esbuild output in build/ (368 .js files, not minified); no src/ ships. bundled/ holds the axe UI-automation binary and Frameworks. Left out delete_files: tools only remove their own temp screenshots/recordings (ui-automation/screenshot.js:213, simulator/record_sim_video.js:137); the purge-storage deleter (build/utils/purge-storage/execution.js:218) is imported only by CLI commands. Left out access_environment_variables: doctor reads a fixed list and XCODEBUILDMCP_* vars, none named key/token/secret. Sentry telemetry initialises at startup (build/utils/sentry.js:216), not a tool path. build/cli/commands/upgrade.js fetch is CLI only."
+    }
+  ]
+}

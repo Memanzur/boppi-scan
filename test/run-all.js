@@ -13,6 +13,7 @@ const SUITES = [
   'verify-config-edit.js',
   'verify-predictions.js',
   'verify-agent-security-event-integrity.js',
+  'verify-overlay.js',
 ];
 
 let failures = 0;
