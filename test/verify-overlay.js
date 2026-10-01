@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Verify suite for --overlay: experimental claims change nothing, validated claims add inferred permissions with provenance. */
+/** Verify suite for --overlay: experimental claims change nothing, validated claims add inferred permissions with provenance, and two validated claims compose into an exposure path with no engine change. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -99,6 +99,18 @@ function scanWith(root, name, overlayClaims) {
   ok('permission source id carries the claim id', added && added.source.id === 'overlay-claim:claim-ledger-read');
   ok('applied diagnostics list the claim', one.exported.diagnostics.applied.some(a => a.claimId === 'claim-ledger-read' && a.server === 'ledger'));
   ok('one validated claim alone yields no EP-A', !one.exported.exposurePaths.some(p => p.templateId === 'EP-A'));
+
+  section('Composition: two validated claims produce EP-A with both claim ids as evidence');
+  const both = scanWith(root, 'both', [READ_CLAIM, API_CLAIM, SHELL_SHADOW]);
+  const epA = both.exported.exposurePaths.find(p => p.templateId === 'EP-A');
+  ok('EP-A path exists', !!epA);
+  const evidenceIds = epA ? epA.evidence.map(e => e.id) : [];
+  ok('EP-A evidence cites the read_files claim', evidenceIds.includes('overlay-claim:claim-ledger-read'));
+  ok('EP-A evidence cites the call_external_api claim', evidenceIds.includes('overlay-claim:claim-relay-api'));
+  ok('EP-A evidence classes are all inferred', epA && epA.edges.every(e => e.evidenceClass === 'inferred'));
+  ok('the experimental claim still only appears in shadow', both.exported.diagnostics.shadow.length === 1 && !both.exported.inventory.real.permissions.some(p => p.normalizedCategory === 'run_shell_commands'));
+  const rerun = scanWith(root, 'both2', [READ_CLAIM, API_CLAIM, SHELL_SHADOW]);
+  ok('composition is deterministic across runs', JSON.stringify(rerun.exported.exposurePaths.map(p => p.id).sort()) === JSON.stringify(both.exported.exposurePaths.map(p => p.id).sort()));
 
   section('Bad overlay input');
   fs.writeFileSync(path.join(root, 'broken.json'), '{ nope');
