@@ -1,0 +1,2048 @@
+[
+  {
+    "name": "@11ty/eleventy-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@a2a-js/sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@adcp/sdk",
+    "version": "14.0.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@adonisjs/http-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@agent-monitor/cli",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@agentskit/tools",
+    "version": "0.13.12",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@ai-sdk/mcp",
+    "version": "2.0.66",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@ai-sdk/rsc",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@alcyone-labs/modelcontextprotocol-sdk",
+    "version": "1.16.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@allurereport/plugin-server-reload",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@allurereport/static-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@angular-builders/dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@angular-devkit/build-webpack",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@anthropic-ai/claude-agent-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@anvilco/apollo-server-plugin-introspection-metadata",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apollo/gateway",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apollo/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apollo/server-gateway-interface",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apollo/server-integration-testsuite",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apollographql/graphql-playground-html",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apollographql/graphql-upload-8-fork",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@apple/app-store-server-library",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@as-integrations/azure-functions",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@as-integrations/express4",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@as-integrations/express5",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@as-integrations/fastify",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@as-integrations/koa",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@assistant-ui/react",
+    "version": "0.15.22",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@astrojs/language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@atrvd/onsteroids",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@automatalabs/workflows",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@better-auth/cimd",
+    "version": "1.7.7",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@better-auth/mcp",
+    "version": "1.7.7",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@blaxel/telemetry",
+    "version": "0.3.25",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@bmatei/apollo-prometheus-exporter",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@boringnode/transmit",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@callstack/repack-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@cap.js/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@claude-flow/mcp",
+    "version": "3.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@claude-flow/neural",
+    "version": "3.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@cloudflare/workerd-linux-64",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@compodoc/live-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@comunica/actor-rdf-metadata-extract-server-software",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@cyborgtests/reporter",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@datadog/openfeature-node-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@deepseek-ai/dsh-sdk-protocol",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@depup/angular__cli",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@devcycle/nestjs-server-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@devcycle/nodejs-server-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@devframes/plugin-code-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@dr.pogodin/react-native-static-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@durable-streams/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@earendil-works/pi-mcp",
+    "version": "1.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@earendil-works/pi-protocol",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@earendil-works/pi-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@ebarooni/capacitor-calendar",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@electric-sql/pglite-socket",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@elysiajs/server-timing",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@emotion/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@epic-web/test-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@expo/dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@expo/router-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@expressots/adapter-express",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@expressots/core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@featbit/node-server-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@flmngr/flmngr-angular",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@flmngr/flmngr-react",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@flmngr/flmngr-server-node",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@flmngr/flmngr-server-node-express",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@flmngr/flmngr-server-node-nest-express",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@foro-sh/foro",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@foxglove/xmlrpc",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@gafj/gafj",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@github/copilot-language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@github/mcp-registry",
+    "version": "0.1.7",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@gleanwork/mcp-config-glean",
+    "version": "5.4.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@gleanwork/mcp-config-schema",
+    "version": "5.4.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@google-cloud/firestore",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@google/stitch-sdk",
+    "version": "0.3.5",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@gquittet/graceful-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@graphql-yoga/nestjs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@graphql-yoga/nestjs-federation",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@grpc/grpc-js",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@grpc/reflection",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hapi/glue",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hapi/shot",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@heroiclabs/nakama-js",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hocuspocus/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hono/node-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hono/node-ws",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hono/trpc-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@httptoolkit/subscriptions-transport-ws",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@hypequery/datasets",
+    "version": "0.20.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@intlify/vue-i18n-extensions",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@koishijs/plugin-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@kybernesis/arcana",
+    "version": "0.5.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@launchdarkly/js-server-sdk-common",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@launchdarkly/node-server-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@launchdarkly/node-server-sdk-redis",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@launchdarkly/openfeature-js-server-common",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@launchdarkly/openfeature-node-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@lingui/react",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@logux/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@loongsuite/cms_instrumentations",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@lovable.dev/vite-plugin-dev-server-bridge",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@lushly-dev/afd-client",
+    "version": "1.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@lushly-dev/afd-core",
+    "version": "1.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@lushly-dev/afd-testing",
+    "version": "1.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@lvce-editor/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@lvce-editor/static-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@lvce-editor/web-socket-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@lwc/engine-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mapbox/whoots-js",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mcp-b/webmcp-ts-sdk",
+    "version": "5.1.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@mcp-use/inspector",
+    "version": "20.3.14",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@mcp-use/modelcontextprotocol-sdk",
+    "version": "1.24.3-mcp-use.4",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@mcpc-tech/core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mcpjam/sdk",
+    "version": "8.20.1",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@mediabunny/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@metronome/sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@microsoft/fetch-event-source",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mistralai/mistralai",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mjackson/node-fetch-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mocky-balboa/client",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mocky-balboa/next-js",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mocky-balboa/playwright",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mocky-balboa/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@modelcontextprotocol/client",
+    "version": "2.2.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/conformance",
+    "version": "0.1.16",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/core",
+    "version": "2.2.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/express",
+    "version": "2.0.1",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/ext-apps",
+    "version": "2.0.3",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/ext-tasks",
+    "version": "0.2.2",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/fastify",
+    "version": "2.0.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/hono",
+    "version": "2.0.1",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/inspector",
+    "version": "2.9.0",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/node",
+    "version": "2.1.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/sdk",
+    "version": "1.31.0",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "@modelcontextprotocol/server",
+    "version": "2.2.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@moebius/http-graceful-shutdown",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mondaydotcomorg/atp-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@mongodb-js/mcp-atlas-api-client",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-atlas-telemetry",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-fetch",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-logging",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-setup",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-tools-assistant",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-tools-atlas",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-tools-atlas-local",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-tools-mongodb",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mongodb-js/mcp-types",
+    "version": "3.0.5",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@mongodb-js/mcp-ui",
+    "version": "3.0.5",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mui/x-agent-tools",
+    "version": "0.1.6",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@mux/mux-node",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@netlify/local-functions-proxy",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@netlify/local-functions-proxy-linux-x64",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@nimit9/signet-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@nitrostack/widgets",
+    "version": "1.0.10",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@node-oauth/express-oauth-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@node-oauth/oauth2-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@octocodeai/octocode-engine",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@octocodeai/octocode-tools-core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@olaservo/ext-skills",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@open-draft/test-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@open-wc/dev-server-hmr",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@openapitools/openapi-generator-cli",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@openfeature/core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@openfeature/nestjs-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@opentiny/next",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@orpc/standard-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@orpc/standard-server-aws-lambda",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@orpc/standard-server-fastify",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@orpc/standard-server-fetch",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@orpc/standard-server-node",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@orpc/standard-server-peer",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@parse/fs-files-adapter",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@parse/push-adapter",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@parse/s3-files-adapter",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@pascal-app/lingo",
+    "version": "0.5.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@pixpilot/agent-config-sync",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@pnpm/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@pollyjs/node-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@pondwader/socks5-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@posthog/openfeature-node-provider",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@prisma/language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@prisma/streams-local",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@react-email/ui",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@reactuses/core",
+    "version": "6.5.9",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@redocly/mcp-typescript-sdk",
+    "version": "1.18.1",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@remcovaes/web-test-runner-vite-plugin",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@remix-run/node-fetch-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@remix-run/server-runtime",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@remotion/studio-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@reticlehq/browser",
+    "version": "3.4.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@reticlehq/core",
+    "version": "3.4.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@reticlehq/react",
+    "version": "3.4.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@rspack/cli",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@rspack/dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@salesforce/sfdx-agent-harness-openai",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@salesforce/soql-language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@sap-ux/fiori-docs-embeddings",
+    "version": "1.2.7",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@sentry-internal/server-utils",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@sentry/server-runtime-injection",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@sentry/server-utils",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@server-sent-stream/parser",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@shopify/storefront-api-client",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@simplewebauthn/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@slashfi/agents-sdk",
+    "version": "0.91.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@stacksjs/ai",
+    "version": "0.75.37",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@stacksjs/mail",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@stacksjs/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/aws-lambda",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/fastify",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/fetch",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/node",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/peer",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@standard-server/shared",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@stdy/cli",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@storybook/addon-mcp",
+    "version": "10.6.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@storybook/mcp",
+    "version": "10.6.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@storybook/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@storybook/server-webpack5",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@subsquid/apollo-server-core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@subsquid/apollo-server-express",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@supabase/ssr",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@svta/cml-cmsd",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@symbiotejs/symbiote",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@tanstack/devtools-event-bus",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@tanstack/react-start-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@tanstack/start-server-core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@techteamer/ocsp",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@traceloop/instrumentation-mcp",
+    "version": "0.27.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@trpc/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@turnkey/sdk-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@tus/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@types/oauth2-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@types/sockjs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@ui5/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@umbrelladocs/linkspector",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@unlighthouse/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@use-voltra/android-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@use-voltra/ios-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@use-voltra/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@usenotra/geo",
+    "version": "0.5.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "@vercel/connect",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@vitejs/plugin-rsc",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@vue/server-renderer",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@warmhub/sdk-ts",
+    "version": "0.139.0",
+    "reason": "name pattern: tooling, not a server"
+  },
+  {
+    "name": "@wdio/appium-service",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@wdio/static-server-service",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server-core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server-esbuild",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server-import-maps",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server-legacy",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server-rollup",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@web/dev-server-storybook",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@webpack-cli/serve",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@whatwg-node/server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@wordpress/server-side-render",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@yume-chan/adb-server-node-tcp",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "@zed-industries/vscode-langservers-extracted",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "aamio-wasm",
+    "version": "0.1.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "acpus",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "adonisjs-server-stats",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "aedes-server-factory",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ai",
+    "version": "7.0.127",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "angular-http-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "apollo-server-testing",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "app-store-server-api",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "appium-uiautomator2-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "async-listen",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "babel-plugin-styled-components",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "babel-preset-expo",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "bash-language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "better-sse",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "blocknote-layout-server-utils",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "blueimp-md5",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "caprover",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ci-info",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "convex-mcp-gateway",
+    "version": "2.1.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "corsair",
+    "version": "0.1.138",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "create-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "cypress-rspack-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "destroyable-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "dockerfile-language-server-nodejs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "docusaurus-plugin-copy-page-button",
+    "version": "0.8.4",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "engine.io",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "env-runner",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "es-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "esmoduleserve",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "event-source-polyfill",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "eventsource",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "eventsource-client",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "eventsource-encoder",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "eventsource-parser",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "eventsource-polyfill",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "expo-http-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "expo-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "expo-server-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "expo-updates",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "extended-eventsource",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "faktory-worker",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "faye-websocket",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "fetch-event-stream",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "firebase-tools",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "five-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "flmngr",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "gamedig",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "gcp-metadata",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "google-auth-library",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graceful-cluster",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-helix",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-http",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-language-service",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-language-service-cli",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-language-service-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-sse",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-upload",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-upload-ts",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-ws",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "graphql-yoga",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "grunt-contrib-connect",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "grunt-express-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "Haraka",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "hexo-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "http-proxy",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "http-proxy-agent",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "http-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "http-signature",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "http-terminator",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "https-localhost",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "https-proxy-agent",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "image-ssim",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "inferno-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "intersession",
+    "version": "0.0.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "ioredis-mock",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "is-ci",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "isomorphic-dompurify",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "jest-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "json-rpc-2.0",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "json-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "killable",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "kubernetes-mcp-server-linux-amd64",
+    "version": "0.0.67",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "langium",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "light-my-request",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "light-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "lil-http-terminator",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "lite-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "little-api",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "live-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "livekit-server-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "livereload-js",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "local-web-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "lws",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "lws-static",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "lz-string",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "matrix-js-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mcp-framework",
+    "version": "0.2.22",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "mcp-from-openapi",
+    "version": "2.8.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "mcp-lite",
+    "version": "0.10.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "mcp-proxy",
+    "version": "6.7.19",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "mcp-remote",
+    "version": "0.14.3",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "mcp-use",
+    "version": "2.7.2",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "mcporter",
+    "version": "0.14.2",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "miragejs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mixpanel",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mock-json-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mockserver-client",
+    "version": "8.0.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "mockttp",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mongodb-memory-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mongodb-memory-server-core",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mqtt-connection",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mssql",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "msw",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "mutation-server-protocol",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "my-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nestjs-graceful-shutdown",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "next-client-cookies",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "next-i18next",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "next-safe-action",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nice-grpc",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nice-grpc-common",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nice-grpc-server-reflection",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nise",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nitro",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "nitro-nightly",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "node-http2",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "node-media-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "node-static",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "oauth2-mock-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "oauth2-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "odata-v4-inmemory",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "office-addin-dev-certs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "oidc-provider",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "openapi-server-url-templating",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "parse-server-api-mail-adapter",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "partyserver",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "pg-connection-string",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "pg-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "pm2-axon-rpc",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "policyfile",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "polotno",
+    "version": "4.15.1",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "proxy",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "proxy-chain",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "pushstate-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "razzle-start-server-webpack-plugin",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "react-dom",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "react-loadable-ssr-addon-v5-slorber",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "react-native-sse",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "react-native-tcp-socket",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "react-relay-network-modern-ssr",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "react-server-dom-webpack",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "read-tls-client-hello",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "redis-memory-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "redis-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "remix-utils",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "retell-sdk",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "rpc-websockets",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "rsc-env",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "s3rver",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "scenario-mock-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "selenium-server-standalone-jar",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "serve-handler",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "server-cli-only",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "server-destroy",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "server-timing",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "server-with-kill",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "servor",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "simple-odata-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "slack-mcp-server-linux-amd64",
+    "version": "1.3.0",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "soap",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "sockjs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "split-ca",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "srvx",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "sse",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ssh2",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ssh2-streams",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "start-server-and-test",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "start-server-webpack-plugin",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "static-browser-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "static-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "statsig-node",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "statsig-node-lite",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "stipend",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "stoppable",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "supergateway",
+    "version": "4.1.0",
+    "reason": "denylist: tooling, not a server"
+  },
+  {
+    "name": "superstatic",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "svelte-language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "tedious",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "telnyx",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "thalamus",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "tiny-stdio-mcp-server",
+    "version": "0.1.32",
+    "reason": "no bin and no MCP SDK dependency"
+  },
+  {
+    "name": "toad-cache",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "topojson-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ts-migrate-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ts-sse",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "tunnel-ssh",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "typescript-language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "typesense",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "unhead",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "unix-dgram",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "use-ssr",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "validator",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "visual-memory-context-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vite",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vite-env-only",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vite-plugin-fake-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vite-plugin-mock-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vscode-langservers-extracted",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vscode-languageclient",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vscode-languageserver",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vscode-languageserver-protocol",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vscode-languageserver-textdocument",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vscode-languageserver-types",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "vue-server-renderer",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "watchify-middleware",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "webdav-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "webdriver-manager",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "webpack-dev-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "webpack-hot-middleware",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "websocket",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "websocket-driver",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "workerd",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "write-file-webpack-plugin",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "ws",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "xrs",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "y-websocket",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  },
+  {
+    "name": "yaml-language-server",
+    "reason": "search noise: no MCP marker in name, description, or keywords"
+  }
+]

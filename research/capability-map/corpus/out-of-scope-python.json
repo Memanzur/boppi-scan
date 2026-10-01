@@ -1,0 +1,283 @@
+[
+  {
+    "name": "eve",
+    "version": "0.69.0",
+    "markers": [
+      "spawns a Python tool in dist/src/extensions/code/extension/lib/diagnostics.js"
+    ]
+  },
+  {
+    "name": "@modelcontextprotocol/server-everything",
+    "version": "2026.8.31",
+    "markers": [
+      "spawns a Python tool in dist/tools/simulate-research-query.js"
+    ]
+  },
+  {
+    "name": "@raishin/vanguard-frontier-agentic",
+    "version": "3.14.0",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in scripts/generate-docs-data.mjs"
+    ]
+  },
+  {
+    "name": "@wonderwhy-er/desktop-commander",
+    "version": "0.2.52",
+    "markers": [
+      "spawns a Python tool in dist/ui/file-preview/src/components/code-viewer.js"
+    ]
+  },
+  {
+    "name": "agent-device",
+    "version": "0.21.19",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in dist/src/snapshot3.js"
+    ]
+  },
+  {
+    "name": "agentdb",
+    "version": "3.0.0-alpha.20",
+    "markers": [
+      "spawns a Python tool in dist/src/cli/commands/install-embeddings.js"
+    ]
+  },
+  {
+    "name": "n8n-mcp",
+    "version": "2.91.0",
+    "markers": [
+      "spawns a Python tool in dist/utils/template-node-resolver.js"
+    ]
+  },
+  {
+    "name": "ruvector",
+    "version": "0.3.3",
+    "markers": [
+      "spawns a Python tool in dist/analysis/patterns.js"
+    ]
+  },
+  {
+    "name": "agentic-flow",
+    "version": "2.1.3",
+    "markers": [
+      "spawns a Python tool in dist/cli/mcp-manager.js"
+    ]
+  },
+  {
+    "name": "blume",
+    "version": "2.1.0",
+    "markers": [
+      "spawns a Python tool in skills/blume-migrate/scripts/mintlify-codemod.mjs"
+    ]
+  },
+  {
+    "name": "@turbopuffer/turbopuffer-mcp",
+    "version": "2.7.0",
+    "markers": [
+      "spawns a Python tool in docs-search-tool.js"
+    ]
+  },
+  {
+    "name": "gitnexus",
+    "version": "1.6.12",
+    "markers": [
+      "spawns a Python tool in dist/_shared/language-detection.js"
+    ]
+  },
+  {
+    "name": "easy-skills",
+    "version": "1.3.0",
+    "markers": [
+      "spawns a Python tool in dist/utils/templates.js"
+    ]
+  },
+  {
+    "name": "@bike4mind/cli",
+    "version": "1.2.0",
+    "markers": [
+      "spawns a Python tool in dist/bashExecute-CrdPpBqk-DCATrE-D.mjs"
+    ]
+  },
+  {
+    "name": "@tobilu/qmd",
+    "version": "2.8.3",
+    "markers": [
+      "spawns a Python tool in dist/ast.js"
+    ]
+  },
+  {
+    "name": "@blackwell-systems/gcf",
+    "version": "2.6.1",
+    "markers": [
+      "spawns a Python tool in dist/generic_delta.js"
+    ]
+  },
+  {
+    "name": "comfyui-mcp",
+    "version": "0.52.204",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in dist/services/install-comfyui.js"
+    ]
+  },
+  {
+    "name": "@claude-flow/cli",
+    "version": "3.49.0",
+    "markers": [
+      "spawns a Python tool in dist/src/benchmarks/gaia-tools/file_read.js"
+    ]
+  },
+  {
+    "name": "decocms",
+    "version": "4.427.15",
+    "markers": [
+      "spawns a Python tool in dist/client/assets/utils-DgskmxD0.js"
+    ]
+  },
+  {
+    "name": "metaharness",
+    "version": "0.4.17",
+    "markers": [
+      "spawns a Python tool in dist/analyze-repo.js"
+    ]
+  },
+  {
+    "name": "@metamask/device-mcp",
+    "version": "0.4.2",
+    "markers": [
+      "spawns a Python tool in dist/utils/platform.cjs"
+    ]
+  },
+  {
+    "name": "n8n-nodes-mcp",
+    "version": "0.1.37",
+    "markers": [
+      "spawns a Python tool in dist/credentials/McpClientApi.credentials.js"
+    ]
+  },
+  {
+    "name": "@apify/actors-mcp-server",
+    "version": "0.17.1",
+    "markers": [
+      "spawns a Python tool in dist/test_kit/cases/apps.cases.js"
+    ]
+  },
+  {
+    "name": "context-mode",
+    "version": "1.0.169",
+    "markers": [
+      "spawns a Python tool in build/session/error-classifier.js"
+    ]
+  },
+  {
+    "name": "@browserstack/mcp-server",
+    "version": "2.1.0",
+    "markers": [
+      "spawns a Python tool in dist/tools/appautomate-utils/appium-sdk/instructions.js"
+    ]
+  },
+  {
+    "name": "agent-afk",
+    "version": "5.282.1",
+    "markers": [
+      "spawns a Python tool in dist/web-ui-assets/assets/andromeeda-C4gqWexZ.js"
+    ]
+  },
+  {
+    "name": "@inkeep/open-knowledge",
+    "version": "0.79.13",
+    "markers": [
+      "spawns a Python tool in dist/public/assets/andromeeda-DqAWEecQ.js"
+    ]
+  },
+  {
+    "name": "paqad-ai",
+    "version": "1.95.0",
+    "markers": [
+      "spawns a Python tool in runtime/hooks/silent-update.mjs"
+    ]
+  },
+  {
+    "name": "veryfront",
+    "version": "0.1.1269",
+    "markers": [
+      "spawns a Python tool in esm/src/agent/hosted/child-fork-instructions.js"
+    ]
+  },
+  {
+    "name": "claude-flow",
+    "version": "3.49.0",
+    "markers": [
+      "spawns a Python tool in v3/@claude-flow/cli/dist/src/benchmarks/gaia-tools/file_read.js"
+    ]
+  },
+  {
+    "name": "davinci-resolve-mcp",
+    "version": "4.8.26",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in resolve-advanced/server/aaf.mjs"
+    ]
+  },
+  {
+    "name": "claude-mem",
+    "version": "13.28.0",
+    "markers": [
+      "python files in tarball"
+    ]
+  },
+  {
+    "name": "nexus-agents",
+    "version": "8.126.0",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in dist/chunk-4GDMHCKX.js"
+    ]
+  },
+  {
+    "name": "alvin-bot",
+    "version": "5.156.1",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in dist/services/cron-shell-auto-fix.js"
+    ]
+  },
+  {
+    "name": "instar",
+    "version": "1.3.1312",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in dist/commands/relationship.js"
+    ]
+  },
+  {
+    "name": "@z_ai/mcp-server",
+    "version": "0.1.5",
+    "markers": [
+      "spawns a Python tool in build/prompts/text-extraction.js"
+    ]
+  },
+  {
+    "name": "@testsprite/testsprite-mcp",
+    "version": "0.0.46",
+    "markers": [
+      "spawns a Python tool in dist/assets/modification/assets/python-W8gbAJyn.js"
+    ]
+  },
+  {
+    "name": "aiwg",
+    "version": "2026.9.24",
+    "markers": [
+      "python files in tarball",
+      "spawns a Python tool in agentic/code/addons/testing-quality/lib/profiles.mjs"
+    ]
+  },
+  {
+    "name": "@smartbear/mcp",
+    "version": "0.41.3",
+    "markers": [
+      "spawns a Python tool in dist/pactflow/client/ai.js"
+    ]
+  }
+]
