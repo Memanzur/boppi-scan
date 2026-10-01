@@ -63,15 +63,22 @@
     }
     fail(`${path} contains an unsupported value`);
   }
+  // Array order is identity: an edge from A to B is not the edge from B to A.
   function canonical(value) {
-    if (Array.isArray(value)) return `[${value.map(canonical).sort().join(',')}]`;
+    if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
     if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(k => `${k}:${canonical(value[k])}`).join('|')}}`;
     return JSON.stringify(value ?? null);
   }
-  function hash(value) {
-    let h = 2166136261;
-    for (const ch of String(value)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  function fnv1a32(text, offset) {
+    let h = offset;
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
     return (h >>> 0).toString(16).padStart(8, '0');
+  }
+  // Two independent 32-bit FNV-1a passes give 64 bits without BigInt, so the
+  // same function runs in the extension and in Node.
+  function hash(value) {
+    const text = String(value);
+    return fnv1a32(text, 2166136261) + fnv1a32(text, 0x811c9dc5 ^ 0x5bd1e995);
   }
   function stableId(kind, identity) { return `${kind}_${hash(`${kind}:${canonical(identity)}`)}`; }
   function source(input) {
