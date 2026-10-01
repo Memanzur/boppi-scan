@@ -1,0 +1,1268 @@
+{
+  "corpusBuiltAt": "2026-10-01T20:27:45.398Z",
+  "packages": [
+    {
+      "name": "claude-cup",
+      "version": "0.9.12",
+      "categories": {}
+    },
+    {
+      "name": "agent-install",
+      "version": "0.0.8",
+      "categories": {}
+    },
+    {
+      "name": "@orval/mcp",
+      "version": "8.39.0",
+      "categories": {}
+    },
+    {
+      "name": "chrome-devtools-mcp",
+      "version": "1.10.1",
+      "categories": {
+        "browser_automation": [
+          {
+            "label": "browser automation server",
+            "matched": "chrome-devtools"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "browser automation server",
+            "matched": "chrome-devtools"
+          }
+        ],
+        "call_external_api": [
+          {
+            "label": "browser automation server",
+            "matched": "chrome-devtools"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@copilotkit/aimock",
+      "version": "1.43.0",
+      "categories": {}
+    },
+    {
+      "name": "fallow",
+      "version": "3.31.0",
+      "categories": {}
+    },
+    {
+      "name": "mcp-handler",
+      "version": "2.2.0",
+      "categories": {}
+    },
+    {
+      "name": "eve",
+      "version": "0.69.0",
+      "categories": {}
+    },
+    {
+      "name": "@upstash/context7-mcp",
+      "version": "4.1.1",
+      "categories": {}
+    },
+    {
+      "name": "@modelcontextprotocol/server-filesystem",
+      "version": "2026.8.31",
+      "categories": {
+        "read_files": [
+          {
+            "label": "file access server",
+            "matched": "filesystem"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@modelcontextprotocol/server-pdf",
+      "version": "2.0.3",
+      "categories": {}
+    },
+    {
+      "name": "@deepseek-ai/dsh-mcp-client",
+      "version": "0.0.1-rc.1",
+      "categories": {}
+    },
+    {
+      "name": "@hono/mcp",
+      "version": "0.3.2",
+      "categories": {}
+    },
+    {
+      "name": "@ag-ui/mcp-apps-middleware",
+      "version": "0.1.1",
+      "categories": {}
+    },
+    {
+      "name": "pi-mcp-adapter",
+      "version": "4.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@mcp-ui/client",
+      "version": "7.1.1",
+      "categories": {}
+    },
+    {
+      "name": "@modelcontextprotocol/server-everything",
+      "version": "2026.8.31",
+      "categories": {}
+    },
+    {
+      "name": "@langchain/mcp-adapters",
+      "version": "2.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@lovable.dev/mcp-js",
+      "version": "3.0.4",
+      "categories": {}
+    },
+    {
+      "name": "@blaxel/core",
+      "version": "0.3.25",
+      "categories": {}
+    },
+    {
+      "name": "@rekog/mcp-nest",
+      "version": "2.0.7",
+      "categories": {}
+    },
+    {
+      "name": "@posthog/mcp",
+      "version": "0.21.2",
+      "categories": {}
+    },
+    {
+      "name": "@pandacss/mcp",
+      "version": "2.0.1",
+      "categories": {}
+    },
+    {
+      "name": "@raishin/vanguard-frontier-agentic",
+      "version": "3.14.0",
+      "categories": {}
+    },
+    {
+      "name": "@wonderwhy-er/desktop-commander",
+      "version": "0.2.52",
+      "categories": {
+        "run_shell_commands": [
+          {
+            "label": "shell or command server",
+            "matched": "desktop-commander"
+          }
+        ]
+      }
+    },
+    {
+      "name": "agent-device",
+      "version": "0.21.19",
+      "categories": {}
+    },
+    {
+      "name": "@notionhq/notion-mcp-server",
+      "version": "2.5.2",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "notion"
+          }
+        ]
+      }
+    },
+    {
+      "name": "hostinger-api-mcp",
+      "version": "2.7.0",
+      "categories": {}
+    },
+    {
+      "name": "@clerk/mcp-tools",
+      "version": "0.6.0",
+      "categories": {}
+    },
+    {
+      "name": "add-mcp",
+      "version": "2.4.1",
+      "categories": {}
+    },
+    {
+      "name": "@modelcontextprotocol/server-sequential-thinking",
+      "version": "2026.8.31",
+      "categories": {}
+    },
+    {
+      "name": "@modelcontextprotocol/server-memory",
+      "version": "2026.8.31",
+      "categories": {}
+    },
+    {
+      "name": "@azure/mcp",
+      "version": "3.0.0-beta.48",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "azure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@azure-devops/mcp",
+      "version": "2.10.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "azure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@zereight/mcp-gitlab",
+      "version": "2.1.67",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "gitlab"
+          }
+        ]
+      }
+    },
+    {
+      "name": "clerk",
+      "version": "3.4.0",
+      "categories": {}
+    },
+    {
+      "name": "@sentry/mcp-server",
+      "version": "0.42.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "sentry"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@payloadcms/plugin-mcp",
+      "version": "3.90.2",
+      "categories": {}
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "version": "18.4.9",
+      "categories": {}
+    },
+    {
+      "name": "agentdb",
+      "version": "3.0.0-alpha.20",
+      "categories": {}
+    },
+    {
+      "name": "n8n-mcp",
+      "version": "2.91.0",
+      "categories": {}
+    },
+    {
+      "name": "next-devtools-mcp",
+      "version": "0.4.0",
+      "categories": {}
+    },
+    {
+      "name": "ruvector",
+      "version": "0.3.3",
+      "categories": {}
+    },
+    {
+      "name": "agentic-flow",
+      "version": "2.1.3",
+      "categories": {}
+    },
+    {
+      "name": "@ui5/mcp-server",
+      "version": "0.3.1",
+      "categories": {}
+    },
+    {
+      "name": "@sap-ux/fiori-mcp-server",
+      "version": "1.15.0",
+      "categories": {}
+    },
+    {
+      "name": "@swmansion/argent",
+      "version": "0.26.0",
+      "categories": {}
+    },
+    {
+      "name": "blume",
+      "version": "2.1.0",
+      "categories": {}
+    },
+    {
+      "name": "firecrawl-mcp",
+      "version": "3.27.2",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "web fetch or search server",
+            "matched": "firecrawl"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "web fetch or search server",
+            "matched": "firecrawl"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@devframes/agentic",
+      "version": "1.1.0",
+      "categories": {}
+    },
+    {
+      "name": "figma-developer-mcp",
+      "version": "0.13.2",
+      "categories": {}
+    },
+    {
+      "name": "nx-mcp",
+      "version": "0.25.0",
+      "categories": {}
+    },
+    {
+      "name": "xcodebuildmcp",
+      "version": "2.7.0",
+      "categories": {}
+    },
+    {
+      "name": "@mcp-b/transports",
+      "version": "5.1.0",
+      "categories": {}
+    },
+    {
+      "name": "agnost",
+      "version": "0.2.1",
+      "categories": {}
+    },
+    {
+      "name": "@mcp-b/global",
+      "version": "5.1.0",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp",
+      "version": "1.6.0",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-consent",
+      "version": "1.3.0",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-admin",
+      "version": "1.1.3",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-assessment",
+      "version": "2.1.13",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-preferences",
+      "version": "0.7.20",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-inventory",
+      "version": "1.0.16",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-workflows",
+      "version": "1.0.16",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-discovery",
+      "version": "1.0.16",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-dsr",
+      "version": "2.0.13",
+      "categories": {}
+    },
+    {
+      "name": "exa-mcp-server",
+      "version": "3.4.1",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "web fetch or search server",
+            "matched": "exa-mcp"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "web fetch or search server",
+            "matched": "exa-mcp"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@azure/mcp-win32-x64",
+      "version": "3.0.0-beta.48",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "azure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@serdnaley/metabase-mcp",
+      "version": "0.2.0",
+      "categories": {}
+    },
+    {
+      "name": "@turbopuffer/turbopuffer-mcp",
+      "version": "2.7.0",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-base",
+      "version": "2.5.4",
+      "categories": {}
+    },
+    {
+      "name": "hevy-mcp",
+      "version": "6.1.18",
+      "categories": {}
+    },
+    {
+      "name": "@launchdarkly/mcp-server",
+      "version": "0.6.2",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-docs",
+      "version": "0.4.15",
+      "categories": {}
+    },
+    {
+      "name": "@azure/mcp-linux-x64",
+      "version": "3.0.0-beta.48",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "azure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cap-js/mcp-server",
+      "version": "0.0.6",
+      "categories": {}
+    },
+    {
+      "name": "gitnexus",
+      "version": "1.6.12",
+      "categories": {}
+    },
+    {
+      "name": "scryfall-mcp-server",
+      "version": "0.1.1",
+      "categories": {}
+    },
+    {
+      "name": "@shopify/dev-mcp",
+      "version": "1.16.0",
+      "categories": {}
+    },
+    {
+      "name": "easy-skills",
+      "version": "1.3.0",
+      "categories": {}
+    },
+    {
+      "name": "@bike4mind/cli",
+      "version": "1.2.0",
+      "categories": {}
+    },
+    {
+      "name": "@tobilu/qmd",
+      "version": "2.8.3",
+      "categories": {}
+    },
+    {
+      "name": "mcp-evals",
+      "version": "2.0.1",
+      "categories": {}
+    },
+    {
+      "name": "ruflo",
+      "version": "3.49.0",
+      "categories": {}
+    },
+    {
+      "name": "@blackwell-systems/gcf",
+      "version": "2.6.1",
+      "categories": {}
+    },
+    {
+      "name": "comfyui-mcp",
+      "version": "0.52.204",
+      "categories": {}
+    },
+    {
+      "name": "@claude-flow/cli-core",
+      "version": "3.7.0",
+      "categories": {}
+    },
+    {
+      "name": "@tanstack/ai-mcp",
+      "version": "0.6.0",
+      "categories": {}
+    },
+    {
+      "name": "openinputbridge-mcp",
+      "version": "0.1.1",
+      "categories": {}
+    },
+    {
+      "name": "mcp-hello-world",
+      "version": "1.1.2",
+      "categories": {}
+    },
+    {
+      "name": "@claude-flow/cli",
+      "version": "3.49.0",
+      "categories": {}
+    },
+    {
+      "name": "@softeria/ms-365-mcp-server",
+      "version": "0.157.2",
+      "categories": {}
+    },
+    {
+      "name": "decocms",
+      "version": "4.427.15",
+      "categories": {}
+    },
+    {
+      "name": "@currents/mcp",
+      "version": "2.6.1",
+      "categories": {}
+    },
+    {
+      "name": "@wong2/mcp-cli",
+      "version": "2.0.0",
+      "categories": {}
+    },
+    {
+      "name": "endform",
+      "version": "0.81.3",
+      "categories": {}
+    },
+    {
+      "name": "@bytebase/dbhub",
+      "version": "1.4.0",
+      "categories": {}
+    },
+    {
+      "name": "@n8n/mcp-apps",
+      "version": "0.18.3",
+      "categories": {}
+    },
+    {
+      "name": "@hasna/todos",
+      "version": "0.17.2",
+      "categories": {}
+    },
+    {
+      "name": "@salesforce/mcp",
+      "version": "0.30.15",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "salesforce"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ctx7",
+      "version": "0.5.12",
+      "categories": {}
+    },
+    {
+      "name": "@google-cloud/observability-mcp",
+      "version": "0.2.3",
+      "categories": {}
+    },
+    {
+      "name": "hono-mcp-server-sse-transport",
+      "version": "0.0.7",
+      "categories": {}
+    },
+    {
+      "name": "metaharness",
+      "version": "0.4.17",
+      "categories": {}
+    },
+    {
+      "name": "@ericthered926/duckduckgo-mcp-server",
+      "version": "0.6.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "web fetch or search server",
+            "matched": "duckduckgo"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "web fetch or search server",
+            "matched": "duckduckgo"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@metamask/device-mcp",
+      "version": "0.4.2",
+      "categories": {}
+    },
+    {
+      "name": "@aikidosec/mcp",
+      "version": "1.0.25",
+      "categories": {}
+    },
+    {
+      "name": "@copilotkit/mcp-apps-renderer",
+      "version": "1.76.0",
+      "categories": {}
+    },
+    {
+      "name": "@perplexity-ai/mcp-server",
+      "version": "1.3.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "web fetch or search server",
+            "matched": "perplexity"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "web fetch or search server",
+            "matched": "perplexity"
+          }
+        ]
+      }
+    },
+    {
+      "name": "pi-mcp-extension",
+      "version": "1.5.0",
+      "categories": {}
+    },
+    {
+      "name": "@mastra/mcp-docs-server",
+      "version": "1.3.4",
+      "categories": {}
+    },
+    {
+      "name": "@kubb/mcp",
+      "version": "5.4.2",
+      "categories": {}
+    },
+    {
+      "name": "creem",
+      "version": "1.13.0",
+      "categories": {}
+    },
+    {
+      "name": "@hasna/conversations",
+      "version": "0.10.0",
+      "categories": {}
+    },
+    {
+      "name": "@azure/mcp-darwin-arm64",
+      "version": "3.0.0-beta.48",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "azure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@netlify/mcp",
+      "version": "1.17.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "netlify"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@mcp-use/cli",
+      "version": "4.2.0",
+      "categories": {}
+    },
+    {
+      "name": "critical",
+      "version": "9.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@nitrostack/core",
+      "version": "1.0.17",
+      "categories": {}
+    },
+    {
+      "name": "@21st-dev/magic",
+      "version": "0.2.3",
+      "categories": {}
+    },
+    {
+      "name": "@cloudbase/cloudbase-mcp",
+      "version": "2.34.8",
+      "categories": {}
+    },
+    {
+      "name": "slack-mcp-server",
+      "version": "1.3.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "slack"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@hasna/skills",
+      "version": "0.10.19",
+      "categories": {}
+    },
+    {
+      "name": "@mongodb-js/mcp-core",
+      "version": "3.0.5",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "mongodb"
+          }
+        ]
+      }
+    },
+    {
+      "name": "n8n-nodes-mcp",
+      "version": "0.1.37",
+      "categories": {}
+    },
+    {
+      "name": "@hubspot/mcp-server",
+      "version": "0.4.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "hubspot"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@google-cloud/storage-mcp",
+      "version": "0.6.0",
+      "categories": {}
+    },
+    {
+      "name": "@tacticlaunch/mcp-linear",
+      "version": "1.4.3",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "linear"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@winor30/mcp-server-datadog",
+      "version": "1.8.0",
+      "categories": {}
+    },
+    {
+      "name": "@apify/actors-mcp-server",
+      "version": "0.17.1",
+      "categories": {}
+    },
+    {
+      "name": "@zencoderai/slack-mcp-server",
+      "version": "0.0.1",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "slack"
+          }
+        ]
+      }
+    },
+    {
+      "name": "argocd-mcp",
+      "version": "0.9.0",
+      "categories": {}
+    },
+    {
+      "name": "figma-console-mcp",
+      "version": "1.40.8",
+      "categories": {}
+    },
+    {
+      "name": "@hasna/mementos",
+      "version": "0.17.8",
+      "categories": {}
+    },
+    {
+      "name": "@absolutejs/manifest",
+      "version": "0.10.0",
+      "categories": {}
+    },
+    {
+      "name": "@microsoft/postgres-mcp",
+      "version": "0.2.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "postgres"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@hasna/projects",
+      "version": "1.2.4",
+      "categories": {}
+    },
+    {
+      "name": "frog",
+      "version": "1.1.0",
+      "categories": {}
+    },
+    {
+      "name": "tavily-mcp",
+      "version": "0.2.22",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "web fetch or search server",
+            "matched": "tavily"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "web fetch or search server",
+            "matched": "tavily"
+          }
+        ]
+      }
+    },
+    {
+      "name": "xmcp",
+      "version": "1.1.3",
+      "categories": {}
+    },
+    {
+      "name": "@eslint/mcp",
+      "version": "0.3.13",
+      "categories": {}
+    },
+    {
+      "name": "@shortcut/mcp",
+      "version": "0.25.0",
+      "categories": {}
+    },
+    {
+      "name": "context-mode",
+      "version": "1.0.169",
+      "categories": {}
+    },
+    {
+      "name": "@browserstack/mcp-server",
+      "version": "2.1.0",
+      "categories": {}
+    },
+    {
+      "name": "mbox-mcp",
+      "version": "0.1.1",
+      "categories": {}
+    },
+    {
+      "name": "opencode-mcp",
+      "version": "3.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@drawio/mcp",
+      "version": "1.6.3",
+      "categories": {}
+    },
+    {
+      "name": "agent-afk",
+      "version": "5.282.1",
+      "categories": {}
+    },
+    {
+      "name": "use-mcp",
+      "version": "0.0.21",
+      "categories": {}
+    },
+    {
+      "name": "mcp-auth",
+      "version": "1.0.0-beta.1",
+      "categories": {}
+    },
+    {
+      "name": "@inkeep/open-knowledge",
+      "version": "0.79.13",
+      "categories": {}
+    },
+    {
+      "name": "paqad-ai",
+      "version": "1.95.0",
+      "categories": {}
+    },
+    {
+      "name": "@hasna/files",
+      "version": "0.4.1",
+      "categories": {}
+    },
+    {
+      "name": "@hasna/connectors",
+      "version": "1.4.8",
+      "categories": {}
+    },
+    {
+      "name": "veryfront",
+      "version": "0.1.1269",
+      "categories": {}
+    },
+    {
+      "name": "@brave/brave-search-mcp-server",
+      "version": "2.1.4",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "web fetch or search server",
+            "matched": "search"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "web fetch or search server",
+            "matched": "search"
+          }
+        ]
+      }
+    },
+    {
+      "name": "claude-flow",
+      "version": "3.49.0",
+      "categories": {}
+    },
+    {
+      "name": "@productbrain/mcp",
+      "version": "0.0.1-beta.8361",
+      "categories": {}
+    },
+    {
+      "name": "@gongrzhe/server-gmail-autoauth-mcp",
+      "version": "1.1.11",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "gmail"
+          }
+        ]
+      }
+    },
+    {
+      "name": "davinci-resolve-mcp",
+      "version": "4.8.26",
+      "categories": {}
+    },
+    {
+      "name": "@goke/mcp",
+      "version": "0.1.2",
+      "categories": {}
+    },
+    {
+      "name": "@taazkareem/clickup-mcp-server",
+      "version": "0.14.5",
+      "categories": {}
+    },
+    {
+      "name": "claude-mem",
+      "version": "13.28.0",
+      "categories": {}
+    },
+    {
+      "name": "@microsoft/powerbi-modeling-mcp",
+      "version": "1.0.0",
+      "categories": {}
+    },
+    {
+      "name": "kordoc",
+      "version": "4.18.2",
+      "categories": {}
+    },
+    {
+      "name": "@cyanheads/mcp-ts-core",
+      "version": "0.13.10",
+      "categories": {}
+    },
+    {
+      "name": "@primer/mcp",
+      "version": "1.1.0",
+      "categories": {}
+    },
+    {
+      "name": "@gitkraken/gk",
+      "version": "3.1.76",
+      "categories": {}
+    },
+    {
+      "name": "nexus-agents",
+      "version": "8.126.0",
+      "categories": {}
+    },
+    {
+      "name": "hlims-mcp",
+      "version": "1.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@microsoft/powerbi-modeling-mcp-win32-x64",
+      "version": "1.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@microsoft/jsts-upgrade-assistant",
+      "version": "0.1.15",
+      "categories": {}
+    },
+    {
+      "name": "alvin-bot",
+      "version": "5.156.1",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-custom-functions",
+      "version": "0.2.6",
+      "categories": {}
+    },
+    {
+      "name": "@vantasdk/vanta-mcp-server",
+      "version": "1.2.0",
+      "categories": {}
+    },
+    {
+      "name": "codebase-memory-mcp",
+      "version": "0.11.0",
+      "categories": {}
+    },
+    {
+      "name": "@hasna/domains",
+      "version": "0.3.1",
+      "categories": {}
+    },
+    {
+      "name": "task-master-ai",
+      "version": "0.43.1",
+      "categories": {}
+    },
+    {
+      "name": "@executeautomation/playwright-mcp-server",
+      "version": "1.0.12",
+      "categories": {
+        "browser_automation": [
+          {
+            "label": "browser automation server",
+            "matched": "playwright"
+          }
+        ],
+        "untrusted_external_content": [
+          {
+            "label": "browser automation server",
+            "matched": "playwright"
+          }
+        ],
+        "call_external_api": [
+          {
+            "label": "browser automation server",
+            "matched": "playwright"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@open-mercato/ai-assistant",
+      "version": "0.8.0",
+      "categories": {}
+    },
+    {
+      "name": "fastify-mcp",
+      "version": "3.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@lushly-dev/afd-server",
+      "version": "1.0.0",
+      "categories": {}
+    },
+    {
+      "name": "@shopify/ucp-cli",
+      "version": "0.9.0",
+      "categories": {}
+    },
+    {
+      "name": "@solomonneas/adguard-mcp",
+      "version": "0.3.1",
+      "categories": {}
+    },
+    {
+      "name": "@stripe/mcp",
+      "version": "0.3.3",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "stripe"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@aashari/mcp-server-atlassian-jira",
+      "version": "3.3.0",
+      "categories": {
+        "call_external_api": [
+          {
+            "label": "external service connector",
+            "matched": "jira"
+          }
+        ]
+      }
+    },
+    {
+      "name": "freee-mcp",
+      "version": "0.36.3",
+      "categories": {}
+    },
+    {
+      "name": "instar",
+      "version": "1.3.1312",
+      "categories": {}
+    },
+    {
+      "name": "tidewave",
+      "version": "0.9.0",
+      "categories": {}
+    },
+    {
+      "name": "@typia/mcp",
+      "version": "15.0.1",
+      "categories": {}
+    },
+    {
+      "name": "@transcend-io/mcp-server-policy",
+      "version": "0.2.5",
+      "categories": {}
+    },
+    {
+      "name": "rsbuild-plugin-vue-mcp",
+      "version": "0.1.3",
+      "categories": {}
+    },
+    {
+      "name": "@paperclipai/mcp-server",
+      "version": "2026.916.1",
+      "categories": {}
+    },
+    {
+      "name": "agent-inspect",
+      "version": "6.31.16",
+      "categories": {}
+    },
+    {
+      "name": "@z_ai/mcp-server",
+      "version": "0.1.5",
+      "categories": {}
+    },
+    {
+      "name": "@testsprite/testsprite-mcp",
+      "version": "0.0.46",
+      "categories": {}
+    },
+    {
+      "name": "@foldkit/devtools-mcp",
+      "version": "0.23.0",
+      "categories": {}
+    },
+    {
+      "name": "@bangdao-ai/acw-tools",
+      "version": "1.13.78",
+      "categories": {}
+    },
+    {
+      "name": "@letoribo/mcp-graphql-enhanced",
+      "version": "4.15.3",
+      "categories": {}
+    },
+    {
+      "name": "aiwg",
+      "version": "2026.9.24",
+      "categories": {}
+    },
+    {
+      "name": "@smartbear/mcp",
+      "version": "0.41.3",
+      "categories": {}
+    }
+  ]
+}
