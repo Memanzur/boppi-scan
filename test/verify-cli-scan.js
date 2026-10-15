@@ -130,7 +130,9 @@ function runCli(args, home) {
   // Check exact JSON string values. A substring check falsely fails on CI
   // where the username is "runner" and the fixture server is "code-runner".
   const usernameJson = JSON.stringify(os.userInfo().username);
-  ok('the export never contains the real home directory or username', !serialized.includes(os.homedir()) && !serialized.includes(usernameJson));
+  const leak = [os.homedir(), usernameJson].find(needle => serialized.includes(needle));
+  if (leak) console.log(`  leaked value ${JSON.stringify(leak)} near: ${serialized.slice(Math.max(0, serialized.indexOf(leak) - 120), serialized.indexOf(leak) + leak.length + 40)}`);
+  ok('the export never contains the real home directory or username', !leak);
   ok('discovery block has no mergedServers (raw config) payload', exported.discovery.clients.every(c => !('mergedServers' in c)));
 
   section('Deterministic identity across runs');
