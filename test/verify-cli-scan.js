@@ -20,7 +20,7 @@ function makeFixtureHome(root) {
   fs.writeFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({
     mcpServers: {
       filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', docs] },
-      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'] },
+      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch', 'sb_secret_positional_test_value_123456', '--connection-string=postgresql://admin:pw_positional_test@db.example.test/app', 'DATABASE_URL=redis://user:redis_pw_test@cache.example.test/0'] },
       'code-runner': { command: 'npx', args: ['-y', 'e2b-code-interpreter'], env: { E2B_API_KEY: 'SUPERSECRETVALUE' } },
     },
   }));
@@ -61,6 +61,9 @@ function runCli(args, home) {
   ok('report explains inference honestly', scan.stdout.includes('inferred from evidenced identity'));
   ok('root-cause section names the single highest-leverage fix', scan.stdout.includes('ROOT CAUSE') && /breaks \d+ of \d+ exposure/.test(scan.stdout));
   ok('minimal remediation plan is shown', scan.stdout.includes('Full plan to break all'));
+  ok('first scan explains coverage and uncertainty', scan.stdout.includes('COVERAGE') && scan.stdout.includes('Not established:') && scan.stdout.includes('Scan status: complete'));
+  ok('first scan lists discovered MCP servers and capabilities', scan.stdout.includes('MCP SERVERS (6)') && scan.stdout.includes('capabilities:'));
+  ok('first scan states that no prior comparison exists', scan.stdout.includes('First local scan'));
 
   section('Privacy footer lists exactly the files read');
   const expectedFiles = [
@@ -115,6 +118,7 @@ function runCli(args, home) {
   ok('every scanned server with capabilities owns at least one permission', exported.inventory.real.mcpServers.filter(m => m.capabilities.length).every(m => permissions.some(p => p.integrationId === m.id)));
   const serialized = JSON.stringify(exported);
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));
+  ok('positional and embedded connection credentials never appear in the export', !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes('pw_positional_test') && !serialized.includes('redis_pw_test') && serialized.includes('[redacted-sensitive-argument]'));
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
   section('Export carries no raw filesystem paths');
@@ -144,6 +148,7 @@ function runCli(args, home) {
   ok('HTML report is written and self-contained', htmlOut.startsWith('<!doctype html>') && !/<script src=|<link rel/.test(htmlOut));
   ok('HTML report includes paths and privacy section', htmlOut.includes('Potential exposure paths') && htmlOut.includes('Privacy.'));
   ok('HTML report lists files read by ~ path and never the home directory', htmlOut.includes('~/.cursor/mcp.json') && !htmlOut.includes(home) && !htmlOut.includes(os.homedir()));
+  ok('HTML report never contains secret environment or positional values', !htmlOut.includes('SUPERSECRETVALUE') && !htmlOut.includes('sb_secret_positional_test_value_123456'));
   ok('HTML root cause states the same honest count as the terminal', htmlOut.includes(`Breaks <b>${topCount} of ${exported.exposurePaths.length}</b> exposures`));
 
   section('Subcommands and filters');
@@ -155,6 +160,34 @@ function runCli(args, home) {
   ok('--only cursor limits the scan to one agent', onlyCursor.stdout.includes('1 agent ') && !onlyCursor.stdout.includes('Claude Desktop'));
   const quiet = runCli(['scan', '--quiet'], home);
   ok('--quiet prints a compact summary', quiet.stdout.trim().split('\n').length <= 2 && quiet.stdout.includes('3 agents'));
+
+  section('Local history and change comparison');
+  const historyFile = path.join(root, 'history.json');
+  const firstHistoryScan = runCli(['scan', '--history-file', historyFile, '--quiet'], home);
+  ok('scan writes sanitized local history', firstHistoryScan.code === 0 && fs.existsSync(historyFile));
+  const history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+  ok('history stores useful summary without secrets or raw home path', history.length === 1 && history[0].exposurePaths > 0 && !JSON.stringify(history).includes('SUPERSECRETVALUE') && !JSON.stringify(history).includes(home));
+  const changedHome = path.join(root, 'changed-home');
+  fs.cpSync(home, changedHome, { recursive: true });
+  const desktopConfig = path.join(changedHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  const changedConfig = JSON.parse(fs.readFileSync(desktopConfig, 'utf8'));
+  delete changedConfig.mcpServers.fetch;
+  fs.writeFileSync(desktopConfig, JSON.stringify(changedConfig));
+  const secondHistoryScan = runCli(['scan', '--history-file', historyFile, '--quiet'], changedHome);
+  ok('second scan reports successfully', secondHistoryScan.code === 0);
+  const historyAfterSecond = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+  ok('history records new and resolved exposure counts', historyAfterSecond.length === 2 && historyAfterSecond[1].changes && historyAfterSecond[1].changes.resolvedPaths > 0);
+  const historyView = runCli(['history', '--history-file', historyFile], changedHome);
+  ok('history subcommand shows return value without rescanning', historyView.code === 0 && historyView.stdout.includes('LOCAL SCAN HISTORY') && historyView.stdout.includes('resolved'));
+
+  section('Clean result remains informative');
+  const cleanHome = path.join(root, 'clean-home');
+  fs.mkdirSync(path.join(cleanHome, 'Library', 'Application Support', 'Claude'), { recursive: true });
+  fs.writeFileSync(path.join(cleanHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'] } } }));
+  const clean = runCli(['scan', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
+  ok('clean scan exits successfully', clean.code === 0);
+  ok('clean scan still shows inventory and examined file', clean.stdout.includes('MCP SERVERS (1)') && clean.stdout.includes('claude_desktop_config.json'));
+  ok('clean scan explains what it could not establish', clean.stdout.includes('runtime behavior') && clean.stdout.includes('not proof that the environment is safe'));
 
   section('Explicit --config mode');
   const explicit = runCli(['scan', '--config', path.join(home, '.cursor', 'mcp.json'), '--source', 'cursor'], home);

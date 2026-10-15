@@ -13,6 +13,12 @@
     'cursor': Object.freeze({ id:'local-mcp-cursor', name:'Cursor MCP configuration', vendor:'Anysphere', type:'coding_agent', agentName:'Cursor' }),
   });
   const SENSITIVE_NAME = /(token|secret|password|private[_-]?key|api[_-]?key|authorization|cookie|credential)/i;
+  // Positional arguments have no field name to key off. Keep this deliberately
+  // conservative and redact common credential formats before they enter any
+  // model, export, history file, or verifier bundle.
+  const SENSITIVE_VALUE = /(?:bearer\s+|(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
+  const CREDENTIAL_URI = /[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@/i;
+  const CREDENTIAL_AT_HOST = /(?:^|[=\s])[^\s/:=@]+:[^\s/@]+@[^\s]+/i;
   const SAFE_CAPABILITIES = new Set(['filesystem_access','shell_access','code_execution','network_access','environment_access','credential_access','browser_automation','untrusted_external_content']);
 
   function fail(message) { throw new TypeError(`Local MCP scanner: ${message}`); }
@@ -44,8 +50,8 @@
   }
   function sanitizeArgument(value) {
     const raw = text(value, 'argument', 500);
-    if (SENSITIVE_NAME.test(raw)) return '[redacted-sensitive-argument]';
-    if (/^https?:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
+    if (SENSITIVE_NAME.test(raw) || SENSITIVE_VALUE.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw)) return pathFingerprint(raw);
     return raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
   }

@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 const models = require('../engine/models');
 const scanner = require('../engine/localMcpScanner');
@@ -35,16 +36,17 @@ const html = require('./render/html');
 const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify', 'history']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths] [options]',
+    'Usage: boppi [scan|agents|paths|history] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
+    '  boppi history                  show the last 20 local scan summaries',
     '',
     'Options:',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
@@ -58,6 +60,7 @@ function usage() {
     '  --verbose           all paths, per-server capability provenance',
     '  --no-color          plain-text output (NO_COLOR env is also respected)',
     '  --contradictions-dir <dir>  where verify writes boppi-contradiction-<id>.json (default: cwd)',
+    '  --history-file <file>  local-only scan history file (default: <scan home>/.boppi/history.json)',
     '  --version, -v       print the version and exit',
     '',
     'Privacy: runs 100% locally. Reads only MCP configuration metadata; secret values,',
@@ -71,9 +74,9 @@ function parseArgs(argv) {
     failOn: null, overlay: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
-    input: null, contradictionsDir: null,
+    input: null, contradictionsDir: null, historyFile: null,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -95,13 +98,88 @@ function parseArgs(argv) {
       else if (arg === '--home') options.home = value;
       else if (arg === '--cwd') options.cwd = value;
       else if (arg === '--contradictions-dir') options.contradictionsDir = value;
+      else if (arg === '--history-file') options.historyFile = value;
     } else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.failOn && !SEVERITY_ORDER[options.failOn]) throw new Error(`--fail-on must be one of: ${Object.keys(SEVERITY_ORDER).join(', ')}`);
   if (!scanner.supportedSources.includes(options.source)) throw new Error(`--source must be one of: ${scanner.supportedSources.join(', ')}`);
+  if (!options.historyFile) options.historyFile = path.join(options.home, '.boppi', 'history.json');
   return options;
+}
+
+function historyEntry(scan, changes = null) {
+  const counts = scan.inventory;
+  const severityCounts = Object.fromEntries(Object.keys(SEVERITY_ORDER).map(severity => [severity, scan.paths.filter(pathItem => pathItem.severity === severity).length]));
+  const top = (scan.paths || []).slice(0, 3).map(pathItem => ({
+    id: pathItem.id,
+    templateId: pathItem.templateId,
+    severity: pathItem.severity,
+    label: pathItem.label,
+    confidence: pathItem.confidence,
+    stale: pathItem.stale,
+  }));
+  const recommendation = (scan.predictions || []).find(prediction => prediction.predictedEliminated.length);
+  return {
+    schemaVersion: 1,
+    scannedAt: scan.startedAt,
+    durationMs: scan.durationMs,
+    scannerVersion: VERSION,
+    engineVersion: models.ENGINE_VERSION,
+    agents: counts.agents.length,
+    mcpServers: counts.mcpServers.length,
+    findings: counts.findings.filter(finding => !['resolved', 'accepted_risk', 'false_positive'].includes(finding.status)).length,
+    exposurePaths: scan.paths.length,
+    severityCounts,
+    incomplete: scan.incomplete,
+    topPaths: top,
+    pathIds: scan.paths.map(pathItem => pathItem.id),
+    changes,
+    recommendedEdit: recommendation ? {
+      client: recommendation.client.label,
+      server: recommendation.edit.server,
+      eliminated: recommendation.predictedEliminated.length,
+    } : null,
+  };
+}
+
+function writeHistory(scan, file) {
+  let entries = [];
+  try {
+    const existing = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (Array.isArray(existing)) entries = existing;
+  } catch (_) { /* first run or an unreadable local history file */ }
+  const previous = entries.at(-1) || null;
+  const currentPathIds = new Set(scan.paths.map(pathItem => pathItem.id));
+  const previousPathIds = new Set(previous?.pathIds || []);
+  const changes = previous ? {
+    comparedAt: previous.scannedAt,
+    newPaths: [...currentPathIds].filter(id => !previousPathIds.has(id)).length,
+    resolvedPaths: [...previousPathIds].filter(id => !currentPathIds.has(id)).length,
+    agentDelta: scan.inventory.agents.length - (previous.agents || 0),
+    serverDelta: scan.inventory.mcpServers.length - (previous.mcpServers || 0),
+  } : null;
+  entries.push(historyEntry(scan, changes));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(entries.slice(-20), null, 2));
+  return changes;
+}
+
+function renderHistory(file) {
+  let entries;
+  try { entries = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { entries = []; }
+  if (!Array.isArray(entries) || !entries.length) return `No local scan history yet. Run \`boppi scan\` to save the first summary.\nHistory file: ${file}`;
+  const lines = [`BOPPI · LOCAL SCAN HISTORY`, `History file: ${file}`, ''];
+  for (const entry of entries.slice().reverse()) {
+    const severity = Object.entries(entry.severityCounts || {}).filter(([, count]) => count).map(([name, count]) => `${count} ${name}`).join(', ') || 'no exposure paths';
+    const incomplete = entry.incomplete?.length ? ` · incomplete: ${entry.incomplete.join(', ')}` : '';
+    lines.push(`${entry.scannedAt} · ${entry.agents} agents · ${entry.mcpServers} MCP servers · ${entry.exposurePaths} paths (${severity})${incomplete}`);
+    if (entry.changes) lines.push(`  changes: ${entry.changes.newPaths} new · ${entry.changes.resolvedPaths} resolved · ${entry.changes.agentDelta >= 0 ? '+' : ''}${entry.changes.agentDelta} agents · ${entry.changes.serverDelta >= 0 ? '+' : ''}${entry.changes.serverDelta} MCP servers`);
+    if (entry.recommendedEdit) lines.push(`  recommended: remove "${entry.recommendedEdit.server}" from ${entry.recommendedEdit.client} (${entry.recommendedEdit.eliminated} paths modeled eliminated)`);
+  }
+  lines.push('', 'History contains sanitized summaries only. Raw config values and file contents are never stored.');
+  return lines.join('\n');
 }
 
 const ONLY_ALIASES = Object.freeze({
@@ -296,8 +374,17 @@ async function runVerify(options) {
   for (const resolution of result.resolutions) {
     if (resolution.status !== verify.STATUS.PARTIAL && resolution.status !== verify.STATUS.CONTRADICTED) continue;
     const prediction = previous.predictions.find(p => p.predictionId === resolution.predictionId);
-    const file = path.join(dir, `boppi-contradiction-${resolution.predictionId}.json`);
-    fs.mkdirSync(dir, { recursive: true });
+    // Prediction IDs originate in an input export. Make the basename safe and
+    // prove containment before writing, so verify can never escape its output
+    // directory through a crafted prediction ID.
+    const safeId = String(resolution.predictionId).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 160) || crypto.createHash('sha256').update(String(resolution.predictionId)).digest('hex').slice(0, 16);
+    const resolvedDir = path.resolve(dir);
+    const file = path.resolve(resolvedDir, `boppi-contradiction-${safeId}.json`);
+    if (!file.startsWith(`${resolvedDir}${path.sep}`)) {
+      process.stderr.write('verify: refusing to write a contradiction file outside the requested directory\n');
+      return 2;
+    }
+    fs.mkdirSync(resolvedDir, { recursive: true });
     fs.writeFileSync(file, JSON.stringify(verify.contradictionBundle(prediction, resolution, previous, scan), null, 2));
     written.push(file);
   }
@@ -318,6 +405,7 @@ async function run(argv) {
   }
   if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
   if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
+  if (options.command === 'history') { process.stdout.write(renderHistory(options.historyFile) + '\n'); return 0; }
   if (options.command === 'verify') return runVerify(options);
 
   const scan = await performScan(options);
@@ -331,8 +419,10 @@ async function run(argv) {
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
-    inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient,
+    inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
   };
+
+  report.historyChanges = writeHistory(scan, options.historyFile);
 
   process.stdout.write(terminal.renderReport(report, options) + '\n');
 
@@ -341,7 +431,9 @@ async function run(argv) {
     process.stdout.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
-    fs.writeFileSync(options.html, html.renderHtml(report));
+    // HTML is an export artifact, so it receives the portable discovery view;
+    // the terminal may still show the exact files read for local consent.
+    fs.writeFileSync(options.html, html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients }));
     process.stdout.write(`\nHTML report written to ${options.html}\n`);
   }
 

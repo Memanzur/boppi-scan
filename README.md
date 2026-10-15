@@ -1,5 +1,26 @@
 # boppi
 
+## Free local beta
+
+Boppi is useful without an account. The scanner reads supported AI-agent MCP
+configuration locally, reports the agents, servers, capabilities, files, and
+evidence it examined, models supported configuration changes, and verifies a
+real change on the next scan. It does not upload configuration data or send
+default telemetry.
+
+```sh
+npx boppi scan --html boppi-report.html
+# edit the configuration using the recommended fix, then:
+npx boppi verify boppi-scan.json
+npx boppi history
+```
+
+`history` stores only the last 20 sanitized local scan summaries. It is a
+return loop, not a cloud requirement. A clean scan is still useful: it shows
+what was discovered, what capabilities were identified, what files were
+examined, what Boppi could not establish, and what changed since the prior
+scan.
+
 See what your local AI agents can reach.
 
 `boppi scan` reads the MCP server configs for Claude Desktop, Claude Code, and Cursor on your machine, builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. Everything runs locally. No account, no telemetry, no dependencies.

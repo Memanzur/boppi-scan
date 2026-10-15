@@ -110,11 +110,28 @@ function renderReport(report, options = {}) {
     }
   }
 
+  if (command === 'scan') {
+    out('');
+    out(s.bold(`MCP SERVERS (${report.inventory.mcpServers.length})`));
+    if (!report.inventory.mcpServers.length) out(s.dim('  No supported MCP servers were found in the examined configuration files.'));
+    for (const server of report.inventory.mcpServers) {
+      const agent = report.inventory.agents.find(candidate => candidate.id === server.agentId);
+      const capabilities = (server.capabilities || []).join(', ') || 'no supported capability identified';
+      out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`));
+    }
+    out('');
+    out(s.bold('COVERAGE'));
+    out('  ', s.green('Established: '), `${report.inventory.agents.length} agent${report.inventory.agents.length === 1 ? '' : 's'}, ${report.inventory.mcpServers.length} MCP server${report.inventory.mcpServers.length === 1 ? '' : 's'}, and ${report.filesRead.length} configuration file${report.filesRead.length === 1 ? '' : 's'} examined.`);
+    out('  ', s.dim('Not established: '), 'runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.');
+    if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
+    else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');
+  }
+
   if (command === 'paths' || command === 'scan') {
     out('');
     const shown = options.verbose ? report.paths : report.paths.slice(0, 5);
     out(s.bold(`EXPOSURE PATHS (${report.paths.length})`), s.dim(report.paths.length > shown.length ? `  showing ${shown.length}; --verbose for all` : ''));
-    if (!report.paths.length) out(s.dim('  No potential exposure paths from the evidenced inventory. Good sign — re-scan after config changes.'));
+    if (!report.paths.length) out(s.dim('  No potential exposure paths from the evidenced inventory. This is not proof that the environment is safe; re-scan after config changes.'));
     for (const p of shown) {
       out('  ', severityBadge(p.severity, useColor), '  ', s.bold(p.label), s.dim(`  [${p.templateId} · confidence ${p.confidence}${p.stale ? ' · stale evidence' : ''}]`));
       out('     ', s.cyan(chainFor(p)));
@@ -123,6 +140,16 @@ function renderReport(report, options = {}) {
       if (options.verbose) out('     ', s.dim(`evidence: ${p.evidenceCount} source(s) · ${p.disclaimer}`));
       out('');
     }
+  }
+
+  if (command === 'scan' && report.historyChanges) {
+    out('');
+    out(s.bold('CHANGES SINCE LAST SCAN'), s.dim(`  compared with ${report.historyChanges.comparedAt}`));
+    out('  ', `${report.historyChanges.newPaths} new exposure path${report.historyChanges.newPaths === 1 ? '' : 's'} · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers`);
+  } else if (command === 'scan') {
+    out('');
+    out(s.bold('CHANGES SINCE LAST SCAN'));
+    out('  ', s.dim('First local scan — run Boppi again after changing your environment to see what changed.'));
   }
 
   const ranked = (command === 'paths' || command === 'scan') ? rankPredictions(report.predictions || [], report.paths) : [];

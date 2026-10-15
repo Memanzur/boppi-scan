@@ -23,6 +23,14 @@ function renderHtml(report) {
   const ranked = rankPredictions(report.predictions || [], paths);
   const plan = report.remediationPlan;
   const editSentence = step => `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration.`;
+  const serverRows = inventory.mcpServers.map(server => {
+    const agent = inventory.agents.find(candidate => candidate.id === server.agentId);
+    const capabilities = (server.capabilities || []).join(', ') || 'No supported capability identified';
+    return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}</td></tr>`;
+  }).join('');
+  const coverageNote = report.incomplete?.length
+    ? `Incomplete sources: ${report.incomplete.join(', ')}.`
+    : 'Complete for the supported configuration sources that were found.';
 
   return `<!doctype html>
 <html lang="en">
@@ -74,6 +82,21 @@ function renderHtml(report) {
     <div class="tile"><div class="label">High paths</div><div class="value high">${counts.high || 0}</div></div>
     <div class="tile"><div class="label">Open findings</div><div class="value">${openFindings.length}</div></div>
   </div>
+
+  <h2>What this scan established</h2>
+  <div class="card">
+    <div class="kv"><b>Established:</b> ${inventory.agents.length} agent${inventory.agents.length === 1 ? '' : 's'}, ${inventory.mcpServers.length} MCP server${inventory.mcpServers.length === 1 ? '' : 's'}, and ${report.portableFilesRead.length} configuration file${report.portableFilesRead.length === 1 ? '' : 's'} examined.</div>
+    <div class="kv"><b>Not established:</b> runtime behavior, activity absent from configuration, or access not evidenced by the scanned metadata.</div>
+    <div class="kv muted small">${esc(coverageNote)} A clean result is not proof that the environment is safe.</div>
+  </div>
+
+  <h2>Discovered MCP servers and capabilities</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th></tr></thead>
+    <tbody>${serverRows || '<tr><td colspan="3" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}</tbody>
+  </table></div>
+
+  ${report.historyChanges ? `<h2>Changes since last scan</h2><div class="card"><div class="kv">${report.historyChanges.newPaths} new exposure paths · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers.</div></div>` : '<h2>Changes since last scan</h2><div class="card muted">First local scan. Run Boppi again after changing the environment to compare results.</div>'}
 
   ${ranked.length ? `
   <h2>Root cause: the single config edit that breaks the most exposures</h2>
