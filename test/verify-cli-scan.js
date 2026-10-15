@@ -215,6 +215,20 @@ function runCli(args, home) {
   ok('fingerprints are stable across runs on the same machine', JSON.parse(fs.readFileSync(repeatJson, 'utf8')).discovery.filesRead[0] === outsideExport.discovery.filesRead[0]);
   ok('the unkeyed hash of the path never appears in the export', !JSON.stringify(outsideExport).includes(require('../src/engine/models').stableId('path', [outsideHome])));
 
+  section('Linux and Windows config locations');
+  const linuxHome = path.join(root, 'linux-home');
+  fs.mkdirSync(path.join(linuxHome, '.config', 'Claude'), { recursive: true });
+  fs.writeFileSync(path.join(linuxHome, '.config', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
+  const linux = runCli(['scan', '--only', 'claude-desktop', '--platform', 'linux', '--history-file', path.join(root, 'linux-history.json')], linuxHome);
+  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes('.config/Claude/claude_desktop_config.json') && linux.stdout.includes('1 MCP server'));
+  const winHome = path.join(root, 'win-home');
+  const appData = path.join(winHome, 'AppData', 'Roaming');
+  fs.mkdirSync(path.join(appData, 'Claude'), { recursive: true });
+  fs.writeFileSync(path.join(appData, 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
+  const win = spawnSync(process.execPath, [CLI, 'scan', '--only', 'claude-desktop', '--platform', 'win32', '--home', winHome, '--cwd', winHome, '--no-color', '--history-file', path.join(root, 'win-history.json')], { encoding: 'utf8', env: { ...process.env, APPDATA: appData } });
+  ok('on windows Claude Desktop is read from %APPDATA%\\Claude', win.status === 0 && (win.stdout || '').includes(path.join('Claude', 'claude_desktop_config.json')) && (win.stdout || '').includes('1 MCP server'));
+  ok('an unknown --platform exits 2', runCli(['scan', '--platform', 'beos'], home).code === 2);
+
   section('Exit codes (--fail-on and errors)');
   ok('--fail-on critical exits 1 when critical exposure exists', runCli(['scan', '--fail-on', 'critical', '--quiet'], home).code === 1);
   const emptyHome = path.join(root, 'empty-home');

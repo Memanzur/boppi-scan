@@ -20,7 +20,8 @@ const SUITES = [
 let failures = 0;
 for (const suite of SUITES) {
   console.log(`\n=== ${suite} ===`);
-  const result = spawnSync(process.execPath, [path.join(__dirname, suite)], { stdio: 'inherit' });
+  // Fixtures use the macOS config layout; the platform override keeps the suites identical on Linux and Windows runners.
+  const result = spawnSync(process.execPath, [path.join(__dirname, suite)], { stdio: 'inherit', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' } });
   if (result.status !== 0) {
     failures++;
     console.error(`FAILED: ${suite} (exit ${result.status})`);

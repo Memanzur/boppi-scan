@@ -38,6 +38,8 @@ const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
 const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify', 'history', 'push']);
+// Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
+const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
@@ -85,8 +87,9 @@ function parseArgs(argv) {
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
+    platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -112,6 +115,7 @@ function parseArgs(argv) {
       else if (arg === '--url') options.url = value;
       else if (arg === '--token') options.token = value;
       else if (arg === '--file') options.file = value;
+      else if (arg === '--platform') options.platform = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
@@ -122,6 +126,7 @@ function parseArgs(argv) {
     if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error('push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
     options.ingestUrl = push.resolveIngestUrl(options.url);
   }
+  if (!SUPPORTED_PLATFORMS.has(options.platform)) throw new Error(`--platform must be one of: ${[...SUPPORTED_PLATFORMS].join(', ')}`);
   if (options.only) {
     const unknown = options.only.filter(value => !ONLY_ALIASES[value]);
     if (unknown.length) throw new Error(`--only does not know ${unknown.join(', ')}; use ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
@@ -237,7 +242,7 @@ function discover(options) {
         clientKey: options.source, label: `Explicit config (${options.source})`, source: options.source,
         files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || {} }],
       }]
-    : CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: process.platform }));
+    : CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
 
   for (const descriptor of descriptors) {
     if (wanted && !wanted.has(descriptor.clientKey)) continue;
