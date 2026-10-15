@@ -11,6 +11,7 @@
 const DEFAULT_WORKSPACE_URL = 'https://app.boppi.io';
 const INGEST_PATH = '/api/ingest';
 const SNAPSHOT_MAX = 5000;
+const MERGE_BATCH = 1000;
 const RECORD_FIELD_MAX = 512;
 
 const EVIDENCE_CLASS = Object.freeze({ observed: 'observed', imported: 'imported', inferred: 'inferred', fixture: 'inferred' });
@@ -103,9 +104,7 @@ function counts(inventory) {
   };
 }
 
-/** POST the records. Resolves to { ok, status, body } or { ok: false, networkError }. */
-async function pushRecords({ ingestUrl, token, records, snapshot, fetchImpl = globalThis.fetch }) {
-  if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
+async function postBatch({ ingestUrl, token, records, snapshot, fetchImpl }) {
   let response;
   try {
     response = await fetchImpl(ingestUrl.toString(), {
@@ -120,9 +119,28 @@ async function pushRecords({ ingestUrl, token, records, snapshot, fetchImpl = gl
   return { ok: response.ok, status: response.status, body };
 }
 
+/**
+ * Send the records. A snapshot goes as one request (the server caps a request
+ * at SNAPSHOT_MAX records, which is also the snapshot ceiling). A merge is sent
+ * in MERGE_BATCH-sized requests. Resolves to { ok, ingested } or the first
+ * failed batch: { ok: false, status, body } or { ok: false, networkError }.
+ */
+async function pushRecords({ ingestUrl, token, records, snapshot, fetchImpl = globalThis.fetch }) {
+  if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
+  const batches = snapshot ? [records] : [];
+  if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
+  let ingested = 0;
+  for (const batch of batches) {
+    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, fetchImpl });
+    if (!result.ok) return result;
+    ingested += Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : batch.length;
+  }
+  return { ok: true, ingested };
+}
+
 const FAILURE_HINT = Object.freeze({
   401: 'The token was rejected. Copy a fresh one from the Collectors page (tokens are shown once, and revoked tokens stop working immediately).',
-  413: 'The batch is too large for one request. Run with --merge to push without snapshot cleanup, or scan fewer clients with --only.',
+  413: 'The request body is too large. Scan fewer clients with --only and push each separately.',
   422: 'The workspace rejected the record shape. Update the scanner (npx boppi@latest) and try again.',
   503: 'The workspace is temporarily unavailable. Retry in a minute.',
 });
@@ -135,4 +153,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, toRecords, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };

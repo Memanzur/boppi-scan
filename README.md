@@ -24,10 +24,10 @@ npx boppi history
 Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), generate a collector token on the Collectors page, and push scans from every machine:
 
 ```sh
-BOPPI_TOKEN=<collector token> npx boppi push
+npx boppi push
 ```
 
-`push` is the only command that uses the network, and it sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)).
+It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` is the only command that uses the network, and it sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)).
 
 ## What you see
 
@@ -160,7 +160,7 @@ boppi push                     scan, then send the sanitized inventory to your B
 
 push only:
 --url <workspace>   workspace origin or ingest URL (default https://app.boppi.io)
---token <token>     collector token; or set BOPPI_TOKEN so it stays out of shell history
+--token <token>     collector token; or set BOPPI_TOKEN; or omit it and paste when prompted (hidden input)
 --file <scan.json>  push an earlier --json export instead of scanning now
 --dry-run           print the records that would be sent, send nothing
 --merge             add to the workspace without removing records absent from this scan
@@ -168,7 +168,9 @@ push only:
 
 `boppi verify` takes the same discovery flags as `scan`. Each prediction in the export ("removing server X eliminates these exposures") is graded against the fresh scan: CONFIRMED, PARTIAL, CONTRADICTED, or UNRESOLVED when the edit was not applied or the agent was not scanned. PARTIAL and CONTRADICTED write a self-contained fixture file for an engine issue.
 
-`boppi push` sends a full snapshot by default: records from that collector's earlier pushes that are absent from this scan are removed in the workspace, so a machine that gets fixed shows up fixed. `--merge` adds without removing.
+`boppi push` sends a full snapshot by default: records from that collector's earlier pushes that are absent from this scan are removed in the workspace, so a machine that gets fixed shows up fixed. `--merge` adds without removing and sends in batches of 1000.
+
+Arguments in a server entry are redacted before they leave: anything that looks like a credential, anything after a flag whose name says credential (`--api-key x`, `--token x`, `-p x`), and the value side of `--key=...` or `NAME_PASSWORD=...`.
 
 Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push.
 

@@ -52,7 +52,7 @@ function usage() {
     '',
     'Push options (the only command that uses the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
-    '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN',
+    '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN; or omit it and paste when prompted',
     '  --file <scan.json>  push an earlier --json export instead of scanning now',
     '  --dry-run           print the records that would be sent, send nothing',
     '  --merge             add to the workspace without removing records absent from this scan',
@@ -119,7 +119,7 @@ function parseArgs(argv) {
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.command === 'push' && !options.help && !options.version) {
-    if (!options.dryRun && !options.token) throw new Error('push needs a collector token: pass --token <token> or set BOPPI_TOKEN');
+    if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error('push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
     options.ingestUrl = push.resolveIngestUrl(options.url);
   }
   if (options.only) {
@@ -425,8 +425,24 @@ async function runVerify(options) {
   return 0;
 }
 
+/** Ask for the token on the terminal without echoing it, so it never lands in shell history. */
+function promptForToken() {
+  return new Promise(resolve => {
+    const readline = require('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr, terminal: true });
+    const write = rl._writeToOutput;
+    process.stderr.write('Collector token (from the Collectors page; input is hidden): ');
+    rl._writeToOutput = () => {};
+    rl.question('', answer => { rl._writeToOutput = write; rl.close(); process.stderr.write('\n'); resolve(answer.trim()); });
+  });
+}
+
 /** boppi push: scan (or load an export), map the real inventory to ingest records, send one snapshot. */
 async function runPush(options) {
+  if (!options.dryRun && !options.token) {
+    options.token = await promptForToken();
+    if (!options.token) { process.stderr.write('push: no token entered\n'); return 2; }
+  }
   let inventory;
   let incomplete = [];
   if (options.file) {
@@ -476,8 +492,7 @@ async function runPush(options) {
     process.stderr.write(`${push.describeFailure(result)}\n`);
     return 5;
   }
-  const ingested = Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : records.length;
-  process.stdout.write(`Done. ${plural(ingested, 'record')} ingested. Open ${workspace}/dashboard to see this machine in the workspace graph.\n`);
+  process.stdout.write(`Done. ${plural(result.ingested, 'record')} ingested. Open ${workspace}/dashboard to see this machine in the workspace graph.\n`);
   return incomplete.length ? 4 : 0;
 }
 

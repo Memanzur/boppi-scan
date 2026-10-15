@@ -202,7 +202,7 @@ function renderReport(report, options = {}) {
     out('  ', `1. Rescan after you add or change an MCP server; ${s.bold('boppi history')} shows what changed between runs.`);
   }
   out('  ', `2. ${s.bold('boppi scan --html boppi-report.html')} writes a shareable report with the evidence for every claim.`);
-  out('  ', `3. Working with a team? ${s.bold('BOPPI_TOKEN=<token> boppi push')} sends this sanitized inventory to your Boppi workspace. Nothing else ever leaves the machine.`);
+  out('  ', `3. Working with a team? ${s.bold('boppi push')} sends this sanitized inventory to your Boppi workspace (it asks for your collector token). Nothing else ever leaves the machine.`);
   out('');
   out(s.bold('PRIVACY'), s.dim('  Files read this run (metadata only, sanitized in memory, nothing left this machine):'));
   for (const file of report.filesRead) out(s.dim(`  - ${file}`));

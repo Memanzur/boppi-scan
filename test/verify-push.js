@@ -19,7 +19,7 @@ function makeFixtureHome(root) {
   fs.writeFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({
     mcpServers: {
       filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'docs')] },
-      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch', 'sb_secret_positional_test_value_123456'] },
+      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch', 'sb_secret_positional_test_value_123456', '--api-key', 'flagvalue_apikey_test_77', '--key=inline_key_value_test_88'] },
       github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'], env: { GITHUB_TOKEN: 'SUPERSECRETVALUE' } },
     },
   }));
@@ -79,7 +79,7 @@ function startWorkspace() {
   ok('mcp_server metadata carries capabilities and trust status', records.filter(r => r.kind === 'mcp_server').every(r => Array.isArray(r.metadata.capabilities) && typeof r.metadata.trust_status === 'string'));
   ok('no field exceeds the 512-character contract cap', records.every(r => r.external_id.length <= 512 && r.name.length <= 512 && JSON.stringify(r.metadata).length <= 65536));
   const serialized = JSON.stringify(records);
-  ok('records never contain secret values or the raw home path', !serialized.includes('SUPERSECRETVALUE') && !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes(home));
+  ok('records never contain secret values or the raw home path', !serialized.includes('SUPERSECRETVALUE') && !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes('flagvalue_apikey_test_77') && !serialized.includes('inline_key_value_test_88') && !serialized.includes(home));
 
   section('URL rules');
   ok('origin resolves to the ingest endpoint', push.resolveIngestUrl('https://app.boppi.io').toString() === 'https://app.boppi.io/api/ingest');
@@ -90,7 +90,7 @@ function startWorkspace() {
 
   section('Argument handling');
   const noToken = runCli(['push', '--url', 'http://localhost:1'], home);
-  ok('push without a token exits 2 and names both ways to supply one', noToken.code === 2 && noToken.stderr.includes('--token') && noToken.stderr.includes('BOPPI_TOKEN'));
+  ok('push without a token and without a terminal exits 2 and names every way to supply one', noToken.code === 2 && noToken.stderr.includes('--token') && noToken.stderr.includes('BOPPI_TOKEN') && noToken.stderr.includes('prompted'));
   const badUrl = runCli(['push', '--token', 'bpc_x', '--url', 'http://example.com'], home);
   ok('plain http to a remote host exits 2', badUrl.code === 2 && badUrl.stderr.includes('https'));
   const dry = runCli(['push', '--dry-run', '--url', 'http://localhost:1'], home);
@@ -113,6 +113,11 @@ function startWorkspace() {
 
     const merged = await runCliAsync(['push', '--url', workspace.url, '--merge', '--token', 'bpc_good'], home);
     ok('--merge sends without the snapshot flag', merged.code === 0 && workspace.requests[1].body.snapshot === undefined);
+    const bigInventory = { agents: [{ id: 'agent_big', name: 'Big', source: { evidenceClass: 'observed' } }], permissions: Array.from({ length: 2500 }, (_, i) => ({ id: `perm_${i}`, agentId: 'agent_big', rawPermission: `grant ${i}`, normalizedCategory: 'read_files', accessLevel: 'broad', normalizationConfidence: 0.7, source: { evidenceClass: 'inferred' } })) };
+    const before = workspace.requests.length;
+    const big = await push.pushRecords({ ingestUrl: push.resolveIngestUrl(workspace.url), token: 'bpc_good', records: push.toRecords(bigInventory), snapshot: false, fetchImpl: fetch });
+    const bigBatches = workspace.requests.slice(before);
+    ok('a merge of 2501 records goes in 1000-record batches and reports the total', big.ok && big.ingested === 2501 && bigBatches.length === 3 && bigBatches.every(r => r.body.records.length <= push.MERGE_BATCH && r.body.snapshot === undefined));
 
     const rejected = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_bad'], home);
     ok('a rejected token exits 5 with the server message and a hint', rejected.code === 5 && rejected.stderr.includes('HTTP 401') && rejected.stderr.includes('Invalid or revoked') && rejected.stderr.includes('Collectors page'));

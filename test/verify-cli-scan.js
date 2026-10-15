@@ -20,7 +20,7 @@ function makeFixtureHome(root) {
   fs.writeFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({
     mcpServers: {
       filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', docs] },
-      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch', 'sb_secret_positional_test_value_123456', '--connection-string=postgresql://admin:pw_positional_test@db.example.test/app', 'DATABASE_URL=redis://user:redis_pw_test@cache.example.test/0'] },
+      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch', 'sb_secret_positional_test_value_123456', '--connection-string=postgresql://admin:pw_positional_test@db.example.test/app', 'DATABASE_URL=redis://user:redis_pw_test@cache.example.test/0', '--api-key', 'flagvalue_apikey_test_77', '--key=inline_key_value_test_88', '-p', 'flagvalue_password_test_99', '--port', '8080'] },
       'code-runner': { command: 'npx', args: ['-y', 'e2b-code-interpreter'], env: { E2B_API_KEY: 'SUPERSECRETVALUE' } },
     },
   }));
@@ -119,6 +119,8 @@ function runCli(args, home) {
   const serialized = JSON.stringify(exported);
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));
   ok('positional and embedded connection credentials never appear in the export', !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes('pw_positional_test') && !serialized.includes('redis_pw_test') && serialized.includes('[redacted-sensitive-argument]'));
+  ok('values after bare credential flags and inline key=value secrets never appear in the export', !serialized.includes('flagvalue_apikey_test_77') && !serialized.includes('inline_key_value_test_88') && !serialized.includes('flagvalue_password_test_99'));
+  ok('harmless flags and their values survive redaction', serialized.includes('"--port"') && serialized.includes('"8080"'));
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
   section('Export carries no raw filesystem paths');

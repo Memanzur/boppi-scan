@@ -48,12 +48,30 @@
       return null;
     }
   }
+  // A flag whose name says it carries a credential: --api-key, --token, -p,
+  // --key=..., DATABASE_PASSWORD=... The value may sit after '=' or in the
+  // next argument, so the caller redacts both.
+  const SENSITIVE_FLAG = /^(?:--?|\/)?[A-Za-z0-9_.-]*(?:key|token|secret|pass(?:word|wd|phrase)?|auth|cred(?:ential)?s?|cookie|session|signature|private)[A-Za-z0-9_.-]*(?:=|$)/i;
+  function isSensitiveFlag(raw) { return SENSITIVE_FLAG.test(raw) || /^-p$/i.test(raw); }
   function sanitizeArgument(value) {
     const raw = text(value, 'argument', 500);
     if (SENSITIVE_NAME.test(raw) || SENSITIVE_VALUE.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
+    if (isSensitiveFlag(raw)) return raw.includes('=') ? `${raw.slice(0, raw.indexOf('='))}=[redacted-sensitive-argument]` : raw;
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw)) return pathFingerprint(raw);
     return raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
+  }
+  /** Sanitize an argument list; the value after a bare credential flag is redacted whatever it looks like. */
+  function sanitizeArguments(list) {
+    const out = [];
+    let redactNext = false;
+    for (const value of list) {
+      if (redactNext) { out.push('[redacted-sensitive-argument]'); redactNext = false; continue; }
+      const raw = text(value, 'argument', 500);
+      out.push(sanitizeArgument(raw));
+      redactNext = isSensitiveFlag(raw) && !raw.includes('=');
+    }
+    return out;
   }
   function sanitizeCommand(value) {
     if (typeof value !== 'string' || !value.trim()) return null;
@@ -96,7 +114,7 @@
       if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
       const serverName = text(name, 'server name', 160);
       const env = sanitizeEnv(server.env);
-      const args = safeList(server.args, `${serverName}.args`).map(sanitizeArgument);
+      const args = sanitizeArguments(safeList(server.args, `${serverName}.args`));
       const capabilities = declaredCapabilities(server);
       if (env.names.length) capabilities.push('environment_access');
       if (env.credentialReferences.length) capabilities.push('credential_access');
