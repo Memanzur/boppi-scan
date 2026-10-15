@@ -14,7 +14,7 @@ It never collects:
 
 - secret or credential values (environment variable values are never read into findings, and positional arguments that look like credentials are redacted),
 - file contents from directories a server can access,
-- raw path names in exports (paths become fingerprints).
+- raw path names in exports (paths become fingerprints keyed with a per-machine secret in `~/.boppi/fingerprint-key`, so common paths cannot be recovered by hashing guesses).
 
 Every file read during a run is listed in the PRIVACY footer of the report, so what was read is always inspectable. `boppi history` keeps sanitized scan summaries in `~/.boppi/history.json`; it holds counts and path ids, never config values.
 

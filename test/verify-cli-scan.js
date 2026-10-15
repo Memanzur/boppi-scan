@@ -201,6 +201,19 @@ function runCli(args, home) {
   runCli(['scan', '--config', outsideHome, '--source', 'cursor', '--json', outsideJson, '--quiet'], home);
   const outsideExport = JSON.parse(fs.readFileSync(outsideJson, 'utf8'));
   ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{16}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
+  const keyFile = path.join(home, '.boppi', 'fingerprint-key');
+  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (fs.statSync(keyFile).mode & 0o777) === 0o600);
+  const otherHome = path.join(root, 'other-key-home');
+  fs.mkdirSync(path.join(otherHome, '.cursor'), { recursive: true });
+  fs.copyFileSync(path.join(home, '.cursor', 'mcp.json'), path.join(otherHome, '.cursor', 'mcp.json'));
+  const otherJson = path.join(root, 'other-export.json');
+  runCli(['scan', '--config', outsideHome, '--source', 'cursor', '--json', otherJson, '--quiet'], otherHome);
+  const otherExport = JSON.parse(fs.readFileSync(otherJson, 'utf8'));
+  ok('the same path fingerprints differently under a different machine key', otherExport.discovery.filesRead[0] !== outsideExport.discovery.filesRead[0]);
+  const repeatJson = path.join(root, 'repeat-export.json');
+  runCli(['scan', '--config', outsideHome, '--source', 'cursor', '--json', repeatJson, '--quiet'], home);
+  ok('fingerprints are stable across runs on the same machine', JSON.parse(fs.readFileSync(repeatJson, 'utf8')).discovery.filesRead[0] === outsideExport.discovery.filesRead[0]);
+  ok('the unkeyed hash of the path never appears in the export', !JSON.stringify(outsideExport).includes(require('../src/engine/models').stableId('path', [outsideHome])));
 
   section('Exit codes (--fail-on and errors)');
   ok('--fail-on critical exits 1 when critical exposure exists', runCli(['scan', '--fail-on', 'critical', '--quiet'], home).code === 1);

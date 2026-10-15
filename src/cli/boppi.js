@@ -211,6 +211,21 @@ const ONLY_ALIASES = Object.freeze({
   'claude-code': 'claude-code', code: 'claude-code', cursor: 'cursor',
 });
 
+/** Per-machine secret that keys every path fingerprint. Created once, mode 600, never leaves the machine. */
+function loadFingerprintKey(home) {
+  const file = path.join(home, '.boppi', 'fingerprint-key');
+  try {
+    const existing = fs.readFileSync(file, 'utf8').trim();
+    if (/^[0-9a-f]{64}$/.test(existing)) return existing;
+  } catch (_) { /* first run */ }
+  const key = crypto.randomBytes(32).toString('hex');
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, key + '\n', { mode: 0o600 });
+  } catch (_) { /* read-only home: the key lives for this process only */ }
+  return key;
+}
+
 /** Discover config files per client. Missing files are reported, never errors. */
 function discover(options) {
   const filesRead = new Set();
@@ -273,6 +288,7 @@ function shadowEntries(client, overlayByServer) {
 
 /** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
 async function performScan(options) {
+  scanner.setFingerprintKey(loadFingerprintKey(options.home));
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
 

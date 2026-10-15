@@ -32,9 +32,15 @@
     if (!Array.isArray(value)) fail(`${field} must be an array`);
     return value.filter(v => typeof v === 'string' && v.trim()).map(v => text(v, field, 240));
   }
+  // Fingerprints are keyed with a per-machine secret when the CLI provides
+  // one, so a common path such as a home directory cannot be recovered by
+  // hashing guesses. Without a key (engine tests, legacy callers) they fall
+  // back to the unkeyed form.
+  let fingerprintKey = '';
+  function setFingerprintKey(key) { fingerprintKey = typeof key === 'string' ? key : ''; }
   function pathFingerprint(value) {
     if (typeof value !== 'string' || !value.trim()) return null;
-    return models.stableId('path', [value.trim()]);
+    return models.stableId('path', fingerprintKey ? [fingerprintKey, value.trim()] : [value.trim()]);
   }
   function sanitizeEndpoint(value) {
     if (value == null || value === '') return null;
@@ -140,5 +146,5 @@
     if (!raw || !SOURCE_SPECS[raw.sourceId] || raw.consentRecorded !== true) fail('raw scan result lacks consent and source provenance');
     return { agent:raw.agent, mcpServers:raw.records || [], diagnostics:raw.diagnostics || [], source:raw.source, sourceId:raw.sourceId, dryRun:raw.dryRun !== false, consentRecorded:true };
   }
-  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, pathFingerprint };
+  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, pathFingerprint, setFingerprintKey };
 });

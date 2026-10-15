@@ -186,7 +186,7 @@ Fails the job when a critical path exists on the runner, or when a client config
 
 Nothing, unless you run `boppi push`.
 
-The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints. Every file that was read is listed at the end of the run so you can check the claim yourself.
+The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
 `boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi push --dry-run` prints the exact payload without sending it. No other command makes a network request.
 

@@ -10,6 +10,7 @@ The free beta release.
 - The report gains an MCP SERVERS table, a COVERAGE section that separates what the scan established from what it cannot know, a CHANGES SINCE LAST SCAN comparison, and a NEXT STEPS footer that names the exact `boppi verify` command for the export you just wrote.
 - `boppi verify` explains each grade in plain words next to its reason code and ends with the next action. Contradiction fixture names are sanitized and proven to stay inside the output directory.
 - Argument errors are no longer silent: an unknown `--only` client or a missing `--config` file exits 2 with the reason instead of reporting a clean machine. A config that is a directory or unreadable says so instead of "invalid JSON". A config rejected for secret material says what to do about it.
+- Path fingerprints are keyed with a per-machine secret (`~/.boppi/fingerprint-key`, created once, owner-only), so a common path such as a home directory cannot be recovered by hashing guesses. Fingerprints stay stable on one machine and differ across machines.
 - A clean scan ("no exposure paths") no longer says "good sign". It says it is not proof the environment is safe.
 
 ## 0.1.0
