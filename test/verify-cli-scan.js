@@ -127,7 +127,10 @@ function runCli(args, home) {
   ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/')) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
   ok('the Claude Desktop config is listed by its ~ path', exported.discovery.filesRead.includes('~/Library/Application Support/Claude/claude_desktop_config.json'));
   ok('the export never contains the scanned home directory', !serialized.includes(home));
-  ok('the export never contains the real home directory or username', !serialized.includes(os.homedir()) && !serialized.includes(os.userInfo().username));
+  // Check exact JSON string values. A substring check falsely fails on CI
+  // where the username is "runner" and the fixture server is "code-runner".
+  const usernameJson = JSON.stringify(os.userInfo().username);
+  ok('the export never contains the real home directory or username', !serialized.includes(os.homedir()) && !serialized.includes(usernameJson));
   ok('discovery block has no mergedServers (raw config) payload', exported.discovery.clients.every(c => !('mergedServers' in c)));
 
   section('Deterministic identity across runs');
