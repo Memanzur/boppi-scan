@@ -18,7 +18,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Memanzur/boppi-scan"
+    "url": "git+https://github.com/Memanzur/boppi-scan.git"
   },
   "homepage": "https://github.com/Memanzur/boppi-scan#readme",
   "bugs": {
