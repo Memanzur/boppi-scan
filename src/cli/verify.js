@@ -96,6 +96,24 @@ function contradictionBundle(prediction, resolution, previous, scan) {
 
 function pad(value, width) { const text = String(value ?? ''); return text.length >= width ? text : text + ' '.repeat(width - text.length); }
 
+const REASON_TEXT = Object.freeze({
+  agent_not_scanned: 'that agent was not in this scan',
+  edit_not_applied: 'the server is still configured',
+  all_predicted_eliminated_present: 'every path predicted to vanish is still present',
+  some_predicted_eliminated_present: 'some paths predicted to vanish are still present',
+  predicted_surviving_absent: 'paths predicted to survive are gone too',
+  engine_changed: 'engine version changed since the prediction',
+  agent_matched_by_client: 'agent matched by client, its id changed',
+});
+const describeReason = code => (REASON_TEXT[code] ? `${REASON_TEXT[code]} (${code})` : code);
+
+const NEXT_STEP = Object.freeze({
+  CONFIRMED: 'The fix worked as predicted. Run boppi scan --json again to record the new baseline.',
+  PARTIAL: 'The fix did less than predicted. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
+  CONTRADICTED: 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
+  UNRESOLVED: 'Nothing could be graded yet. Apply the recommended edit (remove the named server entry), then run boppi verify again.',
+});
+
 function renderTable(result, useColor) {
   const color = (code, text) => (useColor ? `\u001b[${code}m${text}\u001b[39m` : text);
   const tint = { CONFIRMED: 32, PARTIAL: 33, CONTRADICTED: 31, UNRESOLVED: 2 };
@@ -103,7 +121,7 @@ function renderTable(result, useColor) {
   const rows = result.resolutions.map(r => {
     const total = r.predicted.eliminated.length + r.predicted.surviving.length;
     const observed = r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} gone` : 'n/a';
-    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} gone / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).join(', ') };
+    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} gone / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;
   const widths = { status: width('status'), agent: width('agent'), edit: width('edit'), outcome: Math.max('predicted vs observed'.length, ...rows.map(row => row.outcome.length)) + 2 };
@@ -116,6 +134,8 @@ function renderTable(result, useColor) {
   lines.push('');
   lines.push(`${s.confirmed} confirmed · ${s.partial} partial · ${s.contradicted} contradicted · ${s.unresolved} unresolved`);
   if (result.engineChanged) lines.push(`engine version changed since the predictions were made (now ${models.ENGINE_VERSION}); statuses are still computed`);
+  const worst = ['CONTRADICTED', 'PARTIAL', 'UNRESOLVED', 'CONFIRMED'].find(status => rows.some(row => row.status === status));
+  if (worst) lines.push('', `Next: ${NEXT_STEP[worst]}`);
   return lines.join('\n');
 }
 

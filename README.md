@@ -1,43 +1,41 @@
 # boppi
 
-## Free local beta
-
-Boppi is useful without an account. The scanner reads supported AI-agent MCP
-configuration locally, reports the agents, servers, capabilities, files, and
-evidence it examined, models supported configuration changes, and verifies a
-real change on the next scan. It does not upload configuration data or send
-default telemetry.
-
-```sh
-npx boppi scan --html boppi-report.html
-# edit the configuration using the recommended fix, then:
-npx boppi verify boppi-scan.json
-npx boppi history
-```
-
-`history` stores only the last 20 sanitized local scan summaries. It is a
-return loop, not a cloud requirement. A clean scan is still useful: it shows
-what was discovered, what capabilities were identified, what files were
-examined, what Boppi could not establish, and what changed since the prior
-scan.
-
 See what your local AI agents can reach.
 
-`boppi scan` reads the MCP server configs for Claude Desktop, Claude Code, and Cursor on your machine, builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. Everything runs locally. No account, no telemetry, no dependencies.
+`boppi scan` reads the MCP server configs for Claude Desktop, Claude Code, and Cursor on your machine, builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
 
-```
+```sh
 npx boppi scan
 ```
 
 Node 18 or newer. Tested on macOS. Linux and Windows config locations are looked up but not yet verified on real machines.
 
+## Free beta
+
+Boppi is useful without an account. The scanner reads supported MCP configuration locally, reports the agents, servers, capabilities, files, and evidence it examined, models configuration changes, and verifies a real change on the next scan.
+
+```sh
+npx boppi scan --json boppi-scan.json --html boppi-report.html
+# edit the configuration using the recommended fix, then:
+npx boppi verify boppi-scan.json
+npx boppi history
+```
+
+Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), generate a collector token on the Collectors page, and push scans from every machine:
+
+```sh
+BOPPI_TOKEN=<collector token> npx boppi push
+```
+
+`push` is the only command that uses the network, and it sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)).
+
 ## What you see
 
-A machine with a filesystem server, a shell server, a fetch server, and a 1Password server configured in Claude Desktop:
+A machine with a filesystem server, a fetch server, a shell server, and a 1Password server configured in Claude Desktop, plus a browser server in Cursor:
 
 ```
-BOPPI · AI Agent Security scan · v0.1.0
-2026-09-18T01:23:47.625Z · completed in 0.02s · everything ran locally
+BOPPI · AI Agent Security scan · v0.2.0
+2026-10-15T01:40:12.004Z · completed in 0.03s · everything ran locally
 
 DISCOVERY
   ✓ Claude Desktop  ~/Library/Application Support/Claude/claude_desktop_config.json  4 servers
@@ -49,39 +47,67 @@ INVENTORY  3 agents · 5 MCP servers · 3 exposure paths (2 critical) · 3 findi
 
 AGENTS (3)
   agent             risk              servers  capabilities  worst exposure path
-  Claude Desktop    100/100 critical  4        5             CRIT Potential data exfiltration path
-  Cursor            2/100 low         1        1             none
+  Claude Desktop    100/100 critical  4        5             CRIT Potential credential exposure path
+  Cursor            6/100 low         1        3             none
   Claude Code       0/100 low         0        0             none
 
+MCP SERVERS (5)
+  filesystem · Claude Desktop · capabilities: filesystem_access
+  fetch · Claude Desktop · capabilities: network_access, untrusted_external_content
+  desktop-commander · Claude Desktop · capabilities: shell_access
+  1password · Claude Desktop · capabilities: credential_access
+  puppeteer · Cursor · capabilities: browser_automation, untrusted_external_content, network_access
+
+COVERAGE
+  Established: 3 agents, 5 MCP servers, and 3 configuration files examined.
+  Not established: runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.
+  Scan status: complete for the supported configuration sources that were found.
+
 EXPOSURE PATHS (3)
+  CRIT  Potential credential exposure path  [EP-B · confidence 0.7]
+     Claude Desktop -> 1password -> access credentials -> desktop-commander (shell_access) -> run shell commands -> fetch (network_access) -> call external api
+     why: Credential references combined with execution and network access create a potential path for credential material to leave the environment.
+     fix: Restrict shell or credential access and remove network capabilities this agent does not need.
+
   CRIT  Potential data exfiltration path  [EP-A · confidence 0.7]
      Claude Desktop -> filesystem (filesystem_access) -> read files -> fetch (network_access) -> call external api -> External destination
      why: If this agent were compromised or misdirected, data it can read could potentially reach an untrusted external destination.
      fix: Remove external messaging or API access, or restrict the sensitive-data grants feeding this path.
-
-  CRIT  Potential credential exposure path  [EP-B · confidence 0.7]
-     Claude Desktop -> 1password (credential_access) -> access credentials -> desktop-commander (shell_access) -> run shell commands -> fetch (network_access) -> call external api
-     why: Credential references combined with execution and network access create a potential path for credential material to leave the environment.
-     fix: Restrict shell or credential access and remove network capabilities this agent does not need.
 
   HIGH  Potential privilege path  [EP-E · confidence 0.7]
      Claude Desktop -> fetch (untrusted_external_content) -> untrusted external content -> desktop-commander (shell_access) -> run shell commands
      why: Instructions hidden in untrusted content could potentially influence an agent with privileged local capabilities.
      fix: Isolate untrusted content from privileged tools, or remove shell, code-execution, or destructive file capabilities.
 
-ROOT CAUSE  the single change that breaks the most exposure paths
-  ▸ Fix: Remove the server entry "fetch" from Claude Desktop's MCP configuration to revoke its "call external api" grant. Rescan afterward to verify the change landed.
-    edit: remove the "fetch" entry from ~/Library/Application Support/Claude/claude_desktop_config.json
-    breaks 2 of 3 paths · 2 critical  (leaves 1)
+CHANGES SINCE LAST SCAN
+  First local scan. Run Boppi again after changing your environment to see what changed.
 
-PRIVACY  Files read this run — metadata only, sanitized in memory, nothing left this machine:
+ROOT CAUSE  the single config edit that breaks the most exposures, checked by rescanning without it
+  ▸ Fix: Remove the "fetch" entry from Claude Desktop's MCP configuration. Rescan afterward to verify the change landed.
+    edit: remove the "fetch" entry from ~/Library/Application Support/Claude/claude_desktop_config.json
+    breaks 3 of 3 exposures · 2 critical · 1 high  (leaves 0)
+
+FINDINGS (3)  2 shown above as exposure paths; --verbose for all
+  HIGH  AE-006  Claude Desktop  Broad file access has unknown vendor data-training posture
+
+  Findings and capabilities from config scans are inferred from evidenced identity (package names,
+  directory arguments, environment variable names). Every claim carries its evidence in --json.
+
+NEXT STEPS
+  1. Apply the fix above, then run boppi verify boppi-scan.json to confirm the paths are gone.
+  2. boppi scan --html boppi-report.html writes a shareable report with the evidence for every claim.
+  3. Working with a team? BOPPI_TOKEN=<token> boppi push sends this sanitized inventory to your Boppi workspace. Nothing else ever leaves the machine.
+
+PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left this machine):
   - ~/Library/Application Support/Claude/claude_desktop_config.json
   - ~/.claude.json
   - ~/.cursor/mcp.json
   Secret values, file contents, and raw path names are never collected. Paths become fingerprints.
+
+JSON export written to boppi-scan.json
 ```
 
-The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone.
+The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone. `boppi verify boppi-scan.json` then checks that prediction against the real machine after you make the edit.
 
 ## How it works
 
@@ -90,6 +116,7 @@ The root cause section is computed, not guessed. The engine removes the grant fr
 3. **Build the graph.** Agents, servers, capabilities, data, credentials, and destinations become nodes. Every edge records where it came from.
 4. **Find paths.** Six templates describe chains that matter. A path is reported when the graph contains the whole chain.
 5. **Rank the fix.** For each grant, remove it and rerun the search. The grant that breaks the most paths is the recommended fix.
+6. **Verify.** After you edit the config, `boppi verify` rescans and grades each prediction: CONFIRMED, PARTIAL, CONTRADICTED, or UNRESOLVED. A wrong prediction writes a self-contained fixture you can attach to an issue.
 
 ## What it looks for
 
@@ -106,7 +133,7 @@ Exposure path templates:
 
 Rule-engine findings (AE-001 through AE-007) cover the same combinations per agent, plus one data-governance check: broad file access granted to a vendor whose data-training posture is unknown.
 
-Every path is potential. The scanner sees configuration, not behavior. It cannot tell you an agent has been exploited, only that the grants would allow it.
+Every path is potential. The scanner sees configuration, not behavior. It cannot tell you an agent has been exploited, only that the grants would allow it. A clean scan is not proof the environment is safe; it means the supported configuration files that were found contain no evidenced chain.
 
 ## Commands and flags
 
@@ -115,6 +142,8 @@ boppi scan                     discover configs, scan, print the full report
 boppi agents                   inventory table only
 boppi paths                    exposure paths only
 boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
+boppi history                  the last 20 local scan summaries and what changed between them
+boppi push                     scan, then send the sanitized inventory to your Boppi workspace
 
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
@@ -127,11 +156,21 @@ boppi verify <previous.json>   rescan and grade the predictions in an earlier --
 --no-color          plain text (NO_COLOR is also respected)
 --version           print the version
 --contradictions-dir <dir>  where verify writes boppi-contradiction-<id>.json (default: cwd)
+--history-file <file>       where scan keeps its sanitized history (default: ~/.boppi/history.json)
+
+push only:
+--url <workspace>   workspace origin or ingest URL (default https://app.boppi.io)
+--token <token>     collector token; or set BOPPI_TOKEN so it stays out of shell history
+--file <scan.json>  push an earlier --json export instead of scanning now
+--dry-run           print the records that would be sent, send nothing
+--merge             add to the workspace without removing records absent from this scan
 ```
 
 `boppi verify` takes the same discovery flags as `scan`. Each prediction in the export ("removing server X eliminates these exposures") is graded against the fresh scan: CONFIRMED, PARTIAL, CONTRADICTED, or UNRESOLVED when the edit was not applied or the agent was not scanned. PARTIAL and CONTRADICTED write a self-contained fixture file for an engine issue.
 
-Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed.
+`boppi push` sends a full snapshot by default: records from that collector's earlier pushes that are absent from this scan are removed in the workspace, so a machine that gets fixed shows up fixed. `--merge` adds without removing.
+
+Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push.
 
 ### Use it in CI
 
@@ -141,13 +180,15 @@ npx boppi scan --fail-on critical --quiet
 
 Fails the job when a critical path exists on the runner, or when a client config could not be analyzed. Incomplete scans return 4 even without `--fail-on`.
 
-## Privacy
+## What leaves the machine
 
-The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Paths become fingerprints before they reach the report. Every file that was read is listed at the end of the run so you can check the claim yourself.
+Nothing, unless you run `boppi push`.
 
-Nothing leaves the machine. There is no network code in this package.
+The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
-If a server entry contains something that looks like a secret, the scanner refuses that client's config and prints the reason instead of a result. Move the secret out of the config and rescan.
+`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi push --dry-run` prints the exact payload without sending it. No other command makes a network request.
+
+If a server entry contains something that looks like a secret in a place the scanner cannot redact, the scanner refuses that client's config and prints the reason instead of a result. Move the secret into an environment variable the server reads and rescan.
 
 ## Discovery targets
 
@@ -158,6 +199,12 @@ If a server entry contains something that looks like a secret, the scanner refus
 | Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
 
 Windsurf and VS Code are not discovered yet. Pull requests welcome. Each client is one file under `src/cli/discovery/`.
+
+## Support
+
+- Bugs and feature requests: [GitHub issues](https://github.com/Memanzur/boppi-scan/issues). Attach the `boppi-contradiction-*.json` fixture if `verify` wrote one.
+- Email: boppii.ioo@gmail.com for anything you would rather not post publicly.
+- Security reports: see [SECURITY.md](SECURITY.md).
 
 ## Development
 
@@ -172,7 +219,7 @@ The suites under `test/` are executable checks, not unit tests. `npm test` runs 
 
 ## Part of Boppi
 
-This scanner is the local collector for [Boppi](https://github.com/Memanzur), an AI-agent exposure platform that runs the same engine across an organization. The scanner is complete on its own and stays free.
+This scanner is the local collector for [Boppi](https://boppi.io), an AI-agent exposure platform that runs the same engine across an organization. The scanner is complete on its own and stays free.
 
 ## License
 

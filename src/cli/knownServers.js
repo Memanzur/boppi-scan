@@ -3,7 +3,7 @@
  * CLI-only layer: config files rarely declare capabilities, so the CLI infers
  * them from evidenced identity (package name, command, directory arguments).
  * Every inference is labeled with what matched, and the derived permission
- * records carry evidenceClass 'inferred' — never presented as observed fact.
+ * records carry evidenceClass 'inferred', never presented as observed fact.
  */
 'use strict';
 const fs = require('fs');

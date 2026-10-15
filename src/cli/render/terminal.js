@@ -143,13 +143,13 @@ function renderReport(report, options = {}) {
   }
 
   if (command === 'scan' && report.historyChanges) {
-    out('');
+    if (!report.paths.length) out('');
     out(s.bold('CHANGES SINCE LAST SCAN'), s.dim(`  compared with ${report.historyChanges.comparedAt}`));
     out('  ', `${report.historyChanges.newPaths} new exposure path${report.historyChanges.newPaths === 1 ? '' : 's'} · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers`);
   } else if (command === 'scan') {
-    out('');
+    if (!report.paths.length) out('');
     out(s.bold('CHANGES SINCE LAST SCAN'));
-    out('  ', s.dim('First local scan — run Boppi again after changing your environment to see what changed.'));
+    out('  ', s.dim('First local scan. Run Boppi again after changing your environment to see what changed.'));
   }
 
   const ranked = (command === 'paths' || command === 'scan') ? rankPredictions(report.predictions || [], report.paths) : [];
@@ -179,6 +179,7 @@ function renderReport(report, options = {}) {
     const open = report.inventory.findings.filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status));
     const standalone = open.filter(f => !covered.has(`${f.agentId}:${f.ruleId}`));
     const list = options.verbose ? open : standalone;
+    out('');
     out(s.bold(`FINDINGS (${open.length})`), s.dim(options.verbose ? '' : standalone.length < open.length ? `  ${open.length - standalone.length} shown above as exposure paths; --verbose for all` : ''));
     if (!list.length) out(s.dim(open.length ? '  All open findings are represented in the exposure paths above.' : '  No rule-engine findings from the evidenced inventory.'));
     const agentName = id => report.inventory.agents.find(a => a.id === id)?.name || id;
@@ -192,9 +193,18 @@ function renderReport(report, options = {}) {
   }
 
   out('');
-  out(s.bold('NEXT  '), s.dim('boppi scan --html report.html (shareable report) · boppi scan --json export.json (full evidence)'));
+  out(s.bold('NEXT STEPS'));
+  if (report.paths.length && options.json) {
+    out('  ', `1. Apply the fix above, then run ${s.bold(`boppi verify ${options.json}`)} to confirm the paths are gone.`);
+  } else if (report.paths.length) {
+    out('  ', `1. Rerun with ${s.bold('--json boppi-scan.json')} to save these predictions, apply the fix, then ${s.bold('boppi verify boppi-scan.json')} confirms it.`);
+  } else {
+    out('  ', `1. Rescan after you add or change an MCP server; ${s.bold('boppi history')} shows what changed between runs.`);
+  }
+  out('  ', `2. ${s.bold('boppi scan --html boppi-report.html')} writes a shareable report with the evidence for every claim.`);
+  out('  ', `3. Working with a team? ${s.bold('BOPPI_TOKEN=<token> boppi push')} sends this sanitized inventory to your Boppi workspace. Nothing else ever leaves the machine.`);
   out('');
-  out(s.bold('PRIVACY'), s.dim('  Files read this run — metadata only, sanitized in memory, nothing left this machine:'));
+  out(s.bold('PRIVACY'), s.dim('  Files read this run (metadata only, sanitized in memory, nothing left this machine):'));
   for (const file of report.filesRead) out(s.dim(`  - ${file}`));
   if (!report.filesRead.length) out(s.dim('  - none (no configuration files were found)'));
   out(s.dim('  Secret values, file contents, and raw path names are never collected. Paths become fingerprints.'));

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * boppi — local AI agent security scan.
+ * boppi: local AI agent security scan.
  *
  * One command that discovers local AI agent MCP configurations, runs the
  * existing Boppi engine unchanged (scanner → risk engine → security graph →
@@ -32,21 +32,30 @@ const verify = require('./verify');
 const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
+const push = require('./push');
 
 const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify', 'history']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify', 'history', 'push']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|history] [options]',
+    'Usage: boppi [scan|agents|paths|verify|history|push] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '  boppi history                  show the last 20 local scan summaries',
+    '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
+    '',
+    'Push options (the only command that uses the network):',
+    `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
+    '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN',
+    '  --file <scan.json>  push an earlier --json export instead of scanning now',
+    '  --dry-run           print the records that would be sent, send nothing',
+    '  --merge             add to the workspace without removing records absent from this scan',
     '',
     'Options:',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
@@ -75,8 +84,9 @@ function parseArgs(argv) {
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
+    url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -99,10 +109,24 @@ function parseArgs(argv) {
       else if (arg === '--cwd') options.cwd = value;
       else if (arg === '--contradictions-dir') options.contradictionsDir = value;
       else if (arg === '--history-file') options.historyFile = value;
-    } else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
+      else if (arg === '--url') options.url = value;
+      else if (arg === '--token') options.token = value;
+      else if (arg === '--file') options.file = value;
+    } else if (arg === '--dry-run') options.dryRun = true;
+    else if (arg === '--merge') options.merge = true;
+    else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
+  if (options.command === 'push' && !options.help && !options.version) {
+    if (!options.dryRun && !options.token) throw new Error('push needs a collector token: pass --token <token> or set BOPPI_TOKEN');
+    options.ingestUrl = push.resolveIngestUrl(options.url);
+  }
+  if (options.only) {
+    const unknown = options.only.filter(value => !ONLY_ALIASES[value]);
+    if (unknown.length) throw new Error(`--only does not know ${unknown.join(', ')}; use ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
+  }
+  if (options.config && !fs.existsSync(options.config)) throw new Error(`--config file not found: ${options.config}`);
   if (options.failOn && !SEVERITY_ORDER[options.failOn]) throw new Error(`--fail-on must be one of: ${Object.keys(SEVERITY_ORDER).join(', ')}`);
   if (!scanner.supportedSources.includes(options.source)) throw new Error(`--source must be one of: ${scanner.supportedSources.join(', ')}`);
   if (!options.historyFile) options.historyFile = path.join(options.home, '.boppi', 'history.json');
@@ -221,8 +245,11 @@ function discover(options) {
             const key = client.mergedServers[name] ? `${name} (${file.scope})` : name;
             client.mergedServers[key] = server;
           }
-        } catch (_) {
+        } catch (error) {
           entry.status = 'unreadable';
+          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
+            : error.code === 'EISDIR' ? 'this is a directory, not a config file'
+            : 'invalid JSON';
           filesRead.add(resolved);
         }
       }
@@ -275,7 +302,8 @@ async function performScan(options) {
       client.agentId = scannerResult.agent.id;
       providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer }));
     } catch (error) {
-      client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = error.message; } });
+      const hint = /secret material/.test(error.message) ? '. Move that value into an environment variable the server reads and rescan; Boppi never records the value itself' : '';
+      client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = `${error.message}${hint}`; } });
     }
   }
 
@@ -397,6 +425,64 @@ async function runVerify(options) {
   return 0;
 }
 
+/** boppi push: scan (or load an export), map the real inventory to ingest records, send one snapshot. */
+async function runPush(options) {
+  let inventory;
+  let incomplete = [];
+  if (options.file) {
+    let payload;
+    try { payload = JSON.parse(fs.readFileSync(options.file, 'utf8')); } catch (error) {
+      process.stderr.write(`push: cannot read ${options.file}: ${error.message}\n`);
+      return 2;
+    }
+    inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
+    if (!inventory || !Array.isArray(inventory.agents)) {
+      process.stderr.write(`push: ${options.file} has no inventory; it must be a --json export from boppi scan\n`);
+      return 2;
+    }
+  } else {
+    const scan = await performScan(options);
+    if (scan.failed) {
+      process.stderr.write(`Scan failed: ${scan.failed}\n`);
+      return scan.exitCode || 3;
+    }
+    inventory = exportPayload(scan).inventory.real;
+    incomplete = scan.incomplete;
+  }
+
+  const records = push.toRecords(inventory);
+  const summary = push.counts(inventory);
+  const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from this push.\n`);
+
+  if (options.dryRun) {
+    process.stdout.write(JSON.stringify({ records }, null, 2) + '\n');
+    process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
+    return 0;
+  }
+  if (!records.length) {
+    process.stdout.write('Nothing to push: no AI agent configuration was found on this machine.\n');
+    return 0;
+  }
+
+  const snapshot = !options.merge && records.length <= push.SNAPSHOT_MAX;
+  const workspace = push.workspaceUrl(options.ingestUrl);
+  process.stdout.write(`Sending ${plural(records.length, 'record')} (${described}) to ${workspace}${snapshot ? ' as a full snapshot' : ''}.\n`);
+  process.stdout.write('Only sanitized inventory metadata is sent: no secret values, file contents, or raw paths.\n');
+  if (!options.merge && !snapshot) process.stderr.write(`More than ${push.SNAPSHOT_MAX} records: pushing without snapshot cleanup, so records absent from this scan stay in the workspace.\n`);
+
+  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot });
+  if (!result.ok) {
+    process.stderr.write(`${push.describeFailure(result)}\n`);
+    return 5;
+  }
+  const ingested = Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : records.length;
+  process.stdout.write(`Done. ${plural(ingested, 'record')} ingested. Open ${workspace}/dashboard to see this machine in the workspace graph.\n`);
+  return incomplete.length ? 4 : 0;
+}
+
+function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
+
 async function run(argv) {
   let options;
   try { options = parseArgs(argv); } catch (error) {
@@ -407,6 +493,7 @@ async function run(argv) {
   if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
   if (options.command === 'history') { process.stdout.write(renderHistory(options.historyFile) + '\n'); return 0; }
   if (options.command === 'verify') return runVerify(options);
+  if (options.command === 'push') return runPush(options);
 
   const scan = await performScan(options);
   if (scan.failed) {

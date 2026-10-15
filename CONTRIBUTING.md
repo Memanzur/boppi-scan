@@ -1,7 +1,7 @@
 # Contributing
 
 - Node 18 or newer.
-- Run the test suites with `npm test`; all five must pass.
+- Run the test suites with `npm test`; every suite must pass.
 - The files under `src/engine/` are shared byte-for-byte with the Boppi control plane. Any change there needs a test in `test/`, and the same change has to land upstream or the sync check will flag it.
 
 ## Honesty rules
