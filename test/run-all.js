@@ -17,6 +17,7 @@ const SUITES = [
   'verify-push.js',
   'verify-no-network.js',
   'verify-plan-fix.js',
+  'verify-policy-sarif.js',
 ];
 
 let failures = 0;

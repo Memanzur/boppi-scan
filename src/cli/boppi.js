@@ -34,6 +34,8 @@ const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
 const plan = require('./plan');
+const policyModule = require('./policy');
+const sarif = require('./render/sarif');
 const fix = require('./fix');
 
 const VERSION = require('../../package.json').version;
@@ -71,6 +73,8 @@ function usage() {
     'Options:',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
     '  --html <file>       write a self-contained HTML report',
+    '  --sarif <file>      write a SARIF 2.1.0 report (paths, findings, policy violations) for code scanning',
+    '  --policy <file>     evaluate a boppi.policy.json guard; ./boppi.policy.json is used automatically when present',
     '  --only <clients>    limit discovery, e.g. --only claude-desktop,cursor',
     '  --config <path>     scan one explicit config file (skip discovery)',
     '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
@@ -98,7 +102,7 @@ function parseArgs(argv) {
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -126,6 +130,8 @@ function parseArgs(argv) {
       else if (arg === '--file') options.file = value;
       else if (arg === '--platform') options.platform = value;
       else if (arg === '--server') options.server = value;
+      else if (arg === '--sarif') options.sarif = value;
+      else if (arg === '--policy') options.policy = value;
       else if (arg === '--client') options.client = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
@@ -146,6 +152,7 @@ function parseArgs(argv) {
     if (unknown.length) throw new Error(`--only does not know ${unknown.join(', ')}; use ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
   }
   if (options.config && !fs.existsSync(options.config)) throw new Error(`--config file not found: ${options.config}`);
+  if (options.policy && !fs.existsSync(options.policy)) throw new Error(`--policy file not found: ${options.policy}`);
   if (options.failOn && !SEVERITY_ORDER[options.failOn]) throw new Error(`--fail-on must be one of: ${Object.keys(SEVERITY_ORDER).join(', ')}`);
   if (!scanner.supportedSources.includes(options.source)) throw new Error(`--source must be one of: ${scanner.supportedSources.join(', ')}`);
   if (!options.historyFile) options.historyFile = path.join(options.home, '.boppi', 'history.json');
@@ -676,6 +683,16 @@ async function run(argv) {
     inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
   };
 
+  const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);
+  if (policyFile) {
+    let loaded;
+    try { loaded = policyModule.loadPolicy(policyFile); } catch (error) {
+      process.stderr.write(`${error.message}\n`);
+      return 2;
+    }
+    report.policy = policyModule.evaluatePolicy(loaded, inventory, paths);
+  }
+
   if (options.command === 'plan') {
     process.stdout.write(plan.renderPlan(report, options) + '\n');
     if (options.json) {
@@ -688,9 +705,10 @@ async function run(argv) {
   report.historyChanges = writeHistory(scan, options.historyFile);
 
   process.stdout.write(terminal.renderReport(report, options) + '\n');
+  if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
 
   if (options.json) {
-    fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));
+    fs.writeFileSync(options.json, JSON.stringify({ ...exportPayload(scan), policy: report.policy ? { ...report.policy, file: portablePath(report.policy.file, scan.home) } : null }, null, 2));
     process.stdout.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
@@ -699,7 +717,13 @@ async function run(argv) {
     fs.writeFileSync(options.html, html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients }));
     process.stdout.write(`\nHTML report written to ${options.html}\n`);
   }
+  if (options.sarif) {
+    const portableReport = { ...report, discovery: scan.portableDiscovery.clients, policy: report.policy ? { ...report.policy, file: portablePath(report.policy.file, scan.home) } : null };
+    fs.writeFileSync(options.sarif, JSON.stringify(sarif.renderSarif(portableReport, { automationId: options.config ? 'config' : 'scan' }), null, 2));
+    process.stdout.write(`\nSARIF report written to ${options.sarif}\n`);
+  }
 
+  if (report.policy && !report.policy.passed) return 1;
   if (options.failOn) {
     const threshold = SEVERITY_ORDER[options.failOn];
     const worst = Math.max(0,

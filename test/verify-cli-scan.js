@@ -127,6 +127,7 @@ function runCli(args, home) {
   ok('positional and embedded connection credentials never appear in the export', !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes('pw_positional_test') && !serialized.includes('redis_pw_test') && serialized.includes('[redacted-sensitive-argument]'));
   ok('values after bare credential flags and inline key=value secrets never appear in the export', !serialized.includes('flagvalue_apikey_test_77') && !serialized.includes('inline_key_value_test_88') && !serialized.includes('flagvalue_password_test_99'));
   ok('harmless flags and their values survive redaction', serialized.includes('"--port"') && serialized.includes('"8080"'));
+  ok('package names that merely contain a token prefix survive redaction', serialized.includes('@wonderwhy-er/desktop-commander'));
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
   section('Export carries no raw filesystem paths');
