@@ -1,0 +1,104 @@
+#!/usr/bin/env node
+/** The interactive report's view model (graphData) lines up with the engine's graph, paths, and predictions, and builds from a --json export alone. */
+'use strict';
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+const graphData = require('../src/cli/render/graphData');
+
+const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
+let passed = 0, failed = 0;
+function ok(name, condition) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}`); } }
+function section(name) { console.log(`\n── ${name} ──`); }
+
+function makeHome(root) {
+  const home = path.join(root, 'home');
+  const docs = path.join(home, 'docs');
+  fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
+  fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({
+    mcpServers: {
+      filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', docs] },
+      fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
+      '1password': { command: 'npx', args: ['-y', '@1password/mcp'], env: { OP_TOKEN: 'SUPERSECRETVALUE' } },
+      shell: { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] },
+    },
+  }, null, 2));
+  fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({
+    mcpServers: { github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] } },
+    projects: { [home]: { mcpServers: { 'project-fetch': { command: 'uvx', args: ['mcp-server-fetch'] } } } },
+  }, null, 2));
+  fs.writeFileSync(path.join(home, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { puppeteer: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] } } }, null, 2));
+  return home;
+}
+
+function runCli(args, home) {
+  const result = spawnSync(process.execPath, [CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' } });
+  return { code: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
+}
+
+(function main() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-interactive-'));
+  const home = makeHome(root);
+  const jsonPath = path.join(root, 'export.json');
+  const scan = runCli(['scan', '--json', jsonPath], home);
+  ok('scan exits 0', scan.code === 0);
+  const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+
+  section('Export carries the graph');
+  ok('export has graph.nodes and graph.edges', Array.isArray(exported.graph && exported.graph.nodes) && Array.isArray(exported.graph.edges) && exported.graph.nodes.length > 0);
+  const nodeIds = new Set(exported.graph.nodes.map(n => n.id));
+  const edgeIds = new Set(exported.graph.edges.map(e => e.id));
+  ok('every exposure path node resolves to a graph node', exported.exposurePaths.length > 0 && exported.exposurePaths.every(p => p.nodes.every(n => nodeIds.has(n.id))));
+  ok('every exposure path edge resolves to a graph edge', exported.exposurePaths.every(p => p.edges.every(e => edgeIds.has(e.id))));
+  ok('graph nodes carry no env values or secrets', !JSON.stringify(exported.graph).includes('SUPERSECRETVALUE'));
+  ok('scanArgs is null without --config', exported.scanArgs === null);
+
+  section('View model from the export');
+  const view = graphData.viewFromExport(exported);
+  ok('schemaVersion 1 with the configuration-not-behaviour disclaimer', view.schemaVersion === 1 && view.disclaimer.includes('Not an execution trace') && /not what they did/.test(view.scope));
+  ok('one view node per graph node, ids preserved', view.nodes.length === exported.graph.nodes.length && view.nodes.every(n => nodeIds.has(n.id)));
+  ok('one view edge per graph edge with from/to', view.edges.length === exported.graph.edges.length && view.edges.every(e => nodeIds.has(e.from) && nodeIds.has(e.to)));
+  ok('every node kind is one of the six layers', view.nodes.every(n => graphData.KINDS.includes(n.kind)));
+  ok('agents resolve to agent nodes', view.agents.length === 3 && view.agents.every(a => view.nodes.find(n => n.id === a.id && n.kind === 'agent')));
+  ok('every non-agent node is owned by an agent', view.nodes.filter(n => n.kind !== 'agent').every(n => view.agents.some(a => a.id === n.agentId)));
+  ok('every node has at least one evidence line', view.nodes.every(n => n.evidence.length >= 1 && n.evidence.every(line => line.title && line.detail)));
+  const serverNode = view.nodes.find(n => n.kind === 'server' && n.label === 'filesystem');
+  ok('server nodes carry command, trust status, and reached-from evidence', !!serverNode && serverNode.evidence.some(l => l.title === 'Command') && serverNode.evidence.some(l => l.title === 'Trust status') && serverNode.evidence.some(l => l.title === 'Reached from'));
+  ok('credential node names the variable, never the value', view.nodes.some(n => n.kind === 'credential' && /OP_TOKEN/.test(n.label)) && !JSON.stringify(view).includes('SUPERSECRETVALUE'));
+
+  section('Paths');
+  ok('view paths mirror engine paths one to one', view.paths.length === exported.exposurePaths.length && view.paths.every((p, i) => p.id === exported.exposurePaths[i].id));
+  ok('path nodeIds and edgeIds resolve to view nodes and edges', view.paths.every(p => p.nodeIds.every(id => nodeIds.has(id)) && p.edgeIds.every(id => edgeIds.has(id))));
+  ok('paths carry severity, confidence, explanation, whyItMatters, and the disclaimer', view.paths.every(p => ['critical', 'high', 'medium', 'low'].includes(p.severity) && typeof p.confidence === 'number' && p.explanation && p.whyItMatters && p.disclaimer));
+  ok('nodes on a path carry that path id and its severity', view.paths.every(p => p.nodeIds.every(id => { const n = view.nodes.find(x => x.id === id); return n.pathIds.includes(p.id) && n.severity; })));
+  const critical = view.paths.find(p => p.severity === 'critical');
+  ok('the critical path lists at least one remediation', !!critical && critical.remediationIds.length >= 1);
+
+  section('Remediations');
+  ok('remediations come from predictions that eliminate at least one path', view.remediations.length > 0 && view.remediations.every(r => r.eliminates.length >= 1 && exported.predictions.some(p => p.predictionId === r.id)));
+  const top = view.remediations[0];
+  ok('top remediation names the file, the key, and the sanitized entry', top.files.from.length === 1 && top.files.from[0].startsWith('~/') && top.keyPath === `mcpServers.${JSON.stringify(top.server)}` && top.entry && top.entry.command);
+  ok('eliminates and survives reference view path ids', [...top.eliminates, ...top.survives].every(id => view.paths.some(p => p.id === id)));
+  ok('remediation declares what the agent loses', Array.isArray(top.loses) && top.loses.length >= 1);
+  ok('every remediation on a path points back to that path', view.remediations.every(r => r.eliminates.every(id => view.paths.find(p => p.id === id).remediationIds.includes(r.id))));
+  ok('remove_server remediations are not guided; move_server ones are', view.remediations.every(r => r.guided === (r.action === 'move_server')));
+  ok('previewHash is a sha256 and changes when the server differs', /^[0-9a-f]{64}$/.test(top.previewHash) && new Set(view.remediations.map(r => r.previewHash)).size === view.remediations.length);
+  ok('static command is a boppi fix invocation with the client', top.command === `boppi fix --server ${JSON.stringify(top.server)} --client ${top.clientKey}`);
+  ok('plan steps reference remediation ids', view.plan.steps.length >= 1 && view.plan.steps.every(id => view.remediations.some(r => r.id === id)));
+  ok('coverage lists the portable files read', view.coverage.filesRead.length >= 3 && view.coverage.filesRead.every(f => f.startsWith('~/')));
+
+  section('Explicit --config scan');
+  const explicit = runCli(['scan', '--config', path.join(home, '.cursor', 'mcp.json'), '--source', 'cursor', '--json', path.join(root, 'explicit.json')], home);
+  const explicitExport = JSON.parse(fs.readFileSync(path.join(root, 'explicit.json'), 'utf8'));
+  ok('scanArgs records the portable config path and source', explicit.code === 0 && explicitExport.scanArgs && explicitExport.scanArgs.config === '~/.cursor/mcp.json' && explicitExport.scanArgs.source === 'cursor');
+  const command = graphData.fixCommand({ edit: { server: 'puppeteer' }, client: { key: 'cursor' } }, explicitExport.scanArgs);
+  ok('fix command carries --config for a home-relative file', command === 'boppi fix --server "puppeteer" --client cursor --config ~/.cursor/mcp.json --source cursor');
+  const outside = graphData.fixCommand({ edit: { server: 'x' }, client: { key: 'cursor' } }, { config: 'path_abc123', source: 'cursor' });
+  ok('fix command asks for the file when the path is fingerprinted', /add --config/.test(outside) && !outside.includes('--config path_abc123'));
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exitCode = failed ? 1 : 0;
+})();

@@ -426,7 +426,9 @@ async function performScan(options) {
   const diagnostics = overlay
     ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected }, shadow, applied }
     : { shadow: [], applied: [] };
-  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport };
+  // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
+  const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
+  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, scanArgs };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -450,11 +452,13 @@ function exportPayload(scan) {
   return {
     ...scan.storageExport,
     engineVersion: models.ENGINE_VERSION,
+    graph: scan.graph,
     exposurePaths: scan.paths,
     prioritization: scan.prioritization,
     rootCauses: scan.rootCauses,
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
+    scanArgs: scan.scanArgs,
     discovery: scan.portableDiscovery,
     diagnostics: scan.diagnostics.overlay
       ? { ...scan.diagnostics, overlay: { ...scan.diagnostics.overlay, file: portablePath(scan.diagnostics.overlay.file, scan.home) } }
@@ -684,7 +688,7 @@ async function run(argv) {
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
-    inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
+    inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete, scanArgs: scan.scanArgs,
   };
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);
