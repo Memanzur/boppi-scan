@@ -16,7 +16,9 @@
   // Positional arguments have no field name to key off. Keep this deliberately
   // conservative and redact common credential formats before they enter any
   // model, export, history file, or verifier bundle.
-  const SENSITIVE_VALUE = /(?:bearer\s+|(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
+  // Each token prefix must start the value or follow a non-alphanumeric character; without that boundary
+  // ordinary package names such as desktop-commander ("sk" + 10 chars) were redacted as secrets.
+  const SENSITIVE_VALUE = /(?:bearer\s+|(?:^|[^A-Za-z0-9])(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
   const CREDENTIAL_URI = /[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@/i;
   const CREDENTIAL_AT_HOST = /(?:^|[=\s])[^\s/:=@]+:[^\s/@]+@[^\s]+/i;
   const SAFE_CAPABILITIES = new Set(['filesystem_access','shell_access','code_execution','network_access','environment_access','credential_access','browser_automation','untrusted_external_content']);

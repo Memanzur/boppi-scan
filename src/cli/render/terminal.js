@@ -44,13 +44,23 @@ function coveredKeys(paths) {
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
 
 function editSentence(step) {
+  if (step.edit.action === 'move_server') return `Move the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration to ${step.target ? step.target.label : step.edit.toClient}. Rescan afterward to verify the change landed.`;
   return `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration. Rescan afterward to verify the change landed.`;
 }
 
 /** The scanned config files the edit applies to, so the instruction names a real file. */
 function editLocations(step, report) {
   const client = (report.discovery || []).find(c => c.clientKey === step.client.key);
-  return client ? client.files.filter(f => f.status === 'found').map(f => `remove the "${step.edit.server}" entry from ${f.path}`) : [];
+  const verb = step.edit.action === 'move_server' ? 'move' : 'remove';
+  return client ? client.files.filter(f => f.status === 'found').map(f => `${verb} the "${step.edit.server}" entry from ${f.path}`) : [];
+}
+
+/** What the agent gives up, from the prediction's inventory-derived disruption. */
+function disruptionSentence(prediction) {
+  const d = prediction.disruption;
+  if (!d) return null;
+  if (!d.lost.length) return 'the agent loses no capability it does not also get from another server';
+  return `the agent loses ${d.lost.join(', ')}${d.kept.length ? ` and keeps ${d.kept.join(', ')} through other servers` : ''}`;
 }
 
 function summaryLine(report) {
@@ -164,6 +174,9 @@ function renderReport(report, options = {}) {
     if (eliminatedSeverity.critical) brk.push(`${eliminatedSeverity.critical} critical`);
     if (eliminatedSeverity.high) brk.push(`${eliminatedSeverity.high} high`);
     out('    ', s.dim('breaks '), s.bold(brk.join(' · ')), s.dim(`  (leaves ${total - top.predictedEliminated.length})`));
+    const cost = disruptionSentence(top);
+    if (cost) out('    ', s.dim('cost: '), cost);
+    out('    ', s.dim('compare every candidate fix with '), s.bold('boppi plan'), s.dim(', apply one with '), s.bold(`boppi fix --server ${JSON.stringify(top.edit.server)}`));
     const plan = report.remediationPlan;
     if (plan && plan.steps.length > 1) {
       out('  ', s.dim(`Full plan to break all ${plan.targetedExposures} high-or-critical exposures, ${plan.steps.length} changes${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}:`));

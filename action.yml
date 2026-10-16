@@ -1,0 +1,40 @@
+name: Boppi AI agent security scan
+description: Scan a repository's MCP configuration for potential exposure paths, fail on severity or policy, and write SARIF.
+author: Melody Manzur
+branding:
+  icon: shield
+  color: purple
+inputs:
+  config:
+    description: Path to one MCP config file to scan (for example .mcp.json). When empty, Boppi discovers the runner's user-level configs, which is rarely what CI wants.
+    default: .mcp.json
+  source:
+    description: Client type for the config file, one of claude-desktop, claude-code, cursor.
+    default: claude-code
+  fail-on:
+    description: Exit non-zero when any path or finding is at or above this severity (low, medium, high, critical). Empty disables.
+    default: high
+  policy:
+    description: Path to a boppi.policy.json file. Empty uses ./boppi.policy.json when it exists.
+    default: ''
+  sarif:
+    description: Where to write the SARIF report. Upload it with github/codeql-action/upload-sarif.
+    default: boppi.sarif
+  version:
+    description: boppi package version to run.
+    default: latest
+outputs:
+  sarif:
+    description: Path of the SARIF file that was written.
+    value: ${{ inputs.sarif }}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        args=(scan --no-color --sarif "${{ inputs.sarif }}" --json boppi-scan.json)
+        if [ -n "${{ inputs.config }}" ]; then args+=(--config "${{ inputs.config }}" --source "${{ inputs.source }}"); fi
+        if [ -n "${{ inputs['fail-on'] }}" ]; then args+=(--fail-on "${{ inputs['fail-on'] }}"); fi
+        if [ -n "${{ inputs.policy }}" ]; then args+=(--policy "${{ inputs.policy }}"); fi
+        npx --yes "boppi@${{ inputs.version }}" "${args[@]}"

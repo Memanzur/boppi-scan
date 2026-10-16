@@ -103,6 +103,7 @@ function renderHtml(report) {
   <div class="card" style="border-left:3px solid var(--accent)">
     <b>${esc(editSentence(ranked[0].prediction))}</b>
     <div class="kv">Breaks <b>${ranked[0].prediction.predictedEliminated.length} of ${paths.length}</b> exposures${ranked[0].eliminatedSeverity.critical ? ` (${ranked[0].eliminatedSeverity.critical} critical)` : ''}; ${paths.length - ranked[0].prediction.predictedEliminated.length} would remain. Checked by rescanning without the server.</div>
+    ${ranked[0].prediction.disruption ? `<div class="kv muted small">Cost: ${ranked[0].prediction.disruption.lost.length ? `the agent loses ${esc(ranked[0].prediction.disruption.lost.join(', '))}` : 'the agent loses no capability it does not also get from another server'}.</div>` : ''}
     ${plan && plan.steps.length > 1 ? `<div class="kv muted small">Plan to break all ${plan.targetedExposures} high-or-critical exposures (${plan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${plan.steps.map(st => `<li>${esc(editSentence(st))} <b>(breaks ${st.breaksCount})</b></li>`).join('')}</ol>` : ''}
   </div>` : ''}
 

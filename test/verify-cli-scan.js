@@ -94,7 +94,13 @@ function runCli(args, home) {
   const predictions = exported.predictions;
   const PREDICTION_FIELDS = ['schemaVersion', 'predictionId', 'engineVersion', 'scannerVersion', 'createdAt', 'client', 'agentId', 'configFingerprint', 'edit', 'serverId', 'before', 'predictedEliminated', 'predictedSurviving', 'inventoryHash'];
   ok('export carries predictions', Array.isArray(predictions) && predictions.length > 0);
-  ok('every prediction has the documented shape', predictions.every(p => PREDICTION_FIELDS.every(f => f in p) && p.schemaVersion === 1 && p.engineVersion === engineVersion && p.scannerVersion === exported.generatedBy.split('/')[1] && p.edit.action === 'remove_server' && typeof p.edit.server === 'string' && /^path_[0-9a-f]{16}$/.test(p.configFingerprint) && /^inventory_[0-9a-f]{16}$/.test(p.inventoryHash)));
+  ok('every prediction has the documented shape', predictions.every(p => PREDICTION_FIELDS.every(f => f in p) && p.schemaVersion === 1 && p.engineVersion === engineVersion && p.scannerVersion === exported.generatedBy.split('/')[1] && ['remove_server', 'move_server'].includes(p.edit.action) && typeof p.edit.server === 'string' && /^path_[0-9a-f]{16}$/.test(p.configFingerprint) && /^inventory_[0-9a-f]{16}$/.test(p.inventoryHash)));
+  ok('every prediction states what the agent would lose, from the inventory', predictions.every(p => p.disruption && Array.isArray(p.disruption.lost) && Array.isArray(p.disruption.kept)));
+  const removals = predictions.filter(p => p.edit.action === 'remove_server');
+  const moves = predictions.filter(p => p.edit.action === 'move_server');
+  ok('move predictions name a target client that is a different scanned agent and list what would appear there', moves.length > 0 && moves.every(p => p.edit.toClient === p.target.key && p.target.agentId !== p.agentId && Array.isArray(p.target.predictedAppeared)));
+  ok('moving filesystem from Claude Desktop to Cursor removes the desktop exfiltration path but creates one on Cursor, which already reaches the network', (() => { const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor'); return m && m.predictedEliminated.length === 1 && m.target.predictedAppeared.some(k => k.startsWith('EP-A:')); })());
+  ok('moves rank below a removal that breaks the same exposures without creating new ones', (() => { const ranked = require('../src/cli/predict').rankPredictions(predictions, exported.exposurePaths); const first = ranked.findIndex(e => e.prediction.edit.action === 'move_server'); const sameRemoval = ranked.findIndex(e => e.prediction.edit.action === 'remove_server' && e.prediction.edit.server === ranked[first].prediction.edit.server); return first > sameRemoval; })());
   ok('eliminated and surviving partition the before set', predictions.every(p => [...p.predictedEliminated, ...p.predictedSurviving].sort().join() === [...p.before.exposureKeys].sort().join() && !p.predictedEliminated.some(k => p.predictedSurviving.includes(k))));
   const keysByAgent = agentId => exported.exposurePaths.filter(x => x.agentId === agentId).map(x => x.exposureKey).sort();
   ok('a prediction\'s before set is the agent\'s scanned exposures', predictions.every(p => p.before.exposureKeys.join() === keysByAgent(p.agentId).join()));
@@ -102,11 +108,11 @@ function runCli(args, home) {
   const pathNodeIds = new Set(exported.exposurePaths.flatMap(x => x.nodes.map(n => n.id)));
   const involvedIds = new Set([...pathNodeIds, ...exportedGraph.edges.filter(e => pathNodeIds.has(e.toEntityId)).map(e => e.fromEntityId)]);
   const participating = exported.inventory.real.mcpServers.filter(m => involvedIds.has(m.id) || exported.inventory.real.permissions.some(q => q.integrationId === m.id && involvedIds.has(q.id)));
-  ok('exactly one prediction per server that takes part in a path', participating.length > 0 && participating.length === predictions.length && participating.every(m => predictions.some(p => p.serverId === m.id && p.edit.server === m.name)));
+  ok('exactly one removal prediction per server that takes part in a path', participating.length > 0 && participating.length === removals.length && participating.every(m => removals.some(p => p.serverId === m.id && p.edit.server === m.name)));
   ok('a server with no exposure of its own gets no prediction', !predictions.some(p => p.edit.server === 'github'));
-  const fetchPrediction = predictions.find(p => p.edit.server === 'fetch');
+  const fetchPrediction = removals.find(p => p.edit.server === 'fetch');
   ok('removing fetch from the desktop fixture breaks all three of its exposures', fetchPrediction && fetchPrediction.predictedEliminated.length === 3 && fetchPrediction.predictedSurviving.length === 0);
-  const filesystemPrediction = predictions.find(p => p.edit.server === 'filesystem');
+  const filesystemPrediction = removals.find(p => p.edit.server === 'filesystem');
   ok('removing filesystem breaks only the exfiltration exposure', filesystemPrediction && filesystemPrediction.predictedEliminated.length === 1 && filesystemPrediction.predictedEliminated[0].startsWith('EP-A:'));
   const topCount = Math.max(...predictions.map(p => p.predictedEliminated.length));
   ok('the terminal root cause states the top prediction\'s count over all exposures', scan.stdout.includes(`breaks ${topCount} of ${exported.exposurePaths.length} exposures`));
@@ -121,6 +127,7 @@ function runCli(args, home) {
   ok('positional and embedded connection credentials never appear in the export', !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes('pw_positional_test') && !serialized.includes('redis_pw_test') && serialized.includes('[redacted-sensitive-argument]'));
   ok('values after bare credential flags and inline key=value secrets never appear in the export', !serialized.includes('flagvalue_apikey_test_77') && !serialized.includes('inline_key_value_test_88') && !serialized.includes('flagvalue_password_test_99'));
   ok('harmless flags and their values survive redaction', serialized.includes('"--port"') && serialized.includes('"8080"'));
+  ok('package names that merely contain a token prefix survive redaction', serialized.includes('@wonderwhy-er/desktop-commander'));
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
   section('Export carries no raw filesystem paths');

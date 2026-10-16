@@ -141,12 +141,16 @@ Every path is potential. The scanner sees configuration, not behavior. It cannot
 boppi scan                     discover configs, scan, print the full report
 boppi agents                   inventory table only
 boppi paths                    exposure paths only
+boppi plan                     compare every candidate fix side by side and print the exact edits; changes nothing
+boppi fix --server <name>      remove one server entry from its config file (backup first), rescan, grade
 boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
-boppi history                  the last 20 local scan summaries and what changed between them
+boppi history                  recent local scan summaries, what changed, and verified exposure reduction
 boppi push                     scan, then send the sanitized inventory to your Boppi workspace
 
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
+--sarif <file>      SARIF 2.1.0 report for GitHub code scanning or any SARIF viewer
+--policy <file>     evaluate a policy file; ./boppi.policy.json is used automatically when present
 --only <clients>    limit discovery: claude-desktop, claude-code, cursor
 --config <path>     scan one explicit config file, skip discovery
 --source <id>       client type for --config
@@ -164,7 +168,46 @@ push only:
 --file <scan.json>  push an earlier --json export instead of scanning now
 --dry-run           print the records that would be sent, send nothing
 --merge             add to the workspace without removing records absent from this scan
+
+fix only:
+--server <name>     the server entry to remove, as boppi scan names it
+--client <key>      which config to edit when the name exists in more than one client
+--yes               apply without the terminal confirmation (required when stdin is not a terminal)
 ```
+
+### Plan and fix
+
+`boppi plan` lists every candidate fix with what it breaks, what it would create, and what the agent loses:
+
+```
+CANDIDATE FIXES  best first
+  #  edit                                               breaks   critical  new  agent loses
+  1  remove "fetch" from Claude Desktop                 3/4      2         0    network_access, untrusted_external_content
+  2  move "fetch" from Claude Desktop to Cursor         3/4      2         1    network_access, untrusted_external_content
+  3  remove "filesystem" from Claude Desktop            1/4      1         0    filesystem_access
+```
+
+Every row is a rescan of the configuration with that one edit applied. A move is rescanned on both clients, so the `new` column is what would appear on the target. `agent loses` lists capabilities no other server on that agent provides, which is the workflow cost of the edit.
+
+`boppi fix --server fetch` removes that entry from the file that holds it. It prints the file, the modeled effect, and the backup location, asks for confirmation (or takes `--yes`), copies the file to `~/.boppi/backups/` with mode 600, deletes the key, saves the predictions it used as `boppi-fix-<time>.json`, rescans, and grades the prediction. Exit 0 means CONFIRMED. Only removals are applied; a move is two edits you make by hand, and `boppi verify` grades the source side.
+
+### Policy guard
+
+A `boppi.policy.json` in the working directory (or `--policy <file>`) turns configuration facts into violations with exit 1. Every key is optional:
+
+```json
+{
+  "version": 1,
+  "failOn": "high",
+  "denyServers": ["desktop-commander", "/shell/i"],
+  "allowServers": ["filesystem", "github", "fetch"],
+  "denyCapabilities": ["credential_access"],
+  "denyCombinations": [["filesystem_access", "network_access"]],
+  "requireKnownCapabilities": true
+}
+```
+
+`denyServers` and `allowServers` match the server name, command, and arguments; `/re/flags` is a regular expression, anything else a case-insensitive substring. `denyCombinations` fires when one agent holds every listed capability across its servers. `requireKnownCapabilities` flags a server the catalog does not recognize. Violations are listed under POLICY with rule ids `POL-*`, included in `--json` and `--sarif`, and an unknown key or value in the file is an error, not a silent skip. The policy is evaluated on this machine against the scanned configuration; nothing is enforced at runtime.
 
 `boppi verify` takes the same discovery flags as `scan`. Each prediction in the export ("removing server X eliminates these exposures") is graded against the fresh scan: CONFIRMED, PARTIAL, CONTRADICTED, or UNRESOLVED when the edit was not applied or the agent was not scanned. PARTIAL and CONTRADICTED write a self-contained fixture file for an engine issue.
 
@@ -177,10 +220,26 @@ Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan 
 ### Use it in CI
 
 ```
-npx boppi scan --fail-on critical --quiet
+npx boppi scan --config .mcp.json --source claude-code --fail-on high --sarif boppi.sarif
 ```
 
-Fails the job when a critical path exists on the runner, or when a client config could not be analyzed. Incomplete scans return 4 even without `--fail-on`.
+Fails the job when a path or finding at or above the threshold exists in that file, when the policy is violated, or when the config could not be analyzed (exit 4, even without `--fail-on`). Without `--config` the scan reads the runner's user-level configs, which is rarely what CI wants.
+
+As a GitHub Action, with the SARIF uploaded to code scanning:
+
+```yaml
+- uses: Memanzur/boppi-scan@v0.3.0
+  with:
+    config: .mcp.json
+    source: claude-code
+    fail-on: high
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: boppi.sarif
+```
+
+Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx boppi@<version>`; pin `version` for reproducible runs.
 
 ## What leaves the machine
 
