@@ -99,6 +99,33 @@ function runCli(args, home) {
   const outside = graphData.fixCommand({ edit: { server: 'x' }, client: { key: 'cursor' } }, { config: 'path_abc123', source: 'cursor' });
   ok('fix command asks for the file when the path is fingerprinted', /add --config/.test(outside) && !outside.includes('--config path_abc123'));
 
-  console.log(`\n${passed} passed, ${failed} failed`);
-  process.exitCode = failed ? 1 : 0;
+  section('Interactive HTML report');
+  const htmlPath = path.join(root, 'report.html');
+  const htmlRun = runCli(['scan', '--html', htmlPath], home);
+  const htmlOut = fs.readFileSync(htmlPath, 'utf8');
+  const withoutSvgNamespace = htmlOut.replace(/http:\/\/www\.w3\.org\/2000\/svg/g, '');
+  ok('html written, self-contained, with a strict CSP', htmlRun.code === 0 && htmlOut.startsWith('<!doctype html>') && !/<script src=|<link rel|https?:\/\//.test(withoutSvgNamespace) && /Content-Security-Policy" content="default-src 'none'/.test(htmlOut));
+  const embedded = htmlOut.match(/<script type="application\/json" id="boppi-data">([\s\S]*?)<\/script>/);
+  ok('embedded view model parses', !!embedded && (() => { try { JSON.parse(embedded[1]); return true; } catch (e) { return false; } })());
+  const inPage = JSON.parse(embedded[1]);
+  ok('embedded nodes, edges, and paths match the export ids', inPage.nodes.length === exported.graph.nodes.length && inPage.paths.length === exported.exposurePaths.length && inPage.paths.every(p => p.nodeIds.every(id => nodeIds.has(id))));
+  ok('embedded JSON never contains a raw < or the home path', !embedded[1].includes('<') && !htmlOut.includes(home) && !htmlOut.includes(os.homedir()));
+  ok('embedded JSON never contains the secret value', !htmlOut.includes('SUPERSECRETVALUE'));
+  ok('page keeps the existing sections', ['What this scan established', 'Discovered MCP servers and capabilities', 'Root cause', 'Potential exposure paths (', 'Findings (', 'Agents (', 'Privacy.'].every(text => htmlOut.includes(text)));
+  ok('page has the graph, path list, panel, and show-in-graph buttons', ['id="graph-svg"', 'id="graph-paths"', 'id="graph-panel"', 'data-show-path="'].every(text => htmlOut.includes(text)));
+  ok('page carries the value proposition and the not-an-execution-trace disclaimer', htmlOut.includes('See what your AI agents can access, understand the potential exposure paths, fix dangerous access, and verify that the risk is gone.') && htmlOut.includes('Not an execution trace'));
+  ok('static page has no live token meta', !htmlOut.includes('<meta name="boppi-live"'));
+  ok('client script is inline and names the four stages', /Preparing backup[\s\S]*Applying change[\s\S]*Rescanning[\s\S]*Verifying/.test(htmlOut) && htmlOut.includes('/api/fix'));
+
+  section('Live mode render');
+  const html = require('../src/cli/render/html');
+  const cli = require('../src/cli/boppi');
+  cli.performScan(cli.parseArgs(['scan', '--home', home, '--cwd', home, '--no-color'])).then(scan => {
+    const report = { version: cli.VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs, discovery: scan.portableDiscovery.clients, filesRead: scan.discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead, inventory: scan.inventory, graph: scan.graph, paths: scan.paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete: scan.incomplete, scanArgs: scan.scanArgs };
+    const livePage = html.renderHtml(report, { live: { token: 'tok"en<x>' } });
+    ok('live render embeds the escaped token in a meta tag', livePage.includes('<meta name="boppi-live" content="tok&quot;en&lt;x&gt;">') && livePage.includes('served by <code>boppi ui</code>'));
+    ok('renderHtml without options matches the CLI output shape', html.renderHtml(report).includes('makes no network requests'));
+    console.log(`\n${passed} passed, ${failed} failed`);
+    process.exitCode = failed ? 1 : 0;
+  }).catch(error => { console.error(error); process.exitCode = 1; });
 })();

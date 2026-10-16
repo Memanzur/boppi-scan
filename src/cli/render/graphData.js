@@ -131,7 +131,7 @@ function buildGraphView(report) {
     }
     const pathIds = pathsByNode.get(node.id) || [];
     return {
-      id: node.id, kind, entityType: node.entityType, label: node.label,
+      id: node.id, kind, entityType: node.entityType, label: node.label, recordId: node.recordId || null,
       agentId: kind === 'agent' ? node.id : (owner.get(node.id) || null),
       evidenceClass: node.evidenceClass || 'unknown', confidence: node.confidence ?? null, stale: !!node.stale,
       evidence, detail, pathIds, severity: worstSeverity(pathIds),
