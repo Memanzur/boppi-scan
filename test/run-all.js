@@ -15,6 +15,7 @@ const SUITES = [
   'verify-agent-security-event-integrity.js',
   'verify-overlay.js',
   'verify-push.js',
+  'verify-no-network.js',
 ];
 
 let failures = 0;
