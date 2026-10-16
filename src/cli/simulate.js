@@ -68,4 +68,42 @@ function simulateConfigEdit({ rawConfig, agentContext, edit }) {
   return { before: { exposureKeys: before }, after: { exposureKeys: after }, ...diffKeys(before, after) };
 }
 
-module.exports = { enrich, clientInventory, exposureKeysOf, diffKeys, simulateConfigEdit };
+/**
+ * Apply {action:'move_server', server} across two clients and rescan both:
+ * the server leaves the source config and is added to the target config
+ * under the same name. Exposure keys embed the agent id, so the source's
+ * eliminated keys and the target's appeared keys are reported separately.
+ */
+function simulateMoveServer({ rawConfig, agentContext, targetRawConfig, targetAgentContext, edit }) {
+  if (!edit || edit.action !== 'move_server') throw new TypeError(`Simulate: unsupported action ${edit && edit.action}`);
+  const servers = rawConfig && rawConfig.mcpServers ? rawConfig.mcpServers : {};
+  if (!Object.prototype.hasOwnProperty.call(servers, edit.server)) throw new TypeError(`Simulate: server ${edit.server} is not in the config`);
+  const targetServers = targetRawConfig && targetRawConfig.mcpServers ? targetRawConfig.mcpServers : {};
+  if (Object.prototype.hasOwnProperty.call(targetServers, edit.server)) throw new TypeError(`Simulate: target already has a server named ${edit.server}`);
+  const { [edit.server]: moved, ...rest } = servers;
+  const source = diffKeys(
+    exposureKeysOf(clientInventory({ ...agentContext, mergedServers: servers })),
+    exposureKeysOf(clientInventory({ ...agentContext, mergedServers: rest })),
+  );
+  const target = diffKeys(
+    exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: targetServers })),
+    exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: { ...targetServers, [edit.server]: moved } })),
+  );
+  return { eliminated: source.eliminated, survived: source.survived, appeared: target.appeared, before: { exposureKeys: [...source.eliminated, ...source.survived].sort() } };
+}
+
+/**
+ * What an agent gives up when a server goes: the capabilities no other server
+ * on that agent also grants. Read from the normalized inventory, so it is the
+ * same evidence the graph was built from.
+ */
+function capabilitiesLost(inventory, agentId, serverId) {
+  const mine = (inventory.mcpServers || []).filter(s => s.agentId === agentId);
+  const server = mine.find(s => s.id === serverId);
+  if (!server) return { lost: [], kept: [] };
+  const elsewhere = new Set(mine.filter(s => s.id !== serverId).flatMap(s => s.capabilities || []));
+  const capabilities = [...new Set(server.capabilities || [])].sort();
+  return { lost: capabilities.filter(c => !elsewhere.has(c)), kept: capabilities.filter(c => elsewhere.has(c)) };
+}
+
+module.exports = { enrich, clientInventory, exposureKeysOf, diffKeys, simulateConfigEdit, simulateMoveServer, capabilitiesLost };

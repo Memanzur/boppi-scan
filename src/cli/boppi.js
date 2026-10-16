@@ -353,7 +353,7 @@ async function performScan(options) {
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
   const predictions = discovery.clients
     .filter(c => c.agentId && !c.scanError)
-    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION }));
+    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION, otherClients: discovery.clients }));
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
   const storageExport = await controller.getExport();
 
