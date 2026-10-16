@@ -33,23 +33,27 @@ const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
+const plan = require('./plan');
+const fix = require('./fix');
 
 const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'verify', 'history', 'push']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|verify|history|push] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
+    '  boppi plan                     compare every candidate fix (paths broken, new paths, capabilities lost) and show the exact edits; changes nothing',
+    '  boppi fix --server <name>      remove one server entry from its config file (backup first), then rescan and grade the prediction',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
-    '  boppi history                  show the last 20 local scan summaries',
+    '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
     '',
     'Push options (the only command that uses the network):',
@@ -58,6 +62,11 @@ function usage() {
     '  --file <scan.json>  push an earlier --json export instead of scanning now',
     '  --dry-run           print the records that would be sent, send nothing',
     '  --merge             add to the workspace without removing records absent from this scan',
+    '',
+    'fix options:',
+    '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
+    '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor',
+    '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
     '',
     'Options:',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
@@ -89,7 +98,7 @@ function parseArgs(argv) {
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -116,12 +125,17 @@ function parseArgs(argv) {
       else if (arg === '--token') options.token = value;
       else if (arg === '--file') options.file = value;
       else if (arg === '--platform') options.platform = value;
+      else if (arg === '--server') options.server = value;
+      else if (arg === '--client') options.client = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
+    else if (arg === '--yes') options.yes = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
+  if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
+  if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
   if (options.command === 'push' && !options.help && !options.version) {
     if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error('push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
     options.ingestUrl = push.resolveIngestUrl(options.url);
@@ -164,6 +178,7 @@ function historyEntry(scan, changes = null) {
     incomplete: scan.incomplete,
     topPaths: top,
     pathIds: scan.paths.map(pathItem => pathItem.id),
+    exposureKeys: scan.paths.map(pathItem => pathItem.exposureKey).sort(),
     changes,
     recommendedEdit: recommendation ? {
       client: recommendation.client.label,
@@ -179,7 +194,7 @@ function writeHistory(scan, file) {
     const existing = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (Array.isArray(existing)) entries = existing;
   } catch (_) { /* first run or an unreadable local history file */ }
-  const previous = entries.at(-1) || null;
+  const previous = entries.filter(e => e.kind !== 'verification').at(-1) || null;
   const currentPathIds = new Set(scan.paths.map(pathItem => pathItem.id));
   const previousPathIds = new Set(previous?.pathIds || []);
   const changes = previous ? {
@@ -191,8 +206,43 @@ function writeHistory(scan, file) {
   } : null;
   entries.push(historyEntry(scan, changes));
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(entries.slice(-20), null, 2));
+  fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
   return changes;
+}
+
+/** A verification outcome, appended to the local history so reduction can be tracked over time. */
+function recordVerification(file, scan, result) {
+  let entries = [];
+  try {
+    const existing = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (Array.isArray(existing)) entries = existing;
+  } catch (_) { /* no history yet */ }
+  const confirmedKeys = result.resolutions.filter(r => r.status === verify.STATUS.CONFIRMED).flatMap(r => r.observed ? r.observed.eliminated : []);
+  entries.push({
+    schemaVersion: 1,
+    kind: 'verification',
+    verifiedAt: scan.startedAt,
+    scannerVersion: VERSION,
+    engineVersion: models.ENGINE_VERSION,
+    summary: result.summary,
+    confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
+    exposureKeys: scan.paths.map(pathItem => pathItem.exposureKey).sort(),
+  });
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
+  } catch (_) { /* read-only home */ }
+}
+
+/** Exposures confirmed eliminated by a verification and still absent from the most recent scan. */
+function verifiedReduction(entries) {
+  const verifications = entries.filter(e => e.kind === 'verification');
+  const scans = entries.filter(e => e.kind !== 'verification');
+  const latest = scans.at(-1) || verifications.at(-1) || null;
+  const confirmed = new Set(verifications.flatMap(v => v.confirmedEliminatedKeys || []));
+  const present = new Set(latest ? latest.exposureKeys || [] : []);
+  const stillClosed = [...confirmed].filter(key => !present.has(key));
+  return { verifications: verifications.length, confirmed: confirmed.size, stillClosed: stillClosed.length, reopened: confirmed.size - stillClosed.length, latestHasKeys: !!(latest && latest.exposureKeys) };
 }
 
 function renderHistory(file) {
@@ -200,7 +250,16 @@ function renderHistory(file) {
   try { entries = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { entries = []; }
   if (!Array.isArray(entries) || !entries.length) return `No local scan history yet. Run \`boppi scan\` to save the first summary.\nHistory file: ${file}`;
   const lines = [`BOPPI · LOCAL SCAN HISTORY`, `History file: ${file}`, ''];
+  const reduction = verifiedReduction(entries);
+  if (reduction.verifications) {
+    lines.push(`VERIFIED EXPOSURE REDUCTION  ${reduction.confirmed} exposure path${reduction.confirmed === 1 ? '' : 's'} confirmed eliminated across ${reduction.verifications} verification${reduction.verifications === 1 ? '' : 's'}; ${reduction.stillClosed} still absent in the latest scan${reduction.reopened ? `, ${reduction.reopened} reappeared` : ''}.`);
+    lines.push('');
+  }
   for (const entry of entries.slice().reverse()) {
+    if (entry.kind === 'verification') {
+      lines.push(`${entry.verifiedAt} · verify · ${entry.summary.confirmed} confirmed · ${entry.summary.partial} partial · ${entry.summary.contradicted} contradicted · ${entry.summary.unresolved} unresolved`);
+      continue;
+    }
     const severity = Object.entries(entry.severityCounts || {}).filter(([, count]) => count).map(([name, count]) => `${count} ${name}`).join(', ') || 'no exposure paths';
     const incomplete = entry.incomplete?.length ? ` · incomplete: ${entry.incomplete.join(', ')}` : '';
     lines.push(`${entry.scannedAt} · ${entry.agents} agents · ${entry.mcpServers} MCP servers · ${entry.exposurePaths} paths (${severity})${incomplete}`);
@@ -417,6 +476,7 @@ async function runVerify(options) {
   }
   const result = verify.resolveAll(previous, scan, { explicitConfig: !!options.config });
   process.stdout.write(verify.renderTable(result, options.color) + '\n');
+  recordVerification(options.historyFile, scan, result);
 
   const written = [];
   const dir = options.contradictionsDir || options.cwd;
@@ -444,6 +504,76 @@ async function runVerify(options) {
     process.stdout.write(`verification written to ${options.json}\n`);
   }
   return 0;
+}
+
+/** boppi fix: one removal, backed up, applied, rescanned, graded. */
+async function runFix(options) {
+  const before = await performScan(options);
+  if (before.failed) {
+    process.stderr.write(`Scan failed: ${before.failed}\n`);
+    return before.exitCode || 3;
+  }
+  const holders = before.discovery.clients.filter(c => c.primaryPath && Object.prototype.hasOwnProperty.call(c.mergedServers, options.server));
+  const wantedClient = options.client ? ONLY_ALIASES[options.client] : null;
+  const candidates = wantedClient ? holders.filter(c => c.clientKey === wantedClient) : holders;
+  if (!candidates.length) {
+    process.stderr.write(`fix: no scanned ${wantedClient ? `${wantedClient} ` : ''}configuration has a server named "${options.server}". boppi scan lists the names.\n`);
+    return 2;
+  }
+  if (candidates.length > 1) {
+    process.stderr.write(`fix: "${options.server}" exists in ${candidates.map(c => c.clientKey).join(' and ')}; pass --client to choose.\n`);
+    return 2;
+  }
+  const client = candidates[0];
+  const descriptor = CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform })).find(d => d.clientKey === client.clientKey);
+  const located = fix.locateServer(client, descriptor, options.server);
+  if (!located) {
+    process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
+    return 2;
+  }
+  const prediction = before.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === options.server && p.client.key === client.clientKey);
+  const server = before.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === options.server);
+  const lost = prediction ? prediction.disruption.lost : (server ? server.capabilities : []);
+
+  process.stdout.write(`BOPPI · FIX  remove "${options.server}" from ${client.label}\n`);
+  process.stdout.write(`  file:    ${located.file} (${located.scope} scope)\n`);
+  if (prediction) process.stdout.write(`  breaks:  ${prediction.predictedEliminated.length} of ${prediction.before.exposureKeys.length} exposure path${prediction.before.exposureKeys.length === 1 ? '' : 's'} on ${client.label}, by rescanning without it\n`);
+  else process.stdout.write('  breaks:  nothing modeled; this server takes part in no exposure path\n');
+  process.stdout.write(`  loses:   ${lost.length ? lost.join(', ') : 'no capability the agent does not also get elsewhere'}\n`);
+  process.stdout.write(`  backup:  ${fix.backupPath(options.home, located.file, before.startedAt)}\n`);
+
+  if (!options.yes) {
+    if (!process.stdin.isTTY) {
+      process.stderr.write('fix: not applied. Pass --yes to apply without a terminal confirmation.\n');
+      return 2;
+    }
+    const approved = await fix.confirm('Apply this edit? [y/N] ');
+    if (!approved) { process.stdout.write('Not applied.\n'); return 2; }
+  }
+
+  const exportFile = path.resolve(options.cwd, `boppi-fix-${before.startedAt.replace(/[:.]/g, '-')}.json`);
+  fs.writeFileSync(exportFile, JSON.stringify(exportPayload(before), null, 2));
+  let backup;
+  try { backup = fix.applyRemoval({ located, serverName: options.server, cwd: options.cwd, home: options.home, now: before.startedAt }); } catch (error) {
+    process.stderr.write(`fix: ${error.message}\n`);
+    return 3;
+  }
+  process.stdout.write(`Applied. Backup at ${backup}. Predictions saved to ${exportFile}.\n\n`);
+
+  const after = await performScan(options);
+  if (after.failed) {
+    process.stderr.write(`Rescan failed: ${after.failed}. The edit stays applied; restore from the backup if needed.\n`);
+    return after.exitCode || 3;
+  }
+  writeHistory(after, options.historyFile);
+  if (!prediction) {
+    process.stdout.write(`Rescan: ${terminal.summaryLine({ inventory: after.inventory, paths: after.paths })}\n`);
+    return 0;
+  }
+  const result = verify.resolveAll({ predictions: [prediction] }, after, { explicitConfig: !!options.config });
+  process.stdout.write(verify.renderTable(result, options.color) + '\n');
+  recordVerification(options.historyFile, after, result);
+  return result.summary.confirmed === 1 ? 0 : 1;
 }
 
 /** Ask for the token on the terminal without echoing it, so it never lands in shell history. */
@@ -530,6 +660,7 @@ async function run(argv) {
   if (options.command === 'history') { process.stdout.write(renderHistory(options.historyFile) + '\n'); return 0; }
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
+  if (options.command === 'fix') return runFix(options);
 
   const scan = await performScan(options);
   if (scan.failed) {
@@ -544,6 +675,15 @@ async function run(argv) {
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
     inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
   };
+
+  if (options.command === 'plan') {
+    process.stdout.write(plan.renderPlan(report, options) + '\n');
+    if (options.json) {
+      fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));
+      process.stdout.write(`\nJSON export written to ${options.json}\n`);
+    }
+    return incomplete.length ? 4 : 0;
+  }
 
   report.historyChanges = writeHistory(scan, options.historyFile);
 
@@ -579,4 +719,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { run, parseArgs, discover, performScan, exportPayload, VERSION };
+module.exports = { run, parseArgs, discover, performScan, exportPayload, verifiedReduction, VERSION };
