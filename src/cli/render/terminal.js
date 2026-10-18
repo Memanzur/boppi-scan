@@ -225,4 +225,10 @@ function renderReport(report, options = {}) {
   return lines.join('\n');
 }
 
-module.exports = { renderReport, summaryLine, PATH_RULE_FOR_TEMPLATE };
+/** The closing line of a plain `boppi scan`, so solo users find the team dashboard. Nothing for exports, --quiet, or other commands. */
+function pushHint(options = {}) {
+  if (options.command !== 'scan' || options.quiet || options.json || options.html || options.sarif) return '';
+  return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
+}
+
+module.exports = { renderReport, summaryLine, pushHint, PATH_RULE_FOR_TEMPLATE };

@@ -107,6 +107,8 @@ PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left t
 JSON export written to boppi-scan.json
 ```
 
+A plain `npx boppi scan` with no export flags ends with one more line, `See this across your team: npx boppi push   (free beta, https://app.boppi.io)`.
+
 The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone. `boppi verify boppi-scan.json` then checks that prediction against the real machine after you make the edit.
 
 ## How it works
