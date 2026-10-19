@@ -216,7 +216,14 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
     yield fail('apply', { reason: `the edited file did not validate (${problem}); restored from ${backup}`, written: true, restored: true });
     return;
   }
-  const manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, action: 'remove_server', scanExport: exportFile });
+  let manifestEntry;
+  try {
+    manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, action: 'remove_server', scanExport: exportFile, backupHash: fix.sha256(originalBytes), appliedHash: fix.fileHash(located.file) });
+  } catch (_) {
+    fs.writeFileSync(located.file, originalBytes);
+    yield fail('apply', { reason: 'could not record the rollback manifest; the original bytes were restored', written: true, restored: true });
+    return;
+  }
   yield event('apply', 'done', { file: located.file, keyPaths: fix.serverBlocks(JSON.parse(originalBytes.toString('utf8')), options.cwd).filter(b => hasOwn(b.servers, server)).map(b => `${b.keyPath}.${JSON.stringify(server)}`), manifestId: manifestEntry.id, backup });
 
   yield event('rescan', 'running', {});

@@ -66,15 +66,14 @@ function fileHash(file) { return sha256(fs.readFileSync(file)); }
 function backupDir(home) { return path.join(home, '.boppi', 'backups'); }
 function backupPath(home, file, now) {
   const stamp = now.replace(/[:.]/g, '-');
-  return path.join(backupDir(home), `${path.basename(file)}.${stamp}.bak`);
+  return path.join(backupDir(home), `${path.basename(file)}.${sha256(path.resolve(file)).slice(0, 12)}.${stamp}.bak`);
 }
 
 /** Copy the file to its backup location with owner-only permissions. Returns the backup path. */
 function writeBackup({ file, home, now }) {
   const backup = backupPath(home, file, now);
-  fs.mkdirSync(path.dirname(backup), { recursive: true });
-  fs.copyFileSync(file, backup);
-  fs.chmodSync(backup, 0o600);
+  fs.mkdirSync(path.dirname(backup), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(backup, fs.readFileSync(file), { mode: 0o600, flag: 'wx' });
   return backup;
 }
 

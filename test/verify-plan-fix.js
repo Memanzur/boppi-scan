@@ -92,6 +92,22 @@ function runCli(args, home, extra = {}) {
   const reduction = verifiedReduction(entries);
   ok('every confirmed exposure is still absent from the latest scan', reduction.confirmed > 0 && reduction.stillClosed === reduction.confirmed && reduction.reopened === 0);
 
+  section('rollback preserves newer work and verifies backup integrity');
+  const manifest = JSON.parse(fs.readFileSync(path.join(home, '.boppi', 'backups', 'index.json'), 'utf8'));
+  const fetchFix = manifest.entries.find(entry => entry.server === 'fetch');
+  const fixedBytes = fs.readFileSync(desktopConfig, 'utf8');
+  fs.writeFileSync(desktopConfig, fixedBytes + '\n');
+  const conflict = runCli(['rollback', '--id', fetchFix.id, '--yes'], home);
+  ok('rollback refuses to overwrite config changes made after the fix', conflict.code === 2 && conflict.stderr.includes('changed after this fix') && fs.readFileSync(desktopConfig, 'utf8') === fixedBytes + '\n');
+  fs.writeFileSync(desktopConfig, fixedBytes);
+  const backupBytes = fs.readFileSync(fetchFix.backup);
+  fs.appendFileSync(fetchFix.backup, '\n');
+  const tampered = runCli(['rollback', '--id', fetchFix.id, '--yes'], home);
+  ok('rollback refuses a changed backup', tampered.code === 2 && tampered.stderr.includes('integrity') && fs.readFileSync(desktopConfig, 'utf8') === fixedBytes);
+  fs.writeFileSync(fetchFix.backup, backupBytes);
+  const restored = runCli(['rollback', '--id', fetchFix.id, '--yes'], home);
+  ok('unchanged backup restores exact original bytes and rescans', restored.code === 0 && restored.stdout.includes('Rescan:') && fs.readFileSync(desktopConfig, 'utf8') === original);
+
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

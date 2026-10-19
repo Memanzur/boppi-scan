@@ -29,6 +29,14 @@ async function runRollback(options, { rescan, recordScan, summaryLine }) {
   if (!fs.existsSync(entry.backup)) { process.stderr.write(`rollback: backup ${entry.backup} is missing.\n`); return 2; }
   const backupBytes = fs.readFileSync(entry.backup);
   const same = fs.existsSync(entry.original) && fix.fileHash(entry.original) === fix.sha256(backupBytes);
+  if (!entry.backupHash || entry.backupHash !== fix.sha256(backupBytes)) {
+    process.stderr.write('rollback: backup integrity cannot be verified. Nothing was restored.\n');
+    return 2;
+  }
+  if (!same && (!entry.appliedHash || !fs.existsSync(entry.original) || fix.fileHash(entry.original) !== entry.appliedHash)) {
+    process.stderr.write('rollback: the config changed after this fix. Nothing was restored; review the backup manually to preserve newer changes.\n');
+    return 2;
+  }
 
   process.stdout.write(`BOPPI · ROLLBACK  ${entry.id}  restore ${JSON.stringify(entry.server)} to ${entry.clientKey}\n`);
   process.stdout.write(`  from:    ${entry.backup}\n`);
