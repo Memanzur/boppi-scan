@@ -85,7 +85,7 @@
   ]);
 
   // Record ids are content hashes that differ between machines for the same configuration, so every tie is broken on labels first; ids only settle identical labels.
-  function buildAdjacency(graph, nodesById) {
+  function buildAdjacency(graph, nodesById = new Map((graph.nodes || []).map(n => [n.id, n]))) {
     const out = new Map();
     const label = id => (nodesById.get(id) || {}).label || '';
     for (const edge of graph.edges || []) {
@@ -277,7 +277,7 @@
     if (!['ai_application', 'ai_agent', 'coding_agent', 'autonomous_agent'].includes(agentNode.entityType)) {
       throw new TypeError(`Blast radius: ${agentId} is not an agent node`);
     }
-    const chains = reachFrom(agentId, buildAdjacency(graph));
+    const chains = reachFrom(agentId, buildAdjacency(graph, nodesById));
     const reachable = [];
     for (const [nodeId, chain] of chains) {
       if (!chain.length) continue;

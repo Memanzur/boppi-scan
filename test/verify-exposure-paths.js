@@ -55,6 +55,13 @@ test('the chosen route does not depend on record id order', () => {
   void build;
 });
 
+test('blast radius walks the same label-ordered adjacency and never throws for an agent', () => {
+  const { agent: a, graph } = graphFor(['read_files', 'call_external_api', 'access_credentials']);
+  const radius = engine.blastRadius(graph, a.id);
+  assert.ok(radius && typeof radius === 'object');
+  assert.throws(() => engine.blastRadius(graph, 'nope'), /unknown agent/);
+});
+
 // ── Critical templates ───────────────────────────────────────────────────────
 test('critical data-exfiltration path (sensitive data + external communication)', () => {
   const { graph } = graphFor(['access_customer_data', 'send_external_message']);
