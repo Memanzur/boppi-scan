@@ -98,6 +98,10 @@ function runCli(args, home) {
   ok('fix command carries --config for a home-relative file', command === 'boppi fix --server "puppeteer" --client cursor --config ~/.cursor/mcp.json --source cursor');
   const outside = graphData.fixCommand({ edit: { server: 'x' }, client: { key: 'cursor' } }, { config: 'path_abc123', source: 'cursor' });
   ok('fix command asks for the file when the path is fingerprinted', /add --config/.test(outside) && !outside.includes('--config path_abc123'));
+  const { shellArgument } = require('../src/cli/shell');
+  const dangerousName = 'server$(printf BAD)`printf BAD`\'name';
+  const quoted = spawnSync('/bin/sh', ['-c', 'printf "%s" ' + shellArgument(dangerousName)], { encoding: 'utf8' });
+  ok('copied shell commands preserve literal server names without evaluating substitutions', quoted.status === 0 && quoted.stdout === dangerousName);
 
   section('Interactive HTML report');
   const htmlPath = path.join(root, 'report.html');

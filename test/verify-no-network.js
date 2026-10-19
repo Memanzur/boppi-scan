@@ -49,10 +49,10 @@ function makeHome(root) {
   const history = path.join(root, 'history.json');
   const exportPath = path.join(root, 'export.json');
 
-  function run(args, extraEnv = {}) {
+  function run(args, extraEnv = {}, input) {
     fs.writeFileSync(log, '');
     const result = spawnSync(process.execPath, ['--require', preload, CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--history-file', history], {
-      encoding: 'utf8', env: { ...process.env, BOPPI_NET_LOG: log, BOPPI_SCAN_PLATFORM: 'darwin', ...extraEnv },
+      encoding: 'utf8', input, env: { ...process.env, BOPPI_NET_LOG: log, BOPPI_SCAN_PLATFORM: 'darwin', ...extraEnv },
     });
     return { code: result.status, stdout: result.stdout || '', stderr: result.stderr || '', attempts: fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) };
   }
@@ -72,6 +72,17 @@ function makeHome(root) {
 
   const dry = run(['push', '--dry-run', '--url', 'http://127.0.0.1:1']);
   ok('push --dry-run prints the payload and makes no network attempt', dry.code === 0 && dry.stdout.includes('"records"') && dry.attempts.length === 0);
+  for (const args of [['plan', '--diff'], ['demo', '--html', path.join(root, 'demo.html')], ['settings'], ['hook', '--print-config']]) {
+    const result = run(args);
+    ok(`${args[0]} runs without network access`, result.code === 0 && result.attempts.length === 0);
+  }
+  const captured = run(['hook'], {}, JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'mcp__fetch__fetch', tool_input: 'PRIVATE INPUT' }));
+  ok('actual hook capture uses no network and writes no stdout', captured.code === 0 && captured.attempts.length === 0 && captured.stdout === '');
+  const fixed = run(['fix', '--server', 'fetch', '--yes']);
+  ok('supported local fix uses no network', fixed.code === 0 && fixed.attempts.length === 0);
+  const manifest = JSON.parse(fs.readFileSync(path.join(home, '.boppi', 'backups', 'index.json'), 'utf8'));
+  const restored = run(['rollback', '--id', manifest.entries[0].id, '--yes']);
+  ok('supported rollback uses no network', restored.code === 0 && restored.attempts.length === 0);
 
   const real = run(['push', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1']);
   ok('a real push does reach the network hook, so the hooks are live (positive control)', real.attempts.length > 0 && real.attempts.every(a => a === 'fetch'));

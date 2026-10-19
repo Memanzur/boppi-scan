@@ -145,6 +145,7 @@ function toRecords(inventory) {
 function resolveIngestUrl(input) {
   let url;
   try { url = new URL(input || DEFAULT_WORKSPACE_URL); } catch (_) { throw new Error(`--url is not a valid URL: ${input}`); }
+  if (url.username || url.password) throw new Error('--url must not contain credentials; use the collector token prompt or BOPPI_TOKEN');
   const local = LOCAL_HOSTS.has(url.hostname);
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) throw new Error('--url must use https (http is allowed only for localhost)');
   const given = url.pathname.replace(/\/+$/, '');

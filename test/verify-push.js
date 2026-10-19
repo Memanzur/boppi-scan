@@ -56,6 +56,7 @@ function startWorkspace() {
       else if (token === 'bpc_down') { res.writeHead(503); res.end(JSON.stringify({ error: 'Ingest is temporarily unavailable. Retry in a minute.', requestId: 'req-2' })); }
       else if (token === 'bpc_stale') { res.writeHead(409); res.end(JSON.stringify({ error: 'A newer snapshot from this machine was already recorded. Rescan and push again.', code: 'stale_snapshot', serverSnapshotAt: '2026-10-18T12:00:00.000Z', requestId: 'req-4' })); }
       else if (token === 'bpc_busy') { res.writeHead(429, { 'retry-after': '137' }); res.end(JSON.stringify({ error: 'Too many pushes for this token. Retry later.', code: 'rate_limited', retryAfterSeconds: 137, requestId: 'req-5' })); }
+      else if (token === 'bpc_redirect') { res.writeHead(307, { location: '/forwarded' }); res.end('{}'); }
       else { res.writeHead(401); res.end(JSON.stringify({ error: 'Invalid or revoked collector token.', requestId: 'req-3' })); }
     });
   });
@@ -97,6 +98,7 @@ function startWorkspace() {
   ok('default is the hosted workspace', push.resolveIngestUrl(null).toString() === 'https://app.boppi.io/api/ingest');
   ok('http is allowed for localhost only', push.resolveIngestUrl('http://localhost:3000').port === '3000' && (() => { try { push.resolveIngestUrl('http://example.com'); return false; } catch (_) { return true; } })());
   ok('an unrelated path is rejected', (() => { try { push.resolveIngestUrl('https://app.boppi.io/dashboard'); return false; } catch (_) { return true; } })());
+  ok('workspace URL credentials are rejected without echoing them', (() => { try { push.resolveIngestUrl('https://private-user:private-pass@app.boppi.io'); return false; } catch (error) { return !error.message.includes('private-pass'); } })());
 
   section('Argument handling');
   const noToken = runCli(['push', '--url', 'http://localhost:1'], home);
@@ -155,6 +157,8 @@ function startWorkspace() {
     const busy = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_busy'], home);
     ok('a 429 rate_limited exits 5 with the server message and retryAfterSeconds', busy.code === 5 && busy.stderr.includes('HTTP 429') && busy.stderr.includes('Too many pushes for this token. Retry later.') && busy.stderr.includes('137 seconds') && busy.stderr.includes('request req-5'));
     ok('the client never retries a 409 or 429 on its own', workspace.requests.filter(r => r.authorization === 'Bearer bpc_stale').length === 1 && workspace.requests.filter(r => r.authorization === 'Bearer bpc_busy').length === 1);
+    const redirected = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_redirect'], home);
+    ok('redirects cannot silently forward collector data', redirected.code === 5 && workspace.requests.filter(r => r.authorization === 'Bearer bpc_redirect').length === 1 && !workspace.requests.some(r => r.url === '/forwarded'));
   } finally {
     workspace.server.close();
   }

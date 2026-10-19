@@ -12,6 +12,17 @@ Node 18 or newer. Tested on macOS. Linux and Windows config locations are looked
 
 ## Free beta
 
+The work on `claude/autonomous-platform` is a local, unpublished beta candidate. To try this exact checkout, use `node bin/boppi.js` from its repository directory. Registry commands may run an older release.
+
+```sh
+# Synthetic browser demo; only bundled examples are read.
+node bin/boppi.js demo --html boppi-demo.html
+# Synthetic CLI sandbox with scan, plan, fix, and verify follow-up commands.
+node bin/boppi.js demo
+```
+
+Open `boppi-demo.html` in a browser. Choose a scenario, inspect graph evidence, preview a simulated removal, and reset the simulation. The browser demo applies no real configuration changes. Local fixes run from the terminal; `boppi ui` is not available in this candidate.
+
 Boppi is useful without an account. The scanner reads supported MCP configuration locally, reports the agents, servers, capabilities, files, and evidence it examined, models configuration changes, and verifies a real change on the next scan.
 
 ```sh
@@ -193,6 +204,8 @@ Every row is a rescan of the configuration with that one edit applied. A move is
 
 `boppi fix --server fetch` removes that entry from the file that holds it. It prints the file, the modeled effect, and the backup location, asks for confirmation (or takes `--yes`), copies the file to `~/.boppi/backups/` with mode 600, deletes the key, saves the predictions it used as `boppi-fix-<time>.json`, rescans, and grades the prediction. Exit 0 means CONFIRMED. Only removals are applied; a move is two edits you make by hand, and `boppi verify` grades the source side.
 
+`boppi plan --diff` shows a sanitized configuration diff. `boppi rollback` lists recorded backups; `boppi rollback --id <id>` asks before restoring one. Rollback verifies the backup hash and refuses if the configuration changed since that fix. Backups contain the complete original configuration, including any original secrets; they stay locally in an owner-only directory and are never uploaded. Review older backups manually if their manifests lack integrity hashes.
+
 ### Policy guard
 
 A `boppi.policy.json` in the working directory (or `--policy <file>`) turns configuration facts into violations with exit 1. Every key is optional:
@@ -252,6 +265,16 @@ The scanner reads configuration metadata only. It never collects secret values, 
 This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push` is allowed to reach the network, and the same check confirms that it does.
 
 `boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi push --dry-run` prints the exact payload without sending it. No other command makes a network request.
+
+Push also reports the producing scanner's version and platform, discovery scope, and each checked client's status and server count. Errors use fixed descriptions. A complete discovery scan replaces that collector's inventory; selected, explicit-file, unreadable, or legacy scans merge without deleting earlier evidence. Run a full scan after a supported fix to update the complete workspace inventory. A machine with no discoverable configuration currently sends nothing, so an earlier cloud inventory may remain until the collector is revoked. Old exports without version provenance are not labeled with the uploading scanner's version.
+
+Catalog capabilities and tool names are inferred from package identity, with their provenance preserved in graph edges. They are not a tool handshake, package attestation, or runtime observation. Catalog details can lag installed server versions.
+
+## Optional monitoring prototype
+
+`boppi hook --print-config` prints a Claude Code hook snippet. Boppi never installs it; `--install` is refused. Only manually adding the snippet opts into local event capture. Normal scanning, demos, fixes, verification, and rollback collect no runtime events.
+
+When explicitly configured, the hook keeps event type, server/tool identifiers, a hashed session identifier, a keyed working-directory fingerprint, and an error/success flag. It discards tool inputs, outputs, prompts, transcripts, and file contents; bounded input and retention keep the log limited. Identifiers can still reveal workflow metadata. Events stay in `~/.boppi/events.jsonl`, mode 600, and expire on a subsequent hook invocation (30 days by default). No hook capture is uploaded. `boppi settings --set retentionDays=7` adjusts retention. Telemetry and cloud-sync settings are reserved, default to false, and currently trigger no outbound work even if changed. Live Claude Code hook delivery and concurrent capture remain prototype testing gaps.
 
 If a server entry contains something that looks like a secret in a place the scanner cannot redact, the scanner refuses that client's config and prints the reason instead of a result. Move the secret into an environment variable the server reads and rescan.
 

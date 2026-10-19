@@ -17,6 +17,7 @@ const path = require('path');
 const scenarios = require('../demo/scenarios');
 const { buildGraphView } = require('./render/graphData');
 const html = require('./render/html');
+const { shellPath } = require('./shell');
 
 const FIXTURE_DIR = path.join(__dirname, '..', 'demo');
 
@@ -84,7 +85,7 @@ async function buildBundle(options, deps) {
   return { schemaVersion: 1, version: deps.version, generatedAt: new Date().toISOString(), banner: scenarios.BANNER, simulatedLabel: scenarios.SIMULATED, scenarios: built };
 }
 
-function homeFlag(options) { return path.resolve(options.home) === path.resolve(os.homedir()) ? '' : ` --home ${options.home}`; }
+function homeFlag(options) { return path.resolve(options.home) === path.resolve(os.homedir()) ? '' : ` --home ${shellPath(options.home)}`; }
 
 async function runDemo(options, deps) {
   const out = text => process.stdout.write(text + '\n');
@@ -114,7 +115,7 @@ async function runDemo(options, deps) {
     '--html', path.join(dir, 'report.html'), '--json', exportFile, '--history-file', path.join(dir, 'history.json'),
     ...(options.color ? [] : ['--no-color']), ...(options.quiet ? ['--quiet'] : []), ...(options.verbose ? ['--verbose'] : []),
   ]);
-  const target = `--config ${file} --source claude-code${homeFlag(options)}`;
+  const target = `--config ${shellPath(file)} --source claude-code${homeFlag(options)}`;
   out([
     '',
     'Next, on the sandbox only:',

@@ -2,6 +2,14 @@
 
 ## 0.3.1
 
+Local candidate additions (unpublished):
+
+- Collector version/platform and discovery coverage are transported through scan exports and pushes. Selected or incomplete scans merge safely; older files do not inherit a fabricated producer version. Dry runs show the envelope, and redirects are refused.
+- Exact-identity MCP catalog with capability/tool provenance; analysis engine 1.0.1 marks catalog-derived reach as inferred.
+- Synthetic interactive browser demo with shared graph evidence, removal previews, and reset.
+- Sanitized `plan --diff`, integrity-checked local backups, staged fixes, and rollback that protects later configuration changes.
+- Optional, manually configured local hook capture with bounded inputs and retention; no automatic installation or runtime upload.
+
 - `boppi push` sends `snapshot_at` (the export's `exportedAt`) with every snapshot, so the workspace can refuse a snapshot older than the one it already holds from this machine. An export without a timestamp is still pushed, without the field.
 - A `409 stale_snapshot` rejection prints the server message and the time of the snapshot the workspace kept; a `429 rate_limited` rejection prints the server message and how many seconds to wait (from the body, or the `Retry-After` header). Both exit 5, like every other rejected push. The client never retries on its own.
 - `boppi plan` prints the POLICY section and exits 1 when `boppi.policy.json` (or `--policy`) is violated, the same as `boppi scan`. Before, it evaluated the policy and ignored the result.

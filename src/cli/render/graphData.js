@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const exposurePathEngine = require('../../engine/exposurePathEngine');
 const { rankPredictions } = require('../predict');
+const { shellArgument, shellPath } = require('../shell');
 
 const KIND_BY_ENTITY = Object.freeze({
   ai_agent: 'agent', coding_agent: 'agent', autonomous_agent: 'agent', ai_application: 'agent',
@@ -56,11 +57,11 @@ function editFiles(prediction, discovery) {
 }
 
 function fixCommand(prediction, scanArgs) {
-  let command = `boppi fix --server ${JSON.stringify(prediction.edit.server)} --client ${prediction.client.key}`;
+  let command = `boppi fix --server ${shellArgument(prediction.edit.server)} --client ${prediction.client.key}`;
   if (scanArgs && scanArgs.config) {
     // A ~ path expands in a shell; a fingerprinted path outside home cannot be
     // reproduced, so the user runs the command from the scanned directory.
-    if (scanArgs.config.startsWith('~/')) command += ` --config ${scanArgs.config} --source ${scanArgs.source}`;
+    if (scanArgs.config.startsWith('~/')) command += ` --config ${shellPath(scanArgs.config)} --source ${scanArgs.source}`;
     else command += ` --source ${scanArgs.source}  # add --config <the file you scanned>`;
   }
   return command;
