@@ -722,6 +722,8 @@ async function run(argv) {
     fs.writeFileSync(options.sarif, JSON.stringify(sarif.renderSarif(portableReport, { automationId: options.config ? 'config' : 'scan' }), null, 2));
     process.stdout.write(`\nSARIF report written to ${options.sarif}\n`);
   }
+  const hint = terminal.pushHint(options);
+  if (hint) process.stdout.write(`\n${hint}\n`);
 
   if (report.policy && !report.policy.passed) return 1;
   if (options.failOn) {
