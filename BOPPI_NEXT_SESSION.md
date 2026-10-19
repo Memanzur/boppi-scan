@@ -1,5 +1,107 @@
 # Boppi: next session (October 18, 2026 end of day)
 
+## October 19, 2026 afternoon session (Claude Code): detection Gap 1 landed
+
+Read this block first. The morning block below it (usability pass, test
+kit, coverage review) and the October 18 handoff stay accurate except
+where this block says otherwise.
+
+### Recovery note
+
+The Mac restarted at 12:05 local during the gap between sessions. A
+recovery check at 13:04 found both worktrees clean at their recorded tips
+(scanner 3579245, control plane 28f17eb), no stash, no dirty file, and no
+transcript in which Gap 1 had started. Nothing was lost; Gap 1 began from
+zero in this session.
+
+### Where things stand
+
+| Repository | Checkout | Branch | Tip after this session |
+| --- | --- | --- | --- |
+| Memanzur/boppi-scan | ~/Desktop/boppi-scan-auto | codex/live-brand-alignment | 0513ea5 (Gap 1 implementation), then this handoff commit; run `git rev-parse HEAD` |
+| Memanzur/boppii | ~/Desktop/Boppi-auto | codex/live-brand-alignment | 28f17eb plus a docs-only commit noting Gap 1 status; run `git rev-parse HEAD` |
+
+Nothing was pushed, published, merged, deployed, or applied to any shared
+database. Older dirty worktrees were not touched. A throwaway worktree of
+3579245 was created under the session scratchpad for the before/after
+comparison and removed again (`git worktree list` is back to 9 entries).
+
+### What changed (scanner 0513ea5)
+
+Gap 1 from `docs/research/SCANNER_DETECTION_COVERAGE_2026-10-19.md` in
+the control plane: the agent's own built-in tools were not in the graph.
+
+- `src/cli/builtinTools.js` (new): per-client table of built-in tools
+  (Claude Code: Bash, Read, Edit, Write; Cursor: terminal, file edits),
+  the Claude Code settings reader (`~/.claude/settings.json`,
+  `.claude/settings.json`, `.claude/settings.local.json` under the scan
+  cwd; managed settings are not read), per-tool grading (unprompted,
+  prompted, denied, unknown), the roll-up to one grant per capability
+  (least gated tool wins; a capability whose every tool is denied is
+  reported but creates no reach), and `builtinPermissions`, which turns
+  each grant into a permission record on the agent with
+  `source.type = 'builtin-tool'` and `source.id = builtin:<client>:<cap>`.
+  Rule text is never kept, only counts and the mode.
+- `discovery/claudeCode.js` exposes `settingsFiles`; `boppi.js discover`
+  reads them when the client was found (never in explicit `--config`
+  mode), lists them in DISCOVERY with `kind: 'settings'`, and adds found
+  ones to the privacy footer. `provider.js` prepends the built-in
+  permissions; `simulate.js`, `predict.js` carry `builtin` through every
+  counterfactual rescan, so predictions, plan, fix, verify, rollback, and
+  the demo all include the grants. `capabilitiesLost` now reports
+  `builtin` (capabilities kept through the agent's own tools) and never
+  lists those as lost.
+- Terminal: BUILT-IN TOOLS section after MCP SERVERS, grants counted in
+  COVERAGE, built-in capabilities in the AGENTS count and `--verbose`
+  rows, cost sentence names what the agent keeps through its own tools.
+  HTML: a Built-in tools table and the same cost sentence; agents table
+  lists built-in capabilities. `graphData` agent evidence shows the
+  grants and the settings files read; edit-location helpers skip
+  settings files.
+- Demo scenario summaries and `expect` lists updated to what the engine
+  now reports for a Claude Code source (Broad filesystem: EP-A, EP-B;
+  Sensitive files: EP-A, EP-B, EP-E; Untrusted: EP-A, EP-B, EP-E).
+- README (How it works, What it looks for, Discovery targets) and
+  CHANGELOG 0.3.1 describe the behavior.
+
+### Verified this session
+
+| Check | Result |
+| --- | --- |
+| `npm test` at 0513ea5 | 19 of 19 suites, including new `test/verify-builtin-tools.js` (37 checks) |
+| Before/after on Claude Code + one `fetch` server (`--only claude-code`) | 3579245: 0 exposure paths, risk 4/100. 0513ea5: EP-A critical and EP-E high through the built-in file and shell tools, risk 79/100 |
+| Prediction honesty | Claude Code + fetch + desktop-commander: removing the commander leaves EP-E (built-in shell remains); removing fetch breaks it |
+| Settings grading | whole-tool allow, deny, `bypassPermissions` in `.claude/settings.local.json` under the cwd, and `acceptEdits` each grade as documented; rule text absent from stdout and export |
+| Privacy | fixture home path and username absent from exports; settings files appear by `~` path |
+
+### Decisions to confirm with Melody
+
+1. Built-in file access is modeled as `filesystem_access` (read files, a
+   sensitive-data category). Consequence: Claude Code or Cursor with any
+   network-capable server (GitHub, Slack, fetch) now reports EP-A
+   critical, because the agent can read files and the server can reach
+   the network. This is true potential access and matches the review's
+   own framing, but it makes most real Claude Code setups critical. If
+   that is too loud for the beta, the one-line alternative is to drop the
+   `filesystem_access` rows from `BUILTIN_TOOLS` in
+   `src/cli/builtinTools.js` and keep only the shell rows; EP-E would
+   still fire for Claude Code + fetch.
+2. WebFetch and WebSearch are also Claude Code built-ins (network plus
+   untrusted content). They are not modeled; adding them would make every
+   Claude Code install show EP-E with zero servers. Left out on purpose.
+3. Claude Desktop has no built-in rows. Its newer local features
+   (computer use, Cowork) are not modeled.
+
+### Next priorities
+
+1. Melody reviews the decision list above and the before/after example.
+2. Gap 2 (unrecognized server is invisible to every path), then Gap 3
+   (per-tool categories and filesystem scope grade), per the coverage
+   review's order.
+3. Everything in the morning block's next-priorities list still stands
+   (scanner 0.3.1 release needs `NPM_TOKEN`; prod migrations need
+   Melody's DB password; nothing pushed).
+
 ## October 19, 2026 session (Claude Code, resumed from the Codex handoff)
 
 Read this block first; the sections below it are the October 18 handoff and
