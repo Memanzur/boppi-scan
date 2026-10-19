@@ -88,15 +88,16 @@ function renderReport(report, options = {}) {
   out('');
 
   out(s.bold('DISCOVERY'));
+  const labelWidth = Math.max(16, ...report.discovery.map(client => client.label.length + 2));
   for (const client of report.discovery) {
     for (const file of client.files) {
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
       const status = file.status === 'found'
         ? `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`
         : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
-      out(mark, pad(client.label, 16), pad(file.path, 64), '  ', s.dim(status));
+      out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
-    if (client.scanError) out(s.red('  ! '), pad(client.label, 16), s.red(`analysis failed (${client.scanError}) · this client is missing from every section below`));
+    if (client.scanError) out(s.red('  ! '), pad(client.label, labelWidth), s.red(`analysis failed (${client.scanError}) · this client is missing from every section below`));
   }
   out('');
   const toolCount = report.inventory.mcpServers.reduce((sum, m) => sum + (m.exposedTools || []).length, 0);
