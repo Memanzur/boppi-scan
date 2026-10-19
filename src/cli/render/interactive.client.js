@@ -367,13 +367,21 @@
 
   /* ---------- wiring ---------- */
   function renderAll() { renderToolbar(); renderGraph(); renderPathList(); renderPanel(); renderBackups(); }
+  if (!live && document.getElementById('boppi-demo-data')) {
+    document.addEventListener('boppi-demo-view', function (event) {
+      view = event.detail;
+      state.agent = 'all'; state.path = null; state.node = null; state.remediation = null;
+      reindex();
+      renderAll();
+    });
+  }
   Array.prototype.slice.call(document.querySelectorAll('[data-show-path]')).forEach(function (btn) {
     btn.addEventListener('click', function () { var id = btn.getAttribute('data-show-path'); var p = index.path[id]; if (p && state.agent !== 'all' && p.agentId !== state.agent) state.agent = 'all'; selectPath(id); document.getElementById('graph').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   });
   var resizeTimer = null;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderGraph, 120); });
   var modeTag = document.getElementById('graph-mode');
-  if (modeTag) modeTag.textContent = live ? 'Live: fixes apply on this machine through boppi ui, after confirmation and a backup.' : 'Static report: fixes show the exact command to run. Open with boppi ui to apply them from here.';
+  if (modeTag) modeTag.textContent = live ? 'Live: fixes apply on this machine through boppi ui, after confirmation and a backup.' : 'Configuration evidence. Select a path or node to inspect its evidence; supported local fixes run from the terminal.';
   renderAll();
   if (live) refreshState();
 })();

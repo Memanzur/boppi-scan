@@ -12,7 +12,7 @@ const SANDBOX_SCENARIO = 'broad-filesystem';
 const SCENARIOS = Object.freeze([
   {
     id: 'tidy-workstation', file: 'tidy-workstation.json', title: 'Tidy workstation',
-    summary: 'A memory server and a time server. Neither reads files, runs commands, or talks to the network, so there is nothing for an attacker to chain together.',
+    summary: 'A memory server and a time server. This synthetic configuration has no potential exposure path supported by the scanner. A clean configuration scan does not prove runtime safety.',
     expect: [],
   },
   {
@@ -27,7 +27,7 @@ const SCENARIOS = Object.freeze([
   },
   {
     id: 'untrusted-to-privileged', file: 'untrusted-to-privileged.json', title: 'Untrusted content to privileged tool',
-    summary: 'A browser automation server, a shell server, and a Postgres server whose connection string lives in an environment variable. Web pages the browser visits can carry instructions, and the shell will follow them.',
+    summary: 'A browser automation server, a shell server, and a Postgres server whose connection string lives in an environment variable. Untrusted page content could influence an agent that can run shell commands. This is potential access, not observed behavior.',
     expect: ['EP-B', 'EP-E'],
   },
 ]);

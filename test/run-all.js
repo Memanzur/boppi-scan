@@ -7,6 +7,7 @@ const { spawnSync } = require('child_process');
 const SUITES = [
   'verify-catalog.js',
   'verify-monitoring.js',
+  'verify-demo.js',
   'verify-cli-scan.js',
   'verify-security-graph.js',
   'verify-stable-ids.js',

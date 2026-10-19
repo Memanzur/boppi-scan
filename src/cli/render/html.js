@@ -263,4 +263,33 @@ ${graphSection(view)}
 </body></html>`;
 }
 
-module.exports = { renderHtml };
+/** Self-contained synthetic demo page. It never receives a live token or calls a network endpoint. */
+/** Self-contained synthetic demo. Uses the report explorer with precomputed rescans. */
+function renderDemoHtml(bundle) {
+  const first = bundle.scenarios[0].view;
+  return `<!doctype html><html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>BOPPI · Interactive synthetic demo</title><style>${STYLES}
+.demo-nav { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.demo-note { border-left:3px solid var(--accent); padding:12px 16px; background:var(--surface); }
+#demo-result { margin:12px 0; font-weight:600; }
+</style></head>
+<body><main class="wrap">
+<h1><span>BOPPI</span> · Interactive synthetic demo</h1>
+<p class="meta">Explore configuration evidence and try a simulated fix.</p>
+<p class="demo-note">${esc(bundle.banner)} All fixes below are simulated.</p>
+<nav class="demo-nav" id="demo-nav" aria-label="Synthetic scenarios"></nav>
+<h2 id="demo-title"></h2><p id="demo-summary"></p>
+<h3>Simulated remediation previews</h3>
+<div class="demo-nav" id="demo-fixes"></div><p id="demo-result" role="status" aria-live="polite"></p>
+${graphSection(first)}
+</main>
+<script type="application/json" id="boppi-data">${embedJson(first)}</script>
+<script type="application/json" id="boppi-demo-data">${embedJson(bundle)}</script>
+<script>${CLIENT_SCRIPT}</script>
+<script>${fs.readFileSync(path.join(__dirname, 'demo.client.js'), 'utf8')}</script>
+</body></html>`;
+}
+
+module.exports = { renderHtml, renderDemoHtml };
