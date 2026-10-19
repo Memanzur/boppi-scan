@@ -1,0 +1,30 @@
+/* Verified live CSS index-DFc36zh3, 2026-10-18; see BOPPI_DESIGN_SYSTEM.md. */
+:root {
+  --boppi-bg: hsl(222 31% 8%);
+  --boppi-surface: hsl(222 27% 12%);
+  --boppi-raised: hsl(222 22% 18%);
+  --boppi-border: hsl(220 20% 24%);
+  --boppi-text: hsl(210 25% 96%);
+  --boppi-muted: hsl(215 16% 68%);
+  --boppi-primary: hsl(188 86% 62%);
+  --boppi-secondary: hsl(221 84% 72%);
+  --boppi-accent: hsl(38 95% 66%);
+  --boppi-danger: hsl(0 72% 60%);
+  --boppi-success: hsl(154 64% 55%);
+  --boppi-primary-soft: hsl(188 86% 62% / .10);
+  --boppi-danger-soft: hsl(0 72% 60% / .12);
+  --boppi-accent-soft: hsl(38 95% 66% / .10);
+  --boppi-success-soft: hsl(154 64% 55% / .10);
+  --boppi-font: Nunito, ui-sans-serif, system-ui, sans-serif;
+  --boppi-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --boppi-radius-sm: 6px;
+  --boppi-radius: 8px;
+  --boppi-radius-lg: 12px;
+  --boppi-space-1: 4px;
+  --boppi-space-2: 8px;
+  --boppi-space-3: 12px;
+  --boppi-space-4: 16px;
+  --boppi-space-6: 24px;
+  --boppi-space-8: 32px;
+  --boppi-focus: 0 0 0 3px hsl(188 86% 62% / .35);
+}

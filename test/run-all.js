@@ -5,6 +5,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const SUITES = [
+  'verify-brand-design.js',
   'verify-catalog.js',
   'verify-monitoring.js',
   'verify-demo.js',

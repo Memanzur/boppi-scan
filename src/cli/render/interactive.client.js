@@ -10,10 +10,9 @@
   var liveMeta = document.querySelector('meta[name="boppi-live"]');
   var live = liveMeta && liveMeta.content ? { token: liveMeta.content } : null;
   var SEV = { critical: 4, high: 3, medium: 2, low: 1 };
-  var COLUMN = { agent: 0, server: 1, capability: 2, data: 3, credential: 3, destination: 4 };
   var COLUMN_TITLES = ['Agents', 'MCP servers', 'Capabilities', 'Data and credentials', 'Destinations'];
-  var ROW = 46, PAD = 16, HEADER = 26;
-  var state = { agent: 'all', path: null, node: null, remediation: null, busy: false, backups: [], showTools: false };
+  var demo = !!document.getElementById('boppi-demo-data');
+  var state = { agent: 'all', path: null, node: null, remediation: null, busy: false, backups: [], showTools: false, context: false, full: false };
   var index = {};
   function reindex() {
     index.node = {}; index.edge = {}; index.path = {}; index.remediation = {};
@@ -40,7 +39,7 @@
   function worst(ids) { return ids.map(function (id) { return index.path[id]; }).filter(Boolean).reduce(function (acc, p) { return (SEV[p.severity] || 0) > (SEV[acc] || 0) ? p.severity : acc; }, null); }
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function agentName(id) { var a = view.agents.filter(function (x) { return x.id === id; })[0]; return a ? a.name : id; }
-  function visibleNodes() { return view.nodes.filter(function (n) { return (state.agent === 'all' || n.agentId === state.agent) && (state.showTools || n.entityType !== 'tool' || n.pathIds.length); }); }
+  function visibleNodes() { return view.nodes.filter(function (n) { return (state.agent === 'all' || n.agentId === state.agent) && (state.showTools || n.entityType !== 'tool' || n.pathIds.length) && (state.path && !state.context ? index.path[state.path].nodeIds.indexOf(n.id)>=0 : state.full || !view.paths.length || n.pathIds.length || n.kind==='agent' || n.kind==='server' || (state.showTools && n.entityType==='tool')); }); }
   function visiblePaths() { return view.paths.filter(function (p) { return state.agent === 'all' || p.agentId === state.agent; }); }
   function remediationTitle(r) {
     var base = (r.action === 'move_server' ? 'Move' : 'Remove') + ' "' + r.server + '" from ' + r.clientLabel;
@@ -53,26 +52,18 @@
   function renderGraph() {
     clear(svg);
     var nodes = visibleNodes();
-    var width = Math.max(720, graphWrap.clientWidth - 2);
-    var colW = (width - PAD * 2) / 5;
-    var boxW = Math.min(190, colW - 28);
-    var columns = [[], [], [], [], []];
     nodes.sort(function (a, b) { return agentName(a.agentId).localeCompare(agentName(b.agentId)) || ((SEV[b.severity] || 0) - (SEV[a.severity] || 0)) || a.label.localeCompare(b.label); });
-    nodes.forEach(function (n) { columns[COLUMN[n.kind] === undefined ? 2 : COLUMN[n.kind]].push(n); });
-    var rows = Math.max.apply(null, columns.map(function (c) { return c.length; }).concat([1]));
-    var height = HEADER + rows * ROW + PAD;
+    var context = document.createElement('canvas').getContext('2d');
+    if (context) context.font='600 13px '+getComputedStyle(document.body).fontFamily;
+    var layout = window.BoppiGraphLayout.layout(nodes,graphWrap.clientWidth-2,context ? function(label){return context.measureText(label).width;} : null);
+    var width = layout.width, height = layout.height, colW = layout.colW, pos = layout.positions;
     svg.setAttribute('width', width); svg.setAttribute('height', height); svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
     var defs = h('svg:defs');
     ['none', 'critical', 'high', 'medium', 'low'].forEach(function (sev) {
       defs.appendChild(h('svg:marker', { id: 'arrow-' + sev, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, [h('svg:path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrowhead sev-' + sev })]));
     });
     svg.appendChild(defs);
-    COLUMN_TITLES.forEach(function (title, i) { svg.appendChild(h('svg:text', { x: PAD + i * colW + colW / 2, y: 16, class: 'col-title', 'text-anchor': 'middle', text: title })); });
-    var pos = {};
-    columns.forEach(function (col, ci) {
-      var offset = (rows - col.length) * ROW / 2;
-      col.forEach(function (n, ri) { pos[n.id] = { x: PAD + ci * colW + (colW - boxW) / 2, y: HEADER + offset + ri * ROW + 6, w: boxW, h: ROW - 12 }; });
-    });
+    COLUMN_TITLES.forEach(function (title, i) { svg.appendChild(h('svg:text', { x:20 + i * colW, y:23, class:'col-title', text:title })); });
     var pathEdgeSev = {}, pathNodeSev = {};
     visiblePaths().forEach(function (p) {
       p.edgeIds.forEach(function (id) { if ((SEV[p.severity] || 0) > (SEV[pathEdgeSev[id]] || 0)) pathEdgeSev[id] = p.severity; });
@@ -81,16 +72,14 @@
     var selected = state.path ? index.path[state.path] : null;
     var onEdges = selected ? selected.edgeIds : null, onNodes = selected ? selected.nodeIds : null;
     var edgeLayer = h('svg:g', { class: 'edges' });
+    var routeIndex = 0;
     view.edges.forEach(function (e) {
       var a = pos[e.from], b = pos[e.to];
       if (!a || !b) return;
-      var x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
-      if (b.x <= a.x) { x1 = a.x + a.w / 2; y1 = a.y + a.h; x2 = b.x + b.w / 2; y2 = b.y; }
-      var mx = (x1 + x2) / 2;
       var sev = pathEdgeSev[e.id] || 'none';
-      var cls = 'edge sev-' + sev;
+      var cls = 'edge sev-' + sev + (e.evidenceClass === 'inferred' ? ' inferred' : '');
       if (onEdges) cls += onEdges.indexOf(e.id) >= 0 ? ' on' : ' dim';
-      edgeLayer.appendChild(h('svg:path', { d: 'M ' + x1 + ' ' + y1 + ' C ' + mx + ' ' + y1 + ', ' + mx + ' ' + y2 + ', ' + x2 + ' ' + y2, class: cls, 'marker-end': 'url(#arrow-' + sev + ')', 'data-edge': e.id }, [h('svg:title', { text: e.kind.replace(/_/g, ' ') + ' · ' + e.evidenceClass + ' · confidence ' + e.confidence })]));
+      edgeLayer.appendChild(h('svg:path', { d:window.BoppiGraphLayout.route(a,b,height-18-(routeIndex++%6)*8), class:cls, 'marker-end':'url(#arrow-'+sev+')', 'data-edge':e.id }, [h('svg:title', { text:e.kind.replace(/_/g,' ')+' · '+(e.evidenceLabel||e.evidenceClass)+' · confidence '+e.confidence })]));
     });
     svg.appendChild(edgeLayer);
     var nodeLayer = h('svg:g', { class: 'nodes' });
@@ -100,13 +89,13 @@
       var cls = 'node kind-' + n.kind + ' sev-' + sev;
       if (onNodes) cls += onNodes.indexOf(n.id) >= 0 ? ' on' : ' dim';
       if (state.node === n.id) cls += ' selected';
-      var label = n.label.length > 24 ? n.label.slice(0, 23) + '…' : n.label;
-      var g = h('svg:g', { class: cls, transform: 'translate(' + p.x + ',' + p.y + ')', 'data-node': n.id, tabindex: 0, role: 'button', onclick: function () { selectNode(n.id); }, onkeydown: function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectNode(n.id); } } }, [
+      var g = h('svg:g', { class: cls, transform: 'translate(' + p.x + ',' + p.y + ')', 'data-node': n.id, tabindex: 0, role: 'button', 'aria-label':n.label+' · '+(n.evidenceLabel||n.evidenceClass)+' · '+plural(n.pathIds.length,'potential exposure path'), onclick: function () { selectNode(n.id); }, onkeydown: function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectNode(n.id); } } }, [
         h('svg:rect', { width: p.w, height: p.h, rx: 8 }),
-        h('svg:text', { x: 10, y: p.h / 2 + 4, class: 'node-label', text: label }),
+        h('svg:text', { x:12, y:22, class:'node-label' }, p.lines.map(function(line,i){ return h('svg:tspan',{x:12,dy:i?18:0,text:line}); })),
+        h('svg:text', { x:12,y:p.h-10,class:'node-meta',text:(n.evidenceLabel||n.evidenceClass)+' · '+plural(n.pathIds.length,'path') }),
         h('svg:title', { text: n.label + ' (' + n.kind + ')' + (n.pathIds.length ? ' · on ' + plural(n.pathIds.length, 'potential exposure path') : '') }),
       ]);
-      if (n.pathIds.length) g.appendChild(h('svg:circle', { cx: p.w - 10, cy: 10, r: 5, class: 'dot' }));
+      if (n.pathIds.length) g.appendChild(h('svg:circle', { cx:p.w-10,cy:p.h-14,r:4,class:'dot' }));
       nodeLayer.appendChild(g);
     });
     svg.appendChild(nodeLayer);
@@ -120,6 +109,8 @@
       bar.appendChild(h('button', { class: 'pill' + (state.agent === a.id ? ' active' : ''), type: 'button', text: a.name + (a.id === 'all' ? '' : ' · ' + plural(view.paths.filter(function (p) { return p.agentId === a.id; }).length, 'path')), onclick: function () { state.agent = a.id; if (state.path && index.path[state.path].agentId !== a.id && a.id !== 'all') state.path = null; renderAll(); } }));
     });
     bar.appendChild(h('button', { class: 'pill', type: 'button', 'aria-pressed': state.showTools ? 'true' : 'false', text: state.showTools ? 'Hide individual tools' : 'Show individual tools', onclick: function () { state.showTools = !state.showTools; renderAll(); } }));
+    if (!state.path) bar.appendChild(h('button',{class:'pill',type:'button','aria-pressed':state.full?'true':'false',text:state.full?'Focus on potential paths':'Show full inventory graph',onclick:function(){state.full=!state.full;renderAll();}}));
+    if (state.path) bar.appendChild(h('button',{class:'pill',type:'button','aria-pressed':state.context?'true':'false',text:state.context?'Isolate selected path':'Show surrounding context',onclick:function(){state.context=!state.context;renderAll();}}));
   }
   function renderPathList() {
     var list = clear(document.getElementById('graph-paths'));
@@ -152,9 +143,8 @@
   }
   function renderNodePanel(panel, n) {
     panel.appendChild(h('div', { class: 'panel-head' }, [h('span', { class: 'kind kind-' + n.kind, text: n.kind }), h('h3', { text: n.label }), n.severity ? badge(n.severity) : null]));
-    panel.appendChild(h('div', { class: 'muted small', text: 'Agent: ' + agentName(n.agentId) + ' · ' + n.evidenceClass + ' · confidence ' + n.confidence + (n.stale ? ' · stale' : '') }));
-    panel.appendChild(h('h4', { text: 'Evidence' }));
-    panel.appendChild(evidenceList(n.evidence));
+    panel.appendChild(h('div', { class: 'muted small', text: 'Agent: ' + agentName(n.agentId) + ' · ' + (n.evidenceLabel||n.evidenceClass) + ' · confidence ' + n.confidence + (n.stale ? ' · stale' : '') }));
+    panel.appendChild(h('details',{class:'details'},[h('summary',{text:'Configuration and inference evidence'}),h('div',{class:'details-body'},[evidenceList(n.evidence)])]));
     panel.appendChild(h('h4', { text: n.pathIds.length ? 'Potential exposure paths through this node (' + n.pathIds.length + ')' : 'Not on any potential exposure path' }));
     n.pathIds.forEach(function (id) { var p = index.path[id]; panel.appendChild(h('button', { class: 'path-row', type: 'button', onclick: function () { selectPath(id); } }, [badge(p.severity), h('span', { class: 'path-row-label', text: p.label })])); });
     var fixes = view.remediations.filter(function (r) { return r.serverId === n.recordId || r.serverId === n.id; });
@@ -175,8 +165,7 @@
     panel.appendChild(h('p', { text: p.explanation }));
     panel.appendChild(h('h4', { text: 'Why it matters' }));
     panel.appendChild(h('p', { text: p.whyItMatters }));
-    panel.appendChild(h('h4', { text: 'Evidence' }));
-    panel.appendChild(h('ul', { class: 'small' }, p.evidence.map(function (e) { return h('li', { text: e.name + ' · ' + e.evidenceClass + (e.type ? ' · ' + e.type : '') }); })));
+    panel.appendChild(h('details',{class:'details'},[h('summary',{text:'Technical evidence ('+p.evidenceCount+' sources)'}),h('div',{class:'details-body'},[h('ul',{class:'small'},p.evidence.map(function(e){return h('li',{text:e.name+' · '+(e.evidenceLabel||e.evidenceClass)+(e.type?' · '+e.type:'')});}))])]));
     panel.appendChild(h('p', { class: 'muted small disclaimer', text: p.disclaimer + ' ' + view.scope }));
     panel.appendChild(h('h4', { text: p.remediationIds.length ? 'Remediate' : 'Remediate (no automatic option)' }));
     if (!p.remediationIds.length) panel.appendChild(h('p', { class: 'small', text: p.remediation }));
@@ -187,6 +176,13 @@
   /* ---------- remediation preview + apply ---------- */
   function renderRemediate(r) {
     var box = h('div', { class: 'remediate', 'data-remediate': r.id });
+    if (demo) {
+      box.appendChild(h('h4',{text:'Simulate this removal'}));
+      box.appendChild(h('p',{class:'small',text:'Synthetic data only. No file is changed and no terminal command is needed.'}));
+      if (r.guided) box.appendChild(h('p',{class:'small',text:'Moving servers is guided, not simulated here. Choose a removal preview above.'}));
+      else box.appendChild(h('button',{class:'btn primary',type:'button',text:'Simulate removal of '+r.server,onclick:function(){document.dispatchEvent(new CustomEvent('boppi-demo-simulate',{detail:{id:r.id}}));}}));
+      return box;
+    }
     box.appendChild(h('h4', { text: 'Exact change' }));
     var dl = h('dl', { class: 'evidence' });
     dl.appendChild(h('div', {}, [h('dt', { text: r.action === 'move_server' ? 'Remove from' : 'File' }), h('dd', {}, r.files.from.length ? r.files.from.map(function (f) { return h('code', { text: f }); }) : [h('span', { class: 'muted', text: 'file not recorded' })])]));
@@ -369,6 +365,7 @@
   /* ---------- wiring ---------- */
   function renderAll() { renderToolbar(); renderGraph(); renderPathList(); renderPanel(); renderBackups(); }
   if (!live && document.getElementById('boppi-demo-data')) {
+    document.addEventListener('boppi-select-path',function(event){if(index.path[event.detail.id]){selectPath(event.detail.id);document.getElementById('graph').scrollIntoView({behavior:'smooth',block:'start'});}});
     document.addEventListener('boppi-demo-view', function (event) {
       view = event.detail;
       state.agent = 'all'; state.path = null; state.node = null; state.remediation = null;
@@ -382,7 +379,7 @@
   var resizeTimer = null;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderGraph, 120); });
   var modeTag = document.getElementById('graph-mode');
-  if (modeTag) modeTag.textContent = live ? 'Live: fixes apply on this machine through boppi ui, after confirmation and a backup.' : 'Configuration evidence. Select a path or node to inspect its evidence; supported local fixes run from the terminal.';
+  if (modeTag) modeTag.textContent = demo ? 'Synthetic configuration evidence. Every change here is simulated; your device is not scanned.' : live ? 'Live: fixes apply on this machine through boppi ui, after confirmation and a backup.' : 'Configuration evidence. Select a path or node to inspect its evidence; supported local fixes run from the terminal.';
   renderAll();
   if (live) refreshState();
 })();

@@ -13,7 +13,10 @@ const path = require('path');
 const { rankPredictions } = require('../predict');
 const { buildGraphView } = require('./graphData');
 
-const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
+const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
+const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
+const BRAND_STYLES = fs.readFileSync(path.join(__dirname, '../../design/report.css'), 'utf8');
+const BRAND_LOGO = fs.readFileSync(path.join(__dirname, '../../design/boppi-logo.png')).toString('base64');
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'";
 
 /** JSON safe inside a <script> element: no `<` (so no `</script` or `<!--`) and no line separators. */
@@ -28,6 +31,14 @@ function esc(value) {
 }
 function sevBadge(severity) {
   return `<span class="sev sev-${esc(severity)}">${esc(severity)}</span>`;
+}
+
+function brandHeader() {
+  return `<a class="skip-link" href="#main">Skip to checkup</a><header class="appbar"><div class="appbar-inner"><a class="brand" href="#main"><img src="data:image/png;base64,${BRAND_LOGO}" alt="" width="30" height="30">boppi</a><nav aria-label="Checkup navigation"><a href="#graph">Exposure graph</a><a href="#coverage">Coverage</a><a href="#inventory">Inventory</a></nav></div></header>`;
+}
+
+function evidenceGuide() {
+  return `<details class="details"><summary>What configured, inferred, observed, and verified mean</summary><div class="details-body"><p><b>Configured:</b> present in a supported configuration file. <b>Inferred:</b> derived from metadata or the known server catalog, not a runtime handshake.</p><p><b>Observed:</b> requires runtime evidence. This checkup does not observe tool calls. <b>Verified:</b> a subsequent supported rescan checked a specific predicted change, not that an entire device is safe. Demo changes are simulated, not verified on your machine.</p></div></details>`;
 }
 
 const STYLES = `  :root { --bg:#f4f6fa; --surface:#fff; --ink:#171c26; --muted:#5b6474; --line:#e4e7ee; --accent:#3b5bfd;
@@ -133,7 +144,8 @@ function graphSection(view) {
     <div id="graph-agents" class="graph-toolbar"></div>
     <div class="legend"><span><i style="background:var(--crit)"></i>critical path</span><span><i style="background:var(--high)"></i>high path</span><span><i style="background:var(--med)"></i>medium path</span><span><i style="background:#c5cbd8"></i>access, no path</span></div>
   </div>
-  <div class="graph-wrap" id="graph-wrap"><svg id="graph-svg" role="img" aria-label="Exposure graph: agents, MCP servers, capabilities, data, and destinations, with potential exposure paths highlighted by severity"></svg></div>
+  <p class="graph-guide">Columns group access types. Arrows show evidenced relationships, not execution order; a potential path can combine separate grants to the same agent. Dashed lines are inferred. Select a path to isolate its evidence. Scroll inside the graph for full labels.</p>
+  <div class="graph-wrap" id="graph-wrap" role="region" tabindex="0" aria-label="Scrollable exposure graph"><svg id="graph-svg" role="group" aria-label="Exposure graph: agents, MCP servers, capabilities, data, and destinations, with potential exposure paths highlighted by severity"></svg></div>
   <div class="explorer">
     <div>
       <div class="kv muted small" style="margin-bottom:6px">Potential exposure paths, most severe first. Click one to highlight it and see fix options.</div>
@@ -177,9 +189,10 @@ function renderHtml(report, options = {}) {
 <meta http-equiv="Content-Security-Policy" content="${CSP}">
 ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
 <title>Boppi Scan Report</title>
-<style>${STYLES}</style>
+<style>${BRAND_TOKENS}${STYLES}${BRAND_STYLES}</style>
 </head>
-<body><div class="wrap">
+<body>${brandHeader()}<main class="wrap" id="main">
+  <div class="eyebrow"><span class="status-dot"></span>Local security checkup</div>
   <h1><span>Boppi</span> · AI Agent Security scan report</h1>
   <div class="meta">${esc(report.startedAt)} · ran locally in ${(report.durationMs / 1000).toFixed(2)}s · nothing left this machine · boppi-cli v${esc(report.version)}</div>
   <p class="lede">See what your AI agents can access, understand the potential exposure paths, fix dangerous access, and verify that the risk is gone.</p>
@@ -193,14 +206,15 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
     <div class="tile"><div class="label">Open findings</div><div class="value">${openFindings.length}</div></div>
   </div>
 
-  <h2>What this scan established</h2>
+  <h2 id="coverage">What this scan established</h2>
   <div class="card">
     <div class="kv"><b>Established:</b> ${inventory.agents.length} agent${inventory.agents.length === 1 ? '' : 's'}, ${inventory.mcpServers.length} MCP server${inventory.mcpServers.length === 1 ? '' : 's'}, and ${report.portableFilesRead.length} configuration file${report.portableFilesRead.length === 1 ? '' : 's'} examined.</div>
     <div class="kv"><b>Not established:</b> runtime behavior, activity absent from configuration, or access not evidenced by the scanned metadata.</div>
     <div class="kv muted small">${esc(coverageNote)} A clean result is not proof that the environment is safe.</div>
   </div>
 
-  <h2>Discovered MCP servers and capabilities</h2>
+  ${evidenceGuide()}
+  <h2 id="inventory">Discovered MCP servers and capabilities</h2>
   <div class="table-scroll"><table>
     <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th></tr></thead>
     <tbody>${serverRows || '<tr><td colspan="3" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}</tbody>
@@ -257,7 +271,7 @@ ${graphSection(view)}
     <br>Secret values, file contents, and raw path names are never collected; paths become fingerprints. Capabilities marked as inferred come from the server's evidenced identity (package names, directory arguments, environment variable names).
     ${liveToken ? '<br>Live mode: this page is served by <code>boppi ui</code> on 127.0.0.1 only. Fixes run on this machine after an explicit confirmation and a backup.' : '<br>The interactive graph runs from the data embedded in this file and makes no network requests.'}
   </div>
-</div>
+</main>
 <script type="application/json" id="boppi-data">${embedJson(view)}</script>
 <script>${CLIENT_SCRIPT}</script>
 </body></html>`;
@@ -270,20 +284,33 @@ function renderDemoHtml(bundle) {
   return `<!doctype html><html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
-<title>BOPPI · Interactive synthetic demo</title><style>${STYLES}
-.demo-nav { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
-.demo-note { border-left:3px solid var(--accent); padding:12px 16px; background:var(--surface); }
-#demo-result { margin:12px 0; font-weight:600; }
-</style></head>
-<body><main class="wrap">
-<h1><span>BOPPI</span> · Interactive synthetic demo</h1>
-<p class="meta">Explore configuration evidence and try a simulated fix.</p>
-<p class="demo-note">${esc(bundle.banner)} All fixes below are simulated.</p>
-<nav class="demo-nav" id="demo-nav" aria-label="Synthetic scenarios"></nav>
-<h2 id="demo-title"></h2><p id="demo-summary"></p>
-<h3>Simulated remediation previews</h3>
-<div class="demo-nav" id="demo-fixes"></div><p id="demo-result" role="status" aria-live="polite"></p>
+<title>Boppi · Interactive security checkup</title><style>${BRAND_TOKENS}${STYLES}${BRAND_STYLES}</style></head>
+<body>${brandHeader()}<main class="wrap" id="main">
+<div class="eyebrow"><span class="status-dot"></span>Interactive demo · sample data</div>
+<h1>Find the path.<br>Try the smallest change.</h1>
+<p class="intro-copy">See what an AI agent can reach, understand why it matters, and preview a fix before changing anything.</p>
+<p class="demo-note"><strong>Nothing on your device is scanned or changed.</strong> ${esc(bundle.banner)} All fixes below are simulated.</p>
+<div class="checkup-grid" aria-label="Selected synthetic environment">
+  <div class="checkup-stat"><strong id="demo-agent-count">0</strong><span>configured agents</span></div>
+  <div class="checkup-stat"><strong id="demo-server-count">0</strong><span>MCP servers</span></div>
+  <div class="checkup-stat risk"><strong id="demo-path-count">0</strong><span>potential exposure paths</span></div>
+  <div class="checkup-stat scope"><strong>Configuration only</strong><span>No runtime observation</span></div>
+</div>
+<div class="section-label"><span>01</span>Choose a sample environment</div>
+<nav class="demo-nav scenario-nav" id="demo-nav" aria-label="Synthetic scenarios"></nav>
+<h2 class="scenario-heading" id="demo-title"></h2><p class="scenario-summary" id="demo-summary"></p>
+<div class="journey-grid">
+  <section class="card"><div class="eyebrow">Understand the exposure</div><h3 id="demo-risk-title"></h3><p class="risk-copy" id="demo-risk-why"></p><div class="risk-summary" id="demo-risk-action"></div><button type="button" class="btn primary" id="demo-investigate" style="margin-top:16px">Investigate this path →</button></section>
+  <section class="card"><div class="eyebrow">Preview, then decide</div><h3>Simulated remediation previews</h3><p class="risk-copy">Removing a server can break a risky path, but also remove useful capabilities. Compare both.</p><div class="simulation-compare"><span>Before <strong id="demo-before">0</strong></span><span aria-hidden="true">→</span><span>Preview <strong id="demo-after">0</strong></span><span>potential paths</span></div><div class="demo-nav" id="demo-fixes"></div><p id="demo-result" role="status" aria-live="polite"></p></section>
+</div>
 ${graphSection(first)}
+<h2 id="inventory">Agent and MCP inventory</h2>
+<p class="muted small">Configured identities from the sample. Capabilities may be inferred; select a graph node to inspect the evidence.</p>
+<div class="table-scroll"><table class="demo-inventory"><thead><tr><th>MCP server</th><th>Agent</th><th>Evidence</th><th>Capabilities (inferred where labeled)</th></tr></thead><tbody id="demo-inventory"></tbody></table></div>
+<h2 id="coverage">Know what was checked</h2>
+<div class="coverage-strip"><section class="card"><h3>Included in this demo</h3><p>Synthetic MCP configuration, configured servers, metadata-derived capabilities, and potential paths evaluated by the real Boppi engine.</p></section><section class="card"><h3>Not checked</h3><p>Your device, secret values, file contents, actual tool calls, installed package behavior, or whether an agent has been exploited. A clean sample is not proof of safety.</p></section></div>
+${evidenceGuide()}
+<p class="footer-note">Local by default. Evidence before action. Monitoring is an optional manual prototype, not active here.</p>
 </main>
 <script type="application/json" id="boppi-data">${embedJson(first)}</script>
 <script type="application/json" id="boppi-demo-data">${embedJson(bundle)}</script>

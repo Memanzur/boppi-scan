@@ -22,6 +22,7 @@ const KINDS = Object.freeze(['agent', 'server', 'capability', 'data', 'credentia
 const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
 
 function kindOf(entityType) { return KIND_BY_ENTITY[entityType] || entityType; }
+function evidenceLabel(evidenceClass) { return evidenceClass === 'observed' ? 'configured' : (evidenceClass || 'unknown'); }
 
 function previewHash(fields) {
   return crypto.createHash('sha256').update(JSON.stringify(fields)).digest('hex');
@@ -104,7 +105,7 @@ function buildGraphView(report) {
 
   const nodes = graph.nodes.map(node => {
     const kind = kindOf(node.entityType);
-    const evidence = [{ title: 'Evidence class', detail: `${node.evidenceClass || 'unknown'} · confidence ${node.confidence ?? '?'}${node.stale ? ' · stale' : ''}` }];
+    const evidence = [{ title: 'Evidence class', detail: `${evidenceLabel(node.evidenceClass)} · source class: ${node.evidenceClass || 'unknown'} (configuration metadata, not runtime) · confidence ${node.confidence ?? '?'}${node.stale ? ' · stale' : ''}` }];
     const detail = {};
     if (kind === 'agent') {
       const agent = agentById.get(node.id);
@@ -134,14 +135,14 @@ function buildGraphView(report) {
     return {
       id: node.id, kind, entityType: node.entityType, label: node.label, recordId: node.recordId || null,
       agentId: kind === 'agent' ? node.id : (owner.get(node.id) || null),
-      evidenceClass: node.evidenceClass || 'unknown', confidence: node.confidence ?? null, stale: !!node.stale,
+      evidenceClass: node.evidenceClass || 'unknown', evidenceLabel:evidenceLabel(node.evidenceClass), confidence: node.confidence ?? null, stale: !!node.stale,
       evidence, detail, pathIds, severity: worstSeverity(pathIds),
     };
   });
 
   const edges = graph.edges.map(edge => ({
     id: edge.id, from: edge.fromEntityId, to: edge.toEntityId, kind: edge.relationshipType,
-    evidenceClass: edge.evidenceClass, confidence: edge.confidence, stale: !!edge.stale,
+    evidenceClass: edge.evidenceClass, evidenceLabel:evidenceLabel(edge.evidenceClass), confidence: edge.confidence, stale: !!edge.stale,
   }));
 
   const pathIdsByKey = new Map();
@@ -188,7 +189,7 @@ function buildGraphView(report) {
     chain: pathItem.nodes.map(n => n.label),
     explanation: pathItem.explanation, whyItMatters: pathItem.whyItMatters, remediation: pathItem.remediation, disclaimer: pathItem.disclaimer,
     evidenceCount: pathItem.evidenceCount,
-    evidence: (pathItem.evidence || []).map(source => ({ name: source.name || source.id || 'evidence', evidenceClass: source.evidenceClass || 'unknown', type: source.type || null, observedAt: source.observedAt || null })),
+    evidence: (pathItem.evidence || []).map(source => ({ name: source.name || source.id || 'evidence', evidenceClass: source.evidenceClass || 'unknown', evidenceLabel:evidenceLabel(source.evidenceClass), type: source.type || null, observedAt: source.observedAt || null })),
     remediationIds: remediations.filter(r => r.eliminates.includes(pathItem.id)).map(r => r.id),
   }));
 

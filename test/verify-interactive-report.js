@@ -65,6 +65,8 @@ function runCli(args, home) {
   ok('agents resolve to agent nodes', view.agents.length === 3 && view.agents.every(a => view.nodes.find(n => n.id === a.id && n.kind === 'agent')));
   ok('every non-agent node is owned by an agent', view.nodes.filter(n => n.kind !== 'agent').every(n => view.agents.some(a => a.id === n.agentId)));
   ok('every node has at least one evidence line', view.nodes.every(n => n.evidence.length >= 1 && n.evidence.every(line => line.title && line.detail)));
+  ok('configuration observations are labeled configured without changing raw provenance', view.nodes.some(n => n.evidenceClass === 'observed') && view.nodes.filter(n => n.evidenceClass === 'observed').every(n => n.evidenceLabel === 'configured' && n.evidence.some(line => line.detail.includes('source class: observed') && line.detail.includes('not runtime'))));
+  ok('inferred provenance remains inferred', view.nodes.filter(n => n.evidenceClass === 'inferred').every(n => n.evidenceLabel === 'inferred'));
   const serverNode = view.nodes.find(n => n.kind === 'server' && n.label === 'filesystem');
   ok('server nodes carry command, trust status, and reached-from evidence', !!serverNode && serverNode.evidence.some(l => l.title === 'Command') && serverNode.evidence.some(l => l.title === 'Trust status') && serverNode.evidence.some(l => l.title === 'Reached from'));
   ok('credential node names the variable, never the value', view.nodes.some(n => n.kind === 'credential' && /OP_TOKEN/.test(n.label)) && !JSON.stringify(view).includes('SUPERSECRETVALUE'));
