@@ -16,10 +16,70 @@ const RECORD_FIELD_MAX = 512;
 
 const EVIDENCE_CLASS = Object.freeze({ observed: 'observed', imported: 'imported', inferred: 'inferred', fixture: 'inferred' });
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const CLIENT_LABELS = Object.freeze({ 'claude-desktop': 'Claude Desktop', 'claude-code': 'Claude Code', cursor: 'Cursor' });
+const COVERAGE_REASONS = new Set(['permission denied', 'invalid JSON', 'this is a directory, not a config file', 'client analysis failed', 'configuration could not be analyzed']);
 
 const clip = (value, max = RECORD_FIELD_MAX) => String(value).slice(0, max);
 const confidenceOf = item => (Number.isFinite(item.confidence) ? item.confidence : item.normalizationConfidence);
 const present = (key, value) => (value === undefined || value === null || value === '' || (Array.isArray(value) && !value.length) ? {} : { [key]: value });
+
+/** Convert discovery outcomes into the bounded, honest coverage envelope. */
+function coverageFromDiscovery(discovery, scope = 'unknown') {
+  const clients = Array.isArray(discovery?.clients) ? discovery.clients : [];
+  return {
+    clients: clients.map(client => {
+      const files = Array.isArray(client.files) ? client.files : [];
+      const unreadable = files.find(file => file.status === 'unreadable');
+      const found = files.filter(file => file.status === 'found');
+      const status = client.scanError ? 'failed' : unreadable ? 'unreadable' : found.length ? 'found' : 'not_found';
+      // Provider exceptions may include raw config values; send only fixed reasons.
+      const reason = client.scanError ? 'client analysis failed'
+        : unreadable ? (['permission denied', 'invalid JSON', 'this is a directory, not a config file'].includes(unreadable.reason)
+          ? unreadable.reason : 'configuration could not be analyzed') : null;
+      return {
+        key: clip(client.clientKey, 32), label: clip(client.label, 64), status,
+        ...(found.length ? { serverCount: found.reduce((sum, file) => sum + (Number.isInteger(file.serverCount) ? file.serverCount : 0), 0) } : {}),
+        ...(reason ? { reason: clip(reason, 200) } : {}),
+      };
+    }),
+    runtime: 'not_observed',
+    scope,
+  };
+}
+
+function collectorEnvelope(discovery, version, platform = process.platform, scope = 'unknown') {
+  return {
+    collector: { name: 'boppi', version: clip(version, 32), platform: clip(platform, 16) },
+    coverage: coverageFromDiscovery(discovery, scope),
+  };
+}
+
+function completeCoverage(coverage) {
+  return coverage?.scope === 'full' && coverage.clients.length > 0
+    && coverage.clients.every(client => ['found', 'not_found'].includes(client.status));
+}
+
+/** Keep export provenance when present; do not invent a version for older files. */
+function envelopeFromExport(payload) {
+  const envelope = {};
+  if (payload.collector) {
+    const { name, version, platform } = payload.collector;
+    if (name !== 'boppi' || typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(version) || version.length > 32 || !['darwin', 'linux', 'win32'].includes(platform)) throw new Error('export has an unsupported collector envelope');
+    envelope.collector = { name, version, platform };
+  }
+  if (payload.coverage) {
+    const input = payload.coverage;
+    if (!Array.isArray(input.clients) || input.clients.length > 32 || input.runtime !== 'not_observed') throw new Error('export has an unsupported coverage envelope');
+    const clients = input.clients.map(client => {
+      if (!Object.hasOwn(CLIENT_LABELS, client.key) || !['found', 'not_found', 'unreadable', 'failed'].includes(client.status)) throw new Error('export has an unsupported discovery source');
+      return { key: client.key, label: CLIENT_LABELS[client.key], status: client.status,
+        ...(Number.isSafeInteger(client.serverCount) && client.serverCount >= 0 ? { serverCount: client.serverCount } : {}),
+        ...(client.reason ? { reason: COVERAGE_REASONS.has(client.reason) ? client.reason : 'configuration could not be analyzed' } : {}) };
+    });
+    envelope.coverage = { clients, runtime: 'not_observed', scope: ['full', 'selected', 'explicit'].includes(input.scope) ? input.scope : 'unknown' };
+  } else envelope.coverage = coverageFromDiscovery(payload.discovery);
+  return envelope;
+}
 
 /** Ingest record for one inventory item; metadata fields match lib/engine/inventory.ts in the control plane. */
 function record(kind, item, metadata) {
@@ -104,13 +164,14 @@ function counts(inventory) {
   };
 }
 
-async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, fetchImpl }) {
+async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, fetchImpl }) {
   let response;
   try {
     response = await fetchImpl(ingestUrl.toString(), {
       method: 'POST',
+      redirect: 'error',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' },
-      body: JSON.stringify(snapshot ? { records, snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : { records }),
+      body: JSON.stringify({ records, ...(snapshot ? { snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : {}), ...(collector ? { collector } : {}), ...(coverage ? { coverage } : {}) }),
     });
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
@@ -128,13 +189,13 @@ async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, fetc
  * requests. Resolves to { ok, ingested } or the first failed batch:
  * { ok: false, status, body, retryAfter? } or { ok: false, networkError }.
  */
-async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, fetchImpl = globalThis.fetch }) {
+async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, fetchImpl = globalThis.fetch }) {
   if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
   const batches = snapshot ? [records] : [];
   if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
   let ingested = 0;
   for (const batch of batches) {
-    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, snapshotAt, fetchImpl });
+    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, snapshotAt, collector, coverage, fetchImpl });
     if (!result.ok) return result;
     ingested += Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : batch.length;
   }
@@ -166,4 +227,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };

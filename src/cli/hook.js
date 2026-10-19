@@ -17,6 +17,8 @@ const crypto = require('crypto');
 const EVENT_KEYS = Object.freeze(['at', 'event', 'kind', 'server', 'tool', 'session', 'cwd', 'outcome']);
 const LINE_CAP = 10000;
 const STDIN_TIMEOUT_MS = 2000;
+const STDIN_MAX_BYTES = 1024 * 1024;
+const SAFE_TOOL_NAME = /^[a-zA-Z0-9_-]{1,200}$/;
 const ERROR_FIELD = /^(is_?error|error|errors)$/i;
 const MCP_TOOL = /^mcp__(.+?)__(.+)$/;
 
@@ -24,8 +26,9 @@ function eventsFile(home) { return path.join(home, '.boppi', 'events.jsonl'); }
 
 /** The sanitized record for one payload, or null when the payload is not a hook event. */
 function toRecord(payload, { now, fingerprint }) {
-  if (!payload || typeof payload !== 'object' || typeof payload.hook_event_name !== 'string') return null;
-  const toolName = typeof payload.tool_name === 'string' ? payload.tool_name.slice(0, 200) : null;
+  if (!payload || typeof payload !== 'object' || !['PreToolUse', 'PostToolUse'].includes(payload.hook_event_name)) return null;
+  const toolName = typeof payload.tool_name === 'string' && SAFE_TOOL_NAME.test(payload.tool_name) ? payload.tool_name : null;
+  if (!toolName) return null;
   const mcp = toolName ? MCP_TOOL.exec(toolName) : null;
   const record = {
     at: now,
@@ -48,7 +51,7 @@ function responseFailed(response) {
 
 function append(home, record, retentionDays) {
   const file = eventsFile(home);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   fs.appendFileSync(file, JSON.stringify(record) + '\n', { mode: 0o600 });
   try { fs.chmodSync(file, 0o600); } catch (_) { /* platforms without POSIX modes */ }
   trim(file, retentionDays);
@@ -71,10 +74,26 @@ function readStdin() {
   return new Promise(resolve => {
     if (process.stdin.isTTY) return resolve(null);
     const chunks = [];
-    const timer = setTimeout(() => resolve(null), STDIN_TIMEOUT_MS);
-    process.stdin.on('data', chunk => chunks.push(chunk));
-    process.stdin.on('end', () => { clearTimeout(timer); resolve(Buffer.concat(chunks).toString('utf8')); });
-    process.stdin.on('error', () => { clearTimeout(timer); resolve(null); });
+    let size = 0;
+    const finish = value => {
+      clearTimeout(timer);
+      process.stdin.removeListener('data', onData);
+      process.stdin.removeListener('end', onEnd);
+      process.stdin.removeListener('error', onError);
+      process.stdin.pause();
+      resolve(value);
+    };
+    const onData = chunk => {
+      size += chunk.length;
+      if (size > STDIN_MAX_BYTES) finish(null);
+      else chunks.push(chunk);
+    };
+    const onEnd = () => finish(Buffer.concat(chunks).toString('utf8'));
+    const onError = () => finish(null);
+    const timer = setTimeout(() => finish(null), STDIN_TIMEOUT_MS);
+    process.stdin.on('data', onData);
+    process.stdin.on('end', onEnd);
+    process.stdin.on('error', onError);
   });
 }
 

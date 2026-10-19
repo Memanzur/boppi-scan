@@ -456,7 +456,7 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
-  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, scanArgs };
+  return { startedAt, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, scanArgs };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -477,6 +477,7 @@ function portableDiscovery(discovery, home) {
 }
 
 function exportPayload(scan) {
+  const envelope = push.collectorEnvelope(scan.portableDiscovery, VERSION, scan.platform, scan.scope);
   return {
     ...scan.storageExport,
     engineVersion: models.ENGINE_VERSION,
@@ -487,6 +488,7 @@ function exportPayload(scan) {
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
     scanArgs: scan.scanArgs,
+    ...envelope,
     discovery: scan.portableDiscovery,
     diagnostics: scan.diagnostics.overlay
       ? { ...scan.diagnostics, overlay: { ...scan.diagnostics.overlay, file: portablePath(scan.diagnostics.overlay.file, scan.home) } }
@@ -666,6 +668,8 @@ async function runPush(options) {
   }
   let inventory;
   let snapshotAt;
+  let collector;
+  let coverage;
   let incomplete = [];
   if (options.file) {
     let payload;
@@ -675,6 +679,10 @@ async function runPush(options) {
     }
     inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
     snapshotAt = typeof payload.exportedAt === 'string' ? payload.exportedAt : undefined;
+    try { ({ collector, coverage } = push.envelopeFromExport(payload)); } catch (error) {
+      process.stderr.write(`push: ${error.message}\n`);
+      return 2;
+    }
     if (!inventory || !Array.isArray(inventory.agents)) {
       process.stderr.write(`push: ${options.file} has no inventory; it must be a --json export from boppi scan\n`);
       return 2;
@@ -688,16 +696,21 @@ async function runPush(options) {
     const payload = exportPayload(scan);
     inventory = payload.inventory.real;
     snapshotAt = payload.exportedAt;
+    collector = payload.collector;
+    coverage = payload.coverage;
     incomplete = scan.incomplete;
   }
+
+  if (options.file) incomplete = (coverage?.clients || []).filter(client => ['unreadable', 'failed'].includes(client.status)).map(client => client.label);
 
   const records = push.toRecords(inventory);
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from this push.\n`);
 
+  const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   if (options.dryRun) {
-    process.stdout.write(JSON.stringify({ records }, null, 2) + '\n');
+    process.stdout.write(JSON.stringify({ records, ...(snapshot ? { snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : {}), ...(collector ? { collector } : {}), ...(coverage ? { coverage } : {}) }, null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
     return 0;
   }
@@ -706,13 +719,12 @@ async function runPush(options) {
     return 0;
   }
 
-  const snapshot = !options.merge && records.length <= push.SNAPSHOT_MAX;
   const workspace = push.workspaceUrl(options.ingestUrl);
   process.stdout.write(`Sending ${plural(records.length, 'record')} (${described}) to ${workspace}${snapshot ? ' as a full snapshot' : ''}.\n`);
   process.stdout.write('Only sanitized inventory metadata is sent: no secret values, file contents, or raw paths.\n');
-  if (!options.merge && !snapshot) process.stderr.write(`More than ${push.SNAPSHOT_MAX} records: pushing without snapshot cleanup, so records absent from this scan stay in the workspace.\n`);
+  if (!options.merge && !snapshot) process.stderr.write('Partial, incomplete, legacy, or oversized scan: merging evidence without removing earlier records. Run a complete discovery scan to replace the full inventory.\n');
 
-  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt });
+  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt, collector, coverage });
   if (!result.ok) {
     process.stderr.write(`${push.describeFailure(result)}\n`);
     return 5;
@@ -742,7 +754,7 @@ async function run(argv) {
       return 2;
     }
   }
-  if (options.command === 'hook') return hook.runHook(options, { fingerprint: value => crypto.createHash('sha256').update(loadFingerprintKey(options.home)).update(value).digest('hex').slice(0, 16), settings: settingsModule.load(options.home) });
+  if (options.command === 'hook') return hook.runHook(options, { fingerprint: value => crypto.createHmac('sha256', loadFingerprintKey(options.home)).update(value).digest('hex').slice(0, 16), settings: options.install || options.printConfig ? settingsModule.defaults() : settingsModule.load(options.home) });
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);

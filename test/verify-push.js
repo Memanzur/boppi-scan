@@ -71,6 +71,7 @@ function startWorkspace() {
   runCli(['scan', '--json', exportPath, '--quiet'], home);
   const exported = JSON.parse(fs.readFileSync(exportPath, 'utf8'));
   const records = push.toRecords(exported.inventory.real);
+  const envelope = push.collectorEnvelope(exported.discovery, '0.4.0', 'darwin');
   const kinds = new Set(records.map(r => r.kind));
   ok('one record per agent, permission, and MCP server', records.length === exported.inventory.real.agents.length + exported.inventory.real.permissions.length + exported.inventory.real.mcpServers.length);
   ok('record kinds are the contract enum values', [...kinds].every(k => ['agent', 'integration', 'permission', 'mcp_server'].includes(k)) && kinds.has('agent') && kinds.has('mcp_server') && kinds.has('permission'));
@@ -82,6 +83,13 @@ function startWorkspace() {
   ok('no field exceeds the 512-character contract cap', records.every(r => r.external_id.length <= 512 && r.name.length <= 512 && JSON.stringify(r.metadata).length <= 65536));
   const serialized = JSON.stringify(records);
   ok('records never contain secret values or the raw home path', !serialized.includes('SUPERSECRETVALUE') && !serialized.includes('sb_secret_positional_test_value_123456') && !serialized.includes('flagvalue_apikey_test_77') && !serialized.includes('inline_key_value_test_88') && !serialized.includes(home));
+  ok('collector envelope names the scanner and preserves discovery errors', envelope.collector.name === 'boppi' && envelope.collector.version === '0.4.0' && envelope.coverage.runtime === 'not_observed' && envelope.coverage.clients.some(client => client.status === 'found'));
+  const errorCoverage = push.coverageFromDiscovery({ clients: [{ clientKey: 'cursor', label: 'Cursor', scanError: 'PRIVATE_TOKEN_FROM_EXCEPTION', files: [] }] }, 'full');
+  ok('error coverage uses a fixed explanation without raw exception text', errorCoverage.clients[0].status === 'failed' && !JSON.stringify(errorCoverage).includes('PRIVATE_TOKEN'));
+  ok('failed coverage never authorizes full inventory replacement', !push.completeCoverage(errorCoverage));
+  ok('legacy exports do not inherit the uploading scanner version', !push.envelopeFromExport({ discovery: exported.discovery }).collector);
+  const dirtyEnvelope = push.envelopeFromExport({ ...exported, collector: { ...exported.collector, token: 'PRIVATE_TOKEN' }, coverage: { ...exported.coverage, path: '/private/config' } });
+  ok('export envelope is projected to safe keys before upload', !JSON.stringify(dirtyEnvelope).includes('PRIVATE_TOKEN') && !JSON.stringify(dirtyEnvelope).includes('/private/config'));
 
   section('URL rules');
   ok('origin resolves to the ingest endpoint', push.resolveIngestUrl('https://app.boppi.io').toString() === 'https://app.boppi.io/api/ingest');
@@ -111,6 +119,7 @@ function startWorkspace() {
     ok('exactly one POST to /api/ingest', workspace.requests.length === 1 && request.method === 'POST' && request.url === '/api/ingest');
     ok('token travels as a bearer header, never in the body', request.authorization === 'Bearer bpc_good' && !JSON.stringify(request.body).includes('bpc_good'));
     ok('body is a snapshot of the mapped records', request.contentType === 'application/json' && request.body.snapshot === true && request.body.records.length === records.length);
+    ok('body carries scanner version, source type, and discovery coverage', request.body.collector.name === 'boppi' && request.body.collector.version === '0.3.1' && request.body.coverage.runtime === 'not_observed' && request.body.coverage.clients.every(client => ['found', 'not_found', 'unreadable', 'failed'].includes(client.status)));
     ok('a snapshot carries snapshot_at as an ISO timestamp at the top level of the body', typeof request.body.snapshot_at === 'string' && !Number.isNaN(Date.parse(request.body.snapshot_at)) && request.body.records.every(r => r.snapshot_at === undefined));
     ok('output tells the user what is and is not sent', good.stdout.includes('Only sanitized inventory metadata is sent'));
 
@@ -123,6 +132,14 @@ function startWorkspace() {
     fs.writeFileSync(undatedPath, JSON.stringify(undated));
     const fromUndated = await runCliAsync(['push', '--url', workspace.url, '--file', undatedPath, '--token', 'bpc_good'], home);
     ok('an export without exportedAt still pushes as a snapshot, with snapshot_at omitted', fromUndated.code === 0 && workspace.requests[3].body.snapshot === true && !('snapshot_at' in workspace.requests[3].body));
+    const partial = await runCliAsync(['push', '--url', workspace.url, '--only', 'claude-desktop', '--token', 'bpc_good'], home);
+    const partialBody = workspace.requests.at(-1).body;
+    ok('selected discovery merges evidence and labels its coverage scope', partial.code === 0 && partialBody.snapshot === undefined && partialBody.coverage.scope === 'selected');
+    fs.writeFileSync(path.join(home, '.claude.json'), '{ broken JSON');
+    const incompletePush = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_good'], home);
+    const incompleteBody = workspace.requests.at(-1).body;
+    ok('unreadable discovery is pushed visibly without snapshot cleanup', incompletePush.code === 4 && incompleteBody.snapshot === undefined && incompleteBody.coverage.clients.some(client => client.status === 'unreadable'));
+    fs.unlinkSync(path.join(home, '.claude.json'));
     const bigInventory = { agents: [{ id: 'agent_big', name: 'Big', source: { evidenceClass: 'observed' } }], permissions: Array.from({ length: 2500 }, (_, i) => ({ id: `perm_${i}`, agentId: 'agent_big', rawPermission: `grant ${i}`, normalizedCategory: 'read_files', accessLevel: 'broad', normalizationConfidence: 0.7, source: { evidenceClass: 'inferred' } })) };
     const before = workspace.requests.length;
     const big = await push.pushRecords({ ingestUrl: push.resolveIngestUrl(workspace.url), token: 'bpc_good', records: push.toRecords(bigInventory), snapshot: false, fetchImpl: fetch });
