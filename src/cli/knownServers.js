@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { matchCatalog } = require('./serverCatalog');
+const toolCategories = require('./toolCategories');
 
 const RULES = Object.freeze([
   { pattern: /claude mcp serve/i, capabilities: ['filesystem_access', 'shell_access', 'code_execution'], label: 'Claude Code exposed as an MCP server (file, shell, and code tools)' },
@@ -99,7 +100,11 @@ function inferCapabilities(name, server, options = {}) {
   const configuredTools = Array.isArray(server.tools) ? server.tools.filter(v => typeof v === 'string') : [];
   const tools = [...new Set([...configuredTools, ...(catalog ? catalog.tools : [])])];
   const toolEvidence = tools.map(tool => ({ tool, basis: configuredTools.includes(tool) ? 'configured' : 'catalog' }));
-  return { capabilities: [...capabilities], filesystemPaths, inferences, catalog, tools, toolEvidence, capabilityEvidence };
+  // Finer reach than the eight capability ids: per-tool categories and the scope of directory arguments, graded here while the raw path is still known.
+  const filesystemScope = toolCategories.filesystemScope(filesystemPaths.map(p => expandHome(p, home)), home);
+  const reach = [...toolCategories.toolReach(toolEvidence, haystack), ...toolCategories.scopeReach(filesystemScope, toolEvidence)]
+    .filter((entry, index, list) => list.findIndex(other => other.category === entry.category) === index);
+  return { capabilities: [...capabilities], filesystemPaths, filesystemScope, reach, inferences, catalog, tools, toolEvidence, capabilityEvidence };
 }
 
 module.exports = { RULES, inferCapabilities };

@@ -139,6 +139,11 @@ function buildGraphView(report) {
     } else if (kind === 'server') {
       const server = serverById.get(node.recordId);
       if (server) evidence.push(...serverEvidence(server));
+      for (const permission of (inventory.permissions || []).filter(p => p.integrationId === node.recordId)) {
+        const scoped = /\(filesystem_access: (.+)\)$/.exec(permission.rawPermission || '');
+        if (scoped) evidence.push({ title: 'File scope', detail: scoped[1] });
+        if (permission.source && typeof permission.source.id === 'string' && permission.source.id.startsWith('tool-reach:')) evidence.push({ title: `Reach: ${permission.normalizedCategory.replace(/_/g, ' ')}`, detail: permission.normalizationReason });
+      }
       const known = recognitionById.get(node.recordId);
       if (known) {
         const pin = known.pin === 'unpinned' ? ' · unpinned: runs whatever version is published at its next launch' : known.pin === 'pinned' ? ` · pinned ${known.identity.version}` : '';

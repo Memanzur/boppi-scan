@@ -26,9 +26,35 @@ const RISK_WEIGHT = Object.freeze({
   environment_access: 1,
 });
 const CATEGORY_RISK_WEIGHT = Object.freeze({
-  run_shell_commands: 3, execute_code: 3, access_credentials: 3,
+  run_shell_commands: 3, execute_code: 3, access_credentials: 3, modify_source_code: 3, access_production_system: 3,
   read_files: 2, write_files: 2, delete_files: 2, call_external_api: 2, browser_automation: 2, send_email: 2, send_external_message: 2, untrusted_external_content: 2,
+  read_source_code: 2, read_email: 2, access_financial_data: 2, access_customer_data: 2,
 });
+
+/** One permission per category a server reaches through its tools or the scope of its directory arguments. */
+function reachPermissions(agent, server, inference, observedAt) {
+  const permissions = [];
+  for (const entry of (inference && inference.reach) || []) {
+    const shown = entry.tools.slice(0, 2).join(', ') + (entry.tools.length > 2 ? ` +${entry.tools.length - 2}` : '');
+    const how = entry.because ? entry.because : `tools ${entry.tools.join(', ')}`;
+    const basis = entry.because ? 'configured' : entry.basis;
+    const inferred = basis !== 'configured';
+    permissions.push(models.createPermission({
+      agentId: agent.id,
+      integrationId: server.id,
+      rawPermission: `${server.name} (${entry.category}${shown ? `: ${shown}` : ''})`,
+      normalizedCategory: entry.category,
+      accessLevel: 'broad',
+      riskWeight: CATEGORY_RISK_WEIGHT[entry.category] || 1,
+      normalizationConfidence: inferred ? 0.7 : 0.85,
+      normalizationReason: `This server can ${entry.label} because ${how}${entry.because ? '' : ` (${basis === 'catalog' ? 'listed in the known-server catalog' : 'declared in the configuration'})`}.`,
+      source: { ...agent.source, id: `tool-reach:${server.name}:${entry.category}`, evidenceClass: inferred ? 'inferred' : 'observed' },
+      createdAt: observedAt,
+      updatedAt: observedAt,
+    }));
+  }
+  return permissions;
+}
 
 /** One inferred permission per validated overlay claim, carrying the claim id and its evidence line. */
 function overlayPermission(agent, server, claim, observedAt) {
@@ -69,24 +95,27 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
   for (const server of servers) {
     const inference = inferenceByServer[server.name] || null;
     for (const claim of (overlayByServer[server.name] || {}).validated || []) permissions.push(overlayPermission(agent, server, claim, observedAt));
+    const scope = inference && inference.filesystemScope;
     for (const capability of server.capabilities || []) {
       const normalizedCategory = CAP_TO_CATEGORY[capability];
       if (!normalizedCategory) continue;
       const inferred = isInferred(capability, server, inference);
+      const scoped = capability === 'filesystem_access' && scope;
       permissions.push(models.createPermission({
         agentId: agent.id,
         integrationId: server.id,
-        rawPermission: `${server.name} (${capability})`,
+        rawPermission: scoped ? `${server.name} (${capability}: ${scope.label})` : `${server.name} (${capability})`,
         normalizedCategory,
-        accessLevel: capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',
+        accessLevel: scoped ? (['home', 'system'].includes(scope.worst) ? 'broad' : 'scoped') : capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',
         riskWeight: RISK_WEIGHT[capability] || 1,
         normalizationConfidence: inferred ? 0.7 : 0.85,
-        normalizationReason: reasonFor(capability, server, inference),
+        normalizationReason: scoped ? `${reasonFor(capability, server, inference)} The directory argument${scope.grades.length === 1 ? ' covers' : 's cover'} ${scope.label}.` : reasonFor(capability, server, inference),
         source: { ...agent.source, evidenceClass: inferred ? 'inferred' : 'observed' },
         createdAt: observedAt,
         updatedAt: observedAt,
       }));
     }
+    permissions.push(...reachPermissions(agent, server, inference, observedAt));
   }
   return permissions;
 }

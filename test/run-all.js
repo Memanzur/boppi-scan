@@ -12,6 +12,7 @@ const SUITES = [
   'verify-cli-scan.js',
   'verify-builtin-tools.js',
   'verify-recognition.js',
+  'verify-tool-reach.js',
   'verify-security-graph.js',
   'verify-stable-ids.js',
   'verify-exposure-paths.js',

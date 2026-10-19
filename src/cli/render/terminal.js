@@ -45,6 +45,15 @@ function coveredKeys(paths) {
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
 
+/** What a server reaches beyond its capability ids: the file scope label and the tool-derived categories, read from its permission records. */
+function serverReach(report, server) {
+  const mine = (report.inventory.permissions || []).filter(p => p.integrationId === server.id);
+  const scoped = mine.find(p => p.normalizedCategory === 'read_files' && /^.*\(filesystem_access: (.+)\)$/.test(p.rawPermission));
+  const scope = scoped ? /\(filesystem_access: (.+)\)$/.exec(scoped.rawPermission)[1] : null;
+  const categories = mine.filter(p => p.source && typeof p.source.id === 'string' && p.source.id.startsWith('tool-reach:')).map(p => p.normalizedCategory.replace(/_/g, ' '));
+  return { scope, categories };
+}
+
 /** A permission settings file's DISCOVERY status: rule counts and mode, never rule text. */
 function settingsStatus(file) {
   const rules = file.rules || {};
@@ -169,7 +178,10 @@ function renderReport(report, options = {}) {
       const tags = [];
       if (known && !known.recognized) tags.push(s.yellow('unrecognized'));
       if (known && known.pin === 'unpinned') tags.push(s.yellow('unpinned'));
+      const reach = serverReach(report, server);
       out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`), tags.length ? s.dim(' · ') + tags.join(s.dim(' · ')) : '');
+      if (reach.scope) out(s.dim(`      file scope: ${reach.scope}`));
+      if (reach.categories.length) out(s.dim('      reach through tools: '), reach.categories.join(', '));
     }
     const unknownServers = recognition.unrecognized(report.recognition);
     if (unknownServers.length) {
