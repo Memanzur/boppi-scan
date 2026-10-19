@@ -54,6 +54,8 @@ function startWorkspace() {
       res.setHeader('content-type', 'application/json');
       if (token === 'bpc_good') { res.writeHead(200); res.end(JSON.stringify({ ingested: parsed.records.length, requestId: 'req-1' })); }
       else if (token === 'bpc_down') { res.writeHead(503); res.end(JSON.stringify({ error: 'Ingest is temporarily unavailable. Retry in a minute.', requestId: 'req-2' })); }
+      else if (token === 'bpc_stale') { res.writeHead(409); res.end(JSON.stringify({ error: 'A newer snapshot from this machine was already recorded. Rescan and push again.', code: 'stale_snapshot', serverSnapshotAt: '2026-10-18T12:00:00.000Z', requestId: 'req-4' })); }
+      else if (token === 'bpc_busy') { res.writeHead(429, { 'retry-after': '137' }); res.end(JSON.stringify({ error: 'Too many pushes for this token. Retry later.', code: 'rate_limited', retryAfterSeconds: 137, requestId: 'req-5' })); }
       else { res.writeHead(401); res.end(JSON.stringify({ error: 'Invalid or revoked collector token.', requestId: 'req-3' })); }
     });
   });
@@ -109,10 +111,18 @@ function startWorkspace() {
     ok('exactly one POST to /api/ingest', workspace.requests.length === 1 && request.method === 'POST' && request.url === '/api/ingest');
     ok('token travels as a bearer header, never in the body', request.authorization === 'Bearer bpc_good' && !JSON.stringify(request.body).includes('bpc_good'));
     ok('body is a snapshot of the mapped records', request.contentType === 'application/json' && request.body.snapshot === true && request.body.records.length === records.length);
+    ok('a snapshot carries snapshot_at as an ISO timestamp at the top level of the body', typeof request.body.snapshot_at === 'string' && !Number.isNaN(Date.parse(request.body.snapshot_at)) && request.body.records.every(r => r.snapshot_at === undefined));
     ok('output tells the user what is and is not sent', good.stdout.includes('Only sanitized inventory metadata is sent'));
 
     const merged = await runCliAsync(['push', '--url', workspace.url, '--merge', '--token', 'bpc_good'], home);
-    ok('--merge sends without the snapshot flag', merged.code === 0 && workspace.requests[1].body.snapshot === undefined);
+    ok('--merge sends without the snapshot flag or snapshot_at', merged.code === 0 && workspace.requests[1].body.snapshot === undefined && workspace.requests[1].body.snapshot_at === undefined);
+    const fromFile = await runCliAsync(['push', '--url', workspace.url, '--file', exportPath, '--token', 'bpc_good'], home);
+    ok('--file sends the export\'s exportedAt as snapshot_at', fromFile.code === 0 && workspace.requests[2].body.snapshot === true && workspace.requests[2].body.snapshot_at === exported.exportedAt);
+    const undatedPath = path.join(root, 'undated.json');
+    const { exportedAt, ...undated } = exported;
+    fs.writeFileSync(undatedPath, JSON.stringify(undated));
+    const fromUndated = await runCliAsync(['push', '--url', workspace.url, '--file', undatedPath, '--token', 'bpc_good'], home);
+    ok('an export without exportedAt still pushes as a snapshot, with snapshot_at omitted', fromUndated.code === 0 && workspace.requests[3].body.snapshot === true && !('snapshot_at' in workspace.requests[3].body));
     const bigInventory = { agents: [{ id: 'agent_big', name: 'Big', source: { evidenceClass: 'observed' } }], permissions: Array.from({ length: 2500 }, (_, i) => ({ id: `perm_${i}`, agentId: 'agent_big', rawPermission: `grant ${i}`, normalizedCategory: 'read_files', accessLevel: 'broad', normalizationConfidence: 0.7, source: { evidenceClass: 'inferred' } })) };
     const before = workspace.requests.length;
     const big = await push.pushRecords({ ingestUrl: push.resolveIngestUrl(workspace.url), token: 'bpc_good', records: push.toRecords(bigInventory), snapshot: false, fetchImpl: fetch });
@@ -123,11 +133,28 @@ function startWorkspace() {
     ok('a rejected token exits 5 with the server message and a hint', rejected.code === 5 && rejected.stderr.includes('HTTP 401') && rejected.stderr.includes('Invalid or revoked') && rejected.stderr.includes('Collectors page'));
     const down = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_down'], home);
     ok('a 503 exits 5 and suggests retrying', down.code === 5 && down.stderr.includes('HTTP 503') && down.stderr.includes('Retry'));
+    const stale = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_stale'], home);
+    ok('a 409 stale_snapshot exits 5 with the server message, serverSnapshotAt, and the request id', stale.code === 5 && stale.stderr.includes('HTTP 409') && stale.stderr.includes('A newer snapshot from this machine was already recorded. Rescan and push again.') && stale.stderr.includes('2026-10-18T12:00:00.000Z') && stale.stderr.includes('request req-4'));
+    const busy = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_busy'], home);
+    ok('a 429 rate_limited exits 5 with the server message and retryAfterSeconds', busy.code === 5 && busy.stderr.includes('HTTP 429') && busy.stderr.includes('Too many pushes for this token. Retry later.') && busy.stderr.includes('137 seconds') && busy.stderr.includes('request req-5'));
+    ok('the client never retries a 409 or 429 on its own', workspace.requests.filter(r => r.authorization === 'Bearer bpc_stale').length === 1 && workspace.requests.filter(r => r.authorization === 'Bearer bpc_busy').length === 1);
   } finally {
     workspace.server.close();
   }
   const unreachable = await runCliAsync(['push', '--url', 'http://127.0.0.1:9', '--token', 'bpc_good'], home);
   ok('an unreachable workspace exits 5 and says so', unreachable.code === 5 && unreachable.stderr.includes('Could not reach'));
+
+  section('Contract responses through an injected fetch');
+  const fakeFetch = (status, headers, body) => async () => ({ ok: false, status, headers: new Map(Object.entries(headers)), json: async () => body });
+  const sampleRecords = push.toRecords(exported.inventory.real);
+  const ingestUrl = push.resolveIngestUrl('http://localhost:1');
+  const headerOnly = await push.pushRecords({ ingestUrl, token: 'bpc_x', records: sampleRecords, snapshot: true, snapshotAt: exported.exportedAt, fetchImpl: fakeFetch(429, { 'retry-after': '600' }, { error: 'Too many pushes for this token. Retry later.', code: 'rate_limited' }) });
+  ok('429 without retryAfterSeconds in the body falls back to the Retry-After header', !headerOnly.ok && push.describeFailure(headerOnly).includes('600 seconds'));
+  const noDetail = await push.pushRecords({ ingestUrl, token: 'bpc_x', records: sampleRecords, snapshot: true, snapshotAt: exported.exportedAt, fetchImpl: fakeFetch(409, {}, { error: 'A newer snapshot from this machine was already recorded. Rescan and push again.', code: 'stale_snapshot', serverSnapshotAt: null }) });
+  ok('409 with a null serverSnapshotAt still explains the rejection', !noDetail.ok && push.describeFailure(noDetail).includes('unknown time') && push.describeFailure(noDetail).includes('without --file'));
+  let sentBody;
+  await push.pushRecords({ ingestUrl, token: 'bpc_x', records: sampleRecords, snapshot: true, snapshotAt: exported.exportedAt, fetchImpl: async (_url, init) => { sentBody = JSON.parse(init.body); return { ok: true, status: 200, headers: new Map(), json: async () => ({ ingested: sampleRecords.length }) }; } });
+  ok('pushRecords puts snapshot_at next to snapshot: true', sentBody.snapshot === true && sentBody.snapshot_at === exported.exportedAt);
 
   section('Nothing to push');
   const emptyHome = path.join(root, 'empty-home');
