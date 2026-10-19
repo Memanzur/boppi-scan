@@ -125,7 +125,7 @@ The root cause section is computed, not guessed. The engine removes the grant fr
 ## How it works
 
 1. **Discover.** Locate each client's MCP config files. A missing file is reported as not found, never as an error.
-2. **Infer capabilities.** Config files rarely declare what a server can do, so the scanner infers capabilities from evidenced identity: the package name, the command, directory arguments, and environment variable names. Every inference is labeled with what matched and carries evidence class `inferred`.
+2. **Infer capabilities.** Config files rarely declare what a server can do, so the scanner infers capabilities from evidenced identity: the package name, the command, directory arguments, and environment variable names. Every inference is labeled with what matched and carries evidence class `inferred`. Coding agents also get their built-in shell and file tools, graded from Claude Code's permission settings.
 3. **Build the graph.** Agents, servers, capabilities, data, credentials, and destinations become nodes. Every edge records where it came from.
 4. **Find paths.** Six templates describe chains that matter. A path is reported when the graph contains the whole chain.
 5. **Rank the fix.** For each grant, remove it and rerun the search. The grant that breaks the most paths is the recommended fix.
@@ -145,6 +145,12 @@ Exposure path templates:
 | EP-F | Impersonation: untrusted content reaches email or messaging | high |
 
 Rule-engine findings (AE-001 through AE-007) cover the same combinations per agent, plus one data-governance check: broad file access granted to a vendor whose data-training posture is unknown.
+
+### Built-in agent tools
+
+Claude Code and Cursor run shell commands and read and write files through their own tools, with no MCP server involved. The scanner models those as grants on the agent itself, so Claude Code with a single `fetch` server reports the privilege path (EP-E) that the fetched pages open onto its built-in shell, and removing an MCP shell server is never offered as the fix for a shell the agent already has. The report lists them under BUILT-IN TOOLS, separate from MCP servers.
+
+For Claude Code, the scan reads `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory and grades each tool from the `permissions` block: `prompts` (the client asks before each use, the default), `no prompt` (a whole-tool `allow` rule, `defaultMode` of `bypassPermissions` or `dontAsk`, or `acceptEdits` for edits), or `denied` (a whole-tool `deny` rule, which also removes the capability from the graph). Only rule counts and the mode are kept; the rule text can name commands and paths and is never recorded. Cursor keeps its auto-run setting outside readable configuration, so its built-in tools are reported with prompting `not checked`. Explicit `--config` scans model the built-in tools but do not read settings.
 
 Every path is potential. The scanner sees configuration, not behavior. It cannot tell you an agent has been exploited, only that the grants would allow it. A clean scan is not proof the environment is safe; it means the supported configuration files that were found contain no evidenced chain.
 
@@ -283,7 +289,7 @@ If a server entry contains something that looks like a secret in a place the sca
 | Client | Files |
 |--------|-------|
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows, `~/.config/Claude/claude_desktop_config.json` on Linux |
-| Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory |
+| Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory; permission settings from `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory (counts and mode only) |
 | Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
 
 Windsurf and VS Code are not discovered yet. Pull requests welcome. Each client is one file under `src/cli/discovery/`.

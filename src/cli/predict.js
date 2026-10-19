@@ -43,10 +43,10 @@ function participatingServers(inventory, agentId, agentPaths, graph) {
 function predictForClient({ client, inventory, graph, paths, observedAt, home, overlay = null, scannerVersion, otherClients = [] }) {
   const agentPaths = paths.filter(p => p.agentId === client.agentId);
   if (!agentPaths.length) return [];
-  const agentContext = { clientKey: client.clientKey, label: client.label, source: client.source, configPath: client.primaryPath, observedAt, home, overlay };
+  const contextFor = c => ({ clientKey: c.clientKey, label: c.label, source: c.source, configPath: c.primaryPath, observedAt, home, overlay, builtin: c.builtin || null });
+  const agentContext = contextFor(client);
   const inventoryHash = inventoryDigest(inventory, client.agentId);
   const configFingerprint = scanner.pathFingerprint(client.primaryPath);
-  const contextFor = c => ({ clientKey: c.clientKey, label: c.label, source: c.source, configPath: c.primaryPath, observedAt, home, overlay });
   const targets = otherClients.filter(c => c.agentId && c.primaryPath && !c.scanError && c.clientKey !== client.clientKey);
   const base = (server, edit, sim) => ({
     schemaVersion: SCHEMA_VERSION,

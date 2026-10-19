@@ -76,8 +76,10 @@ function runCli(args, home) {
   ok('path nodeIds and edgeIds resolve to view nodes and edges', view.paths.every(p => p.nodeIds.every(id => nodeIds.has(id)) && p.edgeIds.every(id => edgeIds.has(id))));
   ok('paths carry severity, confidence, explanation, whyItMatters, and the disclaimer', view.paths.every(p => ['critical', 'high', 'medium', 'low'].includes(p.severity) && typeof p.confidence === 'number' && p.explanation && p.whyItMatters && p.disclaimer));
   ok('nodes on a path carry that path id and its severity', view.paths.every(p => p.nodeIds.every(id => { const n = view.nodes.find(x => x.id === id); return n.pathIds.includes(p.id) && n.severity; })));
-  const critical = view.paths.find(p => p.severity === 'critical');
-  ok('the critical path lists at least one remediation', !!critical && critical.remediationIds.length >= 1);
+  const critical = view.paths.find(p => p.severity === 'critical' && p.remediationIds.length);
+  ok('a critical path with one removable route lists at least one remediation', !!critical && critical.remediationIds.length >= 1);
+  const twoRoutes = view.paths.find(p => p.templateId === 'EP-A' && p.agentName === 'Claude Code');
+  ok('the Claude Code exfiltration path, fed by built-in file access and two network servers, lists no single-server remediation', !!twoRoutes && twoRoutes.remediationIds.length === 0 && twoRoutes.chain.includes('Claude Code built-in file access (Read, Edit, Write)'));
 
   section('Remediations');
   ok('remediations come from predictions that eliminate at least one path', view.remediations.length > 0 && view.remediations.every(r => r.eliminates.length >= 1 && exported.predictions.some(p => p.predictionId === r.id)));

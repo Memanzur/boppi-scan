@@ -31,7 +31,7 @@ function makeHome(root) {
     mcpServers: { github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] } },
     projects: { [home]: { mcpServers: { 'project-fetch': { command: 'uvx', args: ['mcp-server-fetch'] } }, allowedTools: ['Bash'] } },
   }, null, 2));
-  fs.writeFileSync(path.join(home, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { puppeteer: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] } } }, null, 2));
+  fs.writeFileSync(path.join(home, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { puppeteer: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] }, time: { command: 'uvx', args: ['mcp-server-time'] } } }, null, 2));
   return home;
 }
 
@@ -81,7 +81,7 @@ function runCli(args, home, extra = {}) {
   ok('the project-scoped entry is removed from projects[cwd].mcpServers only', code.code === 0 && !claudeJson.projects[home].mcpServers['project-fetch'] && claudeJson.mcpServers.github && claudeJson.projects[home].allowedTools[0] === 'Bash' && claudeJson.numStartups === 3);
 
   section('fix on a server outside every path');
-  const quiet = runCli(['fix', '--server', 'github', '--yes'], home);
+  const quiet = runCli(['fix', '--server', 'time', '--client', 'cursor', '--yes'], home);
   ok('a server with no modeled exposure can still be removed, and the output says nothing was modeled', quiet.code === 0 && quiet.stdout.includes('no exposure path'));
 
   section('history records verified reduction');

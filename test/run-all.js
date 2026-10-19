@@ -10,6 +10,7 @@ const SUITES = [
   'verify-monitoring.js',
   'verify-demo.js',
   'verify-cli-scan.js',
+  'verify-builtin-tools.js',
   'verify-security-graph.js',
   'verify-stable-ids.js',
   'verify-exposure-paths.js',

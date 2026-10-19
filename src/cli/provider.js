@@ -8,6 +8,7 @@
 'use strict';
 const models = require('../engine/models');
 const overlay = require('./overlay');
+const { builtinPermissions } = require('./builtinTools');
 
 const CAP_TO_CATEGORY = Object.freeze({
   filesystem_access: 'read_files',
@@ -90,8 +91,8 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
   return permissions;
 }
 
-/** Build a scanController provider from one client's scanner result. */
-function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {} }) {
+/** Build a scanController provider from one client's scanner result. `builtin` is the client's built-in tool description, or null. */
+function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {}, builtin = null }) {
   return {
     id: `cli-${clientKey}`,
     version: '0.1.0',
@@ -103,7 +104,10 @@ function createConfigProvider({ clientKey, label, scannerResult, inferenceByServ
       return {
         agents: [raw.agent],
         integrations: [],
-        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer),
+        permissions: [
+          ...builtinPermissions(raw.agent, builtin, observedAt),
+          ...derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer),
+        ],
         mcpServers: raw.records,
         diagnostics: raw.diagnostics || [],
       };

@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
+const { builtinCapabilities } = require('../builtinTools');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
 const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
@@ -180,6 +181,20 @@ function renderHtml(report, options = {}) {
   const coverageNote = report.incomplete?.length
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
     : 'Complete for the supported configuration sources that were found.';
+  const GATE_WORD = { unprompted: 'No prompt', prompted: 'Prompts', denied: 'Denied', unknown: 'Not checked' };
+  const builtinRows = (report.discovery || []).filter(c => c.builtin && c.agentId).flatMap(client => {
+    const name = agentName(client.agentId);
+    const row = (grant, gate, note) => `<tr><td><b>${esc(name)}</b></td><td>${esc(grant.label)}</td><td>${esc(grant.tools.map(t => t.tool).join(', '))}</td><td>${esc(GATE_WORD[gate])}<div class="muted small">${esc(grant.summary)}${note}</div></td></tr>`;
+    return [...client.builtin.grants.map(g => row(g, g.gate, '')), ...client.builtin.denied.map(g => row(g, 'denied', '; not in the graph'))];
+  }).join('');
+  const builtinCount = (report.discovery || []).filter(c => c.builtin && c.agentId).reduce((sum, c) => sum + c.builtin.grants.length, 0);
+  const costSentence = d => {
+    const builtin = d.builtin || [];
+    const viaServers = d.kept.filter(c => !builtin.includes(c));
+    const keeps = [viaServers.length ? `${esc(viaServers.join(', '))} through other servers` : '', builtin.length ? `${esc(builtin.join(', '))} through its own built-in tools` : ''].filter(Boolean).join(' and ');
+    if (!d.lost.length) return `the agent loses no capability it does not also have elsewhere${keeps ? ` (it keeps ${keeps})` : ''}`;
+    return `the agent loses ${esc(d.lost.join(', '))}${keeps ? ` and keeps ${keeps}` : ''}`;
+  };
 
   return `<!doctype html>
 <html lang="en">
@@ -208,7 +223,7 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
 
   <h2 id="coverage">What this scan established</h2>
   <div class="card">
-    <div class="kv"><b>Established:</b> ${inventory.agents.length} agent${inventory.agents.length === 1 ? '' : 's'}, ${inventory.mcpServers.length} MCP server${inventory.mcpServers.length === 1 ? '' : 's'}, and ${report.portableFilesRead.length} configuration file${report.portableFilesRead.length === 1 ? '' : 's'} examined.</div>
+    <div class="kv"><b>Established:</b> ${inventory.agents.length} agent${inventory.agents.length === 1 ? '' : 's'}, ${inventory.mcpServers.length} MCP server${inventory.mcpServers.length === 1 ? '' : 's'}, ${builtinCount} built-in tool grant${builtinCount === 1 ? '' : 's'}, and ${report.portableFilesRead.length} configuration file${report.portableFilesRead.length === 1 ? '' : 's'} examined.</div>
     <div class="kv"><b>Not established:</b> runtime behavior, activity absent from configuration, or access not evidenced by the scanned metadata.</div>
     <div class="kv muted small">${esc(coverageNote)} A clean result is not proof that the environment is safe.</div>
   </div>
@@ -219,6 +234,13 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
     <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th></tr></thead>
     <tbody>${serverRows || '<tr><td colspan="3" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}</tbody>
   </table></div>
+${builtinRows ? `
+  <h2 id="builtin">Built-in tools</h2>
+  <p class="muted small">The agent's own tools, with no MCP server involved. Removing a server never removes these. "Prompts" means the client asks before each use; "No prompt" means a permission setting lets the tool run without asking.</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Agent</th><th>Capability</th><th>Tools</th><th>Permission settings</th></tr></thead>
+    <tbody>${builtinRows}</tbody>
+  </table></div>` : ''}
 
   ${report.historyChanges ? `<h2>Changes since last scan</h2><div class="card"><div class="kv">${report.historyChanges.newPaths} new exposure paths · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers.</div></div>` : '<h2>Changes since last scan</h2><div class="card muted">First local scan. Run Boppi again after changing the environment to compare results.</div>'}
 
@@ -227,7 +249,7 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
   <div class="card" style="border-left:3px solid var(--accent)">
     <b>${esc(editSentence(ranked[0].prediction))}</b>
     <div class="kv">Breaks <b>${ranked[0].prediction.predictedEliminated.length} of ${paths.length}</b> exposures${ranked[0].eliminatedSeverity.critical ? ` (${ranked[0].eliminatedSeverity.critical} critical)` : ''}; ${paths.length - ranked[0].prediction.predictedEliminated.length} would remain. Checked by rescanning without the server.</div>
-    ${ranked[0].prediction.disruption ? `<div class="kv muted small">Cost: ${ranked[0].prediction.disruption.lost.length ? `the agent loses ${esc(ranked[0].prediction.disruption.lost.join(', '))}` : 'the agent loses no capability it does not also get from another server'}.</div>` : ''}
+    ${ranked[0].prediction.disruption ? `<div class="kv muted small">Cost: ${costSentence(ranked[0].prediction.disruption)}.</div>` : ''}
     ${plan && plan.steps.length > 1 ? `<div class="kv muted small">Plan to break all ${plan.targetedExposures} high-or-critical exposures (${plan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${plan.steps.map(st => `<li>${esc(editSentence(st))} <b>(breaks ${st.breaksCount})</b></li>`).join('')}</ol>` : ''}
   </div>` : ''}
 
@@ -260,7 +282,7 @@ ${graphSection(view)}
       const top = byAgent.get(a.id);
       return `<tr><td><b>${esc(a.name)}</b><div class="muted small">${esc(a.vendor || '')} · ${esc(a.type || '')}</div></td>
       <td>${a.riskScore ?? 0}/100 ${sevBadge(a.riskLevel || 'low')}</td>
-      <td class="small">${servers.length ? servers.map(m => `${esc(m.name)} <span class="muted">(trust: ${esc(m.trustStatus)}${(m.capabilities || []).length ? ' · ' + m.capabilities.map(esc).join(', ') : ''})</span>`).join('<br>') : '<span class="muted">none</span>'}</td>
+      <td class="small">${[...(builtinCapabilities(inventory, a.id).length ? [`built-in tools <span class="muted">(${builtinCapabilities(inventory, a.id).map(capabilityLabel).map(esc).join(', ')})</span>`] : []), ...servers.map(m => `${esc(m.name)} <span class="muted">(trust: ${esc(m.trustStatus)}${(m.capabilities || []).length ? ' · ' + m.capabilities.map(esc).join(', ') : ''})</span>`)].join('<br>') || '<span class="muted">none</span>'}</td>
       <td class="small">${top ? `${sevBadge(top.highestPath.severity)} ${esc(top.highestPath.label)}` : '<span class="muted">none</span>'}</td></tr>`;
     }).join('')}</tbody>
   </table></div>

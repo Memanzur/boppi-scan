@@ -1,6 +1,7 @@
 /** ANSI terminal report renderer for the Boppi CLI. */
 'use strict';
 const { rankPredictions } = require('../predict');
+const { builtinCapabilities } = require('../builtinTools');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -43,6 +44,17 @@ function coveredKeys(paths) {
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
 
+/** A permission settings file's DISCOVERY status: rule counts and mode, never rule text. */
+function settingsStatus(file) {
+  const rules = file.rules || {};
+  const parts = [];
+  if (rules.mode) parts.push(`mode ${rules.mode}`);
+  if (rules.allow) parts.push(`${rules.allow} allow`);
+  if (rules.deny) parts.push(`${rules.deny} deny`);
+  if (rules.ask) parts.push(`${rules.ask} ask`);
+  return `permission settings (${parts.length ? parts.join(' · ') : 'no permission rules'})`;
+}
+
 function editSentence(step) {
   if (step.edit.action === 'move_server') return `Move the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration to ${step.target ? step.target.label : step.edit.toClient}. Rescan afterward to verify the change landed.`;
   return `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration. Rescan afterward to verify the change landed.`;
@@ -52,15 +64,36 @@ function editSentence(step) {
 function editLocations(step, report) {
   const client = (report.discovery || []).find(c => c.clientKey === step.client.key);
   const verb = step.edit.action === 'move_server' ? 'move' : 'remove';
-  return client ? client.files.filter(f => f.status === 'found').map(f => `${verb} the "${step.edit.server}" entry from ${f.path}`) : [];
+  return client ? client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => `${verb} the "${step.edit.server}" entry from ${f.path}`) : [];
 }
 
 /** What the agent gives up, from the prediction's inventory-derived disruption. */
 function disruptionSentence(prediction) {
   const d = prediction.disruption;
   if (!d) return null;
-  if (!d.lost.length) return 'the agent loses no capability it does not also get from another server';
-  return `the agent loses ${d.lost.join(', ')}${d.kept.length ? ` and keeps ${d.kept.join(', ')} through other servers` : ''}`;
+  const builtin = d.builtin || [];
+  const viaServers = d.kept.filter(c => !builtin.includes(c));
+  const keeps = [
+    viaServers.length ? `${viaServers.join(', ')} through other servers` : '',
+    builtin.length ? `${builtin.join(', ')} through its own built-in tools` : '',
+  ].filter(Boolean).join(' and ');
+  if (!d.lost.length) return `the agent loses no capability it does not also have elsewhere${keeps ? ` (it keeps ${keeps})` : ''}`;
+  return `the agent loses ${d.lost.join(', ')}${keeps ? ` and keeps ${keeps}` : ''}`;
+}
+
+const GATE_WORD = Object.freeze({ unprompted: 'no prompt', prompted: 'prompts', denied: 'denied', unknown: 'not checked' });
+
+/** One line per built-in grant of a scanned client: the agent, the capability and its tools, then what the permission settings say. */
+function builtinLines(report) {
+  const lines = [];
+  for (const client of report.discovery || []) {
+    if (!client.builtin || !client.agentId) continue;
+    const agent = report.inventory.agents.find(a => a.id === client.agentId);
+    const name = agent ? agent.name : client.label;
+    for (const grant of client.builtin.grants) lines.push({ name, text: `${grant.label} (${grant.tools.map(t => t.tool).join(', ')})`, gate: grant.gate, detail: grant.summary });
+    for (const grant of client.builtin.denied) lines.push({ name, text: `${grant.label} (${grant.tools.map(t => t.tool).join(', ')})`, gate: 'denied', detail: `${grant.summary}; not in the graph` });
+  }
+  return lines;
 }
 
 function summaryLine(report) {
@@ -93,7 +126,7 @@ function renderReport(report, options = {}) {
     for (const file of client.files) {
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
       const status = file.status === 'found'
-        ? `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`
+        ? (file.kind === 'settings' ? settingsStatus(file) : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
         : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
       out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
@@ -110,10 +143,12 @@ function renderReport(report, options = {}) {
     out(s.dim('  ' + pad('agent', 18) + pad('risk', 18) + pad('servers', 9) + pad('capabilities', 14) + 'worst exposure path'));
     for (const agent of [...report.inventory.agents].sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0))) {
       const servers = report.inventory.mcpServers.filter(m => m.agentId === agent.id);
-      const caps = new Set(servers.flatMap(m => m.capabilities || []));
+      const own = builtinCapabilities(report.inventory, agent.id);
+      const caps = new Set([...own, ...servers.flatMap(m => m.capabilities || [])]);
       const top = byAgent.get(agent.id);
       out('  ', pad(agent.name, 18), pad(`${agent.riskScore ?? 0}/100 ${agent.riskLevel || 'low'}`, 18), pad(servers.length, 9), pad(caps.size, 14), top ? `${severityBadge(top.highestPath.severity, useColor)} ${top.highestPath.label}` : s.dim('none'));
       if (options.verbose) {
+        if (own.length) out(s.dim(`      built-in tools · capabilities: ${own.join(', ')}`));
         for (const server of servers) {
           out(s.dim(`      ${server.name}${server.command ? ` (${server.command}${server.arguments?.length ? ' ' + server.arguments[0] : ''})` : ''} · trust: ${server.trustStatus} · capabilities: ${(server.capabilities || []).join(', ') || 'none evidenced'}`));
         }
@@ -130,9 +165,19 @@ function renderReport(report, options = {}) {
       const capabilities = (server.capabilities || []).join(', ') || 'no supported capability identified';
       out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`));
     }
+    const builtin = builtinLines(report);
+    if (builtin.length) {
+      out('');
+      out(s.bold(`BUILT-IN TOOLS (${builtin.length})`), s.dim('  the agent\'s own tools, no MCP server involved; removing a server never removes these'));
+      for (const line of builtin) {
+        const gate = line.gate === 'unprompted' ? s.yellow(GATE_WORD[line.gate]) : line.gate === 'denied' ? s.green(GATE_WORD[line.gate]) : s.dim(GATE_WORD[line.gate]);
+        out('  ', s.bold(line.name), s.dim(' · '), line.text, s.dim(' · '), gate, s.dim(` · ${line.detail}`));
+      }
+    }
     out('');
     out(s.bold('COVERAGE'));
-    out('  ', s.green('Established: '), `${report.inventory.agents.length} agent${report.inventory.agents.length === 1 ? '' : 's'}, ${report.inventory.mcpServers.length} MCP server${report.inventory.mcpServers.length === 1 ? '' : 's'}, and ${report.filesRead.length} configuration file${report.filesRead.length === 1 ? '' : 's'} examined.`);
+    const grantCount = builtin.filter(line => line.gate !== 'denied').length;
+    out('  ', s.green('Established: '), `${report.inventory.agents.length} agent${report.inventory.agents.length === 1 ? '' : 's'}, ${report.inventory.mcpServers.length} MCP server${report.inventory.mcpServers.length === 1 ? '' : 's'}, ${grantCount} built-in tool grant${grantCount === 1 ? '' : 's'}, and ${report.filesRead.length} configuration file${report.filesRead.length === 1 ? '' : 's'} examined.`);
     out('  ', s.dim('Not established: '), 'runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.');
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
     else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');

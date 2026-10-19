@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const exposurePathEngine = require('../../engine/exposurePathEngine');
 const { rankPredictions } = require('../predict');
 const { shellArgument, shellPath } = require('../shell');
+const { builtinCapabilities } = require('../builtinTools');
 
 const KIND_BY_ENTITY = Object.freeze({
   ai_agent: 'agent', coding_agent: 'agent', autonomous_agent: 'agent', ai_application: 'agent',
@@ -64,7 +65,7 @@ function agentOwnership(graph, inventory) {
 /** Files on disk where an edit applies, from the (portable) discovery. */
 function editFiles(prediction, discovery) {
   const client = (discovery || []).find(c => c.clientKey === prediction.client.key);
-  const found = client ? client.files.filter(f => f.status === 'found').map(f => f.path) : [];
+  const found = client ? client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => f.path) : [];
   if (prediction.edit.action !== 'move_server') return { from: found, to: [] };
   const target = (discovery || []).find(c => c.clientKey === prediction.target.key);
   return { from: found, to: target ? [target.primaryPath].filter(Boolean) : [] };
@@ -126,7 +127,12 @@ function buildGraphView(report) {
         Object.assign(detail, { vendor: agent.vendor || null, type: agent.type || null, riskScore: agent.riskScore ?? null, riskLevel: agent.riskLevel || null });
         evidence.push({ title: 'Risk', detail: `${agent.riskScore ?? 0}/100 ${agent.riskLevel || 'low'}` });
         const client = discovery.find(c => c.agentId === agent.id);
-        if (client) evidence.push({ title: 'Configuration files', detail: client.files.filter(f => f.status === 'found').map(f => f.path).join(', ') || 'none found' });
+        if (client) evidence.push({ title: 'Configuration files', detail: client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => f.path).join(', ') || 'none found' });
+        if (client && client.builtin) {
+          for (const grant of client.builtin.grants) evidence.push({ title: `Built-in ${grant.label}`, detail: `${grant.tools.map(t => t.tool).join(', ')} · ${grant.summary}` });
+          const settings = client.builtin.settings;
+          if (settings && settings.read) evidence.push({ title: 'Permission settings', detail: settings.found ? settings.files.filter(f => f.status === 'found').map(f => f.path).join(', ') : 'no settings file found; client defaults apply' });
+        }
       }
     } else if (kind === 'server') {
       const server = serverById.get(node.recordId);
@@ -221,7 +227,7 @@ function buildGraphView(report) {
     scope: 'This graph is built from configuration metadata. It shows what the agents could reach, not what they did. Boppi did not observe any activity.',
     agents: (inventory.agents || []).map(a => ({ id: a.id, name: a.name, riskScore: a.riskScore ?? 0, riskLevel: a.riskLevel || 'low', serverIds: (inventory.mcpServers || []).filter(s => s.agentId === a.id).map(s => s.id) })),
     nodes, edges, paths: viewPaths, remediations, plan,
-    capabilityLabels: Object.fromEntries([...new Set(remediations.flatMap(r => [...r.loses, ...r.keeps]).concat((inventory.mcpServers || []).flatMap(s => s.capabilities || [])))].map(id => [id, capabilityLabel(id)])),
+    capabilityLabels: Object.fromEntries([...new Set(remediations.flatMap(r => [...r.loses, ...r.keeps]).concat((inventory.mcpServers || []).flatMap(s => s.capabilities || []), (inventory.agents || []).flatMap(a => builtinCapabilities(inventory, a.id))))].map(id => [id, capabilityLabel(id)])),
     coverage: { filesRead: report.portableFilesRead || [], incomplete: report.incomplete || [] },
   };
 }

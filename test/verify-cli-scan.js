@@ -32,6 +32,7 @@ function makeFixtureHome(root) {
     mcpServers: {
       puppeteer: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] },
       commander: { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] },
+      time: { command: 'uvx', args: ['mcp-server-time'] },
     },
   }));
   return home;
@@ -53,16 +54,17 @@ function runCli(args, home) {
   ok('scan exits 0 without --fail-on', scan.code === 0);
   ok('all three clients are discovered', ['Claude Desktop', 'Claude Code', 'Cursor'].every(label => scan.stdout.includes(label)));
   ok('missing project config is reported as not found, not an error', scan.stdout.includes('.mcp.json') && scan.stdout.includes('not found'));
-  ok('inventory counts 3 agents and 6 MCP servers', scan.stdout.includes('3 agents') && scan.stdout.includes('6 MCP servers'));
+  ok('inventory counts 3 agents and 7 MCP servers', scan.stdout.includes('3 agents') && scan.stdout.includes('7 MCP servers'));
   ok('exposure paths include data exfiltration (EP-A)', scan.stdout.includes('EP-A'));
   ok('exposure paths include credential exposure (EP-B)', scan.stdout.includes('EP-B'));
-  ok('exposure paths include privilege path (EP-E)', scan.stdout.includes('EP-E'));
+  ok('the terminal shows the five highest-ranked paths and points at --verbose for the rest', scan.stdout.includes('--verbose for all') && runCli(['paths', '--verbose'], home).stdout.includes('EP-E'));
+  ok('built-in tools are listed per coding agent with their prompting state', scan.stdout.includes('BUILT-IN TOOLS (4)') && scan.stdout.includes('Claude Code · shell access (Bash) · prompts') && scan.stdout.includes('Cursor · shell access (terminal) · not checked'));
   ok('rule-engine findings appear (AE rules)', /AE-\d{3}/.test(scan.stdout));
   ok('report explains inference honestly', scan.stdout.includes('inferred from evidenced identity'));
   ok('root-cause section names the single highest-leverage fix', scan.stdout.includes('ROOT CAUSE') && /breaks \d+ of \d+ exposure/.test(scan.stdout));
   ok('minimal remediation plan is shown', scan.stdout.includes('Full plan to break all'));
   ok('first scan explains coverage and uncertainty', scan.stdout.includes('COVERAGE') && scan.stdout.includes('Not established:') && scan.stdout.includes('Scan status: complete'));
-  ok('first scan lists discovered MCP servers and capabilities', scan.stdout.includes('MCP SERVERS (6)') && scan.stdout.includes('capabilities:'));
+  ok('first scan lists discovered MCP servers and capabilities', scan.stdout.includes('MCP SERVERS (7)') && scan.stdout.includes('capabilities:'));
   ok('first scan states that no prior comparison exists', scan.stdout.includes('First local scan'));
 
   section('Privacy footer lists exactly the files read');
@@ -99,7 +101,7 @@ function runCli(args, home) {
   const removals = predictions.filter(p => p.edit.action === 'remove_server');
   const moves = predictions.filter(p => p.edit.action === 'move_server');
   ok('move predictions name a target client that is a different scanned agent and list what would appear there', moves.length > 0 && moves.every(p => p.edit.toClient === p.target.key && p.target.agentId !== p.agentId && Array.isArray(p.target.predictedAppeared)));
-  ok('moving filesystem from Claude Desktop to Cursor removes the desktop exfiltration path but creates one on Cursor, which already reaches the network', (() => { const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor'); return m && m.predictedEliminated.length === 1 && m.target.predictedAppeared.some(k => k.startsWith('EP-A:')); })());
+  ok('moving filesystem from Claude Desktop to Cursor removes the desktop exfiltration path and adds nothing on Cursor, which already reads files through its built-in tools', (() => { const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor'); return m && m.predictedEliminated.length === 1 && m.target.predictedAppeared.length === 0 && exported.exposurePaths.some(p => p.exposureKey.startsWith('EP-A:') && p.agentName === 'Cursor'); })());
   ok('moves rank below a removal that breaks the same exposures without creating new ones', (() => { const ranked = require('../src/cli/predict').rankPredictions(predictions, exported.exposurePaths); const first = ranked.findIndex(e => e.prediction.edit.action === 'move_server'); const sameRemoval = ranked.findIndex(e => e.prediction.edit.action === 'remove_server' && e.prediction.edit.server === ranked[first].prediction.edit.server); return first > sameRemoval; })());
   ok('eliminated and surviving partition the before set', predictions.every(p => [...p.predictedEliminated, ...p.predictedSurviving].sort().join() === [...p.before.exposureKeys].sort().join() && !p.predictedEliminated.some(k => p.predictedSurviving.includes(k))));
   const keysByAgent = agentId => exported.exposurePaths.filter(x => x.agentId === agentId).map(x => x.exposureKey).sort();
@@ -109,7 +111,7 @@ function runCli(args, home) {
   const involvedIds = new Set([...pathNodeIds, ...exportedGraph.edges.filter(e => pathNodeIds.has(e.toEntityId)).map(e => e.fromEntityId)]);
   const participating = exported.inventory.real.mcpServers.filter(m => involvedIds.has(m.id) || exported.inventory.real.permissions.some(q => q.integrationId === m.id && involvedIds.has(q.id)));
   ok('exactly one removal prediction per server that takes part in a path', participating.length > 0 && participating.length === removals.length && participating.every(m => removals.some(p => p.serverId === m.id && p.edit.server === m.name)));
-  ok('a server with no exposure of its own gets no prediction', !predictions.some(p => p.edit.server === 'github'));
+  ok('a server with no exposure of its own gets no prediction', !predictions.some(p => p.edit.server === 'time'));
   const fetchPrediction = removals.find(p => p.edit.server === 'fetch');
   ok('removing fetch from the desktop fixture breaks all three of its exposures', fetchPrediction && fetchPrediction.predictedEliminated.length === 3 && fetchPrediction.predictedSurviving.length === 0);
   const filesystemPrediction = removals.find(p => p.edit.server === 'filesystem');
@@ -120,7 +122,11 @@ function runCli(args, home) {
   ok('export records discovery provenance', Array.isArray(exported.discovery.filesRead) && exported.discovery.filesRead.length === 3);
   const serverIds = new Map(exported.inventory.real.mcpServers.map(m => [m.id, m]));
   const permissions = exported.inventory.real.permissions;
-  ok('every derived permission points at the server record it came from', permissions.length > 0 && permissions.every(p => serverIds.has(p.integrationId) && serverIds.get(p.integrationId).agentId === p.agentId));
+  const serverPermissions = permissions.filter(p => p.integrationId);
+  const builtinPermissions = permissions.filter(p => !p.integrationId);
+  ok('every server-derived permission points at the server record it came from', serverPermissions.length > 0 && serverPermissions.every(p => serverIds.has(p.integrationId) && serverIds.get(p.integrationId).agentId === p.agentId));
+  const codingAgentIds = new Set(exported.inventory.real.agents.filter(a => a.type === 'coding_agent').map(a => a.id));
+  ok('permissions without a server are built-in tool grants of the coding agents only', builtinPermissions.length === 4 && builtinPermissions.every(p => p.source.type === 'builtin-tool' && codingAgentIds.has(p.agentId) && /built-in (shell|file) access/.test(p.rawPermission)));
   ok('every scanned server with capabilities owns at least one permission', exported.inventory.real.mcpServers.filter(m => m.capabilities.length).every(m => permissions.some(p => p.integrationId === m.id)));
   const serialized = JSON.stringify(exported);
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));

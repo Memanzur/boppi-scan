@@ -1,12 +1,15 @@
-/** Locator for Claude Code MCP configuration (user config + project .mcp.json). */
+/** Locator for Claude Code MCP configuration (user config + project .mcp.json) and its permission settings. */
 'use strict';
 const path = require('path');
+const { claudeCodeSettingsFiles } = require('../builtinTools');
 
 function locate({ home, cwd }) {
   return {
     clientKey: 'claude-code',
     label: 'Claude Code',
     source: 'claude-code',
+    // Read for the built-in tool grades only; these files hold no mcpServers.
+    settingsFiles: claudeCodeSettingsFiles({ home, cwd }),
     files: [
       {
         path: path.join(home, '.claude.json'),

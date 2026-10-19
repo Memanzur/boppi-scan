@@ -10,6 +10,7 @@ const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const { inferCapabilities } = require('./knownServers');
 const { createConfigProvider } = require('./provider');
+const { builtinCapabilities } = require('./builtinTools');
 const overlayModule = require('./overlay');
 
 /** Inject catalog-inferred capabilities into raw server entries before scanning, and match overlay claims per server. */
@@ -35,10 +36,10 @@ function enrich(mergedServers, home, overlay = null) {
 }
 
 /** The inventory one client's raw servers produce, through the provider path a scan uses. */
-function clientInventory({ mergedServers, clientKey, label, source, configPath, observedAt, home, overlay = null }) {
+function clientInventory({ mergedServers, clientKey, label, source, configPath, observedAt, home, overlay = null, builtin = null }) {
   const { config, inferenceByServer, overlayByServer } = enrich(mergedServers, home, overlay);
   const scannerResult = scanner.scanConfig({ source, consent: true, dryRun: true, config, configPath, observedAt });
-  const normalized = createConfigProvider({ clientKey, label, scannerResult, inferenceByServer, overlayByServer }).normalize(scannerResult, { now: observedAt });
+  const normalized = createConfigProvider({ clientKey, label, scannerResult, inferenceByServer, overlayByServer, builtin }).normalize(scannerResult, { now: observedAt });
   return { agents: normalized.agents, integrations: [], permissions: normalized.permissions, mcpServers: normalized.mcpServers, inferenceByServer };
 }
 
@@ -97,16 +98,23 @@ function simulateMoveServer({ rawConfig, agentContext, targetRawConfig, targetAg
 
 /**
  * What an agent gives up when a server goes: the capabilities no other server
- * on that agent also grants. Read from the normalized inventory, so it is the
- * same evidence the graph was built from.
+ * on that agent also grants, and that the agent does not hold through its own
+ * built-in tools. Read from the normalized inventory, so it is the same
+ * evidence the graph was built from. `builtin` lists the kept capabilities
+ * the agent keeps because they are built in.
  */
 function capabilitiesLost(inventory, agentId, serverId) {
   const mine = (inventory.mcpServers || []).filter(s => s.agentId === agentId);
   const server = mine.find(s => s.id === serverId);
-  if (!server) return { lost: [], kept: [] };
+  if (!server) return { lost: [], kept: [], builtin: [] };
   const elsewhere = new Set(mine.filter(s => s.id !== serverId).flatMap(s => s.capabilities || []));
+  const own = new Set(builtinCapabilities(inventory, agentId));
   const capabilities = [...new Set(server.capabilities || [])].sort();
-  return { lost: capabilities.filter(c => !elsewhere.has(c)), kept: capabilities.filter(c => elsewhere.has(c)) };
+  return {
+    lost: capabilities.filter(c => !elsewhere.has(c) && !own.has(c)),
+    kept: capabilities.filter(c => elsewhere.has(c) || own.has(c)),
+    builtin: capabilities.filter(c => own.has(c)),
+  };
 }
 
 module.exports = { enrich, clientInventory, exposureKeysOf, diffKeys, simulateConfigEdit, simulateMoveServer, capabilitiesLost };

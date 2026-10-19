@@ -27,6 +27,7 @@ const rootCauseEngine = require('../engine/rootCauseEngine');
 
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
+const builtinTools = require('./builtinTools');
 const predict = require('./predict');
 const verify = require('./verify');
 const overlayModule = require('./overlay');
@@ -369,6 +370,14 @@ function discover(options) {
       }
       client.files.push(entry);
     }
+    if (builtinTools.hasBuiltinTools(client.clientKey)) {
+      // Permission settings are read only when discovery found this client, and never in explicit --config mode.
+      client.builtin = builtinTools.describeBuiltin(client.clientKey, client.primaryPath ? descriptor.settingsFiles || null : null);
+      for (const entry of client.builtin.settings.files) {
+        if (entry.status !== 'not_found') filesRead.add(entry.path);
+        client.files.push(entry);
+      }
+    }
     clients.push(client);
   }
   return { clients, filesRead: [...filesRead] };
@@ -415,7 +424,7 @@ async function performScan(options) {
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
       client.agentId = scannerResult.agent.id;
-      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer }));
+      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer, builtin: client.builtin || null }));
     } catch (error) {
       const hint = /secret material/.test(error.message) ? '. Move that value into an environment variable the server reads and rescan; Boppi never records the value itself' : '';
       client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = `${error.message}${hint}`; } });
@@ -471,6 +480,7 @@ function portableDiscovery(discovery, home) {
       ...client,
       primaryPath: client.primaryPath ? portablePath(client.primaryPath, home) : null,
       files: client.files.map(file => ({ ...file, path: portablePath(file.path, home) })),
+      ...(client.builtin ? { builtin: { ...client.builtin, settings: { ...client.builtin.settings, files: client.builtin.settings.files.map(file => ({ ...file, path: portablePath(file.path, home) })) } } } : {}),
     })),
     filesRead: discovery.filesRead.map(file => portablePath(file, home)),
   };

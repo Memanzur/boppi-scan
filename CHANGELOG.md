@@ -4,6 +4,7 @@
 
 Local candidate additions (unpublished):
 
+- Built-in agent tools are in the graph. Claude Code (Bash, Read, Edit, Write) and Cursor (terminal, file edits) carry shell and file access as grants on the agent itself, so Claude Code with one `fetch` server now reports the privilege path (EP-E) it always had, exfiltration paths include the agent's own file access, and removing an MCP shell server is never offered as the fix for a shell the agent keeps. Claude Code's permission settings (`~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json`) grade each tool as prompts, no prompt, or denied; a whole-tool deny removes the capability. Only rule counts and the mode are recorded. The terminal and HTML reports list BUILT-IN TOOLS separately from MCP servers, the settings files appear in DISCOVERY and the privacy footer, and every prediction, plan, fix, and verify rescan includes the built-in grants, so "removing X breaks N paths" stays true. Demo scenarios now show the same paths a real Claude Code machine would.
 - Collector version/platform and discovery coverage are transported through scan exports and pushes. Selected or incomplete scans merge safely; older files do not inherit a fabricated producer version. Dry runs show the envelope, and redirects are refused.
 - Exact-identity MCP catalog with capability/tool provenance; analysis engine 1.0.1 marks catalog-derived reach as inferred.
 - Synthetic interactive browser demo with shared graph evidence, removal previews, and reset.
