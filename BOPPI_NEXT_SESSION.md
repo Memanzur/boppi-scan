@@ -1,5 +1,98 @@
 # Boppi: next session (October 19, 2026 end of day)
 
+## October 19, 2026 night session (Claude Code): four report corrections, engine 1.0.2
+
+Read this block first. The Gap 3, Gap 2, and Gap 1 blocks below it stay
+accurate except where this block says otherwise.
+
+### Where things stand
+
+| Repository | Checkout | Branch | Tip after this session |
+| --- | --- | --- | --- |
+| Memanzur/boppi-scan | ~/Desktop/boppi-scan-auto | codex/live-brand-alignment | 7097896 (0a6b19b fixes + 7097896 blast radius), then this handoff commit; run `git rev-parse HEAD` |
+| Memanzur/boppii | ~/Desktop/Boppi-auto | codex/live-brand-alignment | 834bf0d (vendored engine resynced to 7097896) plus a docs commit; run `git rev-parse HEAD` |
+
+Nothing was pushed, published, merged, deployed, or applied to any shared
+database. `node test/run-all.js` is 22 of 22 suites. The control plane's
+`verify:engine` (21 checks), `verify:reduction`, `verify:ingest`, vendor
+sync, and typecheck pass against the resynced engine.
+
+### What changed (scanner 0a6b19b, 7097896)
+
+The validation-kit run (control plane `docs/beta/first-time-user-test/
+VALIDATION_RUN_2026-10-19.md`) logged four wording issues; all four are
+fixed, each with a regression test, and a fifth defect surfaced while
+testing.
+
+1. `boppi verify` next step. `src/cli/verify.js` `nextStep(summary)`:
+   a confirmed row next to ungraded rows now reads "1 fix confirmed as
+   predicted; 1 other prediction not graded because that edit was not
+   applied. ..." instead of "Nothing could be graded yet". Contradicted
+   and partial still win; all-unresolved keeps the old sentence.
+   Test: verify-predictions.js.
+2. Edit file targeting. Discovery records `servers: [keys]` per config
+   file (names only, exported in `discovery`). New `src/cli/configFiles.js`
+   (`filesHolding`, `editFiles`) replaces three copies in plan.js,
+   graphData.js, and terminal.js, so ROOT CAUSE, `boppi plan`, and the
+   HTML report name only the files that hold the server. Older exports
+   without the field fall back to every found file. Test: verify-plan-fix.js
+   (two-file Cursor fixture).
+3. Graph permission labels. `graphData.permissionLabel`: permission nodes
+   read `file access (the whole home directory)`, `modify source code`,
+   `production system access`; built-in grants keep their label. The raw
+   permission text is a `Permission` evidence line. Tool nodes keep their
+   tool names. Test: verify-tool-reach.js.
+4. Demo page card. `demo.client.js` `describe(base, simulation)` and
+   `inventoryOf(view)`: the headline counters and the "Understand the
+   exposure" card always describe the sample's actual scan; a preview
+   changes the Preview counter, graph, and inventory, and the card's
+   next-step line reads "Simulated preview active: ... The sample itself
+   is unchanged". Test: new verify-demo-client.js runs the real client
+   script against a DOM stand-in (registered in run-all.js).
+5. Engine 1.0.2 (`src/engine/exposurePathEngine.js`, `models.js`).
+   Equal-length routes were ordered by record id; ids are content hashes
+   that differ per machine (the fingerprint key is per home), so the same
+   configuration printed a different EP-A chain and prediction set on
+   different machines, and two suites were flaky. Adjacency and branch
+   groups now order by node label first. `blastRadius` shares the same
+   adjacency. Tests: verify-exposure-paths.js (id-mirrored graph picks
+   the same route; blast radius covered). verify-interactive-report.js
+   asserts the Claude Code EP-A path's shape, not its route.
+   Consequence: `boppi verify` on an export made before this change flags
+   `engine_changed`; statuses are still computed.
+
+Control plane: `apps/control-plane/scripts/sync-engine-from-scanner.mjs`
+was referenced by the vendor banner and the verify script but did not
+exist; it is reinstated (copies src/engine under the banner, records the
+scanner commit and sha256s in SOURCE.json, refuses a dirty engine).
+
+### Before and after
+
+- verify: "Next: Nothing could be graded yet. Apply the recommended edit"
+  with one CONFIRMED row -> "Next: 1 fix confirmed as predicted; 1 other
+  prediction not graded because that edit was not applied. Run boppi scan
+  --json again ...".
+- ROOT CAUSE on a two-file Cursor setup: edit lines for ~/.cursor/mcp.json
+  and ~/proj/.cursor/mcp.json -> only ~/.cursor/mcp.json (the file that
+  holds kubernetes).
+- Graph boxes: `repo (filesystem_access: a source tree)`,
+  `kubernetes (access_production_system: kubectl_get, kubectl_describe +14)`
+  -> `file access (a source tree)`, `production system access`.
+- Demo card during "Preview removal of github": "No potential paths in
+  this sample ... Next: choose another sample" -> title and why stay on
+  the actual path, action reads "Simulated preview active: Removing
+  "github" closes 2 potential paths; 0 paths remain. ... The sample itself
+  is unchanged; press Reset simulation to clear the preview."
+
+### Next
+
+- Melody's decisions from the Gap 1, 2, and 3 blocks are still open.
+- Push of `codex/live-brand-alignment` and the 0.3.1 release remain
+  unauthorized; `NPM_TOKEN` is still missing.
+- The validation kit's `05` and `04` walkthroughs describe the fixed
+  behaviour only where noted as "known issue"; those two notes can be
+  removed once this build is the tarball testers receive.
+
 ## October 19, 2026 evening session (Claude Code): detection Gap 3 landed
 
 Read this block first. The Gap 2 and Gap 1 blocks below it, the morning
