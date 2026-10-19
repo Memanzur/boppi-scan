@@ -37,17 +37,18 @@ const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
+const demo = require('./demo');
 
 const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'demo']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|demo] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -57,6 +58,8 @@ function usage() {
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
+    '  boppi demo                     scan a synthetic risky config copied to ~/.boppi/demo/ (never your real configs); --reset restores it',
+    '  boppi demo --html <file>       write a self-contained interactive demo page built from four synthetic environments',
     '',
     'Push options (the only command that uses the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
@@ -69,6 +72,9 @@ function usage() {
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
     '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor',
     '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
+    '',
+    'demo options:',
+    '  --reset             restore the sandbox config from the bundled fixture',
     '',
     'Options:',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
@@ -99,7 +105,7 @@ function parseArgs(argv) {
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
-    url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
+    url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
   const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy']);
@@ -136,6 +142,7 @@ function parseArgs(argv) {
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
+    else if (arg === '--reset') options.reset = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -676,6 +683,7 @@ async function run(argv) {
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
+  if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
 
   const scan = await performScan(options);
   if (scan.failed) {

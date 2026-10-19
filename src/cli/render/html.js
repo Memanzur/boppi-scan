@@ -30,39 +30,7 @@ function sevBadge(severity) {
   return `<span class="sev sev-${esc(severity)}">${esc(severity)}</span>`;
 }
 
-function renderHtml(report, options = {}) {
-  const { inventory, paths, prioritization } = report;
-  const view = buildGraphView(report);
-  const liveToken = options.live && options.live.token ? options.live.token : null;
-  const byAgent = new Map(prioritization.perAgent.map(a => [a.agentId, a]));
-  const agentName = id => inventory.agents.find(a => a.id === id)?.name || id;
-  const openFindings = inventory.findings
-    .filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status))
-    .sort((a, b) => (SEVERITY_ORDER[b.severity] || 0) - (SEVERITY_ORDER[a.severity] || 0));
-  const toolCount = inventory.mcpServers.reduce((sum, m) => sum + (m.exposedTools || []).length, 0);
-  const counts = prioritization.counts;
-  const ranked = rankPredictions(report.predictions || [], paths);
-  const plan = report.remediationPlan;
-  const editSentence = step => `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration.`;
-  const serverRows = inventory.mcpServers.map(server => {
-    const agent = inventory.agents.find(candidate => candidate.id === server.agentId);
-    const capabilities = (server.capabilities || []).join(', ') || 'No supported capability identified';
-    return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}</td></tr>`;
-  }).join('');
-  const coverageNote = report.incomplete?.length
-    ? `Incomplete sources: ${report.incomplete.join(', ')}.`
-    : 'Complete for the supported configuration sources that were found.';
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="${CSP}">
-${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
-<title>Boppi Scan Report</title>
-<style>
-  :root { --bg:#f4f6fa; --surface:#fff; --ink:#171c26; --muted:#5b6474; --line:#e4e7ee; --accent:#3b5bfd;
+const STYLES = `  :root { --bg:#f4f6fa; --surface:#fff; --ink:#171c26; --muted:#5b6474; --line:#e4e7ee; --accent:#3b5bfd;
     --crit:#d33030; --crit-bg:#fdecec; --high:#c66a00; --high-bg:#fff3e0; --med:#8f7500; --med-bg:#fdf7dd; --low:#4a5568; --low-bg:#edf0f4; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; line-height:1.55; }
@@ -155,7 +123,61 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
   .backup-row { display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line); }
   .link { font:inherit; font-size:12.5px; color:var(--accent); background:none; border:none; padding:0; cursor:pointer; text-decoration:underline; }
   .mode { font-size:12.5px; color:var(--muted); margin:6px 0 12px; }
-</style>
+`;
+
+/** The interactive graph block shared by the scan report and the demo page. */
+function graphSection(view) {
+  return `  <h2 id="graph">Exposure graph</h2>
+  <p class="mode" id="graph-mode"></p>
+  <div class="graph-toolbar">
+    <div id="graph-agents" class="graph-toolbar"></div>
+    <div class="legend"><span><i style="background:var(--crit)"></i>critical path</span><span><i style="background:var(--high)"></i>high path</span><span><i style="background:var(--med)"></i>medium path</span><span><i style="background:#c5cbd8"></i>access, no path</span></div>
+  </div>
+  <div class="graph-wrap" id="graph-wrap"><svg id="graph-svg" role="img" aria-label="Exposure graph: agents, MCP servers, capabilities, data, and destinations, with potential exposure paths highlighted by severity"></svg></div>
+  <div class="explorer">
+    <div>
+      <div class="kv muted small" style="margin-bottom:6px">Potential exposure paths, most severe first. Click one to highlight it and see fix options.</div>
+      <div id="graph-paths" class="path-list"></div>
+      <div id="graph-backups"></div>
+    </div>
+    <div id="graph-panel" class="panel"></div>
+  </div>
+  <p class="muted small" style="margin-top:10px">${esc(view.scope)} ${esc(view.disclaimer)}</p>
+`;
+}
+
+function renderHtml(report, options = {}) {
+  const { inventory, paths, prioritization } = report;
+  const view = buildGraphView(report);
+  const liveToken = options.live && options.live.token ? options.live.token : null;
+  const byAgent = new Map(prioritization.perAgent.map(a => [a.agentId, a]));
+  const agentName = id => inventory.agents.find(a => a.id === id)?.name || id;
+  const openFindings = inventory.findings
+    .filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status))
+    .sort((a, b) => (SEVERITY_ORDER[b.severity] || 0) - (SEVERITY_ORDER[a.severity] || 0));
+  const toolCount = inventory.mcpServers.reduce((sum, m) => sum + (m.exposedTools || []).length, 0);
+  const counts = prioritization.counts;
+  const ranked = rankPredictions(report.predictions || [], paths);
+  const plan = report.remediationPlan;
+  const editSentence = step => `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration.`;
+  const serverRows = inventory.mcpServers.map(server => {
+    const agent = inventory.agents.find(candidate => candidate.id === server.agentId);
+    const capabilities = (server.capabilities || []).join(', ') || 'No supported capability identified';
+    return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}</td></tr>`;
+  }).join('');
+  const coverageNote = report.incomplete?.length
+    ? `Incomplete sources: ${report.incomplete.join(', ')}.`
+    : 'Complete for the supported configuration sources that were found.';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="${CSP}">
+${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
+<title>Boppi Scan Report</title>
+<style>${STYLES}</style>
 </head>
 <body><div class="wrap">
   <h1><span>Boppi</span> · AI Agent Security scan report</h1>
@@ -195,22 +217,7 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
     ${plan && plan.steps.length > 1 ? `<div class="kv muted small">Plan to break all ${plan.targetedExposures} high-or-critical exposures (${plan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${plan.steps.map(st => `<li>${esc(editSentence(st))} <b>(breaks ${st.breaksCount})</b></li>`).join('')}</ol>` : ''}
   </div>` : ''}
 
-  <h2 id="graph">Exposure graph</h2>
-  <p class="mode" id="graph-mode"></p>
-  <div class="graph-toolbar">
-    <div id="graph-agents" class="graph-toolbar"></div>
-    <div class="legend"><span><i style="background:var(--crit)"></i>critical path</span><span><i style="background:var(--high)"></i>high path</span><span><i style="background:var(--med)"></i>medium path</span><span><i style="background:#c5cbd8"></i>access, no path</span></div>
-  </div>
-  <div class="graph-wrap" id="graph-wrap"><svg id="graph-svg" role="img" aria-label="Exposure graph: agents, MCP servers, capabilities, data, and destinations, with potential exposure paths highlighted by severity"></svg></div>
-  <div class="explorer">
-    <div>
-      <div class="kv muted small" style="margin-bottom:6px">Potential exposure paths, most severe first. Click one to highlight it and see fix options.</div>
-      <div id="graph-paths" class="path-list"></div>
-      <div id="graph-backups"></div>
-    </div>
-    <div id="graph-panel" class="panel"></div>
-  </div>
-  <p class="muted small" style="margin-top:10px">${esc(view.scope)} ${esc(view.disclaimer)}</p>
+${graphSection(view)}
 
   <h2>Potential exposure paths (${paths.length})</h2>
   ${paths.length ? paths.map(p => `

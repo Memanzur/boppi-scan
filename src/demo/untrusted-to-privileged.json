@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "puppeteer": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-puppeteer"] },
+    "desktop-commander": { "command": "npx", "args": ["-y", "@wonderwhy-er/desktop-commander"] },
+    "postgres": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres"], "env": { "DATABASE_URL": "postgresql://demo:demo-placeholder-password@db.example.test:5432/ledger" } }
+  }
+}
