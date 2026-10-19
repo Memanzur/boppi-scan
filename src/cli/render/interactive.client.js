@@ -13,7 +13,7 @@
   var COLUMN = { agent: 0, server: 1, capability: 2, data: 3, credential: 3, destination: 4 };
   var COLUMN_TITLES = ['Agents', 'MCP servers', 'Capabilities', 'Data and credentials', 'Destinations'];
   var ROW = 46, PAD = 16, HEADER = 26;
-  var state = { agent: 'all', path: null, node: null, remediation: null, busy: false, backups: [] };
+  var state = { agent: 'all', path: null, node: null, remediation: null, busy: false, backups: [], showTools: false };
   var index = {};
   function reindex() {
     index.node = {}; index.edge = {}; index.path = {}; index.remediation = {};
@@ -40,7 +40,7 @@
   function worst(ids) { return ids.map(function (id) { return index.path[id]; }).filter(Boolean).reduce(function (acc, p) { return (SEV[p.severity] || 0) > (SEV[acc] || 0) ? p.severity : acc; }, null); }
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function agentName(id) { var a = view.agents.filter(function (x) { return x.id === id; })[0]; return a ? a.name : id; }
-  function visibleNodes() { return view.nodes.filter(function (n) { return state.agent === 'all' || n.agentId === state.agent; }); }
+  function visibleNodes() { return view.nodes.filter(function (n) { return (state.agent === 'all' || n.agentId === state.agent) && (state.showTools || n.entityType !== 'tool' || n.pathIds.length); }); }
   function visiblePaths() { return view.paths.filter(function (p) { return state.agent === 'all' || p.agentId === state.agent; }); }
   function remediationTitle(r) {
     var base = (r.action === 'move_server' ? 'Move' : 'Remove') + ' "' + r.server + '" from ' + r.clientLabel;
@@ -119,6 +119,7 @@
     all.forEach(function (a) {
       bar.appendChild(h('button', { class: 'pill' + (state.agent === a.id ? ' active' : ''), type: 'button', text: a.name + (a.id === 'all' ? '' : ' · ' + plural(view.paths.filter(function (p) { return p.agentId === a.id; }).length, 'path')), onclick: function () { state.agent = a.id; if (state.path && index.path[state.path].agentId !== a.id && a.id !== 'all') state.path = null; renderAll(); } }));
     });
+    bar.appendChild(h('button', { class: 'pill', type: 'button', 'aria-pressed': state.showTools ? 'true' : 'false', text: state.showTools ? 'Hide individual tools' : 'Show individual tools', onclick: function () { state.showTools = !state.showTools; renderAll(); } }));
   }
   function renderPathList() {
     var list = clear(document.getElementById('graph-paths'));
