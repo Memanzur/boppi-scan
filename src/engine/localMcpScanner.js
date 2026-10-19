@@ -144,7 +144,7 @@
         agentId:agent.id, name:serverName,
         command:sanitizeCommand(server.command),
         arguments:args, endpoint:sanitizeEndpoint(server.url || server.endpoint), configPath,
-        exposedTools:tools, capabilities:[...new Set(capabilities)], capabilityEvidence, trustStatus:trustStatus(server.trustStatus),
+        exposedTools:tools, toolEvidence:Array.isArray(server.toolEvidence) ? server.toolEvidence : [], capabilities:[...new Set(capabilities)], capabilityEvidence, trustStatus:trustStatus(server.trustStatus),
         filesystemPathCount:Array.isArray(server.filesystemPaths) ? server.filesystemPaths.length : 0,
         environmentVariableNames:env.names, credentialReferences:env.credentialReferences,
         dryRun:input.dryRun !== false, confidence:0.85, source:{...source, observedAt:createdAt}, createdAt, updatedAt:createdAt,

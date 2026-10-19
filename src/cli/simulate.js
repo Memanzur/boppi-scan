@@ -27,6 +27,7 @@ function enrich(mergedServers, home, overlay = null) {
       capabilities: inference.capabilities,
       capabilityEvidence: inference.capabilityEvidence,
       tools: inference.tools,
+      toolEvidence: inference.toolEvidence,
       filesystemPaths: inference.filesystemPaths.length ? inference.filesystemPaths : server.filesystemPaths,
     };
   }

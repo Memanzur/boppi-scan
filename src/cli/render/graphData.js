@@ -75,7 +75,7 @@ function serverEvidence(server) {
   if ((server.capabilities || []).length) lines.push({ title: 'Capabilities', detail: server.capabilities.join(', ') });
   if ((server.environmentVariableNames || []).length) lines.push({ title: 'Environment variable names', detail: server.environmentVariableNames.join(', ') });
   if ((server.credentialReferences || []).length) lines.push({ title: 'Credential references (names only)', detail: server.credentialReferences.join(', ') });
-  if ((server.exposedTools || []).length) lines.push({ title: 'Declared tools', detail: server.exposedTools.join(', ') });
+  if ((server.exposedTools || []).length) lines.push({ title: 'Configured or catalog-inferred tools', detail: server.exposedTools.join(', ') });
   return lines;
 }
 

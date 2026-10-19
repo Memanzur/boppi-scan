@@ -98,7 +98,8 @@ function inferCapabilities(name, server, options = {}) {
 
   const configuredTools = Array.isArray(server.tools) ? server.tools.filter(v => typeof v === 'string') : [];
   const tools = [...new Set([...configuredTools, ...(catalog ? catalog.tools : [])])];
-  return { capabilities: [...capabilities], filesystemPaths, inferences, catalog, tools, capabilityEvidence };
+  const toolEvidence = tools.map(tool => ({ tool, basis: configuredTools.includes(tool) ? 'configured' : 'catalog' }));
+  return { capabilities: [...capabilities], filesystemPaths, inferences, catalog, tools, toolEvidence, capabilityEvidence };
 }
 
 module.exports = { RULES, inferCapabilities };

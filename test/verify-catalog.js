@@ -89,6 +89,9 @@ ok('exposedTools carries the catalog tools', record.exposedTools.includes('read_
 ok('every capability on the record has evidence', record.capabilities.every(c => record.capabilityEvidence.some(e => e.capability === c)));
 ok('env-derived capabilities are configured evidence', ['environment_access', 'credential_access'].every(c => record.capabilityEvidence.find(e => e.capability === c)?.basis === 'configured'));
 ok('catalog evidence survives normalization', record.capabilityEvidence.find(e => e.capability === 'filesystem_access').basis === 'catalog');
+const graph = require('../src/engine/securityGraph').buildGraph({ agents: [result.agent], integrations: [], permissions: [], mcpServers: result.records });
+ok('catalog tool reach is inferred in the graph', graph.edges.filter(edge => edge.relationshipType === 'mcp_exposes_tool').every(edge => edge.evidenceClass === 'inferred' && edge.confidence <= 0.7));
+ok('catalog filesystem reach is inferred in the graph', graph.edges.filter(edge => edge.relationshipType === 'permission_grants_data_access').every(edge => edge.evidenceClass === 'inferred'));
 
 fs.rmSync(home, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failed} failed`);

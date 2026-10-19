@@ -132,6 +132,8 @@ function toRecords(inventory) {
       ...present('capabilities', server.capabilities),
       ...present('credential_references', server.credentialReferences),
       ...present('exposed_tools', server.exposedTools),
+      ...present('tool_evidence', server.toolEvidence),
+      ...present('capability_evidence', server.capabilityEvidence),
       trust_status: server.trustStatus || 'unknown',
       ...present('config_path', server.configPath && clip(server.configPath)),
     }));

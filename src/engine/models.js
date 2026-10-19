@@ -15,7 +15,7 @@
   const SCHEMA_VERSION = 1;
   // Version of the analysis logic, independent of the npm package version.
   // Bump when ids, path semantics, templates, or inference change meaning.
-  const ENGINE_VERSION = '1.0.0';
+  const ENGINE_VERSION = '1.0.1';
   const FORBIDDEN_KEY = /(token|secret|password|private[_-]?key|file[_-]?contents?|raw[_-]?contents?|env(?:ironment)?[_-]?values?)/i;
   const SECRET_VALUE = /(-----BEGIN [^-]*PRIVATE KEY-----|(?:sk|ghp|xox[baprs])-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*\S+)/i;
   const SAFE_TRUST = new Set(['verified', 'unverified', 'unknown']);
@@ -180,6 +180,10 @@
       endpoint: optionalString(clean.endpoint, 'mcpServer.endpoint'),
       configPath: optionalString(clean.configPath, 'mcpServer.configPath'),
       exposedTools: Array.isArray(clean.exposedTools) ? clean.exposedTools.map(v => requiredString(v, 'mcpServer.exposedTools')) : [],
+      toolEvidence: Array.isArray(clean.toolEvidence) ? clean.toolEvidence.map(e => ({
+        tool: requiredString(e && e.tool, 'mcpServer.toolEvidence.tool'),
+        basis: CAPABILITY_BASES.has(e && e.basis) ? e.basis : 'inferred',
+      })) : [],
       capabilities: Array.isArray(clean.capabilities) ? clean.capabilities.map(v => requiredString(v, 'mcpServer.capabilities')) : [],
       capabilityEvidence: Array.isArray(clean.capabilityEvidence) ? clean.capabilityEvidence.map(e => ({
         capability: requiredString(e && e.capability, 'mcpServer.capabilityEvidence.capability'),

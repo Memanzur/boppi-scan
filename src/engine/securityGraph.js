@@ -59,6 +59,11 @@
     return record?.source?.evidenceClass === 'fixture' ? 'sample' : 'real';
   }
   function evidenceClassOf(record) { return record?.source?.evidenceClass || 'inferred'; }
+  function withBasis(record, basis) {
+    return basis === 'catalog' || basis === 'inferred'
+      ? { ...record, confidence:Math.min(confidenceOf(record), 0.7), source:{ ...record.source, evidenceClass:'inferred' } }
+      : record;
+  }
   function evidenceSourceOf(record) {
     const s = record?.source || {};
     return { id: s.id || null, type: s.type || 'unknown', name: s.name || 'Unknown source', evidenceClass: s.evidenceClass || 'inferred' };
@@ -274,12 +279,15 @@
       });
       builder.addEdge(agentNode, serverNode, 'agent_connects_to_mcp', server);
       for (const toolName of server.exposedTools || []) {
-        const tool = derivedNode(builder, 'tool', server.id, toolName.toLowerCase(), 'tool', toolName, server, {});
-        builder.addEdge(serverNode, tool, 'mcp_exposes_tool', server);
+        const evidence = (server.toolEvidence || []).find(item => item.tool === toolName);
+        const record = withBasis(server, evidence?.basis);
+        const tool = derivedNode(builder, 'tool', server.id, toolName.toLowerCase(), 'tool', toolName, record, {});
+        builder.addEdge(serverNode, tool, 'mcp_exposes_tool', record);
       }
       for (const raw of server.capabilities || []) {
         const category = normalizer ? normalizer.normalize(raw).normalizedCategory : 'unknown';
-        attachCategory(builder, agentNode, serverNode, category, server);
+        const evidence = (server.capabilityEvidence || []).find(item => item.capability === raw);
+        attachCategory(builder, agentNode, serverNode, category, withBasis(server, evidence?.basis));
       }
       for (const reference of server.credentialReferences || []) {
         const credential = derivedNode(builder, 'credential', agentNode.id, `mcp:${reference.toLowerCase()}`, 'credential_reference', reference, server, { referenceName: reference });
