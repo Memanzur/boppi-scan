@@ -1,5 +1,74 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 19, 2026 late afternoon session (Claude Code): detection Gap 2 landed
+
+Read this block first. The Gap 1 block below it, the morning block, and
+the October 18 handoff stay accurate except where this block says otherwise.
+
+### Where things stand
+
+| Repository | Checkout | Branch | Tip after this session |
+| --- | --- | --- | --- |
+| Memanzur/boppi-scan | ~/Desktop/boppi-scan-auto | codex/live-brand-alignment | 1b85c36 (Gap 2 implementation), then this handoff commit; run `git rev-parse HEAD` |
+| Memanzur/boppii | ~/Desktop/Boppi-auto | codex/live-brand-alignment | efa3a10 plus a docs-only commit noting Gap 2; run `git rev-parse HEAD` |
+
+Nothing was pushed, published, merged, deployed, or applied to any shared
+database. A throwaway worktree of 0513ea5 was created under the session
+scratchpad for the before/after comparison and removed again (`git
+worktree list` is back to 9 entries). `src/engine` is unchanged, so the
+control plane's vendored engine copy needs no resync.
+
+### What changed (scanner 1b85c36)
+
+Gap 2 from the coverage review: an unrecognized server was invisible to
+every path and to every sentence of the report.
+
+- `src/cli/recognition.js` (new): one record per scanned server with
+  `recognized` (catalog match, name rule, url, directory argument, or a
+  declared `capabilities` array; a catalog entry with no capability such
+  as the time server counts as recognized), `reasons` when not,
+  `launcher` (npm, pypi, docker, url, local, unknown), `identity` with the
+  version as written, and `pin` (pinned, unpinned, not_applicable).
+- `serverCatalog.identityOf` now returns `{ kind, name, version }`;
+  `splitNpmVersion`, `splitPypiVersion`, `splitDockerTag` replace the
+  strip helpers. Catalog matching is unchanged (still by name).
+- `boppi.js performScan` builds `recognition` per client after
+  inference and carries it to the report and the JSON export.
+- Terminal: `unrecognized` and `unpinned` tags on MCP SERVERS lines, an
+  UNRECOGNIZED SERVERS section (launch summary, reasons, advice), a
+  PACKAGE PINS section, and the unrecognized servers named in the
+  COVERAGE not-established line. HTML: Recognition column plus the two
+  cards. SARIF: `BOPPI-UNRECOGNIZED` (warning) and `BOPPI-UNPINNED`
+  (note). Interactive view: a Recognition evidence line on server nodes.
+  Local programs print their runtime (`node`), never the script path.
+- The second step the review listed, an opt-in local `tools/list`
+  handshake that would add the `observed` basis, was not built. It starts
+  a server process and needs explicit consent design first.
+
+### Verified this session
+
+| Check | Result |
+| --- | --- |
+| `npm test` at 1b85c36 | 20 of 20 suites, including new `test/verify-recognition.js` (24 checks) |
+| Before/after on Claude Desktop with `weather` (`npx -y weather-mcp-server`), `local-notes` (`node ~/tools/notes-server.js`), and an unpinned `fetch` | 0513ea5: three inventory lines, two saying "no supported capability identified", nothing else. 1b85c36: both tagged unrecognized, UNRECOGNIZED SERVERS names them with launch and reasons, PACKAGE PINS says 2 of 2 unpinned, COVERAGE names them |
+| Existing suites | `verify-catalog` asserts the version is kept; `verify-policy-sarif` counts the two new result kinds |
+
+### Decisions to confirm with Melody
+
+1. Unrecognized servers stay out of the graph (no invented reach). The
+   review's wording was "a stated unknown", which is what this does. If
+   you want them to count toward risk, that is a separate modeling call.
+2. The Gap 1 decisions (built-in file access makes most Claude Code
+   setups with a network server critical; WebFetch not modeled; no
+   Claude Desktop rows) are still open.
+
+### Next priorities
+
+1. Melody reviews both before/after examples and the decision lists.
+2. Gap 3 (per-tool categories in the catalog so EP-C and EP-F can fire
+   from real scans, and a coarse filesystem scope grade).
+3. Everything in the earlier blocks' next-priorities lists still stands.
+
 ## October 19, 2026 afternoon session (Claude Code): detection Gap 1 landed
 
 Read this block first. The morning block below it (usability pass, test
