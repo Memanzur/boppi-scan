@@ -113,4 +113,4 @@ async function runHook(options, { fingerprint, settings }) {
   return 0;
 }
 
-module.exports = { runHook, toRecord, eventsFile, claudeCodeConfig, EVENT_KEYS, LINE_CAP };
+module.exports = { runHook, toRecord, eventsFile, append, trim, claudeCodeConfig, EVENT_KEYS, LINE_CAP };

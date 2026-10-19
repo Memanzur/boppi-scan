@@ -40,16 +40,18 @@ const fix = require('./fix');
 const demo = require('./demo');
 const remediate = require('./remediate');
 const rollback = require('./rollback');
+const hook = require('./hook');
+const settingsModule = require('./settings');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -62,6 +64,8 @@ function usage() {
     '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
     '  boppi demo                     scan a synthetic risky config copied to ~/.boppi/demo/ (never your real configs); --reset restores it',
     '  boppi demo --html <file>       write a self-contained interactive demo page built from four synthetic environments',
+    '  boppi hook                    record one sanitized Claude Code hook event locally; never blocks the observed tool',
+    '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '',
     'Push options (the only command that uses the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
@@ -81,6 +85,13 @@ function usage() {
     'rollback options:',
     '  --id <id>           the manifest entry to restore (from boppi rollback with no --id)',
     '  --yes               restore without the terminal confirmation',
+    '',
+    'hook options:',
+    '  --print-config      print the Claude Code hook snippet; add it yourself, Boppi never edits settings',
+    '  --install           rejected; installation always requires your explicit manual action',
+    '',
+    'settings options:',
+    '  --set key=value     set telemetry=false, cloudSync=false, or retentionDays=1..3650',
     '',
     'demo options:',
     '  --reset             restore the sandbox config from the bundled fixture',
@@ -115,9 +126,10 @@ function parseArgs(argv) {
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false,
+    install: false, printConfig: false, set: [],
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -149,11 +161,14 @@ function parseArgs(argv) {
       else if (arg === '--policy') options.policy = value;
       else if (arg === '--client') options.client = value;
       else if (arg === '--id') options.id = value;
+      else if (arg === '--set') options.set.push(value);
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
     else if (arg === '--reset') options.reset = true;
     else if (arg === '--diff') options.diff = true;
+    else if (arg === '--install') options.install = true;
+    else if (arg === '--print-config') options.printConfig = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -717,6 +732,17 @@ async function run(argv) {
   if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
   if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
   if (options.command === 'history') { process.stdout.write(renderHistory(options.historyFile) + '\n'); return 0; }
+  if (options.command === 'settings') {
+    try {
+      const current = options.set.length ? settingsModule.assign(options.home, options.set) : settingsModule.load(options.home);
+      process.stdout.write(settingsModule.render(options.home, current) + '\n');
+      return 0;
+    } catch (error) {
+      process.stderr.write(`settings: ${error.message}\n`);
+      return 2;
+    }
+  }
+  if (options.command === 'hook') return hook.runHook(options, { fingerprint: value => crypto.createHash('sha256').update(loadFingerprintKey(options.home)).update(value).digest('hex').slice(0, 16), settings: settingsModule.load(options.home) });
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
