@@ -1,5 +1,118 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 19, 2026 evening session (Claude Code): detection Gap 3 landed
+
+Read this block first. The Gap 2 and Gap 1 blocks below it, the morning
+block, and the October 18 handoff stay accurate except where this block
+says otherwise.
+
+### Where things stand
+
+| Repository | Checkout | Branch | Tip after this session |
+| --- | --- | --- | --- |
+| Memanzur/boppi-scan | ~/Desktop/boppi-scan-auto | codex/live-brand-alignment | cbcad29 (Gap 3 implementation), then this handoff commit; run `git rev-parse HEAD` |
+| Memanzur/boppii | ~/Desktop/Boppi-auto | codex/live-brand-alignment | bb24282 plus a docs-only commit noting Gap 3; run `git rev-parse HEAD` |
+
+Nothing was pushed, published, merged, deployed, or applied to any shared
+database. A throwaway worktree of 1b85c36 was created under the session
+scratchpad for the before/after comparison and removed again (`git
+worktree list` is back to 9 entries). `src/engine` is unchanged, so the
+control plane's vendored engine copy needs no resync. All three gaps from
+`docs/research/SCANNER_DETECTION_COVERAGE_2026-10-19.md` (control plane
+repo) are now implemented locally.
+
+### What changed (scanner cbcad29)
+
+Gap 3 from the coverage review: capabilities were server-wide and stopped
+at one of eight category ids, so EP-C (supply chain) and EP-F
+(impersonation) could never fire from a real configuration, and a
+filesystem server at `~/` graded the same as one at a photos folder.
+
+- `src/cli/toolCategories.js` (new): `TOOL_TABLE` maps exact catalog and
+  common tool names to the engine's finer categories (`push_files` to
+  modify_source_code, `get_file_contents` to read_source_code,
+  `kubectl_apply` / `execute_sql` / `deploy_edge_function` to
+  access_production_system, `slack_post_message` / `create_issue` to
+  send_external_message, Stripe tools to financial or customer data);
+  `TOOL_RULES` are name patterns for tools the table does not list;
+  `IDENTITY_RULES` give Gmail/Outlook/IMAP servers read_email and
+  send_email, and SMTP/SendGrid/Mailgun/Resend send_email only.
+  `scopeOf(dir, home)` grades a directory as system, home, secrets
+  (`.ssh`, `.aws`, `.kube`, `credentials`, any dotfolder under home),
+  source (a `.git`, `package.json`, `pyproject.toml`, or similar marker),
+  or other. `scopeReach` adds access_credentials for home/system/secrets,
+  read_source_code for home/system/source, and modify_source_code when
+  the server also has write tools. Only labels leave the module.
+- `knownServers.inferCapabilities` returns `filesystemScope` and `reach`
+  alongside the existing fields; the grading happens while the raw path
+  is still known, before fingerprinting.
+- `provider.js`: `reachPermissions` creates one permission per reach
+  category on the server (`source.id = tool-reach:<server>:<category>`,
+  `rawPermission` = `server (category: tool1, tool2 +N)`); catalog or
+  name-rule reach is `inferred` 0.7, directory-derived reach is
+  `observed` 0.85. The filesystem permission is now labeled
+  `server (filesystem_access: <scope label>)` and graded `broad` for
+  home and system scopes, `scoped` otherwise. `CATEGORY_RISK_WEIGHT`
+  gained the new categories.
+- Terminal: `file scope:` and `reach through tools:` lines under each
+  MCP SERVERS entry. HTML: the same under the capabilities cell. Graph
+  data: `File scope` and `Reach: <category>` evidence on the server node.
+  Nothing else changed in the engine, exports, SARIF, plan, or fix.
+- `test/verify-tool-reach.js` (46 checks) covers the table, rules,
+  identity rules, scope grades, mixed scope lists, inference output,
+  the scan report (EP-C and EP-F from a real config, no path printed or
+  exported, graph evidence, HTML), and a clean fixture that stays at
+  zero paths. `node test/run-all.js` is 21 of 21 suites. No existing
+  expectation shifted.
+- README "Per-tool reach and file scope" subsection; CHANGELOG 0.3.1
+  bullet.
+
+### Before and after (same synthetic Claude Desktop config)
+
+Fixture: github, kubernetes, gmail, fetch, and three filesystem servers
+pointed at the home directory, a repo with `.git`, and a notes folder.
+
+Before (1b85c36): 1 exposure path. Each server showed only its coarse
+capability ids; EP-A via repo-files reading files to gmail's network.
+
+After (cbcad29): 4 exposure paths (2 critical). Each server lists what it
+reaches: github modifies and reads source and sends external messages,
+kubernetes reaches production, gmail reads and sends email, home-files is
+"the whole home directory" with credentials, read and modify source,
+repo-files is "a source tree", notes-files is "a folder elsewhere". New
+paths: EP-C critical (home-files modify source -> kubernetes production),
+EP-E high (fetch -> home-files modify source), EP-F high (gmail read email
+-> github send external message -> fetch untrusted content). EP-A now
+starts from gmail's read_email.
+
+### Decisions for Melody (new, in addition to the Gap 1 and Gap 2 ones)
+
+1. A filesystem server at the whole home directory now implies
+   credential access and source read/modify (because `~/.ssh` and every
+   repo live under it). This is the intended reading of the review but
+   it makes `~/` filesystem servers critical on most machines. Drop the
+   home case from `scopeReach` in `toolCategories.js` to soften it.
+2. Every `kubectl_*` tool, including read-only `kubectl_get`, counts as
+   production access. Narrow `TOOL_RULES` to write verbs if that is too
+   loud.
+3. A server is an email connector by name (gmail, outlook, imap) with no
+   tool evidence. That is what lets EP-F fire; it also means a misnamed
+   server gets email reach it may not have.
+4. The engine's EP-A template now prefers `read_email` over `read_files`
+   as the data source when both exist, so the printed EP-A chain changed
+   on machines with a Gmail server. Only the wording moved; the count
+   did not.
+
+### Next
+
+- Melody reviews the four Gap 3 decisions plus the open Gap 1 and Gap 2
+  decisions below, then authorizes a push of `codex/live-brand-alignment`
+  and the 0.3.1 release (`NPM_TOKEN` is still missing in the repo).
+- `boppi push` does not send `reach` or scope labels as separate fields;
+  they travel inside the permission records, so ingest already receives
+  them. The control plane UI does not yet render `tool-reach:` source ids
+  specially.
+
 ## October 19, 2026 late afternoon session (Claude Code): detection Gap 2 landed
 
 Read this block first. The Gap 1 block below it, the morning block, and
