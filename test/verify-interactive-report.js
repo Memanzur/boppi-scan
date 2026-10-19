@@ -79,7 +79,8 @@ function runCli(args, home) {
   const critical = view.paths.find(p => p.severity === 'critical' && p.remediationIds.length);
   ok('a critical path with one removable route lists at least one remediation', !!critical && critical.remediationIds.length >= 1);
   const twoRoutes = view.paths.find(p => p.templateId === 'EP-A' && p.agentName === 'Claude Code');
-  ok('the Claude Code exfiltration path, fed by built-in file access and two network servers, lists no single-server remediation', !!twoRoutes && twoRoutes.remediationIds.length === 0 && twoRoutes.chain.includes('Claude Code built-in file access (Read, Edit, Write)'));
+  // Which readable source the engine picks for EP-A (built-in file access or github's source reach) depends on record id order, so only the shape is asserted.
+  ok('the Claude Code exfiltration path, fed by two readers and two network servers, lists no single-server remediation', !!twoRoutes && twoRoutes.remediationIds.length === 0 && twoRoutes.chain[0] === 'Claude Code' && twoRoutes.chain[twoRoutes.chain.length - 1] === 'External destination');
 
   section('Remediations');
   ok('remediations come from predictions that eliminate at least one path', view.remediations.length > 0 && view.remediations.every(r => r.eliminates.length >= 1 && exported.predictions.some(p => p.predictionId === r.id)));

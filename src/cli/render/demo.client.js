@@ -6,18 +6,21 @@
   var result = document.getElementById('demo-result');
   var activeScenario = null;
   function text(id, value) { document.getElementById(id).textContent = value; }
-  function summarize(view) {
-    text('demo-agent-count',view.agents.length);
-    text('demo-server-count',view.nodes.filter(function(n){return n.kind==='server';}).length);
-    text('demo-path-count',view.paths.length);
-    text('demo-after',view.paths.length);
-    var path = view.paths[0];
+  // The counters and the "Understand the exposure" card describe the sample's actual scan; only the Preview counter, the graph, and the inventory follow a simulation.
+  function describe(base, simulation) {
+    text('demo-agent-count',base.agents.length);
+    text('demo-server-count',base.nodes.filter(function(n){return n.kind==='server';}).length);
+    text('demo-path-count',base.paths.length);
+    var path = base.paths[0];
     var investigate = document.getElementById('demo-investigate');
     investigate.hidden = !path;
     investigate.onclick = path ? function(){document.dispatchEvent(new CustomEvent('boppi-select-path',{detail:{id:path.id}}));} : null;
     text('demo-risk-title',path ? path.label : 'No potential paths in this sample');
     text('demo-risk-why',path ? path.whyItMatters : 'No supported exposure template matches this configuration. This does not establish that an environment is safe.');
-    text('demo-risk-action',path ? 'Next: inspect the path below or preview a server removal. Nothing will be applied.' : 'Next: choose another sample to explore a risk and its trade-offs.');
+    text('demo-risk-action',simulation ? 'Simulated preview active: ' + simulation + ' The sample itself is unchanged; press Reset simulation to clear the preview.' : path ? 'Next: inspect the path below or preview a server removal. Nothing will be applied.' : 'Next: choose another sample to explore a risk and its trade-offs.');
+  }
+  function inventoryOf(view) {
+    text('demo-after',view.paths.length);
     var inventory = document.getElementById('demo-inventory');
     inventory.replaceChildren();
     view.nodes.filter(function(n){return n.kind==='server';}).forEach(function(server){
@@ -32,7 +35,8 @@
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function capLabel(view, id) { return (view.capabilityLabels && view.capabilityLabels[id]) || id; }
   function update(view, simulation) {
-    summarize(view);
+    describe(activeScenario.view, simulation || null);
+    inventoryOf(view);
     document.dispatchEvent(new CustomEvent('boppi-demo-view', { detail: { view: view, simulation: simulation || null } }));
   }
   function simulate(fix) {

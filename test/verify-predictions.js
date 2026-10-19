@@ -47,11 +47,13 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   ok('the applied edit is CONFIRMED', statusOf(confirmed, 'filesystem') === 'CONFIRMED');
   ok('edits that were not applied are UNRESOLVED edit_not_applied', ['fetch', 'code-runner'].every(s => statusOf(confirmed, s) === 'UNRESOLVED' && rowOf(confirmed, s).includes('edit_not_applied')));
   ok('summary line counts statuses', confirmed.stdout.includes('1 confirmed · 0 partial · 0 contradicted · 2 unresolved'));
+  ok('the next step names the confirmed fix instead of calling the result nothing', confirmed.stdout.includes('Next: 1 fix confirmed as predicted; 2 other predictions not graded because that edit was not applied.') && !confirmed.stdout.includes('Nothing could be graded yet'));
   ok('no contradiction file is written for confirmed or unresolved', !fs.readdirSync(home).some(f => f.startsWith('boppi-contradiction-')));
 
   section('UNRESOLVED(agent_not_scanned) when the agent is missing from the rescan');
   const notScanned = runCli(['verify', before, '--only', 'cursor'], home);
   ok('every prediction is UNRESOLVED agent_not_scanned', notScanned.code === 0 && ['filesystem', 'fetch', 'code-runner'].every(s => statusOf(notScanned, s) === 'UNRESOLVED' && rowOf(notScanned, s).includes('agent_not_scanned')));
+  ok('with nothing graded the next step still says so', notScanned.stdout.includes('Next: Nothing could be graded yet'));
 
   section('PARTIAL and CONTRADICTED from over-claiming predictions');
   const tampered = JSON.parse(JSON.stringify(exported));

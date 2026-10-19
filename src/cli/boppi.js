@@ -348,7 +348,7 @@ function discover(options) {
       const resolved = path.resolve(file.path);
       if (seenPaths.has(resolved)) continue; // user and project config can be the same file
       seenPaths.add(resolved);
-      const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0 };
+      const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [] };
       if (fs.existsSync(resolved)) {
         try {
           const json = JSON.parse(fs.readFileSync(resolved, 'utf8'));
@@ -360,6 +360,7 @@ function discover(options) {
           for (const [name, server] of Object.entries(servers)) {
             const key = client.mergedServers[name] ? `${name} (${file.scope})` : name;
             client.mergedServers[key] = server;
+            entry.servers.push(key);
           }
         } catch (error) {
           entry.status = 'unreadable';

@@ -109,6 +109,9 @@ function categories(reach) { return reach.map(r => r.category).sort(); }
   const view = graphData.viewFromExport(exported);
   const homeNode = view.nodes.find(n => n.label === 'home-files' && n.kind === 'server');
   ok('the graph view carries file scope and reach evidence on the server node', homeNode && homeNode.evidence.some(e => e.title === 'File scope' && e.detail === 'the whole home directory') && homeNode.evidence.some(e => e.title === 'Reach: access credentials'));
+  const permissionNodes = view.nodes.filter(n => n.entityType === 'permission');
+  ok('graph permission boxes carry plain-word labels', permissionNodes.length >= 10 && permissionNodes.every(n => !/[a-z]_[a-z]/.test(n.label)) && permissionNodes.some(n => n.label === 'file access (the whole home directory)') && permissionNodes.some(n => n.label === 'modify source code') && permissionNodes.some(n => n.label === 'production system access'));
+  ok('the raw permission text stays in the node evidence', permissionNodes.every(n => n.evidence.some(e => e.title === 'Permission' && /\(/.test(e.detail))) && permissionNodes.some(n => n.evidence.some(e => e.detail === 'home-files (filesystem_access: the whole home directory)')));
   const html = fs.readFileSync(htmlPath, 'utf8');
   ok('the HTML report shows scope and reach under capabilities', html.includes('file scope: the whole home directory<br>reach through tools: access credentials, read source code, modify source code') && html.includes('reach through tools: access production system'));
   ok('the HTML report never contains a scanned path', !html.includes(home));

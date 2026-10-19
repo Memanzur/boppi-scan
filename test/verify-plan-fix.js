@@ -45,6 +45,31 @@ function runCli(args, home, extra = {}) {
   const home = makeHome(root);
   const desktopConfig = path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
 
+  section('edits name only the files that hold the server');
+  {
+    const home2 = path.join(root, 'home2');
+    const project = path.join(home2, 'work', 'app');
+    fs.mkdirSync(path.join(home2, '.cursor'), { recursive: true });
+    fs.mkdirSync(path.join(project, '.cursor'), { recursive: true });
+    fs.mkdirSync(path.join(project, '.git'), { recursive: true });
+    const userFile = path.join(home2, '.cursor', 'mcp.json');
+    const projectFile = path.join(project, '.cursor', 'mcp.json');
+    fs.writeFileSync(userFile, JSON.stringify({ mcpServers: { kubernetes: { command: 'npx', args: ['-y', 'mcp-server-kubernetes'] } } }));
+    fs.writeFileSync(projectFile, JSON.stringify({ mcpServers: { repo: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', project] } } }));
+    const run = args => spawnSync(process.execPath, [CLI, ...args, '--only', 'cursor', '--home', home2, '--cwd', project, '--no-color', '--history-file', path.join(home2, 'history.json')], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' } });
+    const scan = run(['scan']);
+    const planOut = run(['plan']);
+    ok('both Cursor files are discovered', scan.status === 0 && scan.stdout.includes(`${userFile}  1 server`) && scan.stdout.includes(`${projectFile}  1 server`));
+    ok('the plan targets the kubernetes edit at the user file only', planOut.stdout.includes(`in ${userFile}: delete the key mcpServers."kubernetes"`) && !planOut.stdout.includes(`in ${projectFile}: delete the key mcpServers."kubernetes"`));
+    ok('the plan targets the repo edit at the project file only', planOut.stdout.includes(`in ${projectFile}: delete the key mcpServers."repo"`) && !planOut.stdout.includes(`in ${userFile}: delete the key mcpServers."repo"`));
+    ok('root cause edit lines never name a file without that server', scan.stdout.includes(`remove the "kubernetes" entry from ${userFile}`) && !scan.stdout.includes(`remove the "kubernetes" entry from ${projectFile}`) && !scan.stdout.includes(`remove the "repo" entry from ${userFile}`));
+    const exported = JSON.parse(run(['scan', '--json', path.join(root, 'home2.json'), '--quiet']).stdout ? fs.readFileSync(path.join(root, 'home2.json'), 'utf8') : '{}');
+    const cursor = (exported.discovery && exported.discovery.clients || []).find(c => c.clientKey === 'cursor');
+    ok('the export records which servers each file holds, by name only', !!cursor && cursor.files.every(f => Array.isArray(f.servers)) && cursor.files.map(f => f.servers.join()).sort().join('|') === 'kubernetes|repo');
+    const legacy = require('../src/cli/configFiles').filesHolding({ files: [{ path: 'a', status: 'found' }, { path: 'b', status: 'found' }] }, 'x');
+    ok('an older export without per-file servers falls back to every found file', legacy.join() === 'a,b');
+  }
+
   section('plan');
   const plan = runCli(['plan', '--json', path.join(root, 'plan.json')], home);
   ok('plan exits 0 and prints the comparison table', plan.code === 0 && plan.stdout.includes('CANDIDATE FIXES') && plan.stdout.includes('agent loses'));

@@ -84,13 +84,15 @@
     },
   ]);
 
-  function buildAdjacency(graph) {
+  // Record ids are content hashes that differ between machines for the same configuration, so every tie is broken on labels first; ids only settle identical labels.
+  function buildAdjacency(graph, nodesById) {
     const out = new Map();
+    const label = id => (nodesById.get(id) || {}).label || '';
     for (const edge of graph.edges || []) {
       if (!out.has(edge.fromEntityId)) out.set(edge.fromEntityId, []);
       out.get(edge.fromEntityId).push(edge);
     }
-    for (const list of out.values()) list.sort((a, b) => a.id.localeCompare(b.id));
+    for (const list of out.values()) list.sort((a, b) => label(a.toEntityId).localeCompare(label(b.toEntityId)) || a.relationshipType.localeCompare(b.relationshipType) || a.id.localeCompare(b.id));
     return out;
   }
 
@@ -124,7 +126,7 @@
       const node = nodesById.get(nodeId);
       if (!node) continue;
       const category = node.metadata?.category || null;
-      const entry = { nodeId, chain };
+      const entry = { nodeId, chain, label: node.label || '' };
       if (node.entityType === 'data_category') {
         groups.anyData.push(entry);
         if (node.metadata?.sensitive) groups.sensitiveData.push(entry);
@@ -148,7 +150,7 @@
       }
       if (node.entityType === 'capability' && category === 'modify_source_code') groups.sourceModify.push(entry);
     }
-    for (const key of Object.keys(groups)) groups[key].sort((a, b) => a.chain.length - b.chain.length || a.nodeId.localeCompare(b.nodeId));
+    for (const key of Object.keys(groups)) groups[key].sort((a, b) => a.chain.length - b.chain.length || a.label.localeCompare(b.label) || a.nodeId.localeCompare(b.nodeId));
     return groups;
   }
 
@@ -232,7 +234,7 @@
   function findPaths(graph) {
     if (!graph || !Array.isArray(graph.nodes)) throw new TypeError('Exposure path engine: graph is required');
     const nodesById = new Map(graph.nodes.map(n => [n.id, n]));
-    const adjacency = buildAdjacency(graph);
+    const adjacency = buildAdjacency(graph, nodesById);
     const userEdgesByAgent = new Map();
     for (const edge of graph.edges || []) {
       if (edge.relationshipType === 'user_uses_agent' && !userEdgesByAgent.has(edge.toEntityId)) userEdgesByAgent.set(edge.toEntityId, edge);

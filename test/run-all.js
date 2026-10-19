@@ -9,6 +9,7 @@ const SUITES = [
   'verify-catalog.js',
   'verify-monitoring.js',
   'verify-demo.js',
+  'verify-demo-client.js',
   'verify-cli-scan.js',
   'verify-builtin-tools.js',
   'verify-recognition.js',

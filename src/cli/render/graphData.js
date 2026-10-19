@@ -36,6 +36,23 @@ const CAPABILITY_LABELS = Object.freeze({
 });
 function capabilityLabel(id) { return CAPABILITY_LABELS[id] || id; }
 
+const CATEGORY_LABELS = Object.freeze({
+  read_files: 'file access', write_files: 'file writes', delete_files: 'file deletion', run_shell_commands: 'shell access', execute_code: 'code execution',
+  call_external_api: 'network access', access_credentials: 'credential access', access_environment_variables: 'environment access',
+  browser_automation: 'browser automation', untrusted_external_content: 'untrusted content intake',
+  modify_source_code: 'modify source code', read_source_code: 'read source code', access_production_system: 'production system access',
+  send_external_message: 'send external messages', send_email: 'send email', read_email: 'read email',
+  access_financial_data: 'financial data access', access_customer_data: 'customer data access', create_or_modify_records: 'create or modify records',
+});
+/** Plain-word label for a permission node; the raw permission text and tool names stay in the node's evidence. */
+function permissionLabel(permission, fallback) {
+  if (!permission) return fallback;
+  if (permission.source && permission.source.type === 'builtin-tool') return permission.rawPermission;
+  const base = CATEGORY_LABELS[permission.normalizedCategory] || String(permission.normalizedCategory || fallback).replace(/_/g, ' ');
+  const scoped = /\(filesystem_access: (.+)\)$/.exec(permission.rawPermission || '');
+  return scoped ? `${base} (${scoped[1]})` : base;
+}
+
 function kindOf(entityType) { return KIND_BY_ENTITY[entityType] || entityType; }
 function evidenceLabel(evidenceClass) { return evidenceClass === 'observed' ? 'configured' : (evidenceClass || 'unknown'); }
 
@@ -64,13 +81,7 @@ function agentOwnership(graph, inventory) {
 }
 
 /** Files on disk where an edit applies, from the (portable) discovery. */
-function editFiles(prediction, discovery) {
-  const client = (discovery || []).find(c => c.clientKey === prediction.client.key);
-  const found = client ? client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => f.path) : [];
-  if (prediction.edit.action !== 'move_server') return { from: found, to: [] };
-  const target = (discovery || []).find(c => c.clientKey === prediction.target.key);
-  return { from: found, to: target ? [target.primaryPath].filter(Boolean) : [] };
-}
+const { editFiles } = require('../configFiles');
 
 function fixCommand(prediction, scanArgs) {
   let command = `boppi fix --server ${shellArgument(prediction.edit.server)} --client ${prediction.client.key}`;
@@ -106,7 +117,7 @@ function buildGraphView(report) {
   const permissionById = new Map((inventory.permissions || []).map(p => [p.id, p]));
   const recognitionById = new Map((report.recognition || []).filter(r => r.serverId).map(r => [r.serverId, r]));
   const agentById = new Map((inventory.agents || []).map(a => [a.id, a]));
-  const labelById = new Map(graph.nodes.map(n => [n.id, n.label]));
+  const labelById = new Map(graph.nodes.map(n => [n.id, n.entityType === 'permission' ? permissionLabel(permissionById.get(n.recordId), n.label) : n.label]));
   const incoming = new Map();
   for (const edge of graph.edges) {
     if (!incoming.has(edge.toEntityId)) incoming.set(edge.toEntityId, []);
@@ -152,6 +163,7 @@ function buildGraphView(report) {
     } else if (node.entityType === 'permission') {
       const permission = permissionById.get(node.recordId);
       if (permission) {
+        evidence.push({ title: 'Permission', detail: permission.rawPermission });
         evidence.push({ title: 'How it was established', detail: permission.normalizationReason || 'declared in the scanned configuration' });
         evidence.push({ title: 'Access level', detail: `${permission.accessLevel || 'unknown'} · risk weight ${permission.riskWeight ?? 0}` });
         const grantor = serverById.get(permission.integrationId);
@@ -164,7 +176,7 @@ function buildGraphView(report) {
     }
     const pathIds = pathsByNode.get(node.id) || [];
     return {
-      id: node.id, kind, entityType: node.entityType, label: node.label, recordId: node.recordId || null,
+      id: node.id, kind, entityType: node.entityType, label: labelById.get(node.id), recordId: node.recordId || null,
       agentId: kind === 'agent' ? node.id : (owner.get(node.id) || null),
       evidenceClass: node.evidenceClass || 'unknown', evidenceLabel:evidenceLabel(node.evidenceClass), confidence: node.confidence ?? null, stale: !!node.stale,
       evidence, detail, pathIds, severity: worstSeverity(pathIds),
@@ -260,4 +272,4 @@ function viewFromExport(exported) {
   });
 }
 
-module.exports = { buildGraphView, viewFromExport, KINDS, kindOf, previewHash, editFiles, fixCommand, capabilityLabel, CAPABILITY_LABELS };
+module.exports = { buildGraphView, viewFromExport, KINDS, kindOf, previewHash, editFiles, fixCommand, capabilityLabel, permissionLabel, CAPABILITY_LABELS };

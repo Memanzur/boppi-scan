@@ -32,6 +32,29 @@ function graphFor(permCategories, over = {}) {
   return { agent: a, graph: graphlib.buildGraph(inventory) };
 }
 
+// ── Determinism ─────────────────────────────────────────────────────────────
+test('the chosen route does not depend on record id order', () => {
+  // Two servers, each granting one readable source and one network grant: two equal-length EP-A routes.
+  const build = () => graphFor([], { mcpServers: [] });
+  const a = agent();
+  const source = (name, category) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: `${name} (${category})`, accessLevel: 'read', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW });
+  const inventory = { agents: [a], integrations: [], mcpServers: [], permissions: [source('alpha', 'read_files'), source('alpha', 'call_external_api'), source('beta', 'read_files'), source('beta', 'call_external_api')] };
+  const graph = graphlib.buildGraph(inventory);
+  // Same graph with every id rewritten so that the ids sort in the opposite order; labels are untouched.
+  const ids = [...new Set(graph.nodes.map(n => n.id).concat(graph.edges.map(e => e.id)))].sort();
+  const flipped = new Map(ids.map((id, i) => [id, `z${String(ids.length - i).padStart(6, '0')}`]));
+  const re = id => flipped.get(id) || id;
+  const mirrored = {
+    nodes: graph.nodes.map(n => ({ ...n, id: re(n.id) })),
+    edges: graph.edges.map(e => ({ ...e, id: re(e.id), fromEntityId: re(e.fromEntityId), toEntityId: re(e.toEntityId) })),
+  };
+  const chainOf = g => engine.findPaths(g).filter(p => p.templateId === 'EP-A').map(p => p.nodes.map(n => n.label).join(' -> '));
+  assert.ok(chainOf(graph).length === 1, 'one EP-A path');
+  assert.deepStrictEqual(chainOf(mirrored), chainOf(graph), 'the same route must be chosen whatever the ids sort like');
+  assert.ok(chainOf(graph)[0].includes('alpha'), 'ties fall to the label that sorts first');
+  void build;
+});
+
 // ── Critical templates ───────────────────────────────────────────────────────
 test('critical data-exfiltration path (sensitive data + external communication)', () => {
   const { graph } = graphFor(['access_customer_data', 'send_external_message']);

@@ -15,7 +15,7 @@
   const SCHEMA_VERSION = 1;
   // Version of the analysis logic, independent of the npm package version.
   // Bump when ids, path semantics, templates, or inference change meaning.
-  const ENGINE_VERSION = '1.0.1';
+  const ENGINE_VERSION = '1.0.2';
   const FORBIDDEN_KEY = /(token|secret|password|private[_-]?key|file[_-]?contents?|raw[_-]?contents?|env(?:ironment)?[_-]?values?)/i;
   const SECRET_VALUE = /(-----BEGIN [^-]*PRIVATE KEY-----|(?:sk|ghp|xox[baprs])-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*\S+)/i;
   const SAFE_TRUST = new Set(['verified', 'unverified', 'unknown']);

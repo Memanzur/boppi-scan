@@ -113,6 +113,19 @@ const NEXT_STEP = Object.freeze({
   CONTRADICTED: 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
   UNRESOLVED: 'Nothing could be graded yet. Apply the recommended edit (remove the named server entry), then run boppi verify again.',
 });
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** The one sentence after the table. A contradiction or partial result wins; otherwise a mix of graded and ungraded edits says so instead of calling the graded ones "nothing". */
+function nextStep(summary) {
+  if (summary.contradicted) return NEXT_STEP.CONTRADICTED;
+  if (summary.partial) return NEXT_STEP.PARTIAL;
+  if (summary.confirmed && summary.unresolved) {
+    return `${plural(summary.confirmed, 'fix')} confirmed as predicted; ${plural(summary.unresolved, 'other prediction')} not graded because that edit was not applied. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
+  }
+  if (summary.unresolved) return NEXT_STEP.UNRESOLVED;
+  if (summary.confirmed) return NEXT_STEP.CONFIRMED;
+  return null;
+}
 
 function renderTable(result, useColor) {
   const color = (code, text) => (useColor ? `\u001b[${code}m${text}\u001b[39m` : text);
@@ -134,9 +147,9 @@ function renderTable(result, useColor) {
   lines.push('');
   lines.push(`${s.confirmed} confirmed · ${s.partial} partial · ${s.contradicted} contradicted · ${s.unresolved} unresolved`);
   if (result.engineChanged) lines.push(`engine version changed since the predictions were made (now ${models.ENGINE_VERSION}); statuses are still computed`);
-  const worst = ['CONTRADICTED', 'PARTIAL', 'UNRESOLVED', 'CONFIRMED'].find(status => rows.some(row => row.status === status));
-  if (worst) lines.push('', `Next: ${NEXT_STEP[worst]}`);
+  const next = nextStep(s);
+  if (next) lines.push('', `Next: ${next}`);
   return lines.join('\n');
 }
 
-module.exports = { STATUS, currentState, resolvePrediction, resolveAll, contradictionBundle, renderTable };
+module.exports = { STATUS, currentState, resolvePrediction, resolveAll, contradictionBundle, renderTable, nextStep };

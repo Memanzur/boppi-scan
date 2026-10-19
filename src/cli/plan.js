@@ -5,6 +5,7 @@
  */
 'use strict';
 const { rankPredictions } = require('./predict');
+const { editFiles } = require('./configFiles');
 
 function pad(value, width) {
   const text = String(value ?? '');
@@ -18,14 +19,6 @@ function editLabel(prediction) {
 }
 
 /** Files on disk where the edit applies, from the scan's discovery. */
-function editFiles(prediction, discovery) {
-  const client = (discovery || []).find(c => c.clientKey === prediction.client.key);
-  const found = client ? client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => f.path) : [];
-  if (prediction.edit.action !== 'move_server') return { from: found, to: [] };
-  const target = (discovery || []).find(c => c.clientKey === prediction.target.key);
-  return { from: found, to: target ? [target.primaryPath].filter(Boolean) : [] };
-}
-
 /** Rows for the comparison table, best first. */
 function candidateRows(report) {
   return rankPredictions(report.predictions || [], report.paths).map(entry => {

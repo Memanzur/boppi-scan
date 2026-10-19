@@ -164,6 +164,8 @@ A capability id is server-wide and stops at one category, so a GitHub server tha
 
 Each existing directory argument is graded before it is fingerprinted: `the whole home directory`, `a system-wide directory`, `a dotfile or secrets folder` (`.ssh`, `.aws`, `.kube`, `credentials`, and the like), `a source tree` (a `.git`, `package.json`, `pyproject.toml`, or similar marker), or `a folder elsewhere`. The grade is the only thing kept; the path never leaves the machine. Home, system, and secrets scopes add credential access; home, system, and source scopes add read source code, and modify source code when the server has write tools. That is why a filesystem server at `~/` next to a Kubernetes server now reports the supply-chain path (EP-C) and a Gmail server next to `fetch` reports the impersonation path (EP-F), neither of which a server-wide capability could reach before.
 
+In every report the actual scan and a simulated change are kept apart: the demo page's counters and "Understand the exposure" card describe the sample's scan, and only the Preview counter, graph, and inventory follow a simulated removal. `boppi plan` and ROOT CAUSE name only the configuration files that hold the server being removed.
+
 Every path is potential. The scanner sees configuration, not behavior. It cannot tell you an agent has been exploited, only that the grants would allow it. A clean scan is not proof the environment is safe; it means the supported configuration files that were found contain no evidenced chain.
 
 ## Commands and flags

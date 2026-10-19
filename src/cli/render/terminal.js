@@ -3,6 +3,7 @@
 const { rankPredictions } = require('../predict');
 const { builtinCapabilities } = require('../builtinTools');
 const recognition = require('../recognition');
+const { filesHolding } = require('../configFiles');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -74,7 +75,7 @@ function editSentence(step) {
 function editLocations(step, report) {
   const client = (report.discovery || []).find(c => c.clientKey === step.client.key);
   const verb = step.edit.action === 'move_server' ? 'move' : 'remove';
-  return client ? client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => `${verb} the "${step.edit.server}" entry from ${f.path}`) : [];
+  return filesHolding(client, step.edit.server).map(file => `${verb} the "${step.edit.server}" entry from ${file}`);
 }
 
 /** What the agent gives up, from the prediction's inventory-derived disruption. */
