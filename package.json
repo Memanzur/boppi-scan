@@ -1,6 +1,6 @@
 {
   "name": "boppi",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Local AI agent security scanner: discovers Claude Desktop, Claude Code, and Cursor MCP configurations, maps what your agents can reach, reports potential exposure paths, and verifies fixes. Scans run locally; boppi push can send the sanitized inventory to a Boppi workspace.",
   "author": "Melody Manzur",
   "bin": {

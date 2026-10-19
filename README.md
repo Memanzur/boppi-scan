@@ -96,7 +96,7 @@ FINDINGS (3)  2 shown above as exposure paths; --verbose for all
 NEXT STEPS
   1. Apply the fix above, then run boppi verify boppi-scan.json to confirm the paths are gone.
   2. boppi scan --html boppi-report.html writes a shareable report with the evidence for every claim.
-  3. Working with a team? BOPPI_TOKEN=<token> boppi push sends this sanitized inventory to your Boppi workspace. Nothing else ever leaves the machine.
+  3. Working with a team? boppi push sends this sanitized inventory to your Boppi workspace (it asks for your collector token). Nothing else ever leaves the machine.
 
 PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left this machine):
   - ~/Library/Application Support/Claude/claude_desktop_config.json
@@ -213,11 +213,11 @@ A `boppi.policy.json` in the working directory (or `--policy <file>`) turns conf
 
 `boppi verify` takes the same discovery flags as `scan`. Each prediction in the export ("removing server X eliminates these exposures") is graded against the fresh scan: CONFIRMED, PARTIAL, CONTRADICTED, or UNRESOLVED when the edit was not applied or the agent was not scanned. PARTIAL and CONTRADICTED write a self-contained fixture file for an engine issue.
 
-`boppi push` sends a full snapshot by default: records from that collector's earlier pushes that are absent from this scan are removed in the workspace, so a machine that gets fixed shows up fixed. `--merge` adds without removing and sends in batches of 1000.
+`boppi push` sends a full snapshot by default: records from that collector's earlier pushes that are absent from this scan are removed in the workspace, so a machine that gets fixed shows up fixed. Each snapshot carries the export's timestamp, and the workspace refuses a snapshot older than the one it already holds from that collector (HTTP 409; rescan and push again). Pushes are rate limited per token (HTTP 429; the message says how long to wait, and the client does not retry on its own). `--merge` adds without removing and sends in batches of 1000.
 
 Arguments in a server entry are redacted before they leave: anything that looks like a credential, anything after a flag whose name says credential (`--api-key x`, `--token x`, `-p x`), and the value side of `--key=...` or `NAME_PASSWORD=...`.
 
-Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push.
+Exit codes: 0 clean, 1 threshold hit under `--fail-on` or a policy violation (`scan` and `plan`), 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push.
 
 ### Use it in CI
 
@@ -259,7 +259,7 @@ If a server entry contains something that looks like a secret in a place the sca
 
 | Client | Files |
 |--------|-------|
-| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows, `~/.config/Claude/claude_desktop_config.json` on Linux |
 | Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory |
 | Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
 

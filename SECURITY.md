@@ -20,6 +20,6 @@ Every file read during a run is listed in the PRIVACY footer of the report, so w
 
 ## What leaves the machine
 
-`scan`, `agents`, `paths`, `verify`, and `history` make no network requests. There is no telemetry.
+`scan`, `agents`, `paths`, `plan`, `fix`, `verify`, and `history` make no network requests. There is no telemetry. `npm test` runs every one of them with sockets, DNS lookups, and `fetch` disabled and fails if any is attempted.
 
 `boppi push` is the one command that sends data, and only when you run it. It POSTs the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace URL you give it, authenticated with the collector token you pass. `boppi push --dry-run` prints the exact payload without sending it. Plain HTTP is refused except for localhost.
