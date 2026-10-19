@@ -29,13 +29,17 @@
     });
     if (!inventory.children.length) { var row=document.createElement('tr'), cell=document.createElement('td');cell.colSpan=4;cell.textContent='No MCP servers in this preview state.';row.appendChild(cell);inventory.appendChild(row); }
   }
-  function update(view) {
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+  function capLabel(view, id) { return (view.capabilityLabels && view.capabilityLabels[id]) || id; }
+  function update(view, simulation) {
     summarize(view);
-    document.dispatchEvent(new CustomEvent('boppi-demo-view', { detail: view }));
+    document.dispatchEvent(new CustomEvent('boppi-demo-view', { detail: { view: view, simulation: simulation || null } }));
   }
   function simulate(fix) {
-    update(fix.after);
-    result.textContent = 'Simulated. No file was changed. ' + fix.eliminated.length + ' path(s) removed; ' + fix.after.paths.length + ' remain. Lost capabilities: ' + (fix.loses.join(', ') || 'none');
+    var summary = 'Removing "' + fix.server + '" closes ' + plural(fix.eliminated.length, 'potential path') + '; ' + plural(fix.after.paths.length, 'path') + ' remain. The agent loses: ' + (fix.loses.length ? fix.loses.map(function (id) { return capLabel(activeScenario.view, id); }).join(', ') : 'nothing it does not also get from another server') + '.';
+    update(fix.after, summary);
+    result.textContent = 'Simulated. No file was changed. ' + summary;
+    Array.prototype.forEach.call(fixes.children, function (node) { node.setAttribute('aria-pressed', node.getAttribute('data-fix') === fix.id ? 'true' : 'false'); });
   }
   function button(label, action) {
     var node = document.createElement('button');
@@ -54,13 +58,14 @@
     document.getElementById('demo-title').textContent = scenario.title;
     document.getElementById('demo-summary').textContent = scenario.summary;
     fixes.replaceChildren();
-    result.textContent = scenario.view.paths.length + ' potential exposure paths in this synthetic configuration.';
+    result.textContent = plural(scenario.view.paths.length, 'potential exposure path') + ' in this synthetic configuration.';
     text('demo-before',scenario.view.paths.length);
     update(scenario.view);
     scenario.remediations.forEach(function (fix) {
-      fixes.appendChild(button('Preview removal of ' + fix.server, function () {
-        simulate(fix);
-      }));
+      var preview = button('Preview removal of ' + fix.server, function () { simulate(fix); });
+      preview.setAttribute('aria-pressed', 'false');
+      preview.setAttribute('data-fix', fix.id);
+      fixes.appendChild(preview);
     });
     fixes.appendChild(button('Reset simulation', function () { show(index); }));
   }

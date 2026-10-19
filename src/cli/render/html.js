@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { rankPredictions } = require('../predict');
-const { buildGraphView } = require('./graphData');
+const { buildGraphView, capabilityLabel } = require('./graphData');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
 const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
@@ -144,7 +144,7 @@ function graphSection(view) {
     <div id="graph-agents" class="graph-toolbar"></div>
     <div class="legend"><span><i style="background:var(--crit)"></i>critical path</span><span><i style="background:var(--high)"></i>high path</span><span><i style="background:var(--med)"></i>medium path</span><span><i style="background:#c5cbd8"></i>access, no path</span></div>
   </div>
-  <p class="graph-guide">Columns group access types. Arrows show evidenced relationships, not execution order; a potential path can combine separate grants to the same agent. Dashed lines are inferred. Select a path to isolate its evidence. Scroll inside the graph for full labels.</p>
+  <p class="graph-guide">Columns group access types. Arrows show evidenced relationships, not execution order; a potential path can combine separate grants to the same agent. Dashed lines are inferred. Select a path to isolate its evidence. Scroll inside the graph for full labels.<span class="narrow-only"> On a narrow screen, swipe sideways inside the graph to reach all five columns.</span></p>
   <div class="graph-wrap" id="graph-wrap" role="region" tabindex="0" aria-label="Scrollable exposure graph"><svg id="graph-svg" role="group" aria-label="Exposure graph: agents, MCP servers, capabilities, data, and destinations, with potential exposure paths highlighted by severity"></svg></div>
   <div class="explorer">
     <div>
@@ -174,7 +174,7 @@ function renderHtml(report, options = {}) {
   const editSentence = step => `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration.`;
   const serverRows = inventory.mcpServers.map(server => {
     const agent = inventory.agents.find(candidate => candidate.id === server.agentId);
-    const capabilities = (server.capabilities || []).join(', ') || 'No supported capability identified';
+    const capabilities = (server.capabilities || []).map(capabilityLabel).join(', ') || 'No supported capability identified';
     return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}</td></tr>`;
   }).join('');
   const coverageNote = report.incomplete?.length
@@ -288,7 +288,7 @@ function renderDemoHtml(bundle) {
 <body>${brandHeader()}<main class="wrap" id="main">
 <div class="eyebrow"><span class="status-dot"></span>Interactive demo · sample data</div>
 <h1>Find the path.<br>Try the smallest change.</h1>
-<p class="intro-copy">See what an AI agent can reach, understand why it matters, and preview a fix before changing anything.</p>
+<p class="intro-copy">Boppi reads the MCP server configuration of AI agents such as Claude Desktop, Claude Code, and Cursor. It shows which grants could combine into a potential exposure path, why that matters, and what the smallest fix would cost, before anything changes.</p>
 <p class="demo-note"><strong>Nothing on your device is scanned or changed.</strong> ${esc(bundle.banner)} All fixes below are simulated.</p>
 <div class="checkup-grid" aria-label="Selected synthetic environment">
   <div class="checkup-stat"><strong id="demo-agent-count">0</strong><span>configured agents</span></div>

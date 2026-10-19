@@ -12,7 +12,7 @@
   var SEV = { critical: 4, high: 3, medium: 2, low: 1 };
   var COLUMN_TITLES = ['Agents', 'MCP servers', 'Capabilities', 'Data and credentials', 'Destinations'];
   var demo = !!document.getElementById('boppi-demo-data');
-  var state = { agent: 'all', path: null, node: null, remediation: null, busy: false, backups: [], showTools: false, context: false, full: false };
+  var state = { agent: 'all', path: null, node: null, remediation: null, busy: false, backups: [], showTools: false, context: false, full: false, simulation: null };
   var index = {};
   function reindex() {
     index.node = {}; index.edge = {}; index.path = {}; index.remediation = {};
@@ -38,6 +38,8 @@
   function badge(severity) { return h('span', { class: 'sev sev-' + severity, text: severity }); }
   function worst(ids) { return ids.map(function (id) { return index.path[id]; }).filter(Boolean).reduce(function (acc, p) { return (SEV[p.severity] || 0) > (SEV[acc] || 0) ? p.severity : acc; }, null); }
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+  function capLabel(id) { return (view.capabilityLabels && view.capabilityLabels[id]) || id; }
+  function capList(ids) { return ids.map(capLabel).join(', '); }
   function agentName(id) { var a = view.agents.filter(function (x) { return x.id === id; })[0]; return a ? a.name : id; }
   function visibleNodes() { return view.nodes.filter(function (n) { return (state.agent === 'all' || n.agentId === state.agent) && (state.showTools || n.entityType !== 'tool' || n.pathIds.length) && (state.path && !state.context ? index.path[state.path].nodeIds.indexOf(n.id)>=0 : state.full || !view.paths.length || n.pathIds.length || n.kind==='agent' || n.kind==='server' || (state.showTools && n.entityType==='tool')); }); }
   function visiblePaths() { return view.paths.filter(function (p) { return state.agent === 'all' || p.agentId === state.agent; }); }
@@ -117,7 +119,7 @@
     var paths = visiblePaths().slice().sort(function (a, b) { return (SEV[b.severity] || 0) - (SEV[a.severity] || 0) || a.label.localeCompare(b.label); });
     if (!paths.length) { list.appendChild(h('div', { class: 'muted small', text: 'No potential exposure paths for this selection.' })); return; }
     paths.forEach(function (p) {
-      list.appendChild(h('button', { class: 'path-row' + (state.path === p.id ? ' active' : ''), type: 'button', 'data-path-row': p.id, onclick: function () { selectPath(p.id); } }, [
+      list.appendChild(h('button', { class: 'path-row' + (state.path === p.id ? ' active' : ''), type: 'button', 'data-path-row': p.id, 'aria-pressed': state.path === p.id ? 'true' : 'false', onclick: function () { selectPath(p.id); } }, [
         badge(p.severity), h('span', { class: 'path-row-label', text: p.label }),
         h('span', { class: 'muted small', text: agentName(p.agentId) + ' · ' + plural(p.remediationIds.length, 'fix option') }),
       ]));
@@ -136,6 +138,11 @@
     var panel = clear(document.getElementById('graph-panel'));
     if (state.path) return renderPathPanel(panel, index.path[state.path]);
     if (state.node) return renderNodePanel(panel, index.node[state.node]);
+    if (state.simulation) {
+      panel.appendChild(h('div', { class: 'result removed', role: 'status' }, [h('h4', { text: 'Simulated, nothing changed on any device' }), h('p', { class: 'small', text: state.simulation })]));
+      panel.appendChild(h('p', { class: 'muted small', text: 'The graph and path list above now show the synthetic after-state. Pick a node or a remaining path to keep exploring, or reset the simulation from the preview card.' }));
+      return;
+    }
     panel.appendChild(h('div', { class: 'panel-empty' }, [
       h('b', { text: 'Click a node or a path.' }),
       h('p', { class: 'muted small', text: 'Nodes open the evidence behind them. Paths show why they matter and the exact change that would remove them. ' + view.scope }),
@@ -152,9 +159,9 @@
     panel.appendChild(h('p', { class: 'muted small disclaimer', text: view.disclaimer }));
   }
   function remediationRow(r) {
-    return h('button', { class: 'fix-row' + (state.remediation === r.id ? ' active' : ''), type: 'button', 'data-remediation': r.id, onclick: function () { state.remediation = r.id; renderAll(); } }, [
+    return h('button', { class: 'fix-row' + (state.remediation === r.id ? ' active' : ''), type: 'button', 'data-remediation': r.id, 'aria-pressed': state.remediation === r.id ? 'true' : 'false', onclick: function () { state.remediation = r.id; renderAll(); } }, [
       h('b', { text: remediationTitle(r) + (r.guided ? ' (guided)' : '') }),
-      h('span', { class: 'small', text: 'Removes ' + plural(r.eliminates.length, 'path') + (r.survives.length ? ', ' + r.survives.length + ' remain' : ', none remain') + (r.loses.length ? ' · loses ' + r.loses.join(', ') : ' · loses nothing it does not get elsewhere') }),
+      h('span', { class: 'small', text: 'Removes ' + plural(r.eliminates.length, 'path') + (r.survives.length ? ', ' + r.survives.length + ' remain' : ', none remain') + (r.loses.length ? ' · the agent loses ' + capList(r.loses) : ' · loses nothing it does not get elsewhere') }),
     ]);
   }
   function renderPathPanel(panel, p) {
@@ -195,7 +202,7 @@
     box.appendChild(h('h4', { text: 'Paths that remain (' + r.survives.length + ')' }));
     box.appendChild(r.survives.length ? h('ul', { class: 'small' }, r.survives.map(function (id) { var p = index.path[id]; return h('li', {}, [badge(p.severity), ' ', p.label, h('span', { class: 'muted', text: ' · not reached through "' + r.server + '"' })]); })) : h('p', { class: 'small muted', text: 'None of the paths found for this agent would remain.' }));
     box.appendChild(h('h4', { text: 'What the agent loses' }));
-    box.appendChild(h('p', { class: 'small', text: r.loses.length ? r.loses.join(', ') : 'No capability it does not also get from another server.' + (r.keeps.length ? ' Keeps ' + r.keeps.join(', ') + '.' : '') }));
+    box.appendChild(h('p', { class: 'small', text: r.loses.length ? capList(r.loses) + '.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + ' through other servers.' : '') : 'No capability it does not also get from another server.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + '.' : '') }));
     if (r.target) box.appendChild(h('p', { class: 'small muted', text: 'Moving creates ' + plural(r.target.appears, 'new path') + ' for ' + r.target.label + '.' }));
     box.appendChild(h('p', { class: 'small safety', text: 'A backup of the file is written to ~/.boppi/backups before anything changes, and the result is graded by a fresh scan. Nothing is sent off this machine.' }));
     if (r.guided) {
@@ -258,7 +265,7 @@
     var modal = h('div', { class: 'modal-back', id: 'modal', role: 'dialog', 'aria-modal': 'true' }, [h('div', { class: 'modal' }, [
       h('h3', { text: 'Remove "' + r.server + '" from ' + r.clientLabel + '?' }),
       h('p', { class: 'small' }, ['Boppi will back up ', h('code', { text: r.files.from.join(', ') }), ', delete the ', h('code', { text: r.keyPath }), ' entry, rescan, and grade the result. ' + plural(r.eliminates.length, 'potential exposure path') + ' should disappear' + (r.survives.length ? '; ' + r.survives.length + ' will remain.' : '.')]),
-      r.loses.length ? h('p', { class: 'small', text: 'The agent loses: ' + r.loses.join(', ') + '.' }) : null,
+      r.loses.length ? h('p', { class: 'small', text: 'The agent loses: ' + capList(r.loses) + '.' }) : null,
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal }),
         h('button', { class: 'btn danger', type: 'button', text: 'Yes, remove "' + r.server + '"', onclick: function () { closeModal(); applyFix(r); } }),
@@ -363,12 +370,35 @@
   }
 
   /* ---------- wiring ---------- */
-  function renderAll() { renderToolbar(); renderGraph(); renderPathList(); renderPanel(); renderBackups(); }
+  /* Every render rebuilds the toolbar, graph, list, and panel from scratch, so the
+   * element that had keyboard focus is gone afterwards. Remember it by its stable
+   * key and put focus back; if it no longer exists, land on the detail panel. */
+  function focusKey() {
+    var el = document.activeElement;
+    if (!el || el === document.body) return null;
+    var attrs = ['data-node', 'data-path-row', 'data-remediation'];
+    for (var i = 0; i < attrs.length; i++) if (el.hasAttribute(attrs[i])) return { attr: attrs[i], value: el.getAttribute(attrs[i]) };
+    var bar = document.getElementById('graph-agents');
+    if (bar && el.parentNode === bar) return { toolbar: Array.prototype.indexOf.call(bar.children, el) };
+    var panel = document.getElementById('graph-panel');
+    if (panel && panel.contains(el)) return { panel: true };
+    return null;
+  }
+  function restoreFocus(key) {
+    if (!key) return;
+    var target = null;
+    if (key.attr) target = document.querySelector('[' + key.attr + '="' + key.value.replace(/["\\]/g, '\\$&') + '"]');
+    else if (key.toolbar !== undefined) target = document.getElementById('graph-agents').children[key.toolbar];
+    if (!target || key.panel) target = document.getElementById('graph-panel');
+    if (target) target.focus({ preventScroll: true });
+  }
+  document.getElementById('graph-panel').setAttribute('tabindex', '-1');
+  function renderAll() { var key = focusKey(); renderToolbar(); renderGraph(); renderPathList(); renderPanel(); renderBackups(); restoreFocus(key); }
   if (!live && document.getElementById('boppi-demo-data')) {
     document.addEventListener('boppi-select-path',function(event){if(index.path[event.detail.id]){selectPath(event.detail.id);document.getElementById('graph').scrollIntoView({behavior:'smooth',block:'start'});}});
     document.addEventListener('boppi-demo-view', function (event) {
-      view = event.detail;
-      state.agent = 'all'; state.path = null; state.node = null; state.remediation = null;
+      view = event.detail.view;
+      state.agent = 'all'; state.path = null; state.node = null; state.remediation = null; state.simulation = event.detail.simulation || null;
       reindex();
       renderAll();
     });

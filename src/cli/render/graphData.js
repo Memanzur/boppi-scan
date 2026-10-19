@@ -21,6 +21,19 @@ const KIND_BY_ENTITY = Object.freeze({
 const KINDS = Object.freeze(['agent', 'server', 'capability', 'data', 'credential', 'destination']);
 const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
 
+/** Plain-language names for engine capability ids. Unknown ids pass through unchanged. */
+const CAPABILITY_LABELS = Object.freeze({
+  filesystem_access: 'file access (read and write files)',
+  network_access: 'network access (reach external services)',
+  shell_access: 'shell access (run commands)',
+  code_execution: 'code execution (run programs)',
+  credential_access: 'credential access (use stored secrets)',
+  environment_access: 'environment access (read environment variables)',
+  browser_automation: 'browser automation (drive a web browser)',
+  untrusted_external_content: 'untrusted content intake (read external pages or messages)',
+});
+function capabilityLabel(id) { return CAPABILITY_LABELS[id] || id; }
+
 function kindOf(entityType) { return KIND_BY_ENTITY[entityType] || entityType; }
 function evidenceLabel(evidenceClass) { return evidenceClass === 'observed' ? 'configured' : (evidenceClass || 'unknown'); }
 
@@ -74,7 +87,7 @@ function serverEvidence(server) {
   if (server.endpoint) lines.push({ title: 'Endpoint', detail: server.endpoint });
   if (server.configPath) lines.push({ title: 'Config file', detail: `fingerprint ${server.configPath}` });
   lines.push({ title: 'Trust status', detail: server.trustStatus || 'unknown' });
-  if ((server.capabilities || []).length) lines.push({ title: 'Capabilities', detail: server.capabilities.join(', ') });
+  if ((server.capabilities || []).length) lines.push({ title: 'Capabilities', detail: server.capabilities.map(capabilityLabel).join(', ') });
   if ((server.environmentVariableNames || []).length) lines.push({ title: 'Environment variable names', detail: server.environmentVariableNames.join(', ') });
   if ((server.credentialReferences || []).length) lines.push({ title: 'Credential references (names only)', detail: server.credentialReferences.join(', ') });
   if ((server.exposedTools || []).length) lines.push({ title: 'Configured or catalog-inferred tools', detail: server.exposedTools.join(', ') });
@@ -208,6 +221,7 @@ function buildGraphView(report) {
     scope: 'This graph is built from configuration metadata. It shows what the agents could reach, not what they did. Boppi did not observe any activity.',
     agents: (inventory.agents || []).map(a => ({ id: a.id, name: a.name, riskScore: a.riskScore ?? 0, riskLevel: a.riskLevel || 'low', serverIds: (inventory.mcpServers || []).filter(s => s.agentId === a.id).map(s => s.id) })),
     nodes, edges, paths: viewPaths, remediations, plan,
+    capabilityLabels: Object.fromEntries([...new Set(remediations.flatMap(r => [...r.loses, ...r.keeps]).concat((inventory.mcpServers || []).flatMap(s => s.capabilities || [])))].map(id => [id, capabilityLabel(id)])),
     coverage: { filesRead: report.portableFilesRead || [], incomplete: report.incomplete || [] },
   };
 }
@@ -227,4 +241,4 @@ function viewFromExport(exported) {
   });
 }
 
-module.exports = { buildGraphView, viewFromExport, KINDS, kindOf, previewHash, editFiles, fixCommand };
+module.exports = { buildGraphView, viewFromExport, KINDS, kindOf, previewHash, editFiles, fixCommand, capabilityLabel, CAPABILITY_LABELS };

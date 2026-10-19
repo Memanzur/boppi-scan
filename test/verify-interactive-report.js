@@ -85,6 +85,8 @@ function runCli(args, home) {
   ok('top remediation names the file, the key, and the sanitized entry', top.files.from.length === 1 && top.files.from[0].startsWith('~/') && top.keyPath === `mcpServers.${JSON.stringify(top.server)}` && top.entry && top.entry.command);
   ok('eliminates and survives reference view path ids', [...top.eliminates, ...top.survives].every(id => view.paths.some(p => p.id === id)));
   ok('remediation declares what the agent loses', Array.isArray(top.loses) && top.loses.length >= 1);
+  ok('view carries a plain-language label for every capability id it mentions', top.loses.every(id => typeof view.capabilityLabels[id] === 'string' && view.capabilityLabels[id] !== id && !/_access$/.test(view.capabilityLabels[id])) && graphData.capabilityLabel('shell_access') === 'shell access (run commands)' && graphData.capabilityLabel('unknown_thing') === 'unknown_thing');
+  ok('server evidence and the inventory table use the plain-language labels', serverNode.evidence.some(l => l.title === 'Capabilities' && /file access \(read and write files\)/.test(l.detail)));
   ok('every remediation on a path points back to that path', view.remediations.every(r => r.eliminates.every(id => view.paths.find(p => p.id === id).remediationIds.includes(r.id))));
   ok('remove_server remediations are not guided; move_server ones are', view.remediations.every(r => r.guided === (r.action === 'move_server')));
   ok('previewHash is a sha256 and changes when the server differs', /^[0-9a-f]{64}$/.test(top.previewHash) && new Set(view.remediations.map(r => r.previewHash)).size === view.remediations.length);
@@ -118,6 +120,9 @@ function runCli(args, home) {
   ok('embedded JSON never contains a raw < or the home path', !embedded[1].includes('<') && !htmlOut.includes(home) && !htmlOut.includes(os.homedir()));
   ok('embedded JSON never contains the secret value', !htmlOut.includes('SUPERSECRETVALUE'));
   ok('page keeps the existing sections', ['What this scan established', 'Discovered MCP servers and capabilities', 'Root cause', 'Potential exposure paths (', 'Findings (', 'Agents (', 'Privacy.'].every(text => htmlOut.includes(text)));
+  ok('inventory rows show plain-language capabilities, not raw ids', /<td>file access \(read and write files\)/.test(htmlOut.replace(/<td>[^<]*, /g, '<td>')) && !/<td>[a-z_]*_access(, [a-z_]*_access)*<\/td>/.test(htmlOut));
+  ok('client script restores keyboard focus after every rerender and marks selected rows pressed', /function restoreFocus/.test(htmlOut) && /var key = focusKey\(\); renderToolbar\(\)/.test(htmlOut) && /'aria-pressed': state\.path === p\.id/.test(htmlOut));
+  ok('narrow screens get a swipe hint for the five-column graph', htmlOut.includes('class="narrow-only"') && /\.narrow-only\{display:none\}/.test(htmlOut) && /\.narrow-only\{display:inline\}/.test(htmlOut));
   ok('page has the graph, path list, panel, and show-in-graph buttons', ['id="graph-svg"', 'id="graph-paths"', 'id="graph-panel"', 'data-show-path="'].every(text => htmlOut.includes(text)));
   ok('page carries the value proposition and the not-an-execution-trace disclaimer', htmlOut.includes('See what your AI agents can access, understand the potential exposure paths, fix dangerous access, and verify that the risk is gone.') && htmlOut.includes('Not an execution trace'));
   ok('static page has no live token meta', !htmlOut.includes('<meta name="boppi-live"'));
