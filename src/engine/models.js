@@ -23,6 +23,7 @@
   const REMEDIATION_STATUS = new Set(['open', 'in_progress', 'completed', 'cancelled']);
   const HISTORY_LIMIT = 100;
   const EVIDENCE_CLASSES = new Set(['observed', 'imported', 'fixture', 'inferred']);
+  const CAPABILITY_BASES = new Set(['configured', 'catalog', 'inferred', 'observed', 'verified']);
 
   function fail(message) { throw new TypeError(`Agent Security model: ${message}`); }
   function requiredString(value, field) {
@@ -180,6 +181,11 @@
       configPath: optionalString(clean.configPath, 'mcpServer.configPath'),
       exposedTools: Array.isArray(clean.exposedTools) ? clean.exposedTools.map(v => requiredString(v, 'mcpServer.exposedTools')) : [],
       capabilities: Array.isArray(clean.capabilities) ? clean.capabilities.map(v => requiredString(v, 'mcpServer.capabilities')) : [],
+      capabilityEvidence: Array.isArray(clean.capabilityEvidence) ? clean.capabilityEvidence.map(e => ({
+        capability: requiredString(e && e.capability, 'mcpServer.capabilityEvidence.capability'),
+        basis: CAPABILITY_BASES.has(e && e.basis) ? e.basis : 'inferred',
+        matched: optionalString(e && e.matched, 'mcpServer.capabilityEvidence.matched'),
+      })) : [],
       filesystemPathCount: Number.isFinite(Number(clean.filesystemPathCount)) ? Math.max(0, Number(clean.filesystemPathCount)) : 0,
       environmentVariableNames: Array.isArray(clean.environmentVariableNames) ? clean.environmentVariableNames.map(v => requiredString(v, 'mcpServer.environmentVariableNames')) : [],
       credentialReferences: Array.isArray(clean.credentialReferences) ? clean.credentialReferences.map(v => requiredString(v, 'mcpServer.credentialReferences')) : [],
