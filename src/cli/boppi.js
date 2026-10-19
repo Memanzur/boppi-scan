@@ -602,6 +602,7 @@ async function runPush(options) {
     if (!options.token) { process.stderr.write('push: no token entered\n'); return 2; }
   }
   let inventory;
+  let snapshotAt;
   let incomplete = [];
   if (options.file) {
     let payload;
@@ -610,6 +611,7 @@ async function runPush(options) {
       return 2;
     }
     inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
+    snapshotAt = typeof payload.exportedAt === 'string' ? payload.exportedAt : undefined;
     if (!inventory || !Array.isArray(inventory.agents)) {
       process.stderr.write(`push: ${options.file} has no inventory; it must be a --json export from boppi scan\n`);
       return 2;
@@ -620,7 +622,9 @@ async function runPush(options) {
       process.stderr.write(`Scan failed: ${scan.failed}\n`);
       return scan.exitCode || 3;
     }
-    inventory = exportPayload(scan).inventory.real;
+    const payload = exportPayload(scan);
+    inventory = payload.inventory.real;
+    snapshotAt = payload.exportedAt;
     incomplete = scan.incomplete;
   }
 
@@ -645,7 +649,7 @@ async function runPush(options) {
   process.stdout.write('Only sanitized inventory metadata is sent: no secret values, file contents, or raw paths.\n');
   if (!options.merge && !snapshot) process.stderr.write(`More than ${push.SNAPSHOT_MAX} records: pushing without snapshot cleanup, so records absent from this scan stay in the workspace.\n`);
 
-  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot });
+  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt });
   if (!result.ok) {
     process.stderr.write(`${push.describeFailure(result)}\n`);
     return 5;
@@ -695,10 +699,12 @@ async function run(argv) {
 
   if (options.command === 'plan') {
     process.stdout.write(plan.renderPlan(report, options) + '\n');
+    if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
     if (options.json) {
       fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));
       process.stdout.write(`\nJSON export written to ${options.json}\n`);
     }
+    if (report.policy && !report.policy.passed) return 1;
     return incomplete.length ? 4 : 0;
   }
 

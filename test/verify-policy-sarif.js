@@ -87,6 +87,16 @@ function runCli(args, home, cwd = home) {
   const missing = runCli(['scan', '--policy', path.join(root, 'nope.json')], home);
   ok('a missing --policy file exits 2', missing.code === 2);
 
+  section('plan honors the policy');
+  fs.writeFileSync(path.join(cwd, 'boppi.policy.json'), JSON.stringify({ denyServers: ['desktop-commander'] }));
+  const planViolated = runCli(['plan'], home, cwd);
+  ok('boppi plan exits 1 and prints the POLICY section when the policy is violated', planViolated.code === 1 && planViolated.stdout.includes('POL-DENY-SERVER') && planViolated.stdout.includes('"commander"'));
+  fs.writeFileSync(path.join(cwd, 'boppi.policy.json'), JSON.stringify({ allowServers: ['filesystem', 'fetch', 'commander', 'mystery', 'puppeteer'] }));
+  const planClean = runCli(['plan'], home, cwd);
+  ok('boppi plan exits 0 when the policy passes', planClean.code === 0 && planClean.stdout.includes('POLICY  passed'));
+  const planNoPolicy = runCli(['plan'], home);
+  ok('boppi plan without a policy exits 0 and prints no POLICY section', planNoPolicy.code === 0 && !planNoPolicy.stdout.includes('POLICY'));
+
   section('explicit config in CI shape');
   fs.writeFileSync(path.join(cwd, '.mcp.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] }, shell: { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] } } }));
   fs.writeFileSync(path.join(cwd, 'boppi.policy.json'), JSON.stringify({ denyCombinations: [['shell_access', 'untrusted_external_content']] }));

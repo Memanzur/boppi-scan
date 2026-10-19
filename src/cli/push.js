@@ -104,34 +104,37 @@ function counts(inventory) {
   };
 }
 
-async function postBatch({ ingestUrl, token, records, snapshot, fetchImpl }) {
+async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, fetchImpl }) {
   let response;
   try {
     response = await fetchImpl(ingestUrl.toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' },
-      body: JSON.stringify(snapshot ? { records, snapshot: true } : { records }),
+      body: JSON.stringify(snapshot ? { records, snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : { records }),
     });
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
   }
   const body = await response.json().catch(() => ({}));
-  return { ok: response.ok, status: response.status, body };
+  const retryAfter = response.headers && typeof response.headers.get === 'function' ? Number(response.headers.get('retry-after')) : NaN;
+  return { ok: response.ok, status: response.status, body, ...(Number.isFinite(retryAfter) ? { retryAfter } : {}) };
 }
 
 /**
  * Send the records. A snapshot goes as one request (the server caps a request
- * at SNAPSHOT_MAX records, which is also the snapshot ceiling). A merge is sent
- * in MERGE_BATCH-sized requests. Resolves to { ok, ingested } or the first
- * failed batch: { ok: false, status, body } or { ok: false, networkError }.
+ * at SNAPSHOT_MAX records, which is also the snapshot ceiling) and carries
+ * snapshotAt, the export's timestamp, so the workspace can refuse a snapshot
+ * older than the one it already holds. A merge is sent in MERGE_BATCH-sized
+ * requests. Resolves to { ok, ingested } or the first failed batch:
+ * { ok: false, status, body, retryAfter? } or { ok: false, networkError }.
  */
-async function pushRecords({ ingestUrl, token, records, snapshot, fetchImpl = globalThis.fetch }) {
+async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, fetchImpl = globalThis.fetch }) {
   if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
   const batches = snapshot ? [records] : [];
   if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
   let ingested = 0;
   for (const batch of batches) {
-    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, fetchImpl });
+    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, snapshotAt, fetchImpl });
     if (!result.ok) return result;
     ingested += Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : batch.length;
   }
@@ -145,11 +148,21 @@ const FAILURE_HINT = Object.freeze({
   503: 'The workspace is temporarily unavailable. Retry in a minute.',
 });
 
+/** Hints keyed by the ingest contract's error code; the code, not the message text, identifies the case. */
+const CODE_HINT = Object.freeze({
+  stale_snapshot: body => `The workspace already holds a snapshot from this machine taken at ${body.serverSnapshotAt || 'an unknown time'}. Run boppi push without --file to send a fresh scan.`,
+  rate_limited: (body, result) => {
+    const seconds = Number.isFinite(body.retryAfterSeconds) ? body.retryAfterSeconds : result.retryAfter;
+    return `Retry in ${Number.isFinite(seconds) ? `${seconds} seconds` : 'a few minutes'}. boppi does not retry on its own.`;
+  },
+});
+
 function describeFailure(result) {
   if (result.networkError) return `Could not reach the workspace: ${result.networkError}`;
-  const message = (result.body && result.body.error) || 'unknown error';
-  const hint = FAILURE_HINT[result.status];
-  const requestId = result.body && result.body.requestId ? ` (request ${result.body.requestId})` : '';
+  const body = result.body || {};
+  const message = body.error || 'unknown error';
+  const hint = CODE_HINT[body.code] ? CODE_HINT[body.code](body, result) : FAILURE_HINT[result.status];
+  const requestId = body.requestId ? ` (request ${body.requestId})` : '';
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
