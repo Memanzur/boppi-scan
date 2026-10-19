@@ -100,6 +100,13 @@
     return [...new Set(raw.filter(value => SAFE_CAPABILITIES.has(value)))];
   }
   function trustStatus(value) { return value === 'verified' || value === 'unverified' ? value : 'unknown'; }
+  function evidenceList(server, field) {
+    if (server.capabilityEvidence == null) return [];
+    if (!Array.isArray(server.capabilityEvidence)) fail(`${field} must be an array`);
+    return server.capabilityEvidence
+      .filter(e => e && typeof e === 'object' && SAFE_CAPABILITIES.has(e.capability))
+      .map(e => ({ capability:e.capability, basis:text(e.basis, `${field}.basis`, 40), matched:typeof e.matched === 'string' && e.matched.trim() ? text(e.matched, `${field}.matched`, 240) : null }));
+  }
   function scanConfig(input = {}) {
     if (input.consent !== true) fail('explicit consent is required');
     const spec = SOURCE_SPECS[input.source];
@@ -124,9 +131,11 @@
       const env = sanitizeEnv(server.env);
       const args = sanitizeArguments(safeList(server.args, `${serverName}.args`));
       const capabilities = declaredCapabilities(server);
-      if (env.names.length) capabilities.push('environment_access');
-      if (env.credentialReferences.length) capabilities.push('credential_access');
-      if (Array.isArray(server.filesystemPaths) && server.filesystemPaths.length) capabilities.push('filesystem_access');
+      const capabilityEvidence = evidenceList(server, `${serverName}.capabilityEvidence`);
+      const evidence = (capability, matched) => { if (!capabilityEvidence.some(e => e.capability === capability)) capabilityEvidence.push({ capability, basis:'configured', matched }); };
+      if (env.names.length) { capabilities.push('environment_access'); evidence('environment_access', 'environment variable names'); }
+      if (env.credentialReferences.length) { capabilities.push('credential_access'); evidence('credential_access', 'credential-like environment variable names'); }
+      if (Array.isArray(server.filesystemPaths) && server.filesystemPaths.length) { capabilities.push('filesystem_access'); evidence('filesystem_access', 'directory arguments'); }
       const tools = safeList(server.tools, `${serverName}.tools`).map(value => value.replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 120)).filter(Boolean);
       const createdAt = observedAt;
       const record = models.createMCPServer({
@@ -135,7 +144,7 @@
         agentId:agent.id, name:serverName,
         command:sanitizeCommand(server.command),
         arguments:args, endpoint:sanitizeEndpoint(server.url || server.endpoint), configPath,
-        exposedTools:tools, capabilities:[...new Set(capabilities)], trustStatus:trustStatus(server.trustStatus),
+        exposedTools:tools, capabilities:[...new Set(capabilities)], capabilityEvidence, trustStatus:trustStatus(server.trustStatus),
         filesystemPathCount:Array.isArray(server.filesystemPaths) ? server.filesystemPaths.length : 0,
         environmentVariableNames:env.names, credentialReferences:env.credentialReferences,
         dryRun:input.dryRun !== false, confidence:0.85, source:{...source, observedAt:createdAt}, createdAt, updatedAt:createdAt,
