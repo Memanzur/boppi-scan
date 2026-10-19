@@ -146,6 +146,12 @@ Exposure path templates:
 
 Rule-engine findings (AE-001 through AE-007) cover the same combinations per agent, plus one data-governance check: broad file access granted to a vendor whose data-training posture is unknown.
 
+### Unrecognized and unpinned servers
+
+A server that matches no catalog entry, no name rule, has no `url`, passes no existing directory, and declares no `capabilities` array earns no capability, no graph reach, and no exposure path. That used to make a machine full of unknown servers look like an empty one. Now the report tags each such server `unrecognized` on its inventory line, lists it under UNRECOGNIZED SERVERS with how it launches and why nothing matched, names it in the COVERAGE "not established" line, and repeats it in the HTML report, the JSON export (`recognition`), and SARIF (`BOPPI-UNRECOGNIZED`, warning). Unknown is not the same as safe; a `boppi.policy.json` with `"requireKnownCapabilities": true` fails the scan on them.
+
+The same pass reads the version from `npx <pkg>@version`, `uvx <pkg>==version`, and `docker run <image>:tag`. A package launch with no version, `latest`, or a range is tagged `unpinned` (SARIF `BOPPI-UNPINNED`, note) and counted under PACKAGE PINS, because it runs whatever is published at its next launch. Remote urls and local programs have no pin.
+
 ### Built-in agent tools
 
 Claude Code and Cursor run shell commands and read and write files through their own tools, with no MCP server involved. The scanner models those as grants on the agent itself, so Claude Code with a single `fetch` server reports the privilege path (EP-E) that the fetched pages open onto its built-in shell, and removing an MCP shell server is never offered as the fix for a shell the agent already has. The report lists them under BUILT-IN TOOLS, separate from MCP servers.

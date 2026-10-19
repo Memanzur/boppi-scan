@@ -10,6 +10,7 @@ const exposurePathEngine = require('../../engine/exposurePathEngine');
 const { rankPredictions } = require('../predict');
 const { shellArgument, shellPath } = require('../shell');
 const { builtinCapabilities } = require('../builtinTools');
+const recognition = require('../recognition');
 
 const KIND_BY_ENTITY = Object.freeze({
   ai_agent: 'agent', coding_agent: 'agent', autonomous_agent: 'agent', ai_application: 'agent',
@@ -103,6 +104,7 @@ function buildGraphView(report) {
   const owner = agentOwnership(graph, inventory);
   const serverById = new Map((inventory.mcpServers || []).map(s => [s.id, s]));
   const permissionById = new Map((inventory.permissions || []).map(p => [p.id, p]));
+  const recognitionById = new Map((report.recognition || []).filter(r => r.serverId).map(r => [r.serverId, r]));
   const agentById = new Map((inventory.agents || []).map(a => [a.id, a]));
   const labelById = new Map(graph.nodes.map(n => [n.id, n.label]));
   const incoming = new Map();
@@ -137,6 +139,11 @@ function buildGraphView(report) {
     } else if (kind === 'server') {
       const server = serverById.get(node.recordId);
       if (server) evidence.push(...serverEvidence(server));
+      const known = recognitionById.get(node.recordId);
+      if (known) {
+        const pin = known.pin === 'unpinned' ? ' · unpinned: runs whatever version is published at its next launch' : known.pin === 'pinned' ? ` · pinned ${known.identity.version}` : '';
+        evidence.push({ title: 'Recognition', detail: known.recognized ? `recognized (${recognition.launchSummary(known, server)})${pin}` : `unrecognized: ${known.reasons.join(', ')} (${recognition.launchSummary(known, server)})${pin}. Boppi cannot tell what this server can do; it is in no path, which is not the same as safe.` });
+      }
     } else if (node.entityType === 'permission') {
       const permission = permissionById.get(node.recordId);
       if (permission) {
@@ -242,6 +249,7 @@ function viewFromExport(exported) {
     inventory, graph: exported.graph, paths: exported.exposurePaths || [],
     discovery: discovery.clients || [], portableFilesRead: discovery.filesRead || [],
     predictions: exported.predictions || [], remediationPlan: exported.remediationPlan || null,
+    recognition: exported.recognition || [],
     incomplete: (discovery.clients || []).filter(c => c.scanError || (c.files || []).some(f => f.status === 'unreadable')).map(c => c.label),
     scanArgs: exported.scanArgs || null,
   });

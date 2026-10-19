@@ -2,6 +2,7 @@
 'use strict';
 const { rankPredictions } = require('../predict');
 const { builtinCapabilities } = require('../builtinTools');
+const recognition = require('../recognition');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -160,10 +161,32 @@ function renderReport(report, options = {}) {
     out('');
     out(s.bold(`MCP SERVERS (${report.inventory.mcpServers.length})`));
     if (!report.inventory.mcpServers.length) out(s.dim('  No supported MCP servers were found in the examined configuration files.'));
+    const recognitionById = new Map((report.recognition || []).filter(r => r.serverId).map(r => [r.serverId, r]));
     for (const server of report.inventory.mcpServers) {
       const agent = report.inventory.agents.find(candidate => candidate.id === server.agentId);
       const capabilities = (server.capabilities || []).join(', ') || 'no supported capability identified';
-      out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`));
+      const known = recognitionById.get(server.id);
+      const tags = [];
+      if (known && !known.recognized) tags.push(s.yellow('unrecognized'));
+      if (known && known.pin === 'unpinned') tags.push(s.yellow('unpinned'));
+      out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`), tags.length ? s.dim(' · ') + tags.join(s.dim(' · ')) : '');
+    }
+    const unknownServers = recognition.unrecognized(report.recognition);
+    if (unknownServers.length) {
+      out('');
+      out(s.bold(`UNRECOGNIZED SERVERS (${unknownServers.length})`), s.dim('  Boppi could not establish what these can do; they sit in no exposure path, which is not the same as safe'));
+      for (const item of unknownServers) {
+        const server = report.inventory.mcpServers.find(m => m.id === item.serverId);
+        out('  ', s.bold(item.server), s.dim(` · ${item.clientLabel} · `), recognition.launchSummary(item, server), s.dim(` · ${item.reasons.join(', ')}`));
+      }
+      out(s.dim(`  ${recognition.ADVICE}`));
+    }
+    const launched = recognition.packageLaunched(report.recognition);
+    const loose = recognition.unpinned(report.recognition);
+    if (loose.length) {
+      out('');
+      out(s.bold('PACKAGE PINS  '), `${loose.length} of ${launched.length} package-launched server${launched.length === 1 ? '' : 's'} ${loose.length === 1 ? 'is' : 'are'} unpinned: ${loose.map(r => r.server).join(', ')}.`);
+      out(s.dim(`  ${recognition.UNPINNED_ADVICE}`));
     }
     const builtin = builtinLines(report);
     if (builtin.length) {
@@ -178,7 +201,8 @@ function renderReport(report, options = {}) {
     out(s.bold('COVERAGE'));
     const grantCount = builtin.filter(line => line.gate !== 'denied').length;
     out('  ', s.green('Established: '), `${report.inventory.agents.length} agent${report.inventory.agents.length === 1 ? '' : 's'}, ${report.inventory.mcpServers.length} MCP server${report.inventory.mcpServers.length === 1 ? '' : 's'}, ${grantCount} built-in tool grant${grantCount === 1 ? '' : 's'}, and ${report.filesRead.length} configuration file${report.filesRead.length === 1 ? '' : 's'} examined.`);
-    out('  ', s.dim('Not established: '), 'runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.');
+    const unknownSentence = recognition.coverageSentence(report.recognition);
+    out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}`);
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
     else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');
   }

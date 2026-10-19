@@ -28,6 +28,7 @@ const rootCauseEngine = require('../engine/rootCauseEngine');
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const builtinTools = require('./builtinTools');
+const recognitionModule = require('./recognition');
 const predict = require('./predict');
 const verify = require('./verify');
 const overlayModule = require('./overlay');
@@ -412,6 +413,7 @@ async function performScan(options) {
   const applied = [];
   const providers = [];
   const inferenceByClient = {};
+  const recognition = [];
   for (const client of discovery.clients) {
     if (!client.primaryPath) continue; // nothing found for this client
     const { config, inferenceByServer, overlayByServer } = enrich(client.mergedServers, options.home, overlay);
@@ -424,6 +426,7 @@ async function performScan(options) {
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
       client.agentId = scannerResult.agent.id;
+      recognition.push(...recognitionModule.describeClient({ clientKey: client.clientKey, label: client.label, mergedServers: client.mergedServers, inferenceByServer, records: scannerResult.records }));
       providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer, builtin: client.builtin || null }));
     } catch (error) {
       const hint = /secret material/.test(error.message) ? '. Move that value into an environment variable the server reads and rescan; Boppi never records the value itself' : '';
@@ -465,7 +468,7 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
-  return { startedAt, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, scanArgs };
+  return { startedAt, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -497,6 +500,7 @@ function exportPayload(scan) {
     rootCauses: scan.rootCauses,
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
+    recognition: scan.recognition,
     scanArgs: scan.scanArgs,
     ...envelope,
     discovery: scan.portableDiscovery,
@@ -782,7 +786,7 @@ async function run(argv) {
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
-    inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete, scanArgs: scan.scanArgs,
+    inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, recognition: scan.recognition, incomplete, scanArgs: scan.scanArgs,
   };
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);

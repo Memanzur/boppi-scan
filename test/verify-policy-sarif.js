@@ -64,7 +64,8 @@ function runCli(args, home, cwd = home) {
   ok('rules cover every exposure template and every violated policy rule', ['EP-A', 'EP-B', 'EP-C', 'EP-D', 'EP-E', 'EP-F'].every(id => ruleIds.has(id)) && ruleIds.has('POL-DENY-SERVER') && ruleIds.has('POL-DENY-COMBINATION'));
   ok('every result references a declared rule and a config location', runObj.results.length > 0 && runObj.results.every(r => ruleIds.has(r.ruleId) && r.locations[0].physicalLocation.artifactLocation.uri));
   const openFindings = exported.inventory.real.findings.filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status));
-  ok('results are the paths, the open findings, and the violations', runObj.results.length === exported.exposurePaths.length + openFindings.length + exported.policy.violations.length);
+  const recognitionResults = exported.recognition.filter(r => !r.recognized).length + exported.recognition.filter(r => r.pin === 'unpinned').length;
+  ok('results are the paths, the open findings, the violations, and the unrecognized or unpinned servers', runObj.results.length === exported.exposurePaths.length + openFindings.length + exported.policy.violations.length + recognitionResults && runObj.results.filter(r => r.ruleId === 'BOPPI-UNPINNED').length === exported.recognition.filter(r => r.pin === 'unpinned').length);
   ok('critical and high map to error, medium to warning', runObj.results.filter(r => ['critical', 'high'].includes(r.properties.severity)).every(r => r.level === 'error') && runObj.results.filter(r => r.properties.severity === 'medium').every(r => r.level === 'warning'));
   const serialized = JSON.stringify(log);
   ok('SARIF uses portable config paths, never the home directory', serialized.includes('~/Library/Application Support/Claude/claude_desktop_config.json') && !serialized.includes(home));

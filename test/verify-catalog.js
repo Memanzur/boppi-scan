@@ -37,7 +37,8 @@ ok('docker run ... <image>', idOf({ command: 'docker', args: ['run', '-i', '--rm
 ok('docker image tag is ignored', idOf({ command: 'docker', args: ['run', '-i', '--rm', 'mcp/fetch:latest'] }) === 'mcp-fetch');
 ok('url host', idOf({ url: 'https://mcp.context7.com/mcp' }) === 'context7');
 ok('url host with a port and a path', idOf({ url: 'https://mcp.sentry.dev:443/mcp?x=1' }) === 'sentry-mcp');
-ok('identityOf reports the kind and name', JSON.stringify(identityOf({ command: 'uvx', args: ['mcp-server-fetch'] })) === JSON.stringify({ kind: 'pypi', name: 'mcp-server-fetch' }));
+ok('identityOf reports the kind, name, and a null version when none is written', JSON.stringify(identityOf({ command: 'uvx', args: ['mcp-server-fetch'] })) === JSON.stringify({ kind: 'pypi', name: 'mcp-server-fetch', version: null }));
+ok('identityOf keeps the npm version, the pypi specifier, and the docker tag as written', identityOf({ command: 'npx', args: ['-y', '@scope/pkg@1.2.3'] }).version === '1.2.3' && identityOf({ command: 'uvx', args: ['mcp-server-git==0.6.2'] }).version === '==0.6.2' && identityOf({ command: 'uvx', args: ['mcp-server-git@0.6.2'] }).version === '0.6.2' && identityOf({ command: 'docker', args: ['run', '-i', '--rm', 'mcp/fetch:1.0'] }).version === '1.0' && identityOf({ command: 'docker', args: ['run', 'mcp/fetch'] }).version === null);
 
 section('Near misses never match');
 ok('a package that merely contains a catalog name', idOf({ command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem-extra'] }) === null);

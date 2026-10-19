@@ -1,10 +1,12 @@
 /**
  * SARIF 2.1.0 export so a scan can land in GitHub code scanning or any SARIF
  * viewer. Rules are the exposure templates, the rule-engine findings, and
- * policy rules; results point at the portable config path of the agent.
+ * policy rules, plus unrecognized and unpinned servers; results point at
+ * the portable config path of the agent.
  */
 'use strict';
 const exposurePathEngine = require('../../engine/exposurePathEngine');
+const recognition = require('../recognition');
 
 const LEVEL = Object.freeze({ critical: 'error', high: 'error', medium: 'warning', low: 'note' });
 
@@ -51,6 +53,29 @@ function renderSarif(report, options = {}) {
       partialFingerprints: { boppiFindingId: f.id },
       properties: { severity: f.severity, agent: agentName(f.agentId) },
     });
+  }
+  for (const item of report.recognition || []) {
+    const uri = configUriFor(item.agentId, report.discovery);
+    if (!item.recognized) {
+      addRule('BOPPI-UNRECOGNIZED', 'unrecognized_server', 'Unrecognized MCP server', 'The server matched no catalog entry, name rule, url, directory argument, or declared capability, so the scan cannot tell what it can do. It is in no exposure path, which is not the same as safe.', recognition.ADVICE, 'medium');
+      results.push({
+        ruleId: 'BOPPI-UNRECOGNIZED', level: 'warning',
+        message: { text: `Server "${item.server}" on ${item.clientLabel} is unrecognized (${item.reasons.join(', ')}). ${recognition.ADVICE}` },
+        locations: [{ physicalLocation: { artifactLocation: { uri } } }],
+        partialFingerprints: { boppiRecognition: `unrecognized:${item.client}:${item.server}` },
+        properties: { severity: 'medium', agent: item.clientLabel, launcher: item.launcher },
+      });
+    }
+    if (item.pin === 'unpinned') {
+      addRule('BOPPI-UNPINNED', 'unpinned_package', 'Unpinned MCP server package', 'The server is launched from a package registry without an exact version, so each launch runs whatever version is published at that moment.', recognition.UNPINNED_ADVICE, 'low');
+      results.push({
+        ruleId: 'BOPPI-UNPINNED', level: 'note',
+        message: { text: `Server "${item.server}" on ${item.clientLabel} runs ${item.identity ? item.identity.name : 'a package'} (${item.launcherLabel}) without a version pin. ${recognition.UNPINNED_ADVICE}` },
+        locations: [{ physicalLocation: { artifactLocation: { uri } } }],
+        partialFingerprints: { boppiRecognition: `unpinned:${item.client}:${item.server}` },
+        properties: { severity: 'low', agent: item.clientLabel, launcher: item.launcher },
+      });
+    }
   }
   for (const v of (report.policy && report.policy.violations) || []) {
     addRule(v.ruleId, v.rule, v.title, v.detail, 'Change the configuration or the policy so the two agree.', v.severity);

@@ -245,23 +245,31 @@ function stringArgs(server) {
   return Array.isArray(server.args) ? server.args.filter(v => typeof v === 'string') : [];
 }
 
-/** `@scope/name@1.2.3` and `name@latest` lose their version; a leading `@` is the scope, not a version. */
-function stripNpmVersion(spec) {
+/** `@scope/name@1.2.3` and `name@latest` split into name and version; a leading `@` is the scope, not a version. */
+function splitNpmVersion(spec) {
   const at = spec.lastIndexOf('@');
-  return at > 0 ? spec.slice(0, at) : spec;
+  return at > 0 ? { name: spec.slice(0, at), version: spec.slice(at + 1) || null } : { name: spec, version: null };
 }
+function stripNpmVersion(spec) { return splitNpmVersion(spec).name; }
 
-function stripPypiVersion(spec) {
-  return spec.split(/==|@|>=|<=|~=|\[/)[0];
+/** `pkg==1.2.3`, `pkg@1.2.3`, and ranges such as `pkg>=1.0` split into name and the version text as written. */
+function splitPypiVersion(spec) {
+  const match = /^([^=@<>~\[]+)(?:\[[^\]]*\])?(.*)$/.exec(spec);
+  if (!match) return { name: spec, version: null };
+  const version = match[2].replace(/^@/, '').trim();
+  return { name: match[1], version: version || null };
 }
+function stripPypiVersion(spec) { return splitPypiVersion(spec).name; }
 
-function stripDockerTag(image) {
+/** `image:tag` and `image@sha256:digest` split into name and tag or digest. */
+function splitDockerTag(image) {
   const digest = image.indexOf('@');
-  const named = digest > 0 ? image.slice(0, digest) : image;
-  const lastSlash = named.lastIndexOf('/');
-  const colon = named.lastIndexOf(':');
-  return colon > lastSlash ? named.slice(0, colon) : named;
+  if (digest > 0) return { name: image.slice(0, digest), version: image.slice(digest + 1) || null };
+  const lastSlash = image.lastIndexOf('/');
+  const colon = image.lastIndexOf(':');
+  return colon > lastSlash ? { name: image.slice(0, colon), version: image.slice(colon + 1) || null } : { name: image, version: null };
 }
+function stripDockerTag(image) { return splitDockerTag(image).name; }
 
 function dockerImage(args) {
   const start = args.indexOf('run');
@@ -272,7 +280,7 @@ function dockerImage(args) {
       if (DOCKER_VALUE_FLAGS.has(arg) && !arg.includes('=')) i++;
       continue;
     }
-    return stripDockerTag(arg);
+    return splitDockerTag(arg);
   }
   return null;
 }
@@ -283,29 +291,31 @@ function urlHost(value) {
 }
 
 /**
- * The exact identity a config entry evidences: { kind, name } for
- * `npx [-y] <pkg>[@version]`, `uvx <pkg>`, `docker run ... <image>`, or a url
- * host; null when the entry names nothing the catalog could match exactly.
+ * The exact identity a config entry evidences: { kind, name, version } for
+ * `npx [-y] <pkg>[@version]`, `uvx <pkg>[==version]`, `docker run ... <image>[:tag]`,
+ * or a url host (version null); null when the entry names nothing the
+ * catalog could match exactly. The catalog matches on name; version is kept
+ * so a report can say whether the launch is pinned.
  */
 function identityOf(server) {
   if (!server || typeof server !== 'object') return null;
   const host = urlHost(server.url || server.endpoint);
-  if (host) return { kind: 'url', name: host };
+  if (host) return { kind: 'url', name: host, version: null };
   const command = basename(server.command);
   const args = stringArgs(server);
   const positional = args.filter(a => !a.startsWith('-'));
   if (command === 'npx') {
     const spec = positional[0];
-    return spec ? { kind: 'npm', name: stripNpmVersion(spec) } : null;
+    return spec ? { kind: 'npm', ...splitNpmVersion(spec) } : null;
   }
   if (command === 'uvx') {
     const from = args.indexOf('--from');
     const spec = from >= 0 ? args[from + 1] : positional[0];
-    return spec ? { kind: 'pypi', name: stripPypiVersion(spec) } : null;
+    return spec ? { kind: 'pypi', ...splitPypiVersion(spec) } : null;
   }
   if (command === 'docker') {
     const image = dockerImage(args);
-    return image ? { kind: 'docker', name: image } : null;
+    return image ? { kind: 'docker', ...image } : null;
   }
   return null;
 }

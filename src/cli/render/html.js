@@ -13,6 +13,7 @@ const path = require('path');
 const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
 const { builtinCapabilities } = require('../builtinTools');
+const recognition = require('../recognition');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
 const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
@@ -173,11 +174,22 @@ function renderHtml(report, options = {}) {
   const ranked = rankPredictions(report.predictions || [], paths);
   const plan = report.remediationPlan;
   const editSentence = step => `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration.`;
+  const recognitionById = new Map((report.recognition || []).filter(r => r.serverId).map(r => [r.serverId, r]));
+  const recognitionCell = known => {
+    if (!known) return '<span class="muted">not assessed</span>';
+    const parts = [known.recognized ? 'Recognized' : '<b>Unrecognized</b>'];
+    if (known.pin === 'unpinned') parts.push('<b>unpinned</b>');
+    else if (known.pin === 'pinned') parts.push(`pinned ${esc(known.identity.version)}`);
+    return `${parts.join(' · ')}<div class="muted small">${esc(recognition.launchSummary(known, inventory.mcpServers.find(m => m.id === known.serverId)))}</div>`;
+  };
   const serverRows = inventory.mcpServers.map(server => {
     const agent = inventory.agents.find(candidate => candidate.id === server.agentId);
     const capabilities = (server.capabilities || []).map(capabilityLabel).join(', ') || 'No supported capability identified';
-    return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}</td></tr>`;
+    return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}</td><td class="small">${recognitionCell(recognitionById.get(server.id))}</td></tr>`;
   }).join('');
+  const unknownServers = recognition.unrecognized(report.recognition);
+  const loose = recognition.unpinned(report.recognition);
+  const unknownSentence = recognition.coverageSentence(report.recognition);
   const coverageNote = report.incomplete?.length
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
     : 'Complete for the supported configuration sources that were found.';
@@ -224,16 +236,24 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
   <h2 id="coverage">What this scan established</h2>
   <div class="card">
     <div class="kv"><b>Established:</b> ${inventory.agents.length} agent${inventory.agents.length === 1 ? '' : 's'}, ${inventory.mcpServers.length} MCP server${inventory.mcpServers.length === 1 ? '' : 's'}, ${builtinCount} built-in tool grant${builtinCount === 1 ? '' : 's'}, and ${report.portableFilesRead.length} configuration file${report.portableFilesRead.length === 1 ? '' : 's'} examined.</div>
-    <div class="kv"><b>Not established:</b> runtime behavior, activity absent from configuration, or access not evidenced by the scanned metadata.</div>
+    <div class="kv"><b>Not established:</b> runtime behavior, activity absent from configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${esc(unknownSentence)}` : ''}</div>
     <div class="kv muted small">${esc(coverageNote)} A clean result is not proof that the environment is safe.</div>
   </div>
 
   ${evidenceGuide()}
   <h2 id="inventory">Discovered MCP servers and capabilities</h2>
   <div class="table-scroll"><table>
-    <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th></tr></thead>
-    <tbody>${serverRows || '<tr><td colspan="3" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}</tbody>
+    <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th><th>Recognition</th></tr></thead>
+    <tbody>${serverRows || '<tr><td colspan="4" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}</tbody>
   </table></div>
+${unknownServers.length ? `
+  <h2 id="unrecognized">Unrecognized servers (${unknownServers.length})</h2>
+  <div class="card" style="border-left:3px solid var(--warn, #d08a00)">
+    <div class="kv">Boppi could not establish what these servers can do. They sit in no exposure path, which is not the same as safe.</div>
+    <ul class="small" style="margin:6px 0 0 18px">${unknownServers.map(item => `<li><b>${esc(item.server)}</b> · ${esc(item.clientLabel)} · ${esc(recognition.launchSummary(item, inventory.mcpServers.find(m => m.id === item.serverId)))} <span class="muted">· ${esc(item.reasons.join(', '))}</span></li>`).join('')}</ul>
+    <div class="kv muted small">${esc(recognition.ADVICE)}</div>
+  </div>` : ''}
+${loose.length ? `<div class="card"><div class="kv"><b>Package pins:</b> ${loose.length} of ${recognition.packageLaunched(report.recognition).length} package-launched server${recognition.packageLaunched(report.recognition).length === 1 ? '' : 's'} ${loose.length === 1 ? 'is' : 'are'} unpinned: ${esc(loose.map(r => r.server).join(', '))}.</div><div class="kv muted small">${esc(recognition.UNPINNED_ADVICE)}</div></div>` : ''}
 ${builtinRows ? `
   <h2 id="builtin">Built-in tools</h2>
   <p class="muted small">The agent's own tools, with no MCP server involved. Removing a server never removes these. "Prompts" means the client asks before each use; "No prompt" means a permission setting lets the tool run without asking.</p>
