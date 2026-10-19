@@ -38,23 +38,25 @@ const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
 const demo = require('./demo');
+const remediate = require('./remediate');
+const rollback = require('./rollback');
 
 const VERSION = require('../../package.json').version;
-const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'demo']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|demo] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
     '  boppi plan                     compare every candidate fix (paths broken, new paths, capabilities lost) and show the exact edits; changes nothing',
-    '  boppi fix --server <name>      remove one server entry from its config file (backup first), then rescan and grade the prediction',
+    '  boppi fix --server <name>      preview the exact edit, then remove one server entry from its config file (backup first), rescan, and grade the prediction',
+    '  boppi rollback [--id <id>]     list the backups fix recorded, or restore one to its file and rescan',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
@@ -72,6 +74,13 @@ function usage() {
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
     '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor',
     '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
+    '',
+    'plan options:',
+    '  --diff              print the sanitized diff preview for every candidate removal',
+    '',
+    'rollback options:',
+    '  --id <id>           the manifest entry to restore (from boppi rollback with no --id)',
+    '  --yes               restore without the terminal confirmation',
     '',
     'demo options:',
     '  --reset             restore the sandbox config from the bundled fixture',
@@ -108,7 +117,7 @@ function parseArgs(argv) {
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -139,10 +148,12 @@ function parseArgs(argv) {
       else if (arg === '--sarif') options.sarif = value;
       else if (arg === '--policy') options.policy = value;
       else if (arg === '--client') options.client = value;
+      else if (arg === '--id') options.id = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
     else if (arg === '--reset') options.reset = true;
+    else if (arg === '--diff') options.diff = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -310,12 +321,7 @@ function discover(options) {
   const clients = [];
   const wanted = options.only ? new Set(options.only.map(v => ONLY_ALIASES[v] || v)) : null;
 
-  const descriptors = options.config
-    ? [{
-        clientKey: options.source, label: `Explicit config (${options.source})`, source: options.source,
-        files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || {} }],
-      }]
-    : CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
+  const descriptors = fix.descriptorsFor(options);
 
   for (const descriptor of descriptors) {
     if (wanted && !wanted.has(descriptor.clientKey)) continue;
@@ -474,6 +480,24 @@ function exportPayload(scan) {
   };
 }
 
+/** boppi plan --diff: the sanitized diff preview of the source-side removal for every candidate, in plan order. */
+function renderPlanDiffs(scan, options) {
+  const lines = ['DIFF PREVIEW  what each removal changes, sanitized; values outside server entries are not shown'];
+  const seen = new Set();
+  for (const row of plan.candidateRows({ predictions: scan.predictions, paths: scan.paths })) {
+    const p = row.prediction;
+    const key = `${p.client.key}:${p.edit.server}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const client = scan.discovery.clients.find(c => c.clientKey === p.client.key);
+    const preview = client ? previewFor(scan, options, client, p.edit.server) : null;
+    lines.push('', `  remove "${p.edit.server}" from ${p.client.label}`);
+    if (!preview) { lines.push('    no readable file holds this entry'); continue; }
+    lines.push(`    file:    ${preview.file} (${preview.scope} scope)`, remediate.renderPreview(preview, '    '));
+  }
+  return lines.join('\n');
+}
+
 /** boppi verify: rescan with the same discovery options and grade each earlier prediction. */
 async function runVerify(options) {
   let previous;
@@ -524,7 +548,16 @@ async function runVerify(options) {
   return 0;
 }
 
-/** boppi fix: one removal, backed up, applied, rescanned, graded. */
+/** The sanitized diff preview for removing one server from one client's file, or null when no readable file holds it. */
+function previewFor(scan, options, client, serverName) {
+  const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === client.clientKey);
+  const located = descriptor ? fix.locateServer(client, descriptor, serverName) : null;
+  if (!located) return null;
+  const recordsByName = new Map(scan.inventory.mcpServers.filter(s => s.agentId === client.agentId).map(s => [s.name, s]));
+  return remediate.previewRemoval({ located, serverName, cwd: options.cwd, recordsByName });
+}
+
+/** boppi fix: preview, confirm, then run the staged removal and print each stage. */
 async function runFix(options) {
   const before = await performScan(options);
   if (before.failed) {
@@ -543,9 +576,8 @@ async function runFix(options) {
     return 2;
   }
   const client = candidates[0];
-  const descriptor = CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform })).find(d => d.clientKey === client.clientKey);
-  const located = fix.locateServer(client, descriptor, options.server);
-  if (!located) {
+  const preview = previewFor(before, options, client, options.server);
+  if (!preview) {
     process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
     return 2;
   }
@@ -554,11 +586,12 @@ async function runFix(options) {
   const lost = prediction ? prediction.disruption.lost : (server ? server.capabilities : []);
 
   process.stdout.write(`BOPPI · FIX  remove "${options.server}" from ${client.label}\n`);
-  process.stdout.write(`  file:    ${located.file} (${located.scope} scope)\n`);
+  process.stdout.write(`  file:    ${preview.file} (${preview.scope} scope)\n`);
   if (prediction) process.stdout.write(`  breaks:  ${prediction.predictedEliminated.length} of ${prediction.before.exposureKeys.length} exposure path${prediction.before.exposureKeys.length === 1 ? '' : 's'} on ${client.label}, by rescanning without it\n`);
   else process.stdout.write('  breaks:  nothing modeled; this server takes part in no exposure path\n');
   process.stdout.write(`  loses:   ${lost.length ? lost.join(', ') : 'no capability the agent does not also get elsewhere'}\n`);
-  process.stdout.write(`  backup:  ${fix.backupPath(options.home, located.file, before.startedAt)}\n`);
+  process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
+  process.stdout.write(remediate.renderPreview(preview) + '\n');
 
   if (!options.yes) {
     if (!process.stdin.isTTY) {
@@ -571,27 +604,31 @@ async function runFix(options) {
 
   const exportFile = path.resolve(options.cwd, `boppi-fix-${before.startedAt.replace(/[:.]/g, '-')}.json`);
   fs.writeFileSync(exportFile, JSON.stringify(exportPayload(before), null, 2));
-  let backup;
-  try { backup = fix.applyRemoval({ located, serverName: options.server, cwd: options.cwd, home: options.home, now: before.startedAt }); } catch (error) {
-    process.stderr.write(`fix: ${error.message}\n`);
-    return 3;
-  }
-  process.stdout.write(`Applied. Backup at ${backup}. Predictions saved to ${exportFile}.\n\n`);
+  process.stdout.write(`\nSTAGES  predictions saved to ${exportFile}\n`);
 
-  const after = await performScan(options);
-  if (after.failed) {
-    process.stderr.write(`Rescan failed: ${after.failed}. The edit stays applied; restore from the backup if needed.\n`);
-    return after.exitCode || 3;
+  let result = null, after = null, grade = null, failure = null;
+  const stages = remediate.runRemediation({ options, server: options.server, clientKey: client.clientKey, scanBefore: before, expectedHashes: preview.fileHashes, exportFile, rescan: performScan });
+  for await (const event of stages) {
+    const line = remediate.renderStage(event);
+    if (line) process.stdout.write(line + '\n');
+    if (event.status === 'failed') failure = event;
+    if (event.stage === 'rescan' && event.status === 'done') after = event.detail.scan;
+    if (event.stage === 'verify' && event.status === 'done') grade = event.detail.result || null;
+    if (event.stage === 'result') result = event.detail;
   }
+  if (failure) {
+    process.stderr.write(`fix: ${failure.stage} failed: ${failure.detail.reason}\n`);
+    return failure.stage === 'rescan' ? (failure.detail.exitCode || 3) : failure.stage === 'backup' ? 2 : 3;
+  }
+  process.stdout.write(`\nApplied. Backup at ${result.backup}. Predictions saved to ${exportFile}.\n\n`);
   writeHistory(after, options.historyFile);
-  if (!prediction) {
+  if (!grade) {
     process.stdout.write(`Rescan: ${terminal.summaryLine({ inventory: after.inventory, paths: after.paths })}\n`);
     return 0;
   }
-  const result = verify.resolveAll({ predictions: [prediction] }, after, { explicitConfig: !!options.config });
-  process.stdout.write(verify.renderTable(result, options.color) + '\n');
-  recordVerification(options.historyFile, after, result);
-  return result.summary.confirmed === 1 ? 0 : 1;
+  process.stdout.write(verify.renderTable(grade, options.color) + '\n');
+  recordVerification(options.historyFile, after, grade);
+  return grade.summary.confirmed === 1 ? 0 : 1;
 }
 
 /** Ask for the token on the terminal without echoing it, so it never lands in shell history. */
@@ -684,6 +721,7 @@ async function run(argv) {
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
+  if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
 
   const scan = await performScan(options);
   if (scan.failed) {
@@ -711,6 +749,7 @@ async function run(argv) {
 
   if (options.command === 'plan') {
     process.stdout.write(plan.renderPlan(report, options) + '\n');
+    if (options.diff) process.stdout.write('\n' + renderPlanDiffs(scan, options) + '\n');
     if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
     if (options.json) {
       fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));

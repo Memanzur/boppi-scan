@@ -1,11 +1,26 @@
 /**
- * boppi fix: apply one remove_server edit to the config file that holds the
- * server, with a backup first, then rescan and grade the prediction.
- * The command is the approval. On a terminal it also asks; --yes skips that.
+ * boppi fix primitives: locate the file that holds a server, delete the
+ * entry, keep a backup, and record every fix in a manifest that rollback
+ * reads. remediate.js sequences these into stages; boppi.js only dispatches.
  */
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
+const MANIFEST_VERSION = 1;
+
+/** The client descriptors a scan with these options reads: one explicit file, or every known client location. */
+function descriptorsFor(options) {
+  if (options.config) {
+    return [{
+      clientKey: options.source, label: `Explicit config (${options.source})`, source: options.source,
+      files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || {} }],
+    }];
+  }
+  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
+}
 
 /** The scanned file and key path that hold a server for one client, or null. */
 function locateServer(client, descriptor, serverName) {
@@ -36,21 +51,55 @@ function deleteServer(json, serverName, cwd) {
   return removed;
 }
 
-function backupPath(home, file, now) {
-  const stamp = now.replace(/[:.]/g, '-');
-  return path.join(home, '.boppi', 'backups', `${path.basename(file)}.${stamp}.bak`);
+/** The mcpServers blocks of this file that deleteServer would touch, as JSON pointer-like key paths. */
+function serverBlocks(json, cwd) {
+  const blocks = [];
+  if (json.mcpServers && typeof json.mcpServers === 'object') blocks.push({ keyPath: 'mcpServers', servers: json.mcpServers });
+  const project = json.projects && cwd && json.projects[cwd];
+  if (project && project.mcpServers && typeof project.mcpServers === 'object') blocks.push({ keyPath: `projects[${JSON.stringify(cwd)}].mcpServers`, servers: project.mcpServers });
+  return blocks;
 }
 
-/** Write the backup, then the edited config. Returns the backup path. */
-function applyRemoval({ located, serverName, cwd, home, now }) {
-  const backup = backupPath(home, located.file, now);
+function sha256(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+function fileHash(file) { return sha256(fs.readFileSync(file)); }
+
+function backupDir(home) { return path.join(home, '.boppi', 'backups'); }
+function backupPath(home, file, now) {
+  const stamp = now.replace(/[:.]/g, '-');
+  return path.join(backupDir(home), `${path.basename(file)}.${stamp}.bak`);
+}
+
+/** Copy the file to its backup location with owner-only permissions. Returns the backup path. */
+function writeBackup({ file, home, now }) {
+  const backup = backupPath(home, file, now);
   fs.mkdirSync(path.dirname(backup), { recursive: true });
-  fs.copyFileSync(located.file, backup);
+  fs.copyFileSync(file, backup);
   fs.chmodSync(backup, 0o600);
-  const removed = deleteServer(located.json, serverName, cwd);
-  if (!removed) throw new Error(`"${serverName}" was not found in ${located.file} at write time`);
-  fs.writeFileSync(located.file, JSON.stringify(located.json, null, 2) + '\n');
   return backup;
+}
+
+function manifestPath(home) { return path.join(backupDir(home), 'index.json'); }
+
+function readManifest(home) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(manifestPath(home), 'utf8'));
+    if (parsed && Array.isArray(parsed.entries)) return { schemaVersion: MANIFEST_VERSION, entries: parsed.entries };
+  } catch (_) { /* no manifest yet */ }
+  return { schemaVersion: MANIFEST_VERSION, entries: [] };
+}
+
+/** Append one entry to the manifest. The write goes to a temp file first so a crash never leaves a half-written index. */
+function appendManifestEntry(home, entry) {
+  const manifest = readManifest(home);
+  const id = entry.id || `${entry.action}-${crypto.randomBytes(4).toString('hex')}`;
+  const full = { id, ...entry };
+  manifest.entries.push(full);
+  const file = manifestPath(home);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temp = `${file}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600 });
+  fs.renameSync(temp, file);
+  return full;
 }
 
 function confirm(question) {
@@ -61,4 +110,4 @@ function confirm(question) {
   });
 }
 
-module.exports = { locateServer, deleteServer, applyRemoval, backupPath, confirm };
+module.exports = { CLIENTS, descriptorsFor, locateServer, deleteServer, serverBlocks, sha256, fileHash, backupDir, backupPath, writeBackup, manifestPath, readManifest, appendManifestEntry, confirm };
