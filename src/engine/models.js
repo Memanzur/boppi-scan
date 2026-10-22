@@ -15,7 +15,7 @@
   const SCHEMA_VERSION = 1;
   // Version of the analysis logic, independent of the npm package version.
   // Bump when ids, path semantics, templates, or inference change meaning.
-  const ENGINE_VERSION = '1.0.2';
+  const ENGINE_VERSION = '1.1.0';
   const FORBIDDEN_KEY = /(token|secret|password|private[_-]?key|file[_-]?contents?|raw[_-]?contents?|env(?:ironment)?[_-]?values?)/i;
   const SECRET_VALUE = /(-----BEGIN [^-]*PRIVATE KEY-----|(?:sk|ghp|xox[baprs])-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*\S+)/i;
   const SAFE_TRUST = new Set(['verified', 'unverified', 'unknown']);
@@ -39,6 +39,25 @@
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) fail(`${field} must be a valid timestamp`);
     return d.toISOString();
+  }
+  // Evidence attributes a permission carries for the risk rubric: how the grant
+  // was established (basis), whether the client asks first (gate), how wide the
+  // file scope is, and so on. Flat, bounded, label-only; never a path or value.
+  const ATTRIBUTE_KEY = /^[a-z][A-Za-z0-9]{0,39}$/;
+  const ATTRIBUTE_LIMIT = 24;
+  function attributes(value, field) {
+    if (value == null) return {};
+    if (typeof value !== 'object' || Array.isArray(value)) fail(`${field} must be an object`);
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (!ATTRIBUTE_KEY.test(key)) fail(`${field}.${key} is not a valid attribute name`);
+      if (Object.keys(out).length >= ATTRIBUTE_LIMIT) fail(`${field} has too many entries`);
+      if (item == null) continue;
+      if (typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item))) { out[key] = item; continue; }
+      if (typeof item === 'string') { if (item.length > 160) fail(`${field}.${key} is too long`); out[key] = item; continue; }
+      fail(`${field}.${key} must be a string, number, or boolean`);
+    }
+    return out;
   }
   function confidence(value) {
     if (value == null) return 0.5;
@@ -167,6 +186,7 @@
       riskWeight: Number.isFinite(Number(clean.riskWeight)) ? Number(clean.riskWeight) : 0,
       normalizationConfidence: confidence(clean.normalizationConfidence),
       normalizationReason: requiredString(clean.normalizationReason || 'No mapping explanation supplied', 'permission.normalizationReason'),
+      attributes: attributes(clean.attributes, 'permission.attributes'),
     };
   }
   function createMCPServer(input) {

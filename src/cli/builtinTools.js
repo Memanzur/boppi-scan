@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const models = require('../engine/models');
+const toolCategories = require('./toolCategories');
 
 // prompts: true means the tool asks before each use unless a rule or mode
 // says otherwise; false means it never asks (Read inside the working tree);
@@ -35,6 +36,13 @@ const CAPABILITY_VERB = Object.freeze({ shell_access: 'runs shell commands', fil
 const RISK_WEIGHT = Object.freeze({ shell_access: 3, filesystem_access: 2 });
 const CATEGORY = Object.freeze({ shell_access: 'run_shell_commands', filesystem_access: 'read_files' });
 const UNREADABLE_SETTING = 'prompting not checked (the client keeps this setting outside readable configuration)';
+const UNREADABLE_FILE = 'prompting not checked (a permission settings file could not be read)';
+// Read inside the working folder never asks; outside it the client asks first.
+const READ_DEFAULT = 'never prompts inside the working folder (asks elsewhere)';
+const WORKING_SCOPE_LABEL = Object.freeze({
+  home: 'the working folder is the home directory', system: 'the working folder is a system-wide directory',
+  secrets: 'the working folder is a dotfile or secrets folder', source: 'the working folder is a source tree', other: 'the working folder is an ordinary folder',
+});
 
 /** Claude Code permission settings files, lowest precedence first. Managed (machine-wide) settings are not read. */
 function claudeCodeSettingsFiles({ home, cwd }) {
@@ -72,6 +80,7 @@ function readPermissionSettings(files) {
   const entries = [];
   const seen = new Set();
   let merged = null;
+  let unreadable = 0;
   for (const file of files) {
     const resolved = path.resolve(file.path);
     if (seen.has(resolved)) continue; // user and project settings are the same file when the scan runs from home
@@ -97,30 +106,40 @@ function readPermissionSettings(files) {
         entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
           : error.code === 'EISDIR' ? 'this is a directory, not a settings file'
           : 'invalid JSON';
+        unreadable += 1;
       }
     }
     entries.push(entry);
   }
+  // A file that could not be read may hold a deny or a mode; nothing graded from the others is complete.
+  if (unreadable) merged = { ...(merged || { allow: [], deny: [], ask: [], mode: null, modeScope: null }), unreadable };
   return { entries, merged };
 }
 
 /**
  * Grade one built-in tool. `settings` is the merged rules, null when no
  * settings file exists (the client's defaults apply), or undefined when the
- * scan did not read settings at all.
+ * scan did not read settings at all. A deny rule is checked before any
+ * default, so an explicitly denied Read is denied even though Read never
+ * prompts; a rule that names the tool with a specifier (a path or command
+ * pattern) does not change the grade but is counted.
  */
 function gradeTool(spec, settings) {
   if (spec.prompts === null) return { gate: 'unknown', reason: UNREADABLE_SETTING };
-  if (spec.prompts === false) return { gate: 'unprompted', reason: 'never prompts' };
   if (settings === undefined) return { gate: 'unknown', reason: 'prompting not checked (permission settings were not read in this scan)' };
+  if (settings && settings.deny.some(rule => coversWholeTool(rule, spec.tool))) return { gate: 'denied', reason: 'denied by a settings deny rule' };
+  if (settings && settings.unreadable) return { gate: 'unknown', reason: UNREADABLE_FILE };
+  const scopedDeny = settings ? settings.deny.filter(rule => namesTool(rule, spec.tool) && !coversWholeTool(rule, spec.tool)).length : 0;
+  const except = scopedDeny ? ` except ${scopedDeny} denied pattern${scopedDeny === 1 ? '' : 's'}` : '';
+  if (spec.prompts === false) return { gate: 'unprompted', reason: `${READ_DEFAULT}${except}` };
   if (!settings) return { gate: 'prompted', reason: 'asks before each use (no permission settings file; client default)' };
-  if (settings.deny.some(rule => coversWholeTool(rule, spec.tool))) return { gate: 'denied', reason: 'denied by a settings deny rule' };
-  if (settings.ask.some(rule => coversWholeTool(rule, spec.tool))) return { gate: 'prompted', reason: 'asks before each use (settings ask rule)' };
-  if (UNPROMPTED_MODES.has(settings.mode)) return { gate: 'unprompted', reason: `never prompts (defaultMode ${settings.mode} in ${settings.modeScope} settings)` };
-  if (settings.allow.some(rule => coversWholeTool(rule, spec.tool))) return { gate: 'unprompted', reason: 'never prompts (a settings allow rule covers the whole tool)' };
-  if (EDIT_TOOLS.has(spec.tool) && settings.mode === 'acceptEdits') return { gate: 'unprompted', reason: `never prompts (defaultMode acceptEdits in ${settings.modeScope} settings)` };
+  if (settings.ask.some(rule => coversWholeTool(rule, spec.tool))) return { gate: 'prompted', reason: `asks before each use (settings ask rule)${except}` };
+  if (UNPROMPTED_MODES.has(settings.mode)) return { gate: 'unprompted', reason: `never prompts (defaultMode ${settings.mode} in ${settings.modeScope} settings)${except}` };
+  if (settings.allow.some(rule => coversWholeTool(rule, spec.tool))) return { gate: 'unprompted', reason: `never prompts (a settings allow rule covers the whole tool)${except}` };
+  if (EDIT_TOOLS.has(spec.tool) && settings.mode === 'acceptEdits') return { gate: 'unprompted', reason: `never prompts (defaultMode acceptEdits in ${settings.modeScope} settings)${except}` };
   const scoped = settings.allow.filter(rule => namesTool(rule, spec.tool)).length;
-  return { gate: 'prompted', reason: scoped ? `asks before each use except ${scoped} allowed pattern${scoped === 1 ? '' : 's'}` : 'asks before each use' };
+  const allowed = scoped ? ` except ${scoped} allowed pattern${scoped === 1 ? '' : 's'}` : '';
+  return { gate: 'prompted', reason: `asks before each use${allowed}${except}` };
 }
 
 /** Plain sentence for a grant's tools, grouped by what the settings say about them. */
@@ -164,15 +183,19 @@ function builtinGrants(clientKey, settings) {
 /**
  * Everything a scan records about one client's built-in tools. `settingsFiles`
  * null means this scan does not read permission settings (explicit --config
- * mode, or a client without readable settings).
+ * mode, or a client without readable settings). `context` carries the scan's
+ * home and working folder so the file tools' unprompted scope can be graded
+ * (a label, never the path). Managed (machine-wide) settings are never read
+ * and the description says so.
  */
-function describeBuiltin(clientKey, settingsFiles) {
+function describeBuiltin(clientKey, settingsFiles, context = {}) {
   const read = Array.isArray(settingsFiles) && settingsFiles.length > 0;
   const { entries, merged } = read ? readPermissionSettings(settingsFiles) : { entries: [], merged: null };
   const settings = read
-    ? { read: true, found: !!merged, mode: merged ? merged.mode : null, modeScope: merged ? merged.modeScope : null, files: entries }
-    : { read: false, found: false, mode: null, modeScope: null, files: [] };
-  return { clientKey, ...builtinGrants(clientKey, read ? merged : undefined), settings };
+    ? { read: true, found: !!merged && !!(entries.some(e => e.status === 'found')), complete: !!merged ? !merged.unreadable : true, mode: merged ? merged.mode : null, modeScope: merged ? merged.modeScope : null, managedRead: false, files: entries }
+    : { read: false, found: false, complete: false, mode: null, modeScope: null, managedRead: false, files: [] };
+  const workingScope = context.cwd && hasBuiltinTools(clientKey) ? toolCategories.scopeOf(context.cwd, context.home) : null;
+  return { clientKey, ...builtinGrants(clientKey, read ? merged : undefined), settings, workingScope, workingScopeLabel: workingScope ? WORKING_SCOPE_LABEL[workingScope] : null };
 }
 
 function hasBuiltinTools(clientKey) { return (BUILTIN_TOOLS[clientKey] || []).length > 0; }
@@ -198,6 +221,14 @@ function builtinPermissions(agent, builtin, observedAt) {
         name: `${agent.name} built-in tools`,
         evidenceClass: 'observed',
         evidenceRef: builtin.settings && builtin.settings.found ? 'client built-in tool table and permission settings' : 'client built-in tool table',
+      },
+      attributes: {
+        basis: 'builtin',
+        gate: grant.gate,
+        settingsRead: !!(builtin.settings && builtin.settings.read),
+        settingsComplete: !!(builtin.settings && builtin.settings.complete),
+        managedSettingsRead: false,
+        ...(grant.capability === 'filesystem_access' && builtin.workingScope ? { scope: builtin.workingScope, scopeLabel: builtin.workingScopeLabel } : {}),
       },
       createdAt: observedAt,
       updatedAt: observedAt,

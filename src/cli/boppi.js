@@ -374,7 +374,7 @@ function discover(options) {
     }
     if (builtinTools.hasBuiltinTools(client.clientKey)) {
       // Permission settings are read only when discovery found this client, and never in explicit --config mode.
-      client.builtin = builtinTools.describeBuiltin(client.clientKey, client.primaryPath ? descriptor.settingsFiles || null : null);
+      client.builtin = builtinTools.describeBuiltin(client.clientKey, client.primaryPath ? descriptor.settingsFiles || null : null, { home: options.home, cwd: options.cwd });
       for (const entry of client.builtin.settings.files) {
         if (entry.status !== 'not_found') filesRead.add(entry.path);
         client.files.push(entry);

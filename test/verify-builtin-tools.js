@@ -38,6 +38,13 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   const shell = graded.grants.find(g => g.capability === 'shell_access');
   ok('scoped allow rules keep the shell prompted and are counted, never quoted', shell.gate === 'prompted' && shell.summary === 'asks before each use except 2 allowed patterns');
   ok('a client without readable settings grades every tool unknown', builtinTools.builtinGrants('cursor', null).grants.every(g => g.gate === 'unknown'));
+  const readSpec = builtinTools.BUILTIN_TOOLS['claude-code'].find(t => t.tool === 'Read');
+  ok('Read never prompts inside the working folder by default', builtinTools.gradeTool(readSpec, null).gate === 'unprompted' && builtinTools.gradeTool(readSpec, null).reason === 'never prompts inside the working folder (asks elsewhere)');
+  ok('an explicit Read deny wins over the never-prompts default', builtinTools.gradeTool(readSpec, { allow: [], deny: ['Read'], ask: [], mode: 'bypassPermissions', modeScope: 'user' }).gate === 'denied');
+  const scopedDeny = builtinTools.gradeTool(readSpec, { allow: [], deny: ['Read(./secrets/**)', 'Read(~/.ssh/**)'], ask: [], mode: null, modeScope: null });
+  ok('path-scoped Read deny rules are counted, never quoted, and leave the grade unprompted', scopedDeny.gate === 'unprompted' && scopedDeny.reason === 'never prompts inside the working folder (asks elsewhere) except 2 denied patterns');
+  const bashSpec = builtinTools.BUILTIN_TOOLS['claude-code'].find(t => t.tool === 'Bash');
+  ok('an unreadable settings file makes a tool unknown, unless a readable file denies it', builtinTools.gradeTool(bashSpec, { allow: ['Bash'], deny: [], ask: [], mode: null, modeScope: null, unreadable: 1 }).gate === 'unknown' && builtinTools.gradeTool(bashSpec, { allow: [], deny: ['Bash'], ask: [], mode: null, modeScope: null, unreadable: 1 }).gate === 'denied');
 
   section('The gap: Claude Code plus one fetch server');
   const codeHome = path.join(root, 'code-home');
@@ -98,6 +105,26 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   const denyTerminal = runCli(['scan', '--only', 'claude-code'], denyHome);
   ok('the denied tool is still reported, marked denied and out of the graph', denyTerminal.stdout.includes('Claude Code · shell access (Bash) · denied · denied by a settings deny rule; not in the graph') && denyTerminal.stdout.includes('1 built-in tool grant,'));
 
+  const denyAllHome = path.join(root, 'deny-all-home');
+  writeJson(path.join(denyAllHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });
+  writeJson(path.join(denyAllHome, '.claude', 'settings.json'), { permissions: { deny: ['Read', 'Edit', 'Write', 'Bash'] } });
+  const denyAll = exportOf(['scan', '--only', 'claude-code'], denyAllHome);
+  ok('denying Read, Edit, Write, and Bash removes every built-in grant and every path that needed one', !builtinOf(denyAll.exported, 'filesystem_access') && !builtinOf(denyAll.exported, 'shell_access') && denyAll.exported.exposurePaths.length === 0);
+  const denyAllTerminal = runCli(['scan', '--only', 'claude-code'], denyAllHome);
+  ok('the terminal lists both denied grants and counts zero built-in grants', denyAllTerminal.stdout.includes('file access (Read, Edit, Write) · denied') && denyAllTerminal.stdout.includes('0 built-in tool grants,'));
+  const scopedDenyHome = path.join(root, 'scoped-deny-home');
+  writeJson(path.join(scopedDenyHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });
+  writeJson(path.join(scopedDenyHome, '.claude', 'settings.json'), { permissions: { deny: ['Read(/Users/secretperson/.ssh/**)'] } });
+  const scopedDenyRun = exportOf(['scan', '--only', 'claude-code'], scopedDenyHome);
+  const scopedFiles = builtinOf(scopedDenyRun.exported, 'filesystem_access');
+  ok('a path-scoped Read deny keeps the grant, counts the pattern, and never leaks it', scopedFiles && scopedFiles.normalizationReason.includes('except 1 denied pattern') && !JSON.stringify(scopedDenyRun.exported).includes('secretperson'));
+  ok('built-in permissions carry rubric attributes: basis, gate, and the working-folder scope', scopedFiles.attributes.basis === 'builtin' && scopedFiles.attributes.gate === 'unprompted' && scopedFiles.attributes.scope === 'home' && scopedFiles.attributes.settingsRead === true && scopedFiles.attributes.managedSettingsRead === false);
+  const projectDir = path.join(scopedDenyHome, 'work', 'app');
+  fs.mkdirSync(path.join(projectDir, '.git'), { recursive: true });
+  const fromProject = exportOf(['scan', '--only', 'claude-code'], scopedDenyHome, projectDir);
+  ok('scanning from a source tree grades the file tools scope as source', builtinOf(fromProject.exported, 'filesystem_access').attributes.scope === 'source' && builtinOf(fromProject.exported, 'filesystem_access').attributes.scopeLabel === 'the working folder is a source tree');
+  ok('the export never contains the working folder path', !JSON.stringify(fromProject.exported).includes(projectDir));
+
   const bypassHome = path.join(root, 'bypass-home');
   const project = path.join(bypassHome, 'work', 'app');
   writeJson(path.join(bypassHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });
@@ -120,6 +147,7 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   fs.writeFileSync(path.join(brokenHome, '.claude', 'settings.json'), '{ not json');
   const broken = runCli(['scan', '--only', 'claude-code'], brokenHome);
   ok('an unreadable settings file is reported and the scan is marked incomplete', broken.code === 4 && broken.stdout.includes('settings.json') && broken.stdout.includes('could not be scanned (invalid JSON)'));
+  ok('with an unreadable settings file every built-in tool is graded unknown, not as the client default', broken.stdout.includes('shell access (Bash) · not checked · prompting not checked (a permission settings file could not be read)') && broken.stdout.includes('file access (Read, Edit, Write) · not checked'));
 
   section('Explicit --config mode and Cursor');
   const explicitFile = path.join(root, 'explicit.json');
