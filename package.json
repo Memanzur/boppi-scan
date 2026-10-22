@@ -35,6 +35,7 @@
   ],
   "scripts": {
     "test": "node test/run-all.js",
-    "smoke": "node bin/boppi.js scan --help"
+    "smoke": "node bin/boppi.js scan --help",
+    "release-candidate": "node scripts/release-candidate.js"
   }
 }

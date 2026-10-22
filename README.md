@@ -75,19 +75,27 @@ COVERAGE
   Scan status: complete for the supported configuration sources that were found.
 
 EXPOSURE PATHS (3)
-  CRIT  Potential credential exposure path  [EP-B · confidence 0.7]
+  HIGH  Potential credential exposure path  [EP-B · evidence confidence 0.7 · likelihood not assessed]
      Claude Desktop -> 1password -> access credentials -> desktop-commander (shell_access) -> run shell commands -> fetch (network_access) -> call external api
      why: Credential references combined with execution and network access create a potential path for credential material to leave the environment.
+     based on: desktop-commander: can run code or commands (listed in the known-server catalog); fetch: can reach the network (listed in the known-server catalog)
+     assumes: "1password" is graded from its name, not from a tool list or catalog entry
+     not checked: whether the client asks before each MCP tool call was not checked; no tool call, data transfer, or attack was observed; this is configured potential access
+     priority: high, stepped down from critical because the weakest evidence is potential
      fix: Restrict shell or credential access and remove network capabilities this agent does not need.
 
-  CRIT  Potential data exfiltration path  [EP-A · confidence 0.7]
-     Claude Desktop -> filesystem (filesystem_access) -> read files -> fetch (network_access) -> call external api -> External destination
+  CRIT  Potential data exfiltration path  [EP-A · evidence confidence 0.7 · likelihood not assessed]
+     Claude Desktop -> filesystem (filesystem_access: the whole home directory) -> read files -> fetch (network_access) -> call external api -> External destination
      why: If this agent were compromised or misdirected, data it can read could potentially reach an untrusted external destination.
+     based on: filesystem: reads data that may be sensitive (listed in the known-server catalog); the files in reach cover the whole home directory; fetch: can reach an external destination (listed in the known-server catalog)
+     not checked: whether the client asks before each MCP tool call was not checked; no tool call, data transfer, or attack was observed; this is configured potential access
      fix: Remove external messaging or API access, or restrict the sensitive-data grants feeding this path.
 
-  HIGH  Potential privilege path  [EP-E · confidence 0.7]
+  HIGH  Potential privilege path  [EP-E · evidence confidence 0.7 · likelihood not assessed]
      Claude Desktop -> fetch (untrusted_external_content) -> untrusted external content -> desktop-commander (shell_access) -> run shell commands
      why: Instructions hidden in untrusted content could potentially influence an agent with privileged local capabilities.
+     based on: fetch: processes untrusted content (listed in the known-server catalog); desktop-commander: holds a privileged capability (listed in the known-server catalog)
+     not checked: whether the client asks before each MCP tool call was not checked; no tool call, data transfer, or attack was observed; this is configured potential access
      fix: Isolate untrusted content from privileged tools, or remove shell, code-execution, or destructive file capabilities.
 
 CHANGES SINCE LAST SCAN
@@ -133,10 +141,10 @@ The root cause section is computed, not guessed. The engine removes the grant fr
 
 ## What it looks for
 
-Exposure path templates:
+Exposure path templates, with the worst-case impact of each:
 
-| Id | Path | Severity |
-|----|------|----------|
+| Id | Path | Impact |
+|----|------|--------|
 | EP-A | Data exfiltration: readable data reaches an external destination | critical |
 | EP-B | Credential exposure: credential access reaches execution and the network | critical |
 | EP-C | Software supply chain: source modification reaches production | critical |
@@ -144,7 +152,17 @@ Exposure path templates:
 | EP-E | Privilege: untrusted content reaches shell, code, or destructive file tools | high |
 | EP-F | Impersonation: untrusted content reaches email or messaging | high |
 
-Rule-engine findings (AE-001 through AE-007) cover the same combinations per agent, plus one data-governance check: broad file access granted to a vendor whose data-training posture is unknown.
+Rule-engine findings (AE-001 through AE-007) cover the same combinations per agent, plus one data-governance check: broad file access granted to a vendor whose data-training posture is unknown. A finding that an exposure path also covers takes the path's priority, so every surface shows one severity per exposure.
+
+### How priority is set
+
+The badge on a path is its priority, not its impact. Impact is the worst case for the template. Priority is that impact stepped down by the weakest evidence on the path, never up, under a versioned rubric (`src/engine/riskRubric.js`, documented in `docs/milestone1/RISK_RUBRIC_v1.0.0.md`):
+
+- established (0 steps): the configuration states it. A catalog capability, a built-in tool that never prompts, a filesystem server at the home directory or a secrets folder, an environment named production.
+- potential (1 step): one named assumption. A capability inferred from a server name, a tool the client asks before using, a source tree, a credential known only by its variable name, cluster write tools with no environment named.
+- assumed (2 steps): the scanner cannot tell. One ordinary folder, or an environment named as non-production. The path stays in the report with its unknowns.
+
+Every path lists `based on:` (facts), `assumes:`, and `not checked:`. `evidence confidence` is how far the scanner trusts the records it read; likelihood of exploitation is never estimated and every path says so.
 
 ### Unrecognized and unpinned servers
 
@@ -315,6 +333,8 @@ Windsurf and VS Code are not discovered yet. Pull requests welcome. Each client 
 - Security reports: see [SECURITY.md](SECURITY.md).
 
 ## Development
+
+Release candidate: `npm run release-candidate` packs the tarball, installs it into a throwaway prefix, runs the beta journey (version, scan, demo, plan, fix, verify, rollback, uninstall) on a synthetic home, and writes `CANDIDATE.json` plus the tarball to `~/Desktop/Boppi-candidate-<version>` (`--out <dir>` to change). It publishes nothing.
 
 ```
 git clone https://github.com/Memanzur/boppi-scan
