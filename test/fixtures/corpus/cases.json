@@ -1,0 +1,1454 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-10-22",
+  "note": "Labels were written before the rubric was implemented and must not be edited to fit its output. A disagreement is adjudicated in docs/milestone1/DECISIONS.tsv and, if the label changes, recorded there with the reason. Every value is synthetic; directories are created empty under a throwaway home.",
+  "priorityRule": "Expected priority = template severity stepped down by the weakest branch: 0 steps when every grant on that branch is established (declared, catalog, or built-in with no prompt, with established scope or environment), 1 step when the strongest grant is potential (name-inferred, prompted, unknown prompting, source-tree scope, environment not named, credential by variable name), 2 steps when it is assumed (file scope unknown or an ordinary folder, non-production environment). Floor is low.",
+  "directories": {
+    "~/.ssh": {},
+    "~/Documents/notes": {},
+    "~/work/app": {
+      "source": true
+    }
+  },
+  "cases": [
+    {
+      "id": "N01-tidy",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "memory": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-memory"
+            ]
+          },
+          "time": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-time",
+              "--local-timezone",
+              "America/Denver"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "memory and time servers reach no data, no destination"
+    },
+    {
+      "id": "N02-unknown-server",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "weather": {
+            "command": "node",
+            "args": [
+              "./weather.js"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "an unrecognized local program earns no capability; unknown is not safe, but it is not a path"
+    },
+    {
+      "id": "N03-fetch-only",
+      "kind": "negative",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "a web fetch server with no data grant has nothing to send"
+    },
+    {
+      "id": "N04-notes-folder-only",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "notes": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/Documents/notes"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "file access to one ordinary folder with no destination"
+    },
+    {
+      "id": "N05-ssh-folder-only",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "keys": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/.ssh"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "credential folder access with no destination and no execution"
+    },
+    {
+      "id": "N06-slack-only",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "slack": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-slack"
+            ],
+            "env": {
+              "SLACK_BOT_TOKEN": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {},
+      "because": "a messaging connector with a token but no data and no execution"
+    },
+    {
+      "id": "N07-postgres-only",
+      "kind": "negative",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "db": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-postgres"
+            ],
+            "env": {
+              "DATABASE_URL": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {},
+      "because": "read-only SQL over the network; a connection string name is not a credential-like name"
+    },
+    {
+      "id": "N08-code-interpreter-only",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "runner": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "e2b-code-interpreter"
+            ],
+            "env": {
+              "E2B_API_KEY": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {},
+      "because": "code execution and a key name without any network grant"
+    },
+    {
+      "id": "N09-code-deny-all",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": {
+        "permissions": {
+          "deny": [
+            "Read",
+            "Edit",
+            "Write",
+            "Bash"
+          ]
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "explicit deny of Read, Edit, Write, and Bash leaves no built-in grant"
+    },
+    {
+      "id": "N10-code-no-servers",
+      "kind": "negative",
+      "split": "heldout",
+      "client": "claude-code",
+      "cwd": "project",
+      "settings": null,
+      "config": {
+        "mcpServers": {}
+      },
+      "expected": {},
+      "because": "built-in tools alone evidence no external destination (built-in web tools are not modeled; reported as unknown)"
+    },
+    {
+      "id": "N11-docker-tagged-memory",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "memory": {
+            "command": "docker",
+            "args": [
+              "run",
+              "-i",
+              "--rm",
+              "mcp/memory:1.0"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "a memory image run by tag: a pin note, not a path"
+    },
+    {
+      "id": "N12-source-folder-only",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "repo": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/work/app"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "source tree access with write tools but no destination and nothing untrusted"
+    },
+    {
+      "id": "N13-shell-only",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "a shell server with nothing untrusted, no credential, and no network"
+    },
+    {
+      "id": "N14-mixed-benign",
+      "kind": "negative",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "memory": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-memory"
+            ]
+          },
+          "weather": {
+            "command": "node",
+            "args": [
+              "./weather.js"
+            ]
+          },
+          "time": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-time",
+              "--local-timezone",
+              "America/Denver"
+            ]
+          },
+          "notes": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/Documents/notes"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "several benign servers plus one unrecognized one"
+    },
+    {
+      "id": "N15-credential-manager-and-fetch",
+      "kind": "negative",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "vault": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "1password-mcp"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "a credential manager and a fetch server without execution: EP-B needs all three"
+    },
+    {
+      "id": "N16-browser-only",
+      "kind": "negative",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "browser": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-puppeteer"
+            ]
+          }
+        }
+      },
+      "expected": {},
+      "because": "browser automation with no data grant and no privileged tool"
+    },
+    {
+      "id": "L01-notes-folder-and-fetch",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "notes": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/Documents/notes"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "medium"
+      },
+      "because": "file access to an ordinary folder: sensitivity is assumed, not established"
+    },
+    {
+      "id": "L02-gmail-named-notes",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "gmail-notes": {
+            "command": "node",
+            "args": [
+              "./notes.js"
+            ],
+            "capabilities": [
+              "filesystem_access"
+            ],
+            "tools": [
+              "list_notes"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "medium",
+        "EP-F": "medium"
+      },
+      "because": "a name containing gmail is an identity hint; declared file access has no scope evidence"
+    },
+    {
+      "id": "L03-read-only-dev-cluster",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": [
+              "@modelcontextprotocol/server-github@1.0.0"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          },
+          "dev-reader": {
+            "command": "node",
+            "args": [
+              "./reader.js"
+            ],
+            "capabilities": [
+              "network_access"
+            ],
+            "tools": [
+              "kubectl_get"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high"
+      },
+      "because": "kubectl_get is read-only: no production system; source reading through GitHub is potential"
+    },
+    {
+      "id": "L04-github-only",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high"
+      },
+      "because": "a GitHub connector reads source (potential sensitivity) and reaches the network"
+    },
+    {
+      "id": "L05-code-fetch-project",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "project",
+      "settings": null,
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "medium"
+      },
+      "because": "Read is unprompted inside a source tree only; Bash asks before each use"
+    },
+    {
+      "id": "L06-cursor-fetch-home",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "cursor",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "medium"
+      },
+      "because": "Cursor keeps its prompting setting where the scan cannot read it: potential, not established"
+    },
+    {
+      "id": "L07-code-unreadable-settings",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": "broken",
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "medium"
+      },
+      "because": "an unreadable settings file leaves every built-in gate unknown"
+    },
+    {
+      "id": "L08-source-folder-and-fetch",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "repo": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/work/app"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "high"
+      },
+      "because": "a source tree is potentially sensitive; write tools over a source tree are a privileged capability"
+    },
+    {
+      "id": "L09-github-staging-cluster",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          },
+          "staging-k8s": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "mcp-server-kubernetes"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-C": "medium"
+      },
+      "because": "the cluster name says staging: write access, non-production environment"
+    },
+    {
+      "id": "L10-github-unnamed-cluster",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          },
+          "kubernetes": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "mcp-server-kubernetes"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-C": "high"
+      },
+      "because": "cluster write tools with no environment named: production is assumed, not established"
+    },
+    {
+      "id": "L11-gmail-by-name-and-fetch",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "gmail": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@gongrzhe/server-gmail-autoauth-mcp"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-F": "medium"
+      },
+      "because": "email reach inferred from the package name only; no tool list"
+    },
+    {
+      "id": "L12-code-interpreter-and-fetch",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "runner": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "e2b-code-interpreter"
+            ],
+            "env": {
+              "E2B_API_KEY": "synthetic"
+            }
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-B": "high",
+        "EP-E": "medium"
+      },
+      "because": "a key name is a credential reference, execution is name-inferred"
+    },
+    {
+      "id": "L13-shell-and-github",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          },
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-B": "high"
+      },
+      "because": "a token name next to a shell server: the value sits in a readable config, so potential"
+    },
+    {
+      "id": "L14-code-deny-bash-fetch-project",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "project",
+      "settings": {
+        "permissions": {
+          "deny": [
+            "Bash"
+          ]
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high"
+      },
+      "because": "Bash denied removes the privilege path; Read over a source tree remains"
+    },
+    {
+      "id": "L15-notes-folder-and-slack",
+      "kind": "limited",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "notes": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/Documents/notes"
+            ]
+          },
+          "slack": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-slack"
+            ],
+            "env": {
+              "SLACK_BOT_TOKEN": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "medium"
+      },
+      "because": "an ordinary folder plus a messaging exit"
+    },
+    {
+      "id": "L16-code-accept-edits-project",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-code",
+      "cwd": "project",
+      "settings": {
+        "permissions": {
+          "defaultMode": "acceptEdits"
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "medium"
+      },
+      "because": "acceptEdits does not change Read or Bash grading"
+    },
+    {
+      "id": "H01-home-folder-and-fetch",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "files": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-E": "high"
+      },
+      "because": "the whole home directory is established sensitive scope; write tools over home are privileged"
+    },
+    {
+      "id": "H02-ssh-folder-and-slack",
+      "kind": "high_impact",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "keys": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/.ssh"
+            ]
+          },
+          "slack": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-slack"
+            ],
+            "env": {
+              "SLACK_BOT_TOKEN": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical"
+      },
+      "because": "a secrets folder and a messaging exit"
+    },
+    {
+      "id": "H03-github-prod-cluster",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          },
+          "prod-k8s": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "mcp-server-kubernetes"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-C": "critical"
+      },
+      "because": "source modification plus cluster write tools named prod"
+    },
+    {
+      "id": "H04-mailbox-declared-tools",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "mailbox": {
+            "command": "node",
+            "args": [
+              "./mailbox.js"
+            ],
+            "capabilities": [
+              "network_access"
+            ],
+            "tools": [
+              "send_email",
+              "list_messages"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical"
+      },
+      "because": "declared send and list tools: email reading and sending are both established"
+    },
+    {
+      "id": "H05-code-fetch-home",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": null,
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-E": "medium"
+      },
+      "because": "Read never prompts inside the working folder, which is the home directory; Bash asks"
+    },
+    {
+      "id": "H06-code-bypass-fetch-home",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": {
+        "permissions": {
+          "defaultMode": "bypassPermissions"
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-E": "high"
+      },
+      "because": "bypassPermissions removes every prompt"
+    },
+    {
+      "id": "H07-shell-home-fetch-github",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          },
+          "files": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          },
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-B": "critical",
+        "EP-E": "high"
+      },
+      "because": "home scope reaches credentials; shell and network are catalog-established"
+    },
+    {
+      "id": "H08-credential-manager-shell-fetch",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "vault": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "1password-mcp"
+            ]
+          },
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-B": "high",
+        "EP-E": "high"
+      },
+      "because": "the credential manager is name-inferred, so EP-B is high, not critical"
+    },
+    {
+      "id": "H09-home-folder-and-unverified-server",
+      "kind": "high_impact",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "files": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/"
+            ]
+          },
+          "sync": {
+            "command": "node",
+            "args": [
+              "./sync.js"
+            ],
+            "capabilities": [
+              "network_access"
+            ],
+            "trustStatus": "unverified"
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-D": "high"
+      },
+      "because": "an explicitly unverified server beside established sensitive scope"
+    },
+    {
+      "id": "H10-code-ask-bash-fetch-home",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": {
+        "permissions": {
+          "ask": [
+            "Bash"
+          ]
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-E": "medium"
+      },
+      "because": "an ask rule on Bash keeps the shell prompted; Read over home stays unprompted"
+    },
+    {
+      "id": "H11-ssh-fetch-shell",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "keys": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/.ssh"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          },
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-B": "critical",
+        "EP-E": "high"
+      },
+      "because": "secrets scope, shell, and network all established"
+    },
+    {
+      "id": "H12-browser-and-home-folder",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "browser": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-puppeteer"
+            ]
+          },
+          "files": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-E": "high"
+      },
+      "because": "a browser is both a destination and untrusted content"
+    },
+    {
+      "id": "H13-github-prod-cluster-shell",
+      "kind": "high_impact",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+              "GITHUB_PERSONAL_ACCESS_TOKEN": "synthetic"
+            }
+          },
+          "prod-k8s": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "mcp-server-kubernetes"
+            ]
+          },
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-B": "high",
+        "EP-C": "critical"
+      },
+      "because": "supply chain established; the token is a reference, so EP-B is high"
+    },
+    {
+      "id": "H14-code-bypass-fetch-project",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-code",
+      "cwd": "project",
+      "settings": {
+        "permissions": {
+          "defaultMode": "bypassPermissions"
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "high"
+      },
+      "because": "no prompts, but Read covers a source tree, not home"
+    },
+    {
+      "id": "H15-cursor-home-folder-fetch",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "cursor",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "files": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-B": "high",
+        "EP-E": "high"
+      },
+      "because": "the filesystem server, not the unknown built-in gate, establishes the strongest grant; Cursor's built-in terminal (prompting unknown) plus home-scope credentials plus fetch makes EP-B potential (label corrected before the rubric was implemented, see DECISIONS.tsv)"
+    },
+    {
+      "id": "H16-home-folder-and-mailbox",
+      "kind": "high_impact",
+      "split": "train",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "files": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/"
+            ]
+          },
+          "mailbox": {
+            "command": "node",
+            "args": [
+              "./mailbox.js"
+            ],
+            "capabilities": [
+              "network_access"
+            ],
+            "tools": [
+              "send_email",
+              "list_messages"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical"
+      },
+      "because": "home scope and a declared email sender; no untrusted content, so no EP-F"
+    },
+    {
+      "id": "H17-code-fetch-shell-home",
+      "kind": "high_impact",
+      "split": "heldout",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": null,
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          },
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-E": "high"
+      },
+      "because": "the shell server is established even though built-in Bash asks"
+    },
+    {
+      "id": "H18-slack-ssh-code-interpreter",
+      "kind": "high_impact",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "slack": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-slack"
+            ],
+            "env": {
+              "SLACK_BOT_TOKEN": "synthetic"
+            }
+          },
+          "keys": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem",
+              "~/.ssh"
+            ]
+          },
+          "runner": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "e2b-code-interpreter"
+            ],
+            "env": {
+              "E2B_API_KEY": "synthetic"
+            }
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "critical",
+        "EP-B": "high"
+      },
+      "because": "secrets scope and messaging exit; execution is name-inferred"
+    }
+  ]
+}
