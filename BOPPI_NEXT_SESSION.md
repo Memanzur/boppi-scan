@@ -1,4 +1,27 @@
-# Boppi: next session (updated October 20, 2026)
+# Boppi: next session (updated October 22, 2026)
+
+## October 22, 2026: Milestone 1 (trustworthy checkup v1) code complete, human gates open
+
+Autonomous session under the founder's directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner head `870cd81` on `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0). Control plane head `829d474` in `~/Desktop/Boppi-auto`.
+
+What changed, in order (each unit committed with its tests green):
+
+- Unit 1 (3887b33): deny rules win over Read's never-prompts default; unreadable settings grade unknown; built-in permissions carry rubric attributes.
+- Unit 2 (fcd3792): `boppi verify` says how many paths closed and what remains; a zero-benefit edit is never reported as a fix that worked; `boppi fix` warns before applying one.
+- Unit 3 (1d32b63): read-only cluster tools reach no production system; environment graded only from explicit words; Docker tags are `tagged`, not pinned; reach and capability permissions carry attributes.
+- Corpus (21be9f0): 50 labeled synthetic setups (16 negative, 16 limited, 18 high-impact, 15 held out) frozen before tuning, with `test/verify-rubric-corpus.js`.
+- Unit 4 (7688849): risk rubric 1.0.0 in `src/engine/riskRubric.js`. Priority is the template impact stepped down by the weakest evidence; every path carries facts, assumptions, unknowns, and `likelihood: not assessed` on the terminal, HTML, interactive panel, JSON, and the dashboard paths page. Findings covered by a path take its priority. Push sends permission attributes.
+- Push (66532fd): each MCP server record carries recognition (recognized, pin, launcher).
+- Docs (870cd81): `docs/milestone1/RISK_RUBRIC_v1.0.0.md` (the reviewable rule with four open questions) and `docs/milestone1/ADJUDICATION.md` (eleven objections, each with outcome, fixture, and what stays unknown). Decision trail: `docs/milestone1/DECISIONS.tsv`.
+- Control plane (829d474): rubric vendored from scanner 87d6a3a, permission attributes ingested, paths page shows what supports each path, what it assumes, and what was not checked.
+
+Verified by running, this session: scanner `node test/run-all.js` 23 of 23 suites; corpus 50 of 50, held-out critical precision 5/5 and recall 5/5, 0 unjustified criticals; control plane `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` in `apps/control-plane` fully green (typecheck, lint, vendor sync, engine port 23 checks, ingest 45, route 21, reduction 15, staging safeguards, org workflows, actions). A sample scan was rendered on the terminal and to HTML and read by eye.
+
+Open human gates (cannot be closed by an agent): founder and security reviewer sign-off on the rubric; five uncoached users re-checking comprehension; the Phase 0 sessions themselves (still 0 of 5).
+
+Not done, by choice: the dashboard does not yet display the pushed recognition field (ingest accepts it; display is Phase 3 scope). `~/Desktop/boppi-scan` (the main checkout) is behind this worktree, so the control plane vendor check must be run with `BOPPI_SCAN_DIR` pointing at `boppi-scan-auto` until the branch is merged.
+
+Next session: start from `docs/milestone1/NEXT_SESSION_PROMPT.md` in the scanner repo.
 
 ## October 20, 2026: Phase 0 synthetic testing environment prepared
 
