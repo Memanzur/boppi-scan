@@ -36,12 +36,14 @@ function writeDesktop(home, servers) {
     filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem@2025.8.21', tools] },
     time: { command: 'uvx', args: ['mcp-server-time==0.6.2'] },
     declared: { command: 'node', args: [path.join(tools, 'notes-server.js')], capabilities: ['filesystem_access'] },
+    'tagged-image': { command: 'docker', args: ['run', '-i', '--rm', 'mcp/memory:1.0'] },
   });
 
   section('Pin grading');
   ok('no version is unpinned', recognition.pinOf('npm', { kind: 'npm', name: 'x', version: null }) === 'unpinned');
   ok('latest and ranges are unpinned', ['latest', '^1.2.0', '~1.2.0', '>=1.0'].every(v => recognition.pinOf('npm', { kind: 'npm', name: 'x', version: v }) === 'unpinned'));
-  ok('an exact version, a pypi ==, and a docker tag are pinned', recognition.pinOf('npm', { version: '1.2.3' }) === 'pinned' && recognition.pinOf('pypi', { version: '==0.6.2' }) === 'pinned' && recognition.pinOf('docker', { version: '1.0' }) === 'pinned');
+  ok('an exact version, a pypi ==, and a docker digest are pinned', recognition.pinOf('npm', { version: '1.2.3' }) === 'pinned' && recognition.pinOf('pypi', { version: '==0.6.2' }) === 'pinned' && recognition.pinOf('docker', { version: 'sha256:' + 'a'.repeat(64) }) === 'pinned');
+  ok('a docker tag is tagged, not pinned: the registry can move it', recognition.pinOf('docker', { version: '1.0' }) === 'tagged' && recognition.pinOf('docker', { version: 'latest' }) === 'unpinned' && recognition.pinOf('docker', { version: null }) === 'unpinned');
   ok('a pypi range is unpinned', recognition.pinOf('pypi', { version: '>=0.6' }) === 'unpinned');
   ok('urls and local programs have no pin', recognition.pinOf('url', null) === 'not_applicable' && recognition.pinOf('local', null) === 'not_applicable');
   ok('local runtimes and bare binaries are local launchers', recognition.launcherOf({ command: 'node', args: [] }, null) === 'local' && recognition.launcherOf({ command: '/opt/tools/server', args: [] }, null) === 'local' && recognition.launcherOf({}, null) === 'unknown');
@@ -59,14 +61,15 @@ function writeDesktop(home, servers) {
   ok('a server with a declared capabilities array is recognized', /declared · Claude Desktop · capabilities: filesystem_access\n/.test(scan.stdout));
   ok('the UNRECOGNIZED SERVERS section names each server, its launch, and why', scan.stdout.includes('UNRECOGNIZED SERVERS (2)') && scan.stdout.includes('weather · Claude Desktop · weather-mcp-server (npm package, unpinned) · not in the catalog, no name rule matched, no url, no directory argument, no declared capabilities') && scan.stdout.includes('local-notes · Claude Desktop · node (local program) · not in the catalog'));
   ok('the section says unknown is not safe and how to act', scan.stdout.includes('which is not the same as safe') && scan.stdout.includes('"requireKnownCapabilities": true'));
-  ok('PACKAGE PINS counts the package launches', scan.stdout.includes('PACKAGE PINS  2 of 4 package-launched servers are unpinned: weather, fetch.'));
+  ok('PACKAGE PINS counts the package launches and names tagged images separately', scan.stdout.includes('PACKAGE PINS  2 of 5 package-launched servers are unpinned: weather, fetch. 1 Docker image runs by tag, not digest: tagged-image.') && scan.stdout.includes('A Docker tag is a moving label'));
+  ok('a tagged image is marked on its inventory line, never called pinned', scan.stdout.includes('tagged-image · Claude Desktop · capabilities: no supported capability identified · tagged image') && !/tagged-image[^\n]*pinned/.test(scan.stdout));
   ok('COVERAGE names the unrecognized servers in the not-established line', scan.stdout.includes('Not established: runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata. What 2 unrecognized servers (weather, local-notes) can do.'));
   ok('the raw script path never appears in the terminal', !scan.stdout.includes(path.join(tools, 'notes-server.js')));
 
   section('Exports');
   const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const byServer = Object.fromEntries(exported.recognition.map(r => [r.server, r]));
-  ok('the JSON export carries one recognition record per server with its server id', exported.recognition.length === 7 && exported.recognition.every(r => r.serverId && exported.inventory.real.mcpServers.some(m => m.id === r.serverId)));
+  ok('the JSON export carries one recognition record per server with its server id', exported.recognition.length === 8 && exported.recognition.every(r => r.serverId && exported.inventory.real.mcpServers.some(m => m.id === r.serverId)));
   ok('records say recognized, launcher, pin, and version', !byServer.weather.recognized && byServer.weather.pin === 'unpinned' && byServer.filesystem.pin === 'pinned' && byServer.filesystem.identity.version === '2025.8.21' && byServer.time.identity.version === '==0.6.2' && byServer['internal-api'].launcher === 'url' && byServer['local-notes'].launcher === 'local' && byServer['local-notes'].pin === 'not_applicable');
   ok('the export never contains the raw script path or the home directory', !JSON.stringify(exported).includes(tools) && !JSON.stringify(exported).includes(home));
   const page = fs.readFileSync(htmlPath, 'utf8');

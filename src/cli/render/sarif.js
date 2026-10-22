@@ -76,6 +76,16 @@ function renderSarif(report, options = {}) {
         properties: { severity: 'low', agent: item.clientLabel, launcher: item.launcher },
       });
     }
+    if (item.pin === 'tagged') {
+      addRule('BOPPI-TAGGED-IMAGE', 'tagged_image', 'Docker image launched by tag', 'The server runs a Docker image selected by tag. A tag is a moving label the registry can point at new bytes; only a digest pins the image.', recognition.TAGGED_ADVICE, 'low');
+      results.push({
+        ruleId: 'BOPPI-TAGGED-IMAGE', level: 'note',
+        message: { text: `Server "${item.server}" on ${item.clientLabel} runs ${item.identity ? item.identity.name : 'an image'} by tag ${item.identity ? item.identity.version : ''}. ${recognition.TAGGED_ADVICE}` },
+        locations: [{ physicalLocation: { artifactLocation: { uri } } }],
+        partialFingerprints: { boppiRecognition: `tagged:${item.client}:${item.server}` },
+        properties: { severity: 'low', agent: item.clientLabel, launcher: item.launcher },
+      });
+    }
   }
   for (const v of (report.policy && report.policy.violations) || []) {
     addRule(v.ruleId, v.rule, v.title, v.detail, 'Change the configuration or the policy so the two agree.', v.severity);

@@ -179,6 +179,7 @@ function renderHtml(report, options = {}) {
     if (!known) return '<span class="muted">not assessed</span>';
     const parts = [known.recognized ? 'Recognized' : '<b>Unrecognized</b>'];
     if (known.pin === 'unpinned') parts.push('<b>unpinned</b>');
+    else if (known.pin === 'tagged') parts.push(`<b>tag ${esc(known.identity.version)}</b> (a tag can move; a digest pins)`);
     else if (known.pin === 'pinned') parts.push(`pinned ${esc(known.identity.version)}`);
     return `${parts.join(' · ')}<div class="muted small">${esc(recognition.launchSummary(known, inventory.mcpServers.find(m => m.id === known.serverId)))}</div>`;
   };
@@ -193,6 +194,7 @@ function renderHtml(report, options = {}) {
   }).join('');
   const unknownServers = recognition.unrecognized(report.recognition);
   const loose = recognition.unpinned(report.recognition);
+  const movable = recognition.tagged(report.recognition);
   const unknownSentence = recognition.coverageSentence(report.recognition);
   const coverageNote = report.incomplete?.length
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
@@ -258,6 +260,7 @@ ${unknownServers.length ? `
     <div class="kv muted small">${esc(recognition.ADVICE)}</div>
   </div>` : ''}
 ${loose.length ? `<div class="card"><div class="kv"><b>Package pins:</b> ${loose.length} of ${recognition.packageLaunched(report.recognition).length} package-launched server${recognition.packageLaunched(report.recognition).length === 1 ? '' : 's'} ${loose.length === 1 ? 'is' : 'are'} unpinned: ${esc(loose.map(r => r.server).join(', '))}.</div><div class="kv muted small">${esc(recognition.UNPINNED_ADVICE)}</div></div>` : ''}
+${movable.length ? `<div class="card"><div class="kv"><b>Docker tags:</b> ${movable.length} image${movable.length === 1 ? '' : 's'} run${movable.length === 1 ? 's' : ''} by tag, not digest: ${esc(movable.map(r => r.server).join(', '))}.</div><div class="kv muted small">${esc(recognition.TAGGED_ADVICE)}</div></div>` : ''}
 ${builtinRows ? `
   <h2 id="builtin">Built-in tools</h2>
   <p class="muted small">The agent's own tools, with no MCP server involved. Removing a server never removes these. "Prompts" means the client asks before each use; "No prompt" means a permission setting lets the tool run without asking.</p>

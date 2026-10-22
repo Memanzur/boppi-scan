@@ -49,6 +49,13 @@ function reachPermissions(agent, server, inference, observedAt) {
       normalizationConfidence: inferred ? 0.7 : 0.85,
       normalizationReason: `This server can ${entry.label} because ${how}${entry.because ? '' : ` (${basis === 'catalog' ? 'listed in the known-server catalog' : 'declared in the configuration'})`}.`,
       source: { ...agent.source, id: `tool-reach:${server.name}:${entry.category}`, evidenceClass: inferred ? 'inferred' : 'observed' },
+      attributes: {
+        basis,
+        toolCount: entry.tools.length,
+        ...(entry.because ? { scope: (inference.filesystemScope && inference.filesystemScope.worst) || 'other' } : {}),
+        ...(entry.environment ? { environment: entry.environment } : {}),
+        ...(entry.writeAccess ? { writeAccess: true } : {}),
+      },
       createdAt: observedAt,
       updatedAt: observedAt,
     }));
@@ -101,6 +108,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
       if (!normalizedCategory) continue;
       const inferred = isInferred(capability, server, inference);
       const scoped = capability === 'filesystem_access' && scope;
+      const evidence = (server.capabilityEvidence || []).find(e => e.capability === capability);
       permissions.push(models.createPermission({
         agentId: agent.id,
         integrationId: server.id,
@@ -111,6 +119,11 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
         normalizationConfidence: inferred ? 0.7 : 0.85,
         normalizationReason: scoped ? `${reasonFor(capability, server, inference)} The directory argument${scope.grades.length === 1 ? ' covers' : 's cover'} ${scope.label}.` : reasonFor(capability, server, inference),
         source: { ...agent.source, evidenceClass: inferred ? 'inferred' : 'observed' },
+        attributes: {
+          basis: evidence ? evidence.basis : (inferred ? 'inferred' : 'configured'),
+          ...(scoped ? { scope: scope.worst, scopeLabel: scope.label } : {}),
+          ...(capability === 'credential_access' ? { credentialKind: (server.credentialReferences || []).length ? 'environment_name' : 'capability' } : {}),
+        },
         createdAt: observedAt,
         updatedAt: observedAt,
       }));

@@ -179,6 +179,7 @@ function renderReport(report, options = {}) {
       const tags = [];
       if (known && !known.recognized) tags.push(s.yellow('unrecognized'));
       if (known && known.pin === 'unpinned') tags.push(s.yellow('unpinned'));
+      if (known && known.pin === 'tagged') tags.push(s.yellow('tagged image'));
       const reach = serverReach(report, server);
       out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`), tags.length ? s.dim(' · ') + tags.join(s.dim(' · ')) : '');
       if (reach.scope) out(s.dim(`      file scope: ${reach.scope}`));
@@ -196,10 +197,15 @@ function renderReport(report, options = {}) {
     }
     const launched = recognition.packageLaunched(report.recognition);
     const loose = recognition.unpinned(report.recognition);
-    if (loose.length) {
+    const movable = recognition.tagged(report.recognition);
+    if (loose.length || movable.length) {
       out('');
-      out(s.bold('PACKAGE PINS  '), `${loose.length} of ${launched.length} package-launched server${launched.length === 1 ? '' : 's'} ${loose.length === 1 ? 'is' : 'are'} unpinned: ${loose.map(r => r.server).join(', ')}.`);
-      out(s.dim(`  ${recognition.UNPINNED_ADVICE}`));
+      const parts = [];
+      if (loose.length) parts.push(`${loose.length} of ${launched.length} package-launched server${launched.length === 1 ? '' : 's'} ${loose.length === 1 ? 'is' : 'are'} unpinned: ${loose.map(r => r.server).join(', ')}.`);
+      if (movable.length) parts.push(`${movable.length} Docker image${movable.length === 1 ? '' : 's'} run${movable.length === 1 ? 's' : ''} by tag, not digest: ${movable.map(r => r.server).join(', ')}.`);
+      out(s.bold('PACKAGE PINS  '), parts.join(' '));
+      if (loose.length) out(s.dim(`  ${recognition.UNPINNED_ADVICE}`));
+      if (movable.length) out(s.dim(`  ${recognition.TAGGED_ADVICE}`));
     }
     const builtin = builtinLines(report);
     if (builtin.length) {

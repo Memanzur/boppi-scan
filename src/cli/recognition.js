@@ -29,13 +29,16 @@ function launcherOf(server, identity) {
 /**
  * pinned: an exact version is named. unpinned: no version, `latest`, or a
  * range, so the launcher fetches the newest published release each time.
- * not_applicable: a remote url or a local program has no publish step.
+ * tagged: a Docker tag, which the registry can move to new bytes at any
+ * time; only a digest (@sha256:...) pins an image. not_applicable: a remote
+ * url or a local program has no publish step.
  */
 function pinOf(launcher, identity) {
   if (!['npm', 'pypi', 'docker'].includes(launcher)) return 'not_applicable';
   const version = identity && identity.version;
   if (!version) return 'unpinned';
   if (/^(latest|next|\*)$/i.test(version)) return 'unpinned';
+  if (launcher === 'docker') return /^sha256:[0-9a-f]{64}$/i.test(version) ? 'pinned' : 'tagged';
   if (launcher === 'pypi' && !/^==/.test(version) && !/^[0-9]/.test(version)) return 'unpinned';
   if (/^[\^~><]/.test(version)) return 'unpinned';
   return 'pinned';
@@ -86,6 +89,7 @@ function describeClient({ clientKey, label, mergedServers, inferenceByServer, re
 
 function unrecognized(recognition) { return (recognition || []).filter(r => !r.recognized); }
 function unpinned(recognition) { return (recognition || []).filter(r => r.pin === 'unpinned'); }
+function tagged(recognition) { return (recognition || []).filter(r => r.pin === 'tagged'); }
 function packageLaunched(recognition) { return (recognition || []).filter(r => r.pin !== 'not_applicable'); }
 
 /** Sentence for the COVERAGE "not established" line, or '' when every server was recognized. */
@@ -98,12 +102,13 @@ function coverageSentence(recognition) {
 
 /** The launch line for one record, from already-sanitized evidence only. */
 function launchSummary(record, server) {
-  const pin = record.pin === 'unpinned' ? ', unpinned' : record.pin === 'pinned' ? `, pinned ${record.identity.version}` : '';
+  const pin = record.pin === 'unpinned' ? ', unpinned' : record.pin === 'pinned' ? `, pinned ${record.identity.version}` : record.pin === 'tagged' ? `, tag ${record.identity.version} (a tag can move; a digest pins)` : '';
   const what = record.identity ? record.identity.name : (server && server.command) || record.launcherLabel;
   return `${what} (${record.launcherLabel}${pin})`;
 }
 
 const ADVICE = 'Treat each as unknown reach, not as safe. Pin the version, declare a "capabilities" array in the entry, or set "requireKnownCapabilities": true in boppi.policy.json to fail scans on them.';
-const UNPINNED_ADVICE = 'Each runs whatever version is published at its next launch; pin with name@1.2.3, name==1.2.3, or image:tag.';
+const UNPINNED_ADVICE = 'Each runs whatever version is published at its next launch; pin with name@1.2.3, name==1.2.3, or image@sha256:<digest>.';
+const TAGGED_ADVICE = 'A Docker tag is a moving label, not a fixed release; pin with image@sha256:<digest> to run the same bytes every time.';
 
-module.exports = { describeClient, unrecognized, unpinned, packageLaunched, coverageSentence, launchSummary, launcherOf, pinOf, ADVICE, UNPINNED_ADVICE };
+module.exports = { describeClient, unrecognized, unpinned, tagged, packageLaunched, coverageSentence, launchSummary, launcherOf, pinOf, ADVICE, UNPINNED_ADVICE, TAGGED_ADVICE };
