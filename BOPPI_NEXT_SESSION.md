@@ -1,4 +1,98 @@
-# Boppi: next session (October 19, 2026 end of day)
+# Boppi: next session (updated October 20, 2026)
+
+## October 20, 2026: Phase 0 synthetic testing environment prepared
+
+Founder authorized local preparation, not a public release or phase 1 code work.
+Start with `~/Desktop/Boppi-phase0-beta-2026-10-20/START_HERE.md` and its
+five owner-only blank forms under `feedback/`. Current preparation report:
+`Boppi-auto/docs/beta/first-time-user-test/PHASE0_PREPARATION_2026-10-20.md`.
+
+- Source heads remain scanner 14278e8 and control plane 15dd7b2; frozen local
+  package 0.3.1 / engine 1.0.2. Package checksum is in the kit CANDIDATE.json.
+- Fresh automated verification: scanner 22/22 suites, local dashboard build,
+  existing isolated integrated journey 17/17, browser demo/report and synthetic
+  sign-in/Overview/Fleet/History. Initial sandbox socket denial was resolved;
+  it was an environment restriction, not a remaining failing scanner test.
+- Six synthetic accuracy cases and a QA-only zero-benefit removal reproduce
+  permission/severity/name-inference concerns. The zero-benefit edit prints
+  CONFIRMED despite 0 paths closed. These remain review items, not code fixes.
+- **Human usability sessions: 0.** T1-T5 sandboxes remain unused; only QA was
+  rehearsed. Participant commands always target separate synthetic homes and
+  require interactive approval for the recommended github fix and rollback.
+- Local demo/report: http://127.0.0.1:3098/demo.html and /report.html.
+  Local dashboard: http://127.0.0.1:3097/login. Servers are left running for
+  founder testing. Restart/stop instructions are in START_HERE.md.
+- New disposable stack: /private/tmp/boppi-beta-local.phase0-2026-10-20.3ALpWR,
+  project boppi-phase0-beta-2026-10-20; API/DB/mail ports 55321/55322/55324.
+  Its published Docker ports were restricted to 127.0.0.1 and verified. Docker
+  Desktop resumed an older founder stack; that stack/data remain preserved.
+- No personal scan, real config remediation, live MCP execution, persistent
+  hook installation, participant recruitment, sensitive feedback collection,
+  cloud operation, public push/publish/merge/deployment or commit occurred.
+  Only preparation artifacts, docs and disposable local runtime/build state
+  changed; product source code is unchanged.
+
+Next: conduct the first real consenting T1 session using START_HERE.md;
+record actual answers and disagreements, then repeat through T5. Phase 0 is
+not complete until human sessions and review meet the roadmap gates.
+
+
+## October 20, 2026: authoritative roadmap and five-user beta plan
+
+Read this newest block first. The single authoritative forward roadmap is
+[BOPPI_ROADMAP_2026.md](../Boppi-auto/BOPPI_ROADMAP_2026.md)
+(`Memanzur/boppii`, repository root). Do not treat the October 18 playbook,
+old P0-P4 labels, or earlier next-priority blocks as the current roadmap.
+Historical implementation/test evidence below is preserved.
+
+### Verified local state before planning edits
+
+- Scanner: `~/Desktop/boppi-scan-auto`, `codex/live-brand-alignment`,
+  `14278e8e2ecf91ead5b4da4e7ca191237a523367`; package 0.3.1, engine 1.0.2.
+- Control plane: `~/Desktop/Boppi-auto`, same branch,
+  `15dd7b2a42c93e943f021d637832bd0f59cf1d7f`.
+- Both active checkouts were clean. All 24 worktrees were checked read-only.
+  Four older control-plane checkouts remain dirty and preserved: Boppi (55
+  status entries), Boppi-phases (2), Boppi-rc (3), Boppi-release-prep (1).
+  All other worktrees were clean. The roadmap appendix records all heads/branches.
+- The five dashboard engine hashes and vendored bodies match scanner
+  `70978968c4e75681a00d28c712e5fba4c24e9171`. The old e73ff75 / 1.0.1 pin
+  statements below are historical. No test suites were rerun in this task;
+  22/22 scanner suites and the final dashboard checks are recorded October 19
+  results, not fresh production or real-client validation.
+- No remote fetch or hosted schema/version/secrets check was performed.
+  npm 0.3.0 and app.boppi.io at 938e9d1 with four missing migrations are the
+  last October 19 reports, not newly verified public state.
+
+### Planning deliverables and next step
+
+- Created `Boppi-auto/BOPPI_ROADMAP_2026.md`: current baseline, phase-by-phase
+  reuse/implementation/dependencies/risks/acceptance/effort/user benefit;
+  individual and team release gates; opt-in discovery/monitoring/runtime;
+  scoped prompt investigation; evidence-backed paths; reviewed device
+  remediation; later enterprise governance and enforcement.
+- Created the [five-user beta checklist](../Boppi-auto/docs/beta/first-time-user-test/BOPPI_FIVE_USER_BETA_CHECKLIST_2026.md).
+  Five-user sessions are prepared, not performed. The existing kit is reused.
+- Next: run five supervised local beta sessions, then implement phase 1,
+  **Trustworthy findings v1** (10-15 focused engineer-days): adjudicated
+  false positives and false negatives, calibrated severity, versioned evidence,
+  readable explanations, and effective/safe remediation predictions.
+- Open modeling decisions must be resolved from evidence, not by globally
+  lowering scores or deleting built-in grants. Code inspection also found
+  Read's default grade precedes deny evaluation in builtinTools.gradeTool;
+  phase 1 must investigate supported client semantics and add a fixture.
+- Continuous watching, live MCP tools/list, prompt investigation, runtime
+  correlation/cloud events, and dashboard-initiated real fixes are still
+  proposed work. The hook is a metadata-only prototype. Advertised tools
+  are not proof of effective permission; observed calls are not proof of
+  file/network effects or prompt causation.
+
+Only planning/documentation files changed and remain uncommitted. No code
+implementation, test-generated runtime state, personal scan, MCP execution,
+hook installation, service start, database operation, production/shared-staging
+access, commit, push, publish, merge, deployment, or credential change occurred.
+The roadmap is a plan, not authorization for those operations.
+
 
 ## October 19, 2026 night session (Claude Code): four report corrections, engine 1.0.2
 
