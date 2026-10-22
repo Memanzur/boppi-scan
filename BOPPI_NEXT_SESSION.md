@@ -1,27 +1,28 @@
 # Boppi: next session (updated October 22, 2026)
 
-## October 22, 2026: Milestone 1 (trustworthy checkup v1) code complete, human gates open
+## October 22, 2026: Milestone 1 reviewed and closed (rubric 1.0.1); Milestone 2 slice 1 done; human gates open
 
-Autonomous session under the founder's directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner head `870cd81` on `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0). Control plane head `829d474` in `~/Desktop/Boppi-auto`.
+Autonomous session under the founder's directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner head `0df3b3e` on `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0, rubric 1.0.1). Control plane head `f9f0ffc` in `~/Desktop/Boppi-auto`. Both handoff docs in both repos carry this same section.
 
-What changed, in order (each unit committed with its tests green):
+Milestone 1 (trustworthy checkup v1, roadmap Phase 1), in commit order:
 
 - Unit 1 (3887b33): deny rules win over Read's never-prompts default; unreadable settings grade unknown; built-in permissions carry rubric attributes.
-- Unit 2 (fcd3792): `boppi verify` says how many paths closed and what remains; a zero-benefit edit is never reported as a fix that worked; `boppi fix` warns before applying one.
-- Unit 3 (1d32b63): read-only cluster tools reach no production system; environment graded only from explicit words; Docker tags are `tagged`, not pinned; reach and capability permissions carry attributes.
-- Corpus (21be9f0): 50 labeled synthetic setups (16 negative, 16 limited, 18 high-impact, 15 held out) frozen before tuning, with `test/verify-rubric-corpus.js`.
-- Unit 4 (7688849): risk rubric 1.0.0 in `src/engine/riskRubric.js`. Priority is the template impact stepped down by the weakest evidence; every path carries facts, assumptions, unknowns, and `likelihood: not assessed` on the terminal, HTML, interactive panel, JSON, and the dashboard paths page. Findings covered by a path take its priority. Push sends permission attributes.
-- Push (66532fd): each MCP server record carries recognition (recognized, pin, launcher).
-- Docs (870cd81): `docs/milestone1/RISK_RUBRIC_v1.0.0.md` (the reviewable rule with four open questions) and `docs/milestone1/ADJUDICATION.md` (eleven objections, each with outcome, fixture, and what stays unknown). Decision trail: `docs/milestone1/DECISIONS.tsv`.
-- Control plane (829d474): rubric vendored from scanner 87d6a3a, permission attributes ingested, paths page shows what supports each path, what it assumes, and what was not checked.
+- Unit 2 (fcd3792): `boppi verify` says how many paths closed and what remains; a zero-benefit edit never reads as a fix that worked.
+- Unit 3 (1d32b63): read-only cluster tools reach no production write; Docker tags are `tagged`, not pinned.
+- Corpus (21be9f0, dc055b1): 54 labeled synthetic setups, 17 held out, labels written before the rule they test.
+- Unit 4 (7688849): rubric 1.0.0. Priority is the template impact stepped down by the weakest evidence; every path lists facts, assumptions, unknowns, and `likelihood not assessed` on every surface.
+- Independent cross-model review of 1.0.0 (Opus, logged in DECISIONS.tsv): eight findings, verdict "trust with caveats". Three were real under-reporting: a deny on the file tools hid what Bash can still read; environment words were read from launcher paths; read-only cluster tools were dropped from the graph. The others: chain and cited facts could disagree, a production permission with no evidence graded critical, a held-out label had been edited during tuning, generic file tool names granted nothing, attributes had no allowlist.
+- Unit 5 (0df3b3e): rubric 1.0.1 closes all eight. ADJUDICATION.md rows 12 to 19 give outcome, fixture, and what stays unknown for each. The only downgrade is a name-only production permission (critical to high, with the gap named).
+- Docs: `docs/milestone1/RISK_RUBRIC_v1.0.1.md` (the reviewable rule, five open questions), `ADJUDICATION.md` (19 rows), `DECISIONS.tsv`.
+- Control plane (829d474, f9f0ffc): rubric vendored, permission attributes ingested through the engine's allowlist, paths page shows what supports each path, what it assumes, and what was not checked.
 
-Verified by running, this session: scanner `node test/run-all.js` 23 of 23 suites; corpus 50 of 50, held-out critical precision 5/5 and recall 5/5, 0 unjustified criticals; control plane `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` in `apps/control-plane` fully green (typecheck, lint, vendor sync, engine port 23 checks, ingest 45, route 21, reduction 15, staging safeguards, org workflows, actions). A sample scan was rendered on the terminal and to HTML and read by eye.
+Milestone 2 (roadmap Phase 2) slice 1: `npm run release-candidate` (496eb50) packs the tarball, installs it fresh, and runs version, scan, demo, plan, fix, verify, rollback, uninstall on a synthetic home (20 checks). Candidate rebuilt on rubric 1.0.1 at `~/Desktop/Boppi-candidate-0.4.0/` (package/boppi-0.4.0.tgz, sha256 d9921ba3…, from clean 0df3b3e... see CANDIDATE.json) with a six-case facilitator kit under `kit/` (CASE_CARDS.md shows 0.3.1 versus 0.4.0 results). The earlier build on rubric 1.0.0 is kept at `~/Desktop/Boppi-candidate-0.4.0-superseded-rubric-1.0.0/`. `docs/release/CANDIDATE-0.4.0.md` states supported platforms, install and removal, known limits, reporting, and withdrawal. README and the tester guide target 0.4.0.
 
-Open human gates (cannot be closed by an agent): founder and security reviewer sign-off on the rubric; five uncoached users re-checking comprehension; the Phase 0 sessions themselves (still 0 of 5).
+Verified by running, after Unit 5: scanner `node test/run-all.js` 23 of 23 suites; corpus 54 of 54, held-out 17 of 17, critical precision 5/5 and recall 5/5, 0 criticals on negative controls; the reviewer's five probes replayed with the expected outputs; control plane `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` fully green (engine port 24 checks); candidate journey 20 of 20 from the fresh tarball.
 
-Not done, by choice: the dashboard does not yet display the pushed recognition field (ingest accepts it; display is Phase 3 scope). `~/Desktop/boppi-scan` (the main checkout) is behind this worktree, so the control plane vendor check must be run with `BOPPI_SCAN_DIR` pointing at `boppi-scan-auto` until the branch is merged.
+Open human gates (cannot be closed by an agent): founder and security reviewer sign-off on RISK_RUBRIC_v1.0.1.md (five questions at the end); five uncoached comprehension sessions; the Phase 0 sessions (0 of 5). Open technical question for the founder: should name-only production permissions such as `cluster.viewer` normalize to a production system at all (rubric question 5)?
 
-Milestone 2 (roadmap Phase 2, individual beta release gate) slice 1, same session: `npm run release-candidate` (`scripts/release-candidate.js`, commit 496eb50) packs the tarball, installs it into a throwaway prefix, runs version, scan, demo, plan, fix, verify, rollback, and uninstall on a synthetic home, checks the JSON, HTML, and SARIF for secret values and raw home paths, and writes `CANDIDATE.json`. Result 20 of 20 checks. Candidate at `~/Desktop/Boppi-candidate-0.4.0/` (package/boppi-0.4.0.tgz, sha256 836f2784…, built from clean 496eb50). `docs/release/CANDIDATE-0.4.0.md` states supported clients and platforms, install and removal, known limits, reporting, and withdrawal. README shows the 0.4.0 path lines and how priority is set; `BETA_TESTER_GUIDE.md` in the control plane repo now targets 0.4.0 and asks testers about `based on:` and `assumes:` lines. Still unpublished; Linux and Windows remain experimental; the five-tester install run is a human gate.
+Not done, by choice: the dashboard does not yet display the pushed recognition field. `~/Desktop/boppi-scan` (the main checkout) is behind this worktree, so run the control plane vendor check with `BOPPI_SCAN_DIR` pointing at `boppi-scan-auto` until the branch is merged. Linux and Windows config lookups are tested, not verified on real machines.
 
 Next session: start from `docs/milestone1/NEXT_SESSION_PROMPT.md` in the scanner repo.
 
