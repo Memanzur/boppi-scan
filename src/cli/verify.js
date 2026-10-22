@@ -61,7 +61,8 @@ function resolvePrediction(prediction, byAgent, options = {}) {
   const appeared = current.filter(key => !known.has(key));
   const observed = { exposureKeys: state.exposureKeys, eliminated: prediction.predictedEliminated.filter(key => !present.has(key)), survivors, vanished, appeared };
 
-  if (!survivors.length && !vanished.length) return { ...base, status: STATUS.CONFIRMED, reason: null, observed };
+  // A prediction that named nothing to eliminate can only confirm that nothing changed; it is never a fix that worked.
+  if (!survivors.length && !vanished.length) return { ...base, status: STATUS.CONFIRMED, reason: prediction.predictedEliminated.length ? null : 'no_change_predicted', observed };
   if (prediction.predictedEliminated.length && survivors.length === prediction.predictedEliminated.length) return { ...base, status: STATUS.CONTRADICTED, reason: 'all_predicted_eliminated_present', observed };
   return { ...base, status: STATUS.PARTIAL, reason: survivors.length ? 'some_predicted_eliminated_present' : 'predicted_surviving_absent', observed };
 }
@@ -97,6 +98,7 @@ function contradictionBundle(prediction, resolution, previous, scan) {
 function pad(value, width) { const text = String(value ?? ''); return text.length >= width ? text : text + ' '.repeat(width - text.length); }
 
 const REASON_TEXT = Object.freeze({
+  no_change_predicted: 'this edit was never expected to close a path; nothing changed, as predicted',
   agent_not_scanned: 'that agent was not in this scan',
   edit_not_applied: 'the server is still configured',
   all_predicted_eliminated_present: 'every path predicted to vanish is still present',
@@ -108,22 +110,39 @@ const REASON_TEXT = Object.freeze({
 const describeReason = code => (REASON_TEXT[code] ? `${REASON_TEXT[code]} (${code})` : code);
 
 const NEXT_STEP = Object.freeze({
-  CONFIRMED: 'The fix worked as predicted. Run boppi scan --json again to record the new baseline.',
   PARTIAL: 'The fix did less than predicted. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
   CONTRADICTED: 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
   UNRESOLVED: 'Nothing could be graded yet. Apply the recommended edit (remove the named server entry), then run boppi verify again.',
 });
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** The one sentence after the table. A contradiction or partial result wins; otherwise a mix of graded and ungraded edits says so instead of calling the graded ones "nothing". */
-function nextStep(summary) {
+/** What the confirmed resolutions actually closed and what still stands, counted from the rescan, never from the prediction. */
+function confirmedOutcome(resolutions) {
+  const confirmed = (resolutions || []).filter(r => r.status === STATUS.CONFIRMED && r.observed);
+  const closed = new Set(confirmed.flatMap(r => r.observed.eliminated));
+  const remaining = new Set(confirmed.flatMap(r => r.observed.exposureKeys));
+  return { closed: closed.size, remaining: remaining.size, zeroBenefit: confirmed.length > 0 && confirmed.every(r => r.reason === 'no_change_predicted') };
+}
+
+function confirmedSentence(outcome) {
+  if (outcome.zeroBenefit) return `The edit was applied and changed nothing about exposure, as predicted: 0 paths closed, ${plural(outcome.remaining, 'path')} remain${outcome.remaining === 1 ? 's' : ''}. This was not a risk-reducing fix; run boppi plan to compare edits that close paths.`;
+  const rest = outcome.remaining ? `${plural(outcome.remaining, 'path')} remain${outcome.remaining === 1 ? 's' : ''} on this agent; boppi plan lists the next edit.` : 'No modeled path remains on this agent.';
+  return `Confirmed by rescanning: ${plural(outcome.closed, 'path')} closed, as predicted. ${rest} Run boppi scan --json again to record the new baseline.`;
+}
+
+/** The one sentence after the table. A contradiction or partial result wins; otherwise the confirmed count says what closed and what remains, and a mix of graded and ungraded edits says so instead of calling the graded ones "nothing". */
+function nextStep(summary, resolutions = []) {
   if (summary.contradicted) return NEXT_STEP.CONTRADICTED;
   if (summary.partial) return NEXT_STEP.PARTIAL;
   if (summary.confirmed && summary.unresolved) {
-    return `${plural(summary.confirmed, 'fix')} confirmed as predicted; ${plural(summary.unresolved, 'other prediction')} not graded because that edit was not applied. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
+    const outcome = confirmedOutcome(resolutions);
+    const graded = outcome.zeroBenefit
+      ? `${plural(summary.confirmed, 'edit')} applied and changed nothing about exposure, as predicted (0 paths closed, ${outcome.remaining} remaining); this was not a risk-reducing fix`
+      : `${plural(summary.confirmed, 'fix')} confirmed as predicted (${plural(outcome.closed, 'path')} closed, ${outcome.remaining} remaining)`;
+    return `${graded}; ${plural(summary.unresolved, 'other prediction')} not graded because that edit was not applied. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
   }
   if (summary.unresolved) return NEXT_STEP.UNRESOLVED;
-  if (summary.confirmed) return NEXT_STEP.CONFIRMED;
+  if (summary.confirmed) return confirmedSentence(confirmedOutcome(resolutions));
   return null;
 }
 
@@ -133,8 +152,8 @@ function renderTable(result, useColor) {
   const lines = [];
   const rows = result.resolutions.map(r => {
     const total = r.predicted.eliminated.length + r.predicted.surviving.length;
-    const observed = r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} gone` : 'n/a';
-    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} gone / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
+    const observed = r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed` : 'n/a';
+    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} closed / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;
   const widths = { status: width('status'), agent: width('agent'), edit: width('edit'), outcome: Math.max('predicted vs observed'.length, ...rows.map(row => row.outcome.length)) + 2 };
@@ -147,9 +166,9 @@ function renderTable(result, useColor) {
   lines.push('');
   lines.push(`${s.confirmed} confirmed · ${s.partial} partial · ${s.contradicted} contradicted · ${s.unresolved} unresolved`);
   if (result.engineChanged) lines.push(`engine version changed since the predictions were made (now ${models.ENGINE_VERSION}); statuses are still computed`);
-  const next = nextStep(s);
+  const next = nextStep(s, result.resolutions);
   if (next) lines.push('', `Next: ${next}`);
   return lines.join('\n');
 }
 
-module.exports = { STATUS, currentState, resolvePrediction, resolveAll, contradictionBundle, renderTable, nextStep };
+module.exports = { STATUS, currentState, resolvePrediction, resolveAll, contradictionBundle, renderTable, nextStep, confirmedOutcome };

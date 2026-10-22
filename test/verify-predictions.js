@@ -47,7 +47,8 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   ok('the applied edit is CONFIRMED', statusOf(confirmed, 'filesystem') === 'CONFIRMED');
   ok('edits that were not applied are UNRESOLVED edit_not_applied', ['fetch', 'code-runner'].every(s => statusOf(confirmed, s) === 'UNRESOLVED' && rowOf(confirmed, s).includes('edit_not_applied')));
   ok('summary line counts statuses', confirmed.stdout.includes('1 confirmed · 0 partial · 0 contradicted · 2 unresolved'));
-  ok('the next step names the confirmed fix instead of calling the result nothing', confirmed.stdout.includes('Next: 1 fix confirmed as predicted; 2 other predictions not graded because that edit was not applied.') && !confirmed.stdout.includes('Nothing could be graded yet'));
+  ok('the next step names the confirmed fix, how many paths closed, and what remains', /Next: 1 fix confirmed as predicted \(1 path closed, \d+ remaining\); 2 other predictions not graded because that edit was not applied\./.test(confirmed.stdout) && !confirmed.stdout.includes('Nothing could be graded yet'));
+  ok('the table counts closed paths, never "gone"', rowOf(confirmed, 'filesystem').includes('1 of ') && rowOf(confirmed, 'filesystem').includes('closed / 1 of ') && !confirmed.stdout.includes(' gone'));
   ok('no contradiction file is written for confirmed or unresolved', !fs.readdirSync(home).some(f => f.startsWith('boppi-contradiction-')));
 
   section('UNRESOLVED(agent_not_scanned) when the agent is missing from the rescan');
@@ -93,8 +94,13 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   const replay = runCli(['verify', rerouteBefore, '--config', editedCopy, '--source', 'claude-desktop'], home);
   ok('every server on or beside the reroute path gets a prediction, including the unused slack route', JSON.parse(fs.readFileSync(rerouteBefore, 'utf8')).predictions.map(p => p.edit.server).sort().join() === 'fetch,filesystem,slack');
   ok('the single explicit client is matched by client key and flagged', replay.code === 0 && rowOf(replay, 'fetch').includes('agent_matched_by_client'));
-  ok('removing fetch from the reroute fixture is CONFIRMED to eliminate nothing', statusOf(replay, 'fetch') === 'CONFIRMED' && rowOf(replay, 'fetch').includes('0 of 1 gone / 0 of 1 gone'));
+  ok('removing fetch from the reroute fixture is CONFIRMED to eliminate nothing, and says so', statusOf(replay, 'fetch') === 'CONFIRMED' && rowOf(replay, 'fetch').includes('0 of 1 closed / 0 of 1 closed') && rowOf(replay, 'fetch').includes('no_change_predicted'));
+  ok('a zero-benefit edit never reads as a fix that worked', !replay.stdout.includes('worked as predicted') && /0 paths closed, 1 remaining/.test(replay.stdout) && /not a risk-reducing fix/.test(replay.stdout));
   ok('the edits not applied in the copy stay UNRESOLVED', ['filesystem', 'slack'].every(s => statusOf(replay, s) === 'UNRESOLVED'));
+  const zeroCopy = path.join(root, 'reroute-copy.json');
+  fs.writeFileSync(zeroCopy, JSON.stringify(reroute));
+  const zeroFix = runCli(['fix', '--server', 'fetch', '--config', zeroCopy, '--source', 'claude-desktop', '--yes'], home);
+  ok('fix warns before applying an edit predicted to close no path', zeroFix.stdout.includes('note:    this edit is not predicted to close any exposure path') && zeroFix.stdout.includes('no_change_predicted') && !zeroFix.stdout.includes('worked as predicted'));
 
   section('Unusable input');
   ok('a missing file exits 2', runCli(['verify', path.join(root, 'nope.json')], home).code === 2);

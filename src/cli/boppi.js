@@ -621,6 +621,7 @@ async function runFix(options) {
   process.stdout.write(`  file:    ${preview.file} (${preview.scope} scope)\n`);
   if (prediction) process.stdout.write(`  breaks:  ${prediction.predictedEliminated.length} of ${prediction.before.exposureKeys.length} exposure path${prediction.before.exposureKeys.length === 1 ? '' : 's'} on ${client.label}, by rescanning without it\n`);
   else process.stdout.write('  breaks:  nothing modeled; this server takes part in no exposure path\n');
+  if (prediction && !prediction.predictedEliminated.length) process.stdout.write('  note:    this edit is not predicted to close any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
   process.stdout.write(`  loses:   ${lost.length ? lost.join(', ') : 'no capability the agent does not also get elsewhere'}\n`);
   process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
   process.stdout.write(remediate.renderPreview(preview) + '\n');
