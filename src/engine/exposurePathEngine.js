@@ -11,10 +11,11 @@
  */
 (function (root, factory) {
   const models = typeof require === 'function' ? require('./models') : (typeof globalThis !== 'undefined' ? globalThis.BoppiAgentSecurityModels : null);
-  const api = factory(models);
+  const rubric = typeof require === 'function' ? require('./riskRubric') : (typeof globalThis !== 'undefined' ? globalThis.BoppiRiskRubric : null);
+  const api = factory(models, rubric);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.BoppiExposurePathEngine = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (models) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (models, rubric) {
   'use strict';
 
   const SCHEMA_VERSION = 1;
@@ -161,7 +162,7 @@
    */
   function exposureKey(path) { return `${path.templateId}:${path.agentId}`; }
 
-  function assemblePath(template, agentNode, branches, nodesById, incomingUserEdge) {
+  function assemblePath(template, agentNode, branches, nodesById, incomingUserEdge, incoming) {
     const orderedEdges = [];
     const seenEdges = new Set();
     if (incomingUserEdge) { orderedEdges.push(incomingUserEdge); seenEdges.add(incomingUserEdge.id); }
@@ -187,11 +188,12 @@
     const stale = orderedEdges.some(e => e.stale) || orderedNodeIds.some(id => nodesById.get(id)?.stale);
     let confidence = Math.round(Math.min(...confidences) * 1000) / 1000;
     if (stale) confidence = Math.round(confidence * STALE_CONFIDENCE_FACTOR * 1000) / 1000;
-    // Low-confidence evidence never yields a critical path on its own.
-    const rank = SEVERITY_RANK[template.severity];
+    // The rubric grades the evidence behind each branch and sets the action priority; low-confidence evidence then never yields a critical path on its own.
+    const assessment = rubric.assessPath({ template, agentNode, branches: branches.map(b => ({ name: b.name, nodeId: b.nodeId })), incoming, nodesById });
+    const rank = SEVERITY_RANK[assessment.priority];
     const severity = confidence < LOW_CONFIDENCE
       ? Object.keys(SEVERITY_RANK).find(k => SEVERITY_RANK[k] === Math.max(1, rank - 1))
-      : template.severity;
+      : assessment.priority;
 
     const sources = new Map();
     for (const edge of orderedEdges) if (edge.source?.id) sources.set(edge.source.id, edge.source);
@@ -210,6 +212,7 @@
       label: template.label,
       severity,
       baseSeverity: template.severity,
+      assessment,
       agentId: agentNode.id,
       agentName: agentNode.label,
       sourceEntityId: pathNodes[0].id,
@@ -235,6 +238,7 @@
     if (!graph || !Array.isArray(graph.nodes)) throw new TypeError('Exposure path engine: graph is required');
     const nodesById = new Map(graph.nodes.map(n => [n.id, n]));
     const adjacency = buildAdjacency(graph, nodesById);
+    const incoming = rubric.buildIncoming(graph);
     const userEdgesByAgent = new Map();
     for (const edge of graph.edges || []) {
       if (edge.relationshipType === 'user_uses_agent' && !userEdgesByAgent.has(edge.toEntityId)) userEdgesByAgent.set(edge.toEntityId, edge);
@@ -253,12 +257,16 @@
         const branches = [];
         let satisfied = true;
         for (const name of template.branches) {
-          const best = (groups[name] || [])[0];
+          // The strongest-evidenced candidate stands for the branch; ties keep the shortest, label-first chain.
+          const best = (groups[name] || []).reduce((chosen, entry) => {
+            const steps = rubric.assessBranch(name, nodesById.get(entry.nodeId), incoming, nodesById).steps;
+            return !chosen || steps < chosen.steps ? { entry, steps } : chosen;
+          }, null);
           if (!best) { satisfied = false; break; }
-          branches.push({ name, ...best });
+          branches.push({ name, ...best.entry });
         }
         if (!satisfied) continue;
-        paths.push(assemblePath(template, agentNode, branches, nodesById, userEdgesByAgent.get(agentNode.id) || null));
+        paths.push(assemblePath(template, agentNode, branches, nodesById, userEdgesByAgent.get(agentNode.id) || null, incoming));
       }
     }
     return paths.sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0) || b.confidence - a.confidence || a.id.localeCompare(b.id));
@@ -354,5 +362,5 @@
     return { counts, perAgent, total: (paths || []).length };
   }
 
-  return { SCHEMA_VERSION, MAX_DEPTH, MAX_PATHS, TEMPLATES, DISCLAIMER, exposureKey, findPaths, prioritize, blastRadius };
+  return { SCHEMA_VERSION, MAX_DEPTH, MAX_PATHS, TEMPLATES, DISCLAIMER, RUBRIC_VERSION: rubric.RUBRIC_VERSION, exposureKey, findPaths, prioritize, blastRadius };
 });

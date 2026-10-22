@@ -80,6 +80,7 @@ function startWorkspace() {
   ok('confidence stays inside [0, 1] when present', records.every(r => r.confidence === undefined || (r.confidence >= 0 && r.confidence <= 1)));
   ok('permissions carry their normalization confidence, not the 0.5 default', records.filter(r => r.kind === 'permission').every(r => Number.isFinite(r.confidence)));
   ok('child records point at their agent by external id', records.filter(r => r.kind !== 'agent').every(r => records.some(a => a.kind === 'agent' && a.external_id === r.metadata.agent_external_id)));
+  ok('permission metadata carries the rubric attributes, bounded and without paths', records.filter(r => r.kind === 'permission' && r.metadata.attributes).length > 0 && records.filter(r => r.kind === 'permission' && r.metadata.attributes).every(r => Object.keys(r.metadata.attributes).length <= 24 && Object.values(r.metadata.attributes).every(v => ['string', 'number', 'boolean'].includes(typeof v) && (typeof v !== 'string' || (v.length <= 160 && !v.includes('/'))))));
   ok('mcp_server metadata carries capabilities and trust status', records.filter(r => r.kind === 'mcp_server').every(r => Array.isArray(r.metadata.capabilities) && typeof r.metadata.trust_status === 'string'));
   ok('no field exceeds the 512-character contract cap', records.every(r => r.external_id.length <= 512 && r.name.length <= 512 && JSON.stringify(r.metadata).length <= 65536));
   const serialized = JSON.stringify(records);
@@ -121,7 +122,7 @@ function startWorkspace() {
     ok('exactly one POST to /api/ingest', workspace.requests.length === 1 && request.method === 'POST' && request.url === '/api/ingest');
     ok('token travels as a bearer header, never in the body', request.authorization === 'Bearer bpc_good' && !JSON.stringify(request.body).includes('bpc_good'));
     ok('body is a snapshot of the mapped records', request.contentType === 'application/json' && request.body.snapshot === true && request.body.records.length === records.length);
-    ok('body carries scanner version, source type, and discovery coverage', request.body.collector.name === 'boppi' && request.body.collector.version === '0.3.1' && request.body.coverage.runtime === 'not_observed' && request.body.coverage.clients.every(client => ['found', 'not_found', 'unreadable', 'failed'].includes(client.status)));
+    ok('body carries scanner version, source type, and discovery coverage', request.body.collector.name === 'boppi' && request.body.collector.version === require('../package.json').version && request.body.coverage.runtime === 'not_observed' && request.body.coverage.clients.every(client => ['found', 'not_found', 'unreadable', 'failed'].includes(client.status)));
     ok('a snapshot carries snapshot_at as an ISO timestamp at the top level of the body', typeof request.body.snapshot_at === 'string' && !Number.isNaN(Date.parse(request.body.snapshot_at)) && request.body.records.every(r => r.snapshot_at === undefined));
     ok('output tells the user what is and is not sent', good.stdout.includes('Only sanitized inventory metadata is sent'));
 

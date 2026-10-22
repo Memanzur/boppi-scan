@@ -123,6 +123,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
           basis: evidence ? evidence.basis : (inferred ? 'inferred' : 'configured'),
           ...(scoped ? { scope: scope.worst, scopeLabel: scope.label } : {}),
           ...(capability === 'credential_access' ? { credentialKind: (server.credentialReferences || []).length ? 'environment_name' : 'capability' } : {}),
+          ...(capability === 'environment_access' ? { credentialKind: 'environment_name' } : {}),
         },
         createdAt: observedAt,
         updatedAt: observedAt,

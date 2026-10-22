@@ -122,6 +122,7 @@ function toRecords(inventory) {
       category: permission.normalizedCategory || 'unknown',
       raw_permission: clip(permission.rawPermission || 'unknown'),
       access_level: permission.accessLevel || 'unknown',
+      ...(permission.attributes && Object.keys(permission.attributes).length ? { attributes: permission.attributes } : {}),
     }));
   }
   for (const server of inventory.mcpServers || []) {

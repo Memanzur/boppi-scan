@@ -396,6 +396,18 @@ function shadowEntries(client, overlayByServer) {
   return entries;
 }
 
+/** A rule-engine finding that an exposure path also describes takes the path's rubric priority, so every surface shows one severity for one exposure. */
+function alignFindings(findings, paths) {
+  const byKey = new Map(paths.map(p => [`${p.agentId}:${terminal.PATH_RULE_FOR_TEMPLATE[p.templateId]}`, p]));
+  for (const finding of findings || []) {
+    const covering = byKey.get(`${finding.agentId}:${finding.ruleId}`);
+    if (!covering || covering.severity === finding.severity) continue;
+    finding.ruleSeverity = finding.severity;
+    finding.severity = covering.severity;
+    finding.description = `${finding.description} Priority ${covering.severity} follows the ${covering.templateId} exposure path assessment (rubric ${covering.assessment ? covering.assessment.rubricVersion : 'n/a'}); the rule's own severity is ${finding.ruleSeverity}.`;
+  }
+}
+
 /** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
 async function performScan(options) {
   scanner.setFingerprintKey(loadFingerprintKey(options.home));
@@ -456,6 +468,7 @@ async function performScan(options) {
 
   const graph = securityGraph.buildGraph(inventory);
   const paths = exposurePathEngine.findPaths(graph);
+  alignFindings(inventory.findings, paths);
   const prioritization = exposurePathEngine.prioritize(paths);
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
   const predictions = discovery.clients

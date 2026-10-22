@@ -76,8 +76,9 @@ function runCli(args, home) {
   ok('path nodeIds and edgeIds resolve to view nodes and edges', view.paths.every(p => p.nodeIds.every(id => nodeIds.has(id)) && p.edgeIds.every(id => edgeIds.has(id))));
   ok('paths carry severity, confidence, explanation, whyItMatters, and the disclaimer', view.paths.every(p => ['critical', 'high', 'medium', 'low'].includes(p.severity) && typeof p.confidence === 'number' && p.explanation && p.whyItMatters && p.disclaimer));
   ok('nodes on a path carry that path id and its severity', view.paths.every(p => p.nodeIds.every(id => { const n = view.nodes.find(x => x.id === id); return n.pathIds.includes(p.id) && n.severity; })));
-  const critical = view.paths.find(p => p.severity === 'critical' && p.remediationIds.length);
-  ok('a critical path with one removable route lists at least one remediation', !!critical && critical.remediationIds.length >= 1);
+  const critical = view.paths.find(p => ['critical', 'high'].includes(p.severity) && p.remediationIds.length);
+  ok('a high-or-critical path with one removable route lists at least one remediation', !!critical && critical.remediationIds.length >= 1);
+  ok('view paths carry the rubric assessment', view.paths.every(p => p.assessment && p.assessment.rubricVersion && Array.isArray(p.assessment.facts) && Array.isArray(p.assessment.assumptions) && Array.isArray(p.assessment.unknowns) && p.assessment.likelihood === 'not assessed'));
   const twoRoutes = view.paths.find(p => p.templateId === 'EP-A' && p.agentName === 'Claude Code');
   // Which readable source the engine picks for EP-A (built-in file access or github's source reach) depends on record id order, so only the shape is asserted.
   ok('the Claude Code exfiltration path, fed by two readers and two network servers, lists no single-server remediation', !!twoRoutes && twoRoutes.remediationIds.length === 0 && twoRoutes.chain[0] === 'Claude Code' && twoRoutes.chain[twoRoutes.chain.length - 1] === 'External destination');

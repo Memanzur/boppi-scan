@@ -285,9 +285,13 @@ ${graphSection(view)}
   <h2>Potential exposure paths (${paths.length})</h2>
   ${paths.length ? paths.map(p => `
   <div class="card">
-    ${sevBadge(p.severity)} <b>${esc(p.label)}</b> <span class="muted small">· ${esc(p.templateId)} · agent: ${esc(p.agentName)} · confidence ${esc(p.confidence)}${p.stale ? ' · stale evidence' : ''}</span> <button class="link" type="button" data-show-path="${esc(p.id)}">Show in graph</button>
+    ${sevBadge(p.severity)} <b>${esc(p.label)}</b> <span class="muted small">· ${esc(p.templateId)} · agent: ${esc(p.agentName)} · evidence confidence ${esc(p.confidence)}${p.stale ? ' · stale evidence' : ''} · likelihood not assessed</span> <button class="link" type="button" data-show-path="${esc(p.id)}">Show in graph</button>
     <div class="chain">${p.nodes.map(n => `<span class="chip">${esc(n.label)}</span>`).join('<span class="arr">→</span>')}</div>
     <div class="kv"><b>Why it matters:</b> ${esc(p.whyItMatters)}</div>
+    ${p.assessment ? `<div class="kv"><b>What supports this:</b><ul class="small" style="margin:4px 0 0 18px">${p.assessment.facts.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+    ${p.assessment.assumptions.length ? `<div class="kv"><b>What this assumes:</b><ul class="small" style="margin:4px 0 0 18px">${p.assessment.assumptions.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+    <div class="kv"><b>What was not checked:</b><ul class="small" style="margin:4px 0 0 18px">${p.assessment.unknowns.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+    <div class="kv muted small">Priority ${esc(p.assessment.priority)} = worst case ${esc(p.assessment.impact)} stepped down by the weakest evidence (${esc(p.assessment.weakestStrength)}). Rubric ${esc(p.assessment.rubricVersion)}.</div>` : ''}
     <div class="kv"><b>Suggested fix:</b> ${esc(p.remediation)}</div>
     <div class="kv muted small">${esc(p.disclaimer)} Evidence sources: ${p.evidenceCount}.</div>
   </div>`).join('') : '<div class="card muted">No potential exposure paths from the evidenced inventory.</div>'}

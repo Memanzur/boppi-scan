@@ -166,12 +166,21 @@
   }
   function renderPathPanel(panel, p) {
     panel.appendChild(h('div', { class: 'panel-head' }, [badge(p.severity), h('h3', { text: p.label })]));
-    panel.appendChild(h('div', { class: 'muted small', text: p.templateId + ' · agent: ' + p.agentName + ' · confidence ' + p.confidence + (p.stale ? ' · stale evidence' : '') + ' · ' + plural(p.evidenceCount, 'evidence source') }));
+    panel.appendChild(h('div', { class: 'muted small', text: p.templateId + ' · agent: ' + p.agentName + ' · evidence confidence ' + p.confidence + (p.stale ? ' · stale evidence' : '') + ' · ' + plural(p.evidenceCount, 'evidence source') }));
     panel.appendChild(h('div', { class: 'chain' }, p.chain.reduce(function (acc, label, i) { if (i) acc.push(h('span', { class: 'arr', text: '→' })); acc.push(h('button', { class: 'chip', type: 'button', text: label, onclick: function () { selectNode(p.nodeIds[i]); } })); return acc; }, [])));
     panel.appendChild(h('h4', { text: 'What this means' }));
     panel.appendChild(h('p', { text: p.explanation }));
     panel.appendChild(h('h4', { text: 'Why it matters' }));
     panel.appendChild(h('p', { text: p.whyItMatters }));
+    if (p.assessment) {
+      var a = p.assessment;
+      panel.appendChild(h('h4', { text: 'What supports this' }));
+      panel.appendChild(h('ul', { class: 'small' }, a.facts.map(function (t) { return h('li', { text: t }); })));
+      if (a.assumptions.length) { panel.appendChild(h('h4', { text: 'What this assumes' })); panel.appendChild(h('ul', { class: 'small' }, a.assumptions.map(function (t) { return h('li', { text: t }); }))); }
+      panel.appendChild(h('h4', { text: 'What was not checked' }));
+      panel.appendChild(h('ul', { class: 'small' }, a.unknowns.map(function (t) { return h('li', { text: t }); })));
+      panel.appendChild(h('p', { class: 'muted small', text: 'Priority ' + a.priority + ' = worst case ' + a.impact + ' stepped down by the weakest evidence (' + a.weakestStrength + '). Likelihood of exploitation is ' + a.likelihood + '. Rubric ' + a.rubricVersion + '.' }));
+    }
     panel.appendChild(h('details',{class:'details'},[h('summary',{text:'Technical evidence ('+p.evidenceCount+' sources)'}),h('div',{class:'details-body'},[h('ul',{class:'small'},p.evidence.map(function(e){return h('li',{text:e.name+' · '+(e.evidenceLabel||e.evidenceClass)+(e.type?' · '+e.type:'')});}))])]));
     panel.appendChild(h('p', { class: 'muted small disclaimer', text: p.disclaimer + ' ' + view.scope }));
     panel.appendChild(h('h4', { text: p.remediationIds.length ? 'Remediate' : 'Remediate (no automatic option)' }));

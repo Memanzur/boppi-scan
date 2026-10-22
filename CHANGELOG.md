@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0
+
+Local candidate (unpublished). Milestone 1, trustworthy checkup.
+
+- Risk rubric 1.0.0 (analysis engine 1.1.0). Every exposure path now carries an `assessment`: the template's worst-case `impact`, the `priority` the report shows, and which branch of the path is weakest. Priority is the impact stepped down by evidence strength, never up. A grant counts as established when the configuration names it (a catalog capability, a built-in tool that never prompts, a filesystem server at the home directory or a secrets folder, a production environment by name). It drops one step when it is inferred from a name, gated by a prompt, a source tree, a credential known only by its variable name, or an environment nothing names; two steps for files in an ordinary folder or an environment named as non-production. Each path lists what supports it (`based on:`), what it assumes (`assumes:`), and what was not checked (`not checked:`), on the terminal, in the HTML report, and in the interactive panel. Confidence is labelled `evidence confidence`; likelihood of exploitation is stated as not assessed. A generic filesystem server plus network access is no longer reported as critical: it is medium until the scan can show the files are sensitive.
+- Read deny precedence. A whole-tool `deny` in Claude Code settings removes the capability; a scoped deny count is reported; an unreadable settings file grades the tool as unknown instead of allowed; `Read` is reported as never prompting inside the working folder.
+- `boppi verify` reports an applied edit that closed no path as "changed nothing about exposure, as predicted (0 paths closed)" with reason `no_change_predicted`, and `boppi fix` says so in the preview before applying such an edit.
+- Read-only Kubernetes, Helm, and Terraform tools (`get`, `describe`, `logs`, `plan`) no longer count as production write access; `apply`, `delete`, `scale`, `exec`, `rollout` and friends do, and the environment named in the tool or server (`prod`, `staging`, `dev`) is recorded with the grant.
+- Docker images run by tag are reported as `tagged` (SARIF `BOPPI-TAGGED-IMAGE`) and only `image@sha256:<digest>` counts as pinned.
+- The INVENTORY line counts unrecognized servers as unknown reach, and a scan with no paths says so when such servers exist.
+- A rule-engine finding that an exposure path also covers takes the path's priority, so the terminal, HTML, SARIF, and export agree on one severity per exposure. The rule's own severity is kept as `ruleSeverity`.
+- `boppi push` sends each permission's rubric attributes (basis, gate, scope label, environment, credential kind; no paths) in its metadata.
+- A frozen 50-case fixture corpus (`test/fixtures/corpus`, 15 held-out) and an evaluator (`test/verify-rubric-corpus.js`) fail the suite on any unjustified critical or on held-out precision or recall below 90%.
+
 ## 0.3.1
 
 Local candidate additions (unpublished):

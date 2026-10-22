@@ -231,6 +231,7 @@ function buildGraphView(report) {
     nodeIds: pathItem.nodes.map(n => n.id), edgeIds: pathItem.edges.map(e => e.id),
     chain: pathItem.nodes.map(n => n.label),
     explanation: pathItem.explanation, whyItMatters: pathItem.whyItMatters, remediation: pathItem.remediation, disclaimer: pathItem.disclaimer,
+    assessment: pathItem.assessment || null,
     evidenceCount: pathItem.evidenceCount,
     evidence: (pathItem.evidence || []).map(source => ({ name: source.name || source.id || 'evidence', evidenceClass: source.evidenceClass || 'unknown', evidenceLabel:evidenceLabel(source.evidenceClass), type: source.type || null, observedAt: source.observedAt || null })),
     remediationIds: remediations.filter(r => r.eliminates.includes(pathItem.id)).map(r => r.id),

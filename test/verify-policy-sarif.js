@@ -17,7 +17,7 @@ function makeHome(root) {
   fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });
   fs.writeFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({
     mcpServers: {
-      filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'docs')] },
+      filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', home] },
       fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
       commander: { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] },
       mystery: { command: 'node', args: ['server.js'] },

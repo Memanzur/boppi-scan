@@ -439,10 +439,10 @@
         }
       },
       "expected": {
-        "EP-A": "medium",
+        "EP-A": "high",
         "EP-F": "medium"
       },
-      "because": "a name containing gmail is an identity hint; declared file access has no scope evidence"
+      "because": "a name containing gmail is an identity hint (potential, one step): email reading inferred from the name grades EP-A high, not critical; declared file access has no scope evidence. Label corrected from medium before tuning: the frozen step rule already implied high through the name-inferred email grant (DECISIONS.tsv)"
     },
     {
       "id": "L03-read-only-dev-cluster",
@@ -1104,10 +1104,11 @@
         }
       },
       "expected": {
+        "EP-A": "high",
         "EP-B": "high",
         "EP-E": "high"
       },
-      "because": "the credential manager is name-inferred, so EP-B is high, not critical"
+      "because": "the credential manager is name-inferred, so EP-B is high, not critical; Desktop Commander lists a search_code tool, so source reading is potential and EP-A is high (label corrected: the catalog tool list was overlooked, DECISIONS.tsv)"
     },
     {
       "id": "H09-home-folder-and-unverified-server",

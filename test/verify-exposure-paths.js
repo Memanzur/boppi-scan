@@ -215,6 +215,77 @@ test('low-confidence evidence downgrades severity below critical', () => {
   assert.strictEqual(p.severity, 'high', 'low confidence must not produce a critical path');
 });
 
+// ── Rubric: evidence strength sets the priority ──────────────────────────────
+test('every path carries a versioned assessment with facts, assumptions, unknowns, and no likelihood claim', () => {
+  const { graph } = graphFor(['access_customer_data', 'send_external_message']);
+  const p = engine.findPaths(graph).find(x => x.category === 'data_exfiltration');
+  assert.strictEqual(p.assessment.rubricVersion, engine.RUBRIC_VERSION);
+  assert.strictEqual(p.assessment.impact, 'critical');
+  assert.strictEqual(p.assessment.priority, p.severity);
+  assert.strictEqual(p.assessment.likelihood, 'not assessed');
+  assert.ok(p.assessment.facts.length >= 2 && p.assessment.branches.length === 2);
+  assert.ok(p.assessment.unknowns.some(u => /no tool call, data transfer, or attack was observed/.test(u)));
+});
+
+test('generic file access with no scope evidence is assumed sensitive: two steps below the template', () => {
+  const a = agent();
+  const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw || category, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
+  const build = fileAttributes => graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('read_files', fileAttributes, 'files'), perm('call_external_api', { basis: 'catalog' }, 'api')] });
+  const priority = g => engine.findPaths(g).find(x => x.templateId === 'EP-A').severity;
+  assert.strictEqual(priority(build({ basis: 'configured' })), 'medium', 'unknown scope is assumed');
+  assert.strictEqual(priority(build({ basis: 'configured', scope: 'other' })), 'medium', 'one ordinary folder is assumed');
+  assert.strictEqual(priority(build({ basis: 'configured', scope: 'source' })), 'high', 'a source tree is potential');
+  assert.strictEqual(priority(build({ basis: 'configured', scope: 'home' })), 'critical', 'the home directory is established');
+  assert.strictEqual(priority(build({ basis: 'configured', scope: 'secrets' })), 'critical', 'a secrets folder is established');
+  const assumed = engine.findPaths(build({ basis: 'configured' })).find(x => x.templateId === 'EP-A').assessment;
+  assert.strictEqual(assumed.weakestBranch, 'sensitiveData');
+  assert.ok(assumed.unknowns.some(u => /whether any are sensitive, was not established/.test(u)));
+});
+
+test('a prompt, an unknown prompt, or a name-only inference each cost one step; a deny leaves no grant', () => {
+  const a = agent({ name: 'Claude Code', type: 'coding_agent' });
+  const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw || category, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
+  const build = shell => graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('untrusted_external_content', { basis: 'catalog' }, 'fetch'), perm('run_shell_commands', shell, 'Bash')] });
+  const priority = g => engine.findPaths(g).find(x => x.templateId === 'EP-E').severity;
+  assert.strictEqual(priority(build({ basis: 'builtin', gate: 'unprompted' })), 'high');
+  assert.strictEqual(priority(build({ basis: 'builtin', gate: 'prompted' })), 'medium');
+  assert.strictEqual(priority(build({ basis: 'builtin', gate: 'unknown' })), 'medium');
+  assert.strictEqual(priority(build({ basis: 'inferred' })), 'medium');
+  const prompted = engine.findPaths(build({ basis: 'builtin', gate: 'prompted' })).find(x => x.templateId === 'EP-E').assessment;
+  assert.ok(prompted.assumptions.some(t => /asks before each use/.test(t)));
+  assert.ok(prompted.unknowns.some(t => /managed \(machine-wide\) permission settings were not read/.test(t)));
+});
+
+test('production write access is graded by the environment the configuration names', () => {
+  const a = agent();
+  const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw || category, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
+  const build = prod => graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('modify_source_code', { basis: 'catalog' }, 'github'), perm('access_production_system', prod, 'k8s')] });
+  const priority = g => engine.findPaths(g).find(x => x.templateId === 'EP-C').severity;
+  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'production' })), 'critical');
+  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'unknown' })), 'high');
+  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'non_production' })), 'medium');
+  assert.strictEqual(priority(build({})), 'critical', 'a contract that names production without an environment attribute is taken at face value');
+});
+
+test('a credential known only by a variable name is potential; a secrets-folder scope is established', () => {
+  const a = agent();
+  const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw || category, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
+  const build = cred => graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('access_credentials', cred, 'creds'), perm('run_shell_commands', { basis: 'catalog' }, 'shell'), perm('call_external_api', { basis: 'catalog' }, 'api')] });
+  const priority = g => engine.findPaths(g).find(x => x.templateId === 'EP-B').severity;
+  assert.strictEqual(priority(build({ basis: 'configured', credentialKind: 'environment_name' })), 'high');
+  assert.strictEqual(priority(build({ basis: 'configured', scope: 'secrets' })), 'critical');
+  assert.strictEqual(priority(build({ basis: 'inferred', credentialKind: 'capability' })), 'high');
+});
+
+test('the strongest grant on a branch wins, whatever its label sorts like', () => {
+  const a = agent();
+  const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
+  const graph = graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('read_files', { basis: 'configured' }, 'aaa-generic'), perm('read_files', { basis: 'configured', scope: 'home' }, 'zzz-home'), perm('call_external_api', { basis: 'catalog' }, 'api')] });
+  const p = engine.findPaths(graph).find(x => x.templateId === 'EP-A');
+  assert.strictEqual(p.severity, 'critical');
+  assert.ok(p.assessment.facts.some(f => f.startsWith('zzz-home')), 'the established grant is cited');
+});
+
 // ── Dataset separation and prioritization ────────────────────────────────────
 test('sample inventory produces sample paths', () => {
   const a = models.createAgent({ name: 'Sample bot', type: 'ai_agent', source: fixtureSource, createdAt: NOW });

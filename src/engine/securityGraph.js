@@ -149,9 +149,11 @@
     });
   }
 
-  function attachCategory(builder, agentNode, fromNode, category, record) {
+  // Edges out of an MCP server carry the basis of the capability they evidence, so the rubric can grade a server grant without a permission record.
+  function attachCategory(builder, agentNode, fromNode, category, record, edgeExtra = {}) {
     if (!category || category === 'unknown') return; // unknown never creates graph reach
     const agentScope = agentNode.id;
+    const edgeMeta = { category, ...edgeExtra };
     if (CAPABILITY_CATEGORIES.has(category)) {
       const capability = derivedNode(builder, 'capability', agentScope, category, 'capability', category.replace(/_/g, ' '), record, {
         category,
@@ -160,7 +162,7 @@
         externalFacing: EXTERNAL_FACING.has(category),
       });
       const relationship = fromNode.entityType === 'mcp_server' ? 'mcp_grants_capability' : 'permission_grants_capability';
-      builder.addEdge(fromNode, capability, relationship, record, { category });
+      builder.addEdge(fromNode, capability, relationship, record, edgeMeta);
       if (EXTERNAL_FACING.has(category)) {
         const destination = derivedNode(builder, 'external', agentScope, 'external_destination', 'external_destination', 'External destination', record, {});
         builder.addEdge(capability, destination, 'capability_reaches_external_destination', record, { category });
@@ -171,17 +173,17 @@
       const data = derivedNode(builder, 'data', agentScope, category, 'data_category', category.replace(/_/g, ' '), record, {
         category, sensitive: SENSITIVE_DATA.has(category),
       });
-      builder.addEdge(fromNode, data, 'permission_grants_data_access', record, { category });
+      builder.addEdge(fromNode, data, 'permission_grants_data_access', record, edgeMeta);
       return;
     }
     if (CREDENTIAL_CATEGORIES.has(category)) {
       const credential = derivedNode(builder, 'credential', agentScope, category, 'credential_reference', category.replace(/_/g, ' '), record, { category });
-      builder.addEdge(fromNode, credential, 'permission_references_credential', record, { category });
+      builder.addEdge(fromNode, credential, 'permission_references_credential', record, edgeMeta);
       return;
     }
     if (PRODUCTION_CATEGORIES.has(category)) {
       const production = derivedNode(builder, 'production', agentScope, category, 'production_system', 'Production system', record, { category });
-      builder.addEdge(fromNode, production, 'permission_grants_production_access', record, { category });
+      builder.addEdge(fromNode, production, 'permission_grants_production_access', record, edgeMeta);
     }
   }
 
@@ -254,7 +256,7 @@
         evidenceClass: evidenceClassOf(permission),
         confidence: confidenceOf(permission),
         stale: !!permission.stale,
-        metadata: { category: permission.normalizedCategory, accessLevel: permission.accessLevel, riskWeight: permission.riskWeight || 0 },
+        metadata: { category: permission.normalizedCategory, accessLevel: permission.accessLevel, riskWeight: permission.riskWeight || 0, attributes: { ...(permission.attributes || {}) } },
       });
       const grantor = permission.integrationId && integrationNodes.get(permission.integrationId);
       if (grantor) builder.addEdge(grantor, permissionNode, 'integration_grants_permission', permission);
@@ -287,7 +289,10 @@
       for (const raw of server.capabilities || []) {
         const category = normalizer ? normalizer.normalize(raw).normalizedCategory : 'unknown';
         const evidence = (server.capabilityEvidence || []).find(item => item.capability === raw);
-        attachCategory(builder, agentNode, serverNode, category, withBasis(server, evidence?.basis));
+        attachCategory(builder, agentNode, serverNode, category, withBasis(server, evidence?.basis), {
+          ...(evidence?.basis ? { basis: evidence.basis } : {}),
+          ...(CREDENTIAL_CATEGORIES.has(category) ? { credentialKind: (server.credentialReferences || []).length ? 'environment_name' : 'capability' } : {}),
+        });
       }
       for (const reference of server.credentialReferences || []) {
         const credential = derivedNode(builder, 'credential', agentNode.id, `mcp:${reference.toLowerCase()}`, 'credential_reference', reference, server, { referenceName: reference });

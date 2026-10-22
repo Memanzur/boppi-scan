@@ -111,7 +111,8 @@ function summaryLine(report) {
   const { inventory, paths } = report;
   const criticalPaths = paths.filter(p => p.severity === 'critical').length;
   const criticalFindings = inventory.findings.filter(f => f.severity === 'critical' && f.status === 'open').length;
-  return `${plural(inventory.agents.length, 'agent')} · ${plural(inventory.mcpServers.length, 'MCP server')} · ${plural(paths.length, 'exposure path')} (${criticalPaths} critical) · ${plural(inventory.findings.length, 'finding')} (${criticalFindings} critical)`;
+  const unknown = recognition.unrecognized(report.recognition).length;
+  return `${plural(inventory.agents.length, 'agent')} · ${plural(inventory.mcpServers.length, 'MCP server')}${unknown ? ` (${unknown} unrecognized, unknown reach)` : ''} · ${plural(paths.length, 'exposure path')} (${criticalPaths} critical) · ${plural(inventory.findings.length, 'finding')} (${criticalFindings} critical)`;
 }
 
 function renderReport(report, options = {}) {
@@ -230,11 +231,20 @@ function renderReport(report, options = {}) {
     out('');
     const shown = options.verbose ? report.paths : report.paths.slice(0, 5);
     out(s.bold(`EXPOSURE PATHS (${report.paths.length})`), s.dim(report.paths.length > shown.length ? `  showing ${shown.length}; --verbose for all` : ''));
-    if (!report.paths.length) out(s.dim('  No potential exposure paths from the evidenced inventory. This is not proof that the environment is safe; re-scan after config changes.'));
+    if (!report.paths.length) {
+      const unknown = recognition.unrecognized(report.recognition).length;
+      out(s.dim(`  No potential exposure paths from the evidenced inventory. This is not proof that the environment is safe${unknown ? `: ${plural(unknown, 'unrecognized server')} ha${unknown === 1 ? 's' : 've'} unknown reach` : ''}; re-scan after config changes.`));
+    }
     for (const p of shown) {
-      out('  ', severityBadge(p.severity, useColor), '  ', s.bold(p.label), s.dim(`  [${p.templateId} · confidence ${p.confidence}${p.stale ? ' · stale evidence' : ''}]`));
+      out('  ', severityBadge(p.severity, useColor), '  ', s.bold(p.label), s.dim(`  [${p.templateId} · evidence confidence ${p.confidence}${p.stale ? ' · stale evidence' : ''} · likelihood not assessed]`));
       out('     ', s.cyan(chainFor(p)));
       out('     ', s.dim('why: '), p.whyItMatters);
+      if (p.assessment) {
+        out('     ', s.dim('based on: '), p.assessment.facts.join('; '));
+        if (p.assessment.assumptions.length) out('     ', s.dim('assumes: '), p.assessment.assumptions.join('; '));
+        out('     ', s.dim('not checked: '), p.assessment.unknowns.join('; '));
+        if (p.assessment.priority !== p.assessment.impact) out('     ', s.dim('priority: '), `${p.assessment.priority}, stepped down from ${p.assessment.impact} because the weakest evidence is ${p.assessment.weakestStrength}`);
+      }
       out('     ', s.dim('fix: '), p.remediation);
       if (options.verbose) out('     ', s.dim(`evidence: ${p.evidenceCount} source(s) · ${p.disclaimer}`));
       out('');

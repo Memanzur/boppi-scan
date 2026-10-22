@@ -116,7 +116,7 @@ function runCli(args, home) {
   ok('removing fetch from the desktop fixture breaks all three of its exposures', fetchPrediction && fetchPrediction.predictedEliminated.length === 3 && fetchPrediction.predictedSurviving.length === 0);
   const filesystemPrediction = removals.find(p => p.edit.server === 'filesystem');
   ok('removing filesystem breaks only the exfiltration exposure', filesystemPrediction && filesystemPrediction.predictedEliminated.length === 1 && filesystemPrediction.predictedEliminated[0].startsWith('EP-A:'));
-  const topCount = Math.max(...predictions.map(p => p.predictedEliminated.length));
+  const topCount = require('../src/cli/predict').rankPredictions(predictions, exported.exposurePaths)[0].prediction.predictedEliminated.length;
   ok('the terminal root cause states the top prediction\'s count over all exposures', scan.stdout.includes(`breaks ${topCount} of ${exported.exposurePaths.length} exposures`));
   ok('the remediation plan is built from predictions and covers every high-or-critical exposure', exported.remediationPlan.breaksAll === true && exported.remediationPlan.steps.every(st => predictions.some(p => p.predictionId === st.predictionId)) && exported.remediationPlan.steps.reduce((n, st) => n + st.breaksCount, 0) === exported.remediationPlan.targetedExposures);
   ok('export records discovery provenance', Array.isArray(exported.discovery.filesRead) && exported.discovery.filesRead.length === 3);
