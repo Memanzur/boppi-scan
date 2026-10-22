@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "frozenAt": "2026-10-22",
-  "note": "Labels were written before the rubric was implemented and must not be edited to fit its output. A disagreement is adjudicated in docs/milestone1/DECISIONS.tsv and, if the label changes, recorded there with the reason. Every value is synthetic; directories are created empty under a throwaway home.",
-  "priorityRule": "Expected priority = template severity stepped down by the weakest branch: 0 steps when every grant on that branch is established (declared, catalog, or built-in with no prompt, with established scope or environment), 1 step when the strongest grant is potential (name-inferred, prompted, unknown prompting, source-tree scope, environment not named, credential by variable name), 2 steps when it is assumed (file scope unknown or an ordinary folder, non-production environment). Floor is low.",
+  "note": "Labels are written before the rule they test is implemented and are not edited to fit engine output. A disagreement is adjudicated in docs/milestone1/DECISIONS.tsv and, if the label changes, recorded there with the reason and the case leaves the held-out split. Every value is synthetic; directories are created empty under a throwaway home. The 2026-10-22 history: L02 was edited during implementation (now train); L09 was re-adjudicated when the non-production rule changed in rubric 1.0.1.",
+  "priorityRule": "Expected priority = template severity stepped down by the weakest branch: 0 steps when every grant on that branch is established (declared, catalog, or built-in with no prompt, with established scope or environment), 1 step when the strongest grant is potential (name-inferred, prompted, unknown prompting, source-tree scope, environment not named or named non-production, credential by variable name, read-only cluster tools whose role was not checked), 2 steps when it is assumed (file scope unknown or an ordinary folder). Floor is low.",
   "directories": {
     "~/.ssh": {},
     "~/Documents/notes": {},
@@ -413,7 +413,7 @@
     {
       "id": "L02-gmail-named-notes",
       "kind": "limited",
-      "split": "heldout",
+      "split": "train",
       "client": "claude-desktop",
       "cwd": "home",
       "config": {
@@ -442,7 +442,7 @@
         "EP-A": "high",
         "EP-F": "medium"
       },
-      "because": "a name containing gmail is an identity hint (potential, one step): email reading inferred from the name grades EP-A high, not critical; declared file access has no scope evidence. Label corrected from medium before tuning: the frozen step rule already implied high through the name-inferred email grant (DECISIONS.tsv)"
+      "because": "a name containing gmail is an identity hint (potential, one step): email reading inferred from the name grades EP-A high, not critical; declared file access has no scope evidence. Label corrected from medium before tuning: the frozen step rule already implied high through the name-inferred email grant (DECISIONS.tsv). Moved from heldout to train on 2026-10-22: its label was edited during rubric implementation, so it is no longer a clean holdout"
     },
     {
       "id": "L03-read-only-dev-cluster",
@@ -632,9 +632,9 @@
       },
       "expected": {
         "EP-A": "high",
-        "EP-C": "medium"
+        "EP-C": "high"
       },
-      "because": "the cluster name says staging: write access, non-production environment"
+      "because": "the cluster name says staging: write access; a non-production name is an assumption about the cluster, not a checked fact (one step). Re-adjudicated 2026-10-22 under rubric 1.0.1 (was medium)"
     },
     {
       "id": "L10-github-unnamed-cluster",
@@ -1450,6 +1450,154 @@
         "EP-B": "high"
       },
       "because": "secrets scope and messaging exit; execution is name-inferred"
+    },
+    {
+      "id": "L17-code-deny-files-keep-bash",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-code",
+      "cwd": "home",
+      "settings": {
+        "permissions": {
+          "deny": [
+            "Read",
+            "Edit",
+            "Write"
+          ],
+          "allow": [
+            "Bash"
+          ]
+        }
+      },
+      "config": {
+        "mcpServers": {
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "medium"
+      },
+      "because": "denying Read, Edit, Write does not remove file reads while Bash stays: the shell reads any file the user can (home scope, established) but asks before each use (one step), so EP-A high; EP-E medium through the prompted shell"
+    },
+    {
+      "id": "H19-prod-readonly-cluster-shell-fetch",
+      "kind": "high_impact",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "prod-k8s": {
+            "command": "node",
+            "args": [
+              "./k8s.js"
+            ],
+            "capabilities": [
+              "network_access"
+            ],
+            "tools": [
+              "kubectl_get",
+              "kubectl_describe",
+              "kubectl_logs"
+            ]
+          },
+          "commander": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@wonderwhy-er/desktop-commander"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-B": "high",
+        "EP-E": "high",
+        "EP-A": "high"
+      },
+      "because": "read-only cluster tools against a cluster named prod can read secrets and logs: a credential reach whose cluster role was not checked (one step), so EP-B high with shell and network; no EP-C because nothing writes; EP-E high through Desktop Commander shell; EP-A high through Desktop Commander search_code"
+    },
+    {
+      "id": "L18-cluster-tools-run-from-dev-path",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "k8s-mcp": {
+            "command": "node",
+            "args": [
+              "~/dev/k8s-mcp/index.js"
+            ],
+            "capabilities": [
+              "network_access"
+            ],
+            "tools": [
+              "kubectl_apply",
+              "kubectl_delete",
+              "exec_in_pod"
+            ]
+          },
+          "github": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-github"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "high",
+        "EP-C": "high"
+      },
+      "because": "a launcher path containing dev says nothing about the cluster; the environment is unknown (one step), so EP-C high, not medium"
+    },
+    {
+      "id": "L19-declared-read-file-tools-and-fetch",
+      "kind": "limited",
+      "split": "heldout",
+      "client": "claude-desktop",
+      "cwd": "home",
+      "config": {
+        "mcpServers": {
+          "files": {
+            "command": "node",
+            "args": [
+              "./files.js"
+            ],
+            "tools": [
+              "read_file",
+              "read_multiple_files",
+              "search_files",
+              "get_file_info"
+            ]
+          },
+          "fetch": {
+            "command": "uvx",
+            "args": [
+              "mcp-server-fetch"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "EP-A": "medium"
+      },
+      "because": "tool names that read files are a file-read grant with no scope evidence (assumed, two steps); the server is recognized through its declared tools"
     }
   ]
 }
