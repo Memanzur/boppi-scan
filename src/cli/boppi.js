@@ -700,6 +700,7 @@ async function runPush(options) {
   let collector;
   let coverage;
   let incomplete = [];
+  let recognition = [];
   if (options.file) {
     let payload;
     try { payload = JSON.parse(fs.readFileSync(options.file, 'utf8')); } catch (error) {
@@ -707,6 +708,7 @@ async function runPush(options) {
       return 2;
     }
     inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
+    recognition = Array.isArray(payload.recognition) ? payload.recognition : [];
     snapshotAt = typeof payload.exportedAt === 'string' ? payload.exportedAt : undefined;
     try { ({ collector, coverage } = push.envelopeFromExport(payload)); } catch (error) {
       process.stderr.write(`push: ${error.message}\n`);
@@ -728,11 +730,12 @@ async function runPush(options) {
     collector = payload.collector;
     coverage = payload.coverage;
     incomplete = scan.incomplete;
+    recognition = scan.recognition;
   }
 
   if (options.file) incomplete = (coverage?.clients || []).filter(client => ['unreadable', 'failed'].includes(client.status)).map(client => client.label);
 
-  const records = push.toRecords(inventory);
+  const records = push.toRecords(inventory, recognition);
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from this push.\n`);

@@ -71,7 +71,7 @@ function startWorkspace() {
   const exportPath = path.join(root, 'export.json');
   runCli(['scan', '--json', exportPath, '--quiet'], home);
   const exported = JSON.parse(fs.readFileSync(exportPath, 'utf8'));
-  const records = push.toRecords(exported.inventory.real);
+  const records = push.toRecords(exported.inventory.real, exported.recognition);
   const envelope = push.collectorEnvelope(exported.discovery, '0.4.0', 'darwin');
   const kinds = new Set(records.map(r => r.kind));
   ok('one record per agent, permission, and MCP server', records.length === exported.inventory.real.agents.length + exported.inventory.real.permissions.length + exported.inventory.real.mcpServers.length);
@@ -81,6 +81,8 @@ function startWorkspace() {
   ok('permissions carry their normalization confidence, not the 0.5 default', records.filter(r => r.kind === 'permission').every(r => Number.isFinite(r.confidence)));
   ok('child records point at their agent by external id', records.filter(r => r.kind !== 'agent').every(r => records.some(a => a.kind === 'agent' && a.external_id === r.metadata.agent_external_id)));
   ok('permission metadata carries the rubric attributes, bounded and without paths', records.filter(r => r.kind === 'permission' && r.metadata.attributes).length > 0 && records.filter(r => r.kind === 'permission' && r.metadata.attributes).every(r => Object.keys(r.metadata.attributes).length <= 24 && Object.values(r.metadata.attributes).every(v => ['string', 'number', 'boolean'].includes(typeof v) && (typeof v !== 'string' || (v.length <= 160 && !v.includes('/'))))));
+  ok('mcp_server metadata carries recognition and pin state, and nothing else from the recognition entry', records.filter(r => r.kind === 'mcp_server').every(r => r.metadata.recognition && typeof r.metadata.recognition.recognized === 'boolean' && ['pinned', 'unpinned', 'tagged', 'not_applicable'].includes(r.metadata.recognition.pin) && Object.keys(r.metadata.recognition).sort().join() === 'launcher,pin,recognized'));
+  ok('an export without recognition maps servers without the field', push.toRecords(exported.inventory.real).filter(r => r.kind === 'mcp_server').every(r => !('recognition' in r.metadata)));
   ok('mcp_server metadata carries capabilities and trust status', records.filter(r => r.kind === 'mcp_server').every(r => Array.isArray(r.metadata.capabilities) && typeof r.metadata.trust_status === 'string'));
   ok('no field exceeds the 512-character contract cap', records.every(r => r.external_id.length <= 512 && r.name.length <= 512 && JSON.stringify(r.metadata).length <= 65536));
   const serialized = JSON.stringify(records);

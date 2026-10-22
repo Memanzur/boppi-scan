@@ -96,7 +96,15 @@ function record(kind, item, metadata) {
 }
 
 /** The scanner inventory as ingest records. Findings stay local; the control plane derives its own. */
-function toRecords(inventory) {
+/** Recognition facts for an MCP server, keyed by server id: whether anything recognized it and how its launch is pinned. Additive on the ingest contract; absent for exports without recognition. */
+function recognitionByServer(recognition) {
+  const out = new Map();
+  for (const entry of recognition || []) if (entry.serverId) out.set(entry.serverId, { recognized: Boolean(entry.recognized), pin: entry.pin || 'not_applicable', launcher: entry.launcher || 'unknown' });
+  return out;
+}
+
+function toRecords(inventory, recognition) {
+  const recognitionFor = recognitionByServer(recognition);
   const records = [];
   for (const agent of inventory.agents || []) {
     records.push(record('agent', agent, {
@@ -136,6 +144,7 @@ function toRecords(inventory) {
       ...present('tool_evidence', server.toolEvidence),
       ...present('capability_evidence', server.capabilityEvidence),
       trust_status: server.trustStatus || 'unknown',
+      ...present('recognition', recognitionFor.get(server.id) || null),
       ...present('config_path', server.configPath && clip(server.configPath)),
     }));
   }
