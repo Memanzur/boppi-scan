@@ -286,6 +286,16 @@ test('the strongest grant on a branch wins, whatever its label sorts like', () =
   assert.ok(p.assessment.facts.some(f => f.startsWith('zzz-home')), 'the established grant is cited');
 });
 
+test('the displayed chain runs through the grant the facts cite, not the first label', () => {
+  const a = agent({ name: 'Claude Code', type: 'coding_agent' });
+  const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
+  const graph = graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('read_files', { basis: 'builtin', gate: 'unknown', scope: 'home', scopeLabel: 'the working folder is the whole home directory' }, 'Claude Code built-in file access'), perm('read_files', { basis: 'configured', scope: 'home' }, 'zz-filesystem'), perm('call_external_api', { basis: 'catalog' }, 'api')] });
+  const p = engine.findPaths(graph).find(x => x.templateId === 'EP-A');
+  const chainLabels = p.nodes.map(n => n.label);
+  const cited = p.assessment.branches.find(b => b.name === 'sensitiveData').grantor;
+  assert.ok(chainLabels.includes(cited), `the cited grant "${cited}" is on the chain ${chainLabels.join(' -> ')}`);
+});
+
 // ── Dataset separation and prioritization ────────────────────────────────────
 test('sample inventory produces sample paths', () => {
   const a = models.createAgent({ name: 'Sample bot', type: 'ai_agent', source: fixtureSource, createdAt: NOW });
