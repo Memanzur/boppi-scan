@@ -43,19 +43,31 @@
   // Evidence attributes a permission carries for the risk rubric: how the grant
   // was established (basis), whether the client asks first (gate), how wide the
   // file scope is, and so on. Flat, bounded, label-only; never a path or value.
-  const ATTRIBUTE_KEY = /^[a-z][A-Za-z0-9]{0,39}$/;
-  const ATTRIBUTE_LIMIT = 24;
+  // The whole vocabulary is enumerated here: a producer cannot smuggle a path, a value, or an identifier through an attribute.
+  const ATTRIBUTE_SCHEMA = Object.freeze({
+    basis: ['configured', 'catalog', 'builtin', 'inferred', 'observed'],
+    gate: ['unprompted', 'prompted', 'unknown', 'denied'],
+    scope: ['system', 'home', 'secrets', 'source', 'other'],
+    environment: ['production', 'non_production', 'unknown'],
+    credentialKind: ['environment_name', 'capability', 'infra_read'],
+    scopeLabel: 'label',
+    settingsRead: 'boolean', settingsComplete: 'boolean', managedSettingsRead: 'boolean', writeAccess: 'boolean',
+    toolCount: 'number',
+  });
+  const LABEL = /^[A-Za-z0-9 ,;:()'-]{1,80}$/;
   function attributes(value, field) {
     if (value == null) return {};
     if (typeof value !== 'object' || Array.isArray(value)) fail(`${field} must be an object`);
     const out = {};
     for (const [key, item] of Object.entries(value)) {
-      if (!ATTRIBUTE_KEY.test(key)) fail(`${field}.${key} is not a valid attribute name`);
-      if (Object.keys(out).length >= ATTRIBUTE_LIMIT) fail(`${field} has too many entries`);
+      const rule = ATTRIBUTE_SCHEMA[key];
+      if (!rule) fail(`${field}.${key} is not a known attribute`);
       if (item == null) continue;
-      if (typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item))) { out[key] = item; continue; }
-      if (typeof item === 'string') { if (item.length > 160) fail(`${field}.${key} is too long`); out[key] = item; continue; }
-      fail(`${field}.${key} must be a string, number, or boolean`);
+      if (Array.isArray(rule)) { if (!rule.includes(item)) fail(`${field}.${key} must be one of ${rule.join(', ')}`); out[key] = item; continue; }
+      if (rule === 'boolean') { if (typeof item !== 'boolean') fail(`${field}.${key} must be a boolean`); out[key] = item; continue; }
+      if (rule === 'number') { if (typeof item !== 'number' || !Number.isFinite(item) || item < 0) fail(`${field}.${key} must be a non-negative number`); out[key] = item; continue; }
+      if (typeof item !== 'string' || !LABEL.test(item)) fail(`${field}.${key} must be a short label without path characters`);
+      out[key] = item;
     }
     return out;
   }
@@ -351,5 +363,5 @@
     return [...map.values()];
   }
 
-  return { SCHEMA_VERSION, ENGINE_VERSION, EVIDENCE_CLASSES: [...EVIDENCE_CLASSES], HISTORY_LIMIT, stableId, createAgent, createIntegration, createPermission, createMCPServer, createRiskFinding, createScan, createScanSource, createLocalIdentity, createRemediationTask, createComment, validateRecord, mergeAgents, dedupeById, safeValue };
+  return { SCHEMA_VERSION, ENGINE_VERSION, EVIDENCE_CLASSES: [...EVIDENCE_CLASSES], HISTORY_LIMIT, stableId, createAgent, createIntegration, createPermission, createMCPServer, createRiskFinding, createScan, createScanSource, createLocalIdentity, createRemediationTask, createComment, validateRecord, mergeAgents, dedupeById, safeValue, ATTRIBUTE_SCHEMA };
 });

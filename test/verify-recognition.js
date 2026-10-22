@@ -37,6 +37,7 @@ function writeDesktop(home, servers) {
     time: { command: 'uvx', args: ['mcp-server-time==0.6.2'] },
     declared: { command: 'node', args: [path.join(tools, 'notes-server.js')], capabilities: ['filesystem_access'] },
     'tagged-image': { command: 'docker', args: ['run', '-i', '--rm', 'mcp/memory:1.0'] },
+    'files-by-tools': { command: 'node', args: [path.join(tools, 'notes-server.js')], tools: ['read_file', 'read_multiple_files', 'search_files'] },
   });
 
   section('Pin grading');
@@ -59,6 +60,7 @@ function writeDesktop(home, servers) {
   ok('a pinned server and a url server carry no tag', /filesystem · Claude Desktop · capabilities: filesystem_access\n/.test(scan.stdout) && /internal-api · Claude Desktop · capabilities: network_access\n/.test(scan.stdout));
   ok('a catalog server with no capability is recognized, not unknown', /time · Claude Desktop · capabilities: no supported capability identified\n/.test(scan.stdout));
   ok('a server with a declared capabilities array is recognized', /declared · Claude Desktop · capabilities: filesystem_access\n/.test(scan.stdout));
+  ok('a server whose declared tools map to a category is recognized through them', !scan.stdout.includes('files-by-tools · Claude Desktop · node (local program)') && /files-by-tools · Claude Desktop[^\n]*\n      reach through tools: read files/.test(scan.stdout));
   ok('the UNRECOGNIZED SERVERS section names each server, its launch, and why', scan.stdout.includes('UNRECOGNIZED SERVERS (2)') && scan.stdout.includes('weather · Claude Desktop · weather-mcp-server (npm package, unpinned) · not in the catalog, no name rule matched, no url, no directory argument, no declared capabilities') && scan.stdout.includes('local-notes · Claude Desktop · node (local program) · not in the catalog'));
   ok('the section says unknown is not safe and how to act', scan.stdout.includes('which is not the same as safe') && scan.stdout.includes('"requireKnownCapabilities": true'));
   ok('PACKAGE PINS counts the package launches and names tagged images separately', scan.stdout.includes('PACKAGE PINS  2 of 5 package-launched servers are unpinned: weather, fetch. 1 Docker image runs by tag, not digest: tagged-image.') && scan.stdout.includes('A Docker tag is a moving label'));
@@ -69,7 +71,7 @@ function writeDesktop(home, servers) {
   section('Exports');
   const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const byServer = Object.fromEntries(exported.recognition.map(r => [r.server, r]));
-  ok('the JSON export carries one recognition record per server with its server id', exported.recognition.length === 8 && exported.recognition.every(r => r.serverId && exported.inventory.real.mcpServers.some(m => m.id === r.serverId)));
+  ok('the JSON export carries one recognition record per server with its server id', exported.recognition.length === 9 && exported.recognition.every(r => r.serverId && exported.inventory.real.mcpServers.some(m => m.id === r.serverId)));
   ok('records say recognized, launcher, pin, and version', !byServer.weather.recognized && byServer.weather.pin === 'unpinned' && byServer.filesystem.pin === 'pinned' && byServer.filesystem.identity.version === '2025.8.21' && byServer.time.identity.version === '==0.6.2' && byServer['internal-api'].launcher === 'url' && byServer['local-notes'].launcher === 'local' && byServer['local-notes'].pin === 'not_applicable');
   ok('the export never contains the raw script path or the home directory', !JSON.stringify(exported).includes(tools) && !JSON.stringify(exported).includes(home));
   const page = fs.readFileSync(htmlPath, 'utf8');

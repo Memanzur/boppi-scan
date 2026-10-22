@@ -95,7 +95,7 @@ function metrics(rows) {
     highOrCriticalPrecision: ratio(m.highTP, m.highTP + m.highFP),
     highOrCriticalRecall: ratio(m.highTP, m.highTP + m.highFN),
     exactMatch: ratio(m.exact, m.cases - m.ungradable),
-    gate: { criticalPrecision: m.criticalTP + m.criticalFP ? m.criticalTP / (m.criticalTP + m.criticalFP) : null, highOrCriticalRecall: m.highTP + m.highFN ? m.highTP / (m.highTP + m.highFN) : null },
+    gate: { criticalPrecision: m.criticalTP + m.criticalFP ? m.criticalTP / (m.criticalTP + m.criticalFP) : null, criticalRecall: m.criticalTP + m.criticalFN ? m.criticalTP / (m.criticalTP + m.criticalFN) : null, highOrCriticalRecall: m.highTP + m.highFN ? m.highTP / (m.highTP + m.highFN) : null },
   };
 }
 
@@ -124,6 +124,7 @@ function metrics(rows) {
     console.log(`  high-or-critical recall     ${m.highOrCriticalRecall}`);
     if (split === 'heldout') {
       if (m.gate.criticalPrecision !== null && m.gate.criticalPrecision < 0.9) { failures += 1; console.log('  GATE: held-out critical precision below 90%'); }
+      if (m.gate.criticalRecall !== null && m.gate.criticalRecall < 0.9) { failures += 1; console.log('  GATE: held-out critical recall below 90%'); }
       if (m.gate.highOrCriticalRecall !== null && m.gate.highOrCriticalRecall < 0.9) { failures += 1; console.log('  GATE: held-out high-or-critical recall below 90%'); }
       if (m.gate.criticalPrecision === null) console.log('  note: no critical prediction in the held-out split; critical precision is unestablished');
     }

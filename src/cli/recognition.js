@@ -68,7 +68,7 @@ function describeClient({ clientKey, label, mergedServers, inferenceByServer, re
     const identity = identityOf(server);
     const launcher = launcherOf(server, identity);
     const record = (records || []).find(r => r.name === name) || null;
-    const recognized = !!inference.catalog || inference.inferences.length > 0 || (Array.isArray(server.capabilities) && server.capabilities.length > 0);
+    const recognized = !!inference.catalog || inference.inferences.length > 0 || (Array.isArray(server.capabilities) && server.capabilities.length > 0) || (Array.isArray(inference.reach) && inference.reach.some(entry => entry.tools.length > 0));
     out.push({
       client: clientKey,
       clientLabel: label,

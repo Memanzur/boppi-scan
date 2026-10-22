@@ -55,6 +55,7 @@ function reachPermissions(agent, server, inference, observedAt) {
         ...(entry.because ? { scope: (inference.filesystemScope && inference.filesystemScope.worst) || 'other' } : {}),
         ...(entry.environment ? { environment: entry.environment } : {}),
         ...(entry.writeAccess ? { writeAccess: true } : {}),
+        ...(entry.credentialKind ? { credentialKind: entry.credentialKind } : {}),
       },
       createdAt: observedAt,
       updatedAt: observedAt,
@@ -76,6 +77,7 @@ function overlayPermission(agent, server, claim, observedAt) {
     normalizationConfidence: 0.7,
     normalizationReason: `Validated capability claim ${claim.id} for ${subject}: evidence at ${cited}.`,
     source: { ...agent.source, id: `overlay-claim:${claim.id}`, name: `Capability claim ${claim.id} (${cited})`, evidenceClass: 'inferred', evidenceRef: cited },
+    attributes: { basis: 'inferred' },
     createdAt: observedAt,
     updatedAt: observedAt,
   });

@@ -102,7 +102,9 @@ function inferCapabilities(name, server, options = {}) {
   const toolEvidence = tools.map(tool => ({ tool, basis: configuredTools.includes(tool) ? 'configured' : 'catalog' }));
   // Finer reach than the eight capability ids: per-tool categories and the scope of directory arguments, graded here while the raw path is still known.
   const filesystemScope = toolCategories.filesystemScope(filesystemPaths.map(p => expandHome(p, home)), home);
-  const reach = [...toolCategories.toolReach(toolEvidence, haystack), ...toolCategories.scopeReach(filesystemScope, toolEvidence)]
+  // A server whose filesystem capability is already established carries its file reach, with its scope, on that capability; a scope-less tool-name grant would only repeat it.
+  const reach = [...toolCategories.toolReach(toolEvidence, haystack, toolCategories.environmentHaystack(name, server)), ...toolCategories.scopeReach(filesystemScope, toolEvidence)]
+    .filter(entry => !(entry.category === 'read_files' && capabilities.has('filesystem_access')))
     .filter((entry, index, list) => list.findIndex(other => other.category === entry.category) === index);
   return { capabilities: [...capabilities], filesystemPaths, filesystemScope, reach, inferences, catalog, tools, toolEvidence, capabilityEvidence };
 }

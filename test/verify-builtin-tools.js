@@ -166,6 +166,22 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   ok('built-in permission ids and path ids are stable across runs', JSON.stringify(allow.exported.inventory.real.permissions.map(p => p.id).sort()) === JSON.stringify(again.exported.inventory.real.permissions.map(p => p.id).sort()) && JSON.stringify(allow.exported.exposurePaths.map(p => p.id)) === JSON.stringify(again.exported.exposurePaths.map(p => p.id)));
   ok('the export never contains the scanned home directory', !JSON.stringify(allow.exported).includes(allowHome));
 
+  section('a deny on the file tools does not remove shell reads');
+  {
+    const shellRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-shell-read-'));
+    const settingsFile = path.join(shellRoot, 'settings.json');
+    fs.writeFileSync(settingsFile, JSON.stringify({ permissions: { deny: ['Read', 'Edit', 'Write'], allow: ['Bash'] } }));
+    const described = builtinTools.describeBuiltin('claude-code', [{ path: settingsFile, scope: 'user' }], { home: shellRoot, cwd: shellRoot });
+    const viaShell = described.grants.find(g => g.viaShell);
+    ok('a file grant through the shell is kept at the shell gate', !!viaShell && viaShell.capability === 'filesystem_access' && viaShell.gate === 'unprompted' && viaShell.tools.map(t => t.tool).join() === 'Bash');
+    ok('the denied entry says the shell can still read those files', described.denied.some(g => g.capability === 'filesystem_access' && /Bash\) can still read and write any file the user can/.test(g.summary)));
+    const perms = builtinTools.builtinPermissions({ id: 'a', name: 'Claude Code', source: { id: 's', type: 'config', name: 'n', evidenceClass: 'observed', evidenceRef: 'r' } }, described, new Date().toISOString());
+    const shellRead = perms.find(p => p.normalizedCategory === 'read_files');
+    ok('the shell file grant is a home-scope read with no path in its label', !!shellRead && shellRead.attributes.scope === 'home' && shellRead.attributes.gate === 'unprompted' && !shellRead.attributes.scopeLabel.includes('/'));
+    const allDenied = builtinTools.describeBuiltin('claude-code', [{ path: (() => { const f = path.join(shellRoot, 'all.json'); fs.writeFileSync(f, JSON.stringify({ permissions: { deny: ['Read', 'Edit', 'Write', 'Bash'] } })); return f; })(), scope: 'user' }], { home: shellRoot, cwd: shellRoot });
+    ok('denying the shell too leaves no file grant', allDenied.grants.length === 0);
+  }
+
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

@@ -156,11 +156,11 @@ Rule-engine findings (AE-001 through AE-007) cover the same combinations per age
 
 ### How priority is set
 
-The badge on a path is its priority, not its impact. Impact is the worst case for the template. Priority is that impact stepped down by the weakest evidence on the path, never up, under a versioned rubric (`src/engine/riskRubric.js`, documented in `docs/milestone1/RISK_RUBRIC_v1.0.0.md`):
+The badge on a path is its priority, not its impact. Impact is the worst case for the template. Priority is that impact stepped down by the weakest evidence on the path, never up, under a versioned rubric (`src/engine/riskRubric.js`, documented in `docs/milestone1/RISK_RUBRIC_v1.0.1.md`):
 
-- established (0 steps): the configuration states it. A catalog capability, a built-in tool that never prompts, a filesystem server at the home directory or a secrets folder, an environment named production.
-- potential (1 step): one named assumption. A capability inferred from a server name, a tool the client asks before using, a source tree, a credential known only by its variable name, cluster write tools with no environment named.
-- assumed (2 steps): the scanner cannot tell. One ordinary folder, or an environment named as non-production. The path stays in the report with its unknowns.
+- established (0 steps): the configuration states it. A catalog capability, a built-in tool that never prompts, a filesystem server at the home directory or a secrets folder, cluster write tools and an environment named production.
+- potential (1 step): one named assumption or one unchecked fact. A capability inferred from a server name, a tool the client asks before using, a source tree, a credential known only by its variable name, cluster write tools with no environment named or a non-production name, read-only cluster tools whose role was not checked.
+- assumed (2 steps): the scanner cannot tell. File access to one ordinary folder or with no scope evidence. The path stays in the report with its unknowns.
 
 Every path lists `based on:` (facts), `assumes:`, and `not checked:`. `evidence confidence` is how far the scanner trusts the records it read; likelihood of exploitation is never estimated and every path says so.
 

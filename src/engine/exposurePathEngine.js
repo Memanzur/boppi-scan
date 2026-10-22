@@ -97,6 +97,23 @@
     return out;
   }
 
+  /** The same reach entry, with its chain redrawn through the grant edges the rubric chose, when the grantor is itself reachable. */
+  function throughGrant(entry, route, chains) {
+    if (!route || !route.length) return entry;
+    const toGrantor = chains.get(route[0].fromEntityId);
+    if (!toGrantor) return entry;
+    const chain = [...toGrantor, ...route];
+    if (chain[chain.length - 1].toEntityId !== entry.nodeId) return entry;
+    return { ...entry, chain };
+  }
+
+  /** Every node a chain passes through, so a branch is graded by the grants on the route the report draws. */
+  function routeNodeIds(chain) {
+    const ids = new Set();
+    for (const edge of chain || []) { ids.add(edge.fromEntityId); ids.add(edge.toEntityId); }
+    return ids;
+  }
+
   /** Bounded, deterministic, cycle-safe BFS. Returns nodeId → ordered edge chain from root. */
   function reachFrom(rootId, adjacency) {
     const chains = new Map([[rootId, []]]);
@@ -189,7 +206,7 @@
     let confidence = Math.round(Math.min(...confidences) * 1000) / 1000;
     if (stale) confidence = Math.round(confidence * STALE_CONFIDENCE_FACTOR * 1000) / 1000;
     // The rubric grades the evidence behind each branch and sets the action priority; low-confidence evidence then never yields a critical path on its own.
-    const assessment = rubric.assessPath({ template, agentNode, branches: branches.map(b => ({ name: b.name, nodeId: b.nodeId })), incoming, nodesById });
+    const assessment = rubric.assessPath({ template, agentNode, branches: branches.map(b => ({ name: b.name, nodeId: b.nodeId, routeNodeIds: routeNodeIds(b.chain) })), incoming, nodesById });
     const rank = SEVERITY_RANK[assessment.priority];
     const severity = confidence < LOW_CONFIDENCE
       ? Object.keys(SEVERITY_RANK).find(k => SEVERITY_RANK[k] === Math.max(1, rank - 1))
@@ -257,10 +274,10 @@
         const branches = [];
         let satisfied = true;
         for (const name of template.branches) {
-          // The strongest-evidenced candidate stands for the branch; ties keep the shortest, label-first chain.
+          // The strongest-evidenced grant stands for the branch, and the chain is redrawn through that grant so the route and the cited facts agree; ties keep the shortest, label-first chain.
           const best = (groups[name] || []).reduce((chosen, entry) => {
-            const steps = rubric.assessBranch(name, nodesById.get(entry.nodeId), incoming, nodesById).steps;
-            return !chosen || steps < chosen.steps ? { entry, steps } : chosen;
+            const graded = rubric.assessBranch(name, nodesById.get(entry.nodeId), incoming, nodesById);
+            return !chosen || graded.steps < chosen.steps ? { entry: throughGrant(entry, graded.route, chains), steps: graded.steps } : chosen;
           }, null);
           if (!best) { satisfied = false; break; }
           branches.push({ name, ...best.entry });

@@ -20,7 +20,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const RUBRIC_VERSION = '1.0.0';
+  const RUBRIC_VERSION = '1.0.1';
   const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
   const RANK_SEVERITY = Object.freeze({ 4: 'critical', 3: 'high', 2: 'medium', 1: 'low' });
   const STRENGTH = Object.freeze(['established', 'potential', 'assumed']);
@@ -71,15 +71,15 @@
   }
 
   /** Grants feeding a node. An external destination is reached through capabilities, so their grants are collected instead. */
-  function grantsFor(node, incoming, nodesById, depth = 0) {
+  function grantsFor(node, incoming, nodesById, depth = 0, below = []) {
     const out = [];
     for (const edge of incoming.get(node.id) || []) {
       const grantor = nodesById.get(edge.fromEntityId);
       if (!grantor) continue;
-      if (grantor.entityType === 'capability' && depth < 2) { out.push(...grantsFor(grantor, incoming, nodesById, depth + 1)); continue; }
+      if (grantor.entityType === 'capability' && depth < 2) { out.push(...grantsFor(grantor, incoming, nodesById, depth + 1, [edge, ...below])); continue; }
       if (grantor.entityType === 'permission' || grantor.entityType === 'mcp_server' || grantor.entityType === 'integration' || grantor.entityType === 'oauth_grant') {
         const grant = grantOf(edge, nodesById);
-        if (grant) out.push(grant);
+        if (grant) out.push({ ...grant, route: [edge, ...below] });
       }
     }
     return out;
@@ -114,13 +114,18 @@
     }
     if (node.entityType === 'production_system') {
       if (grant.environment === 'production') reasons.push({ kind: 'fact', text: 'the configuration names a production environment' });
-      else if (grant.environment === 'non_production') { steps += 2; reasons.push({ kind: 'fact', text: 'the configuration names a non-production environment' }); }
+      else if (grant.environment === 'non_production') { steps += 1; reasons.push({ kind: 'assumption', text: 'the configuration names a non-production environment; which system it really points at was not checked' }); }
       else if (grant.environment === 'unknown') { steps += 1; reasons.push({ kind: 'unknown', text: 'nothing in the configuration names the environment; the system is treated as production-capable' }); }
-      else reasons.push({ kind: 'fact', text: 'the permission itself names a production system' });
+      else { steps += 1; reasons.push({ kind: 'unknown', text: 'the permission names a production system, but no tool list showed what it can change or which environment it reaches' }); }
     }
     if (node.entityType === 'credential_reference') {
       const kind = grant.credentialKind || ((node.metadata && node.metadata.category) === 'access_environment_variables' ? 'environment_name' : null);
       if (kind === 'environment_name') { steps += 1; reasons.push({ kind: 'assumption', text: 'a variable name suggests a credential; its value was not read and may not be reachable by the model' }); }
+      else if (kind === 'infra_read') {
+        steps += 1; reasons.push({ kind: 'unknown', text: 'read-only cluster or infrastructure tools can read secrets, state, and logs; whether the role allows that was not checked' });
+        if (grant.environment === 'non_production') { steps += 1; reasons.push({ kind: 'assumption', text: 'the configuration names a non-production environment; which system it really points at was not checked' }); }
+        else if (grant.environment === 'production') reasons.push({ kind: 'fact', text: 'the configuration names a production environment' });
+      }
       else if (grant.scope && BROAD_SCOPES.has(grant.scope)) reasons.push({ kind: 'fact', text: `the files in reach cover ${SCOPE_TEXT[grant.scope]}, where credentials usually live` });
     }
     return { steps: Math.min(MAX_STEPS, steps), reasons };
@@ -133,8 +138,10 @@
   }
 
   /** The strongest grant on one branch, with its strength and the reasons. */
-  function assessBranch(branch, node, incoming, nodesById) {
-    const grants = grantsFor(node, incoming, nodesById);
+  function assessBranch(branch, node, incoming, nodesById, routeNodeIds) {
+    const all = grantsFor(node, incoming, nodesById);
+    const onRoute = routeNodeIds ? all.filter(g => routeNodeIds.has(g.edge.fromEntityId)) : [];
+    const grants = onRoute.length ? onRoute : all;
     if (node.entityType === 'mcp_server') return { name: branch, label: BRANCH_LABEL[branch] || branch, node: node.label, strength: 'established', steps: 0, grantor: node.label, because: 'the configuration marks this server unverified', reasons: [] };
     let best = null;
     for (const grant of grants) {
@@ -142,7 +149,7 @@
       if (!best || graded.steps < best.steps || (graded.steps === best.steps && grant.label.localeCompare(best.grant.label) < 0)) best = { grant, ...graded };
     }
     if (!best) return { name: branch, label: BRANCH_LABEL[branch] || branch, node: node.label, strength: 'assumed', steps: MAX_STEPS, grantor: null, because: 'no grant could be traced for this branch', reasons: [{ kind: 'unknown', text: `how the agent ${BRANCH_LABEL[branch] || branch} could not be traced to a grant` }] };
-    return { name: branch, label: BRANCH_LABEL[branch] || branch, node: node.label, strength: STRENGTH[best.steps], steps: best.steps, grantor: best.grant.label, because: describeGrant(best.grant), reasons: best.reasons, gate: best.grant.gate, basis: best.grant.basis };
+    return { name: branch, label: BRANCH_LABEL[branch] || branch, node: node.label, strength: STRENGTH[best.steps], steps: best.steps, grantor: best.grant.label, because: describeGrant(best.grant), reasons: best.reasons, gate: best.grant.gate, basis: best.grant.basis, route: best.grant.route };
   }
 
   /**
@@ -150,7 +157,7 @@
    * `incoming` maps node id to its in-edges, `nodesById` the graph index.
    */
   function assessPath({ template, agentNode, branches, incoming, nodesById }) {
-    const assessed = branches.map(branch => assessBranch(branch.name, nodesById.get(branch.nodeId) || { id: branch.nodeId, entityType: 'unknown', label: branch.nodeId, metadata: {} }, incoming, nodesById));
+    const assessed = branches.map(branch => assessBranch(branch.name, nodesById.get(branch.nodeId) || { id: branch.nodeId, entityType: 'unknown', label: branch.nodeId, metadata: {} }, incoming, nodesById, branch.routeNodeIds));
     const weakest = assessed.reduce((worst, b) => (b.steps > worst.steps ? b : worst), assessed[0]);
     const rank = Math.max(1, (SEVERITY_RANK[template.severity] || 1) - (weakest ? weakest.steps : 0));
     const facts = [];
@@ -164,7 +171,7 @@
     const builtin = assessed.filter(b => b.basis === 'builtin');
     if (builtin.length) {
       push(unknowns, 'managed (machine-wide) permission settings were not read');
-      const scoped = builtin.map(b => grantsFor(nodesById.get(branches.find(x => x.name === b.name).nodeId), incoming, nodesById).find(g => g.basis === 'builtin' && g.scopeLabel)).find(Boolean);
+      const scoped = builtin.map(b => { const branch = branches.find(x => x.name === b.name); return grantsFor(nodesById.get(branch.nodeId), incoming, nodesById).find(g => g.basis === 'builtin' && g.scopeLabel && (!branch.routeNodeIds || branch.routeNodeIds.has(g.edge.fromEntityId))); }).find(Boolean);
       if (scoped) push(assumptions, `${agentNode.label} is assumed to run from the scanned folder; ${scoped.scopeLabel}`);
     }
     if (assessed.some(b => b.basis && b.basis !== 'builtin')) push(unknowns, 'whether the client asks before each MCP tool call was not checked');

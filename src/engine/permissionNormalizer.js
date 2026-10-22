@@ -30,7 +30,7 @@
     ['access_credentials', /credential|secret|keychain|token|oauth/i, 'The permission references credentials; values are never accepted.'],
     ['access_environment_variables', /environment|env|process\.env/i, 'The capability can access environment variables; values are never accepted.'],
     ['browser_automation', /browser.*automation|playwright|selenium|puppeteer|browser/i, 'The capability can automate a browser.'],
-    ['access_production_system', /production|prod|live system|deployment|cluster/i, 'The permission names a production system.'],
+    ['access_production_system', /(^|[^a-z])(production|prod|live system|deployment|cluster)($|[^a-z])/i, 'The permission names a production system.'],
     ['untrusted_external_content', /untrusted|external content|webpage|document|email|search result/i, 'The source may contain externally controlled instructions.'],
   ];
   function normalize(raw, context = {}) {

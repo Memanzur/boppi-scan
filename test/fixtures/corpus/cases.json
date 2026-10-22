@@ -1454,7 +1454,7 @@
     {
       "id": "L17-code-deny-files-keep-bash",
       "kind": "limited",
-      "split": "heldout",
+      "split": "train",
       "client": "claude-code",
       "cwd": "home",
       "settings": {
@@ -1480,10 +1480,10 @@
         }
       },
       "expected": {
-        "EP-A": "high",
-        "EP-E": "medium"
+        "EP-A": "critical",
+        "EP-E": "high"
       },
-      "because": "denying Read, Edit, Write does not remove file reads while Bash stays: the shell reads any file the user can (home scope, established) but asks before each use (one step), so EP-A high; EP-E medium through the prompted shell"
+      "because": "denying Read, Edit, Write does not remove file reads while Bash stays: the shell reads any file the user can (home scope) and the settings allow Bash without a prompt, so both grants are established: EP-A critical, EP-E high. Label corrected 2026-10-22 (first written as prompted, but the case itself allows Bash); moved to train"
     },
     {
       "id": "H19-prod-readonly-cluster-shell-fetch",

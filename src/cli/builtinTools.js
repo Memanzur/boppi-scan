@@ -177,6 +177,13 @@ function builtinGrants(clientKey, settings) {
     const entry = { capability, label: CAPABILITY_LABEL[capability], tools, gate, summary: gateSentence(tools) };
     (gate === 'denied' ? denied : grants).push(entry);
   }
+  // A deny on the file tools does not stop a shell from reading or writing those files; the shell keeps the file reach at its own gate.
+  const shell = grants.find(g => g.capability === 'shell_access');
+  const filesDenied = denied.find(g => g.capability === 'filesystem_access');
+  if (shell && filesDenied) {
+    filesDenied.summary = `${filesDenied.summary}; ${shell.label} (${shell.tools.map(t => t.tool).join(', ')}) can still read and write any file the user can`;
+    grants.push({ capability: 'filesystem_access', label: `${CAPABILITY_LABEL.filesystem_access} through the shell`, tools: shell.tools, gate: shell.gate, viaShell: true, summary: `${filesDenied.tools.map(t => t.tool).join(', ')} denied, but ${shell.tools.map(t => t.tool).join(', ')} ${shell.gate === 'unprompted' ? 'never prompts' : shell.gate === 'prompted' ? 'asks before each use' : 'prompting not checked'} and reads any file the user can` });
+  }
   return { grants, denied };
 }
 
@@ -228,7 +235,7 @@ function builtinPermissions(agent, builtin, observedAt) {
         settingsRead: !!(builtin.settings && builtin.settings.read),
         settingsComplete: !!(builtin.settings && builtin.settings.complete),
         managedSettingsRead: false,
-        ...(grant.capability === 'filesystem_access' && builtin.workingScope ? { scope: builtin.workingScope, scopeLabel: builtin.workingScopeLabel } : {}),
+        ...(grant.viaShell ? { scope: 'home', scopeLabel: 'any file the user can read, through the shell' } : grant.capability === 'filesystem_access' && builtin.workingScope ? { scope: builtin.workingScope, scopeLabel: builtin.workingScopeLabel } : {}),
       },
       createdAt: observedAt,
       updatedAt: observedAt,

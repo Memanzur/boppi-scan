@@ -89,7 +89,7 @@ test('software supply-chain path (source modification + production)', () => {
   const paths = engine.findPaths(graph);
   const supply = paths.find(p => p.category === 'software_supply_chain');
   assert.ok(supply, 'EP-C must fire');
-  assert.strictEqual(supply.severity, 'critical');
+  assert.strictEqual(supply.severity, 'high', 'a bare production permission with no tool evidence is one step below the template');
   assert.ok(supply.nodes.some(n => n.entityType === 'production_system'));
 });
 
@@ -263,8 +263,12 @@ test('production write access is graded by the environment the configuration nam
   const priority = g => engine.findPaths(g).find(x => x.templateId === 'EP-C').severity;
   assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'production' })), 'critical');
   assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'unknown' })), 'high');
-  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'non_production' })), 'medium');
-  assert.strictEqual(priority(build({})), 'critical', 'a contract that names production without an environment attribute is taken at face value');
+  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'non_production' })), 'high', 'a non-production name is a one-step assumption, not a two-step fact');
+  const staging = engine.findPaths(build({ basis: 'catalog', writeAccess: true, environment: 'non_production' })).find(x => x.templateId === 'EP-C').assessment;
+  assert.ok(staging.assumptions.some(t => /names a non-production environment/.test(t)));
+  assert.strictEqual(priority(build({})), 'high', 'a contract that names production without tool or environment evidence is potential, not established');
+  const bare = engine.findPaths(build({})).find(x => x.templateId === 'EP-C').assessment;
+  assert.ok(bare.unknowns.some(u => /no tool list showed what it can change/.test(u)));
 });
 
 test('a credential known only by a variable name is potential; a secrets-folder scope is established', () => {

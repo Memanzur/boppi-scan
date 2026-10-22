@@ -31,6 +31,7 @@ const TOOL_RULES = Object.freeze([
   { pattern: /^(read|get|list|search|fetch)[-_]?(e?mails?|inbox|messages?|threads?)$|^gmail[-_]?(read|search|list)/i, category: 'read_email' },
   { pattern: /^(delete|remove|trash)[-_]?(e?mail|message)s?$/i, category: 'send_email' },
   { pattern: /^(delete|remove|trash)[-_]?(file|directory|folder)s?$/i, category: 'delete_files' },
+  { pattern: /^(read|get|cat|view|open|search|list|grep|find)[-_]?(multiple[-_]?)?(files?|file[-_]?(contents?|info)|dir|directory|directories|folders?|paths?)$|^(search|list)[-_]?(files?|directory|directories)$/i, category: 'read_files' },
   { pattern: /^(kubectl|helm|terraform|k8s)[-_]?(apply|delete|create|patch|scale|rollout|exec|edit|replace|set|install|upgrade|uninstall|destroy|import|taint|cordon|drain|restart|run)(?:[-_]|$)|^(deploy|rollout|promote|release)[-_]/i, category: 'access_production_system' },
   { pattern: /^(push|commit)[-_]?(files?|changes?|commits?)?$|^merge[-_]?(pull|merge)[-_]?request/i, category: 'modify_source_code' },
 ]);
@@ -43,6 +44,13 @@ function environmentOf(haystack) {
   if (PRODUCTION_WORDS.test(haystack)) return 'production';
   if (NON_PRODUCTION_WORDS.test(haystack)) return 'non_production';
   return 'unknown';
+}
+/** The words that may name an environment: the entry name, non-path arguments, and a url host. A launcher's file path or package name says nothing about the system it reaches. */
+function environmentHaystack(name, server) {
+  const args = Array.isArray(server && server.args) ? server.args.filter(v => typeof v === 'string' && !/[\/\\]/.test(v)) : [];
+  let host = '';
+  try { host = new URL(server.url || server.endpoint || '').hostname; } catch (_) { host = ''; }
+  return [name || '', ...args, host].join(' ');
 }
 
 // Server identity rules for categories no tool name carries, keyed by the same haystack knownServers uses.
@@ -62,7 +70,7 @@ const CATEGORY_LABEL = Object.freeze({
  * Categories a server reaches through its tools: one entry per category
  * with the tool names behind it. `tools` are {tool, basis} from inference.
  */
-function toolReach(tools, haystack) {
+function toolReach(tools, haystack, environmentWords = haystack) {
   const byCategory = new Map();
   const add = (category, tool, basis) => {
     if (!byCategory.has(category)) byCategory.set(category, { category, label: CATEGORY_LABEL[category] || category.replace(/_/g, ' '), tools: [], basis });
@@ -73,7 +81,7 @@ function toolReach(tools, haystack) {
   for (const { tool, basis } of tools || []) {
     const exact = TOOL_TABLE[tool];
     if (exact) { add(exact, tool, basis); continue; }
-    if (INFRA_READ_ONLY.test(tool)) continue;
+    if (INFRA_READ_ONLY.test(tool)) { add('access_credentials', tool, basis); byCategory.get('access_credentials').credentialKind = 'infra_read'; continue; }
     const rule = TOOL_RULES.find(r => r.pattern.test(tool));
     if (rule) add(rule.category, tool, basis);
   }
@@ -84,7 +92,9 @@ function toolReach(tools, haystack) {
     for (const category of rule.categories) add(category, `${rule.label} (${match[0].trim()})`, 'inferred');
   }
   const production = byCategory.get('access_production_system');
-  if (production) { production.writeAccess = true; production.environment = environmentOf(haystack); }
+  if (production) { production.writeAccess = true; production.environment = environmentOf(environmentWords); }
+  const infraRead = byCategory.get('access_credentials');
+  if (infraRead && infraRead.credentialKind === 'infra_read') infraRead.environment = environmentOf(environmentWords);
   return [...byCategory.values()];
 }
 
@@ -133,4 +143,4 @@ function scopeReach(scope, tools) {
   return out;
 }
 
-module.exports = { TOOL_TABLE, TOOL_RULES, IDENTITY_RULES, INFRA_READ_ONLY, CATEGORY_LABEL, SCOPE_LABEL, toolReach, environmentOf, scopeOf, filesystemScope, scopeReach };
+module.exports = { TOOL_TABLE, TOOL_RULES, IDENTITY_RULES, INFRA_READ_ONLY, CATEGORY_LABEL, SCOPE_LABEL, toolReach, environmentOf, environmentHaystack, scopeOf, filesystemScope, scopeReach };
