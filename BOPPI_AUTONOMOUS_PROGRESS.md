@@ -21,6 +21,8 @@ Open human gates (cannot be closed by an agent): founder and security reviewer s
 
 Not done, by choice: the dashboard does not yet display the pushed recognition field (ingest accepts it; display is Phase 3 scope). `~/Desktop/boppi-scan` (the main checkout) is behind this worktree, so the control plane vendor check must be run with `BOPPI_SCAN_DIR` pointing at `boppi-scan-auto` until the branch is merged.
 
+Milestone 2 (roadmap Phase 2, individual beta release gate) slice 1, same session: `npm run release-candidate` (`scripts/release-candidate.js`, commit 496eb50) packs the tarball, installs it into a throwaway prefix, runs version, scan, demo, plan, fix, verify, rollback, and uninstall on a synthetic home, checks the JSON, HTML, and SARIF for secret values and raw home paths, and writes `CANDIDATE.json`. Result 20 of 20 checks. Candidate at `~/Desktop/Boppi-candidate-0.4.0/` (package/boppi-0.4.0.tgz, sha256 836f2784…, built from clean 496eb50). `docs/release/CANDIDATE-0.4.0.md` states supported clients and platforms, install and removal, known limits, reporting, and withdrawal. README shows the 0.4.0 path lines and how priority is set; `BETA_TESTER_GUIDE.md` in the control plane repo now targets 0.4.0 and asks testers about `based on:` and `assumes:` lines. Still unpublished; Linux and Windows remain experimental; the five-tester install run is a human gate.
+
 Next session: start from `docs/milestone1/NEXT_SESSION_PROMPT.md` in the scanner repo.
 
 ## October 20, 2026: Phase 0 synthetic testing environment prepared
