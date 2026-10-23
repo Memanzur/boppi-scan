@@ -38,4 +38,5 @@ Fix verification is unchanged: only `boppi verify` and `boppi fix` grade a predi
 
 - Symlinked configuration directories are watched at the symlink's parent only; a change through another path is caught by the periodic rescan.
 - The OS watcher can drop events under burst load; the periodic rescan is the guarantee and the acceptance target (interval plus five seconds) is measured in `test/verify-watch.js` with a one-second interval on synthetic files.
-- Memory and idle CPU over a 24-hour soak are not measured by the suite; P4-3 is a bounded synthetic run and a founder-scheduled soak.
+- A writer that never pauses for 500 ms keeps resetting the debounce, so its summary waits for the pause or for the next periodic rescan, whichever comes first (the 200-write burst in `SOAK_2026-10-23.md` was summarized once, 11 s in, right after the writes stopped).
+- Memory and idle CPU over a 24-hour soak are not measured by the suite. `scripts/watch-soak.js` is the bounded synthetic run (idle, burst, settle; RSS and CPU sampled each second; exit 1 when out of budget); the first run is `SOAK_2026-10-23.md` (idle median CPU 0.00%, max RSS 67 MiB on an Apple M1, budget 1% and 100 MiB). The 24-hour run is founder-scheduled: `node scripts/watch-soak.js --idle 86400 --report docs/phase4/SOAK_<date>.md`.
