@@ -6,10 +6,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
 import sys
-CANDIDATE = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT.parent
 SCANNER = Path(__file__).resolve().parents[2]
+CANDIDATE = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.home() / 'Desktop' / ('Boppi-candidate-' + json.loads((SCANNER / 'package.json').read_text())['version'])
+ROOT = CANDIDATE / 'kit'
+ROOT.mkdir(parents=True, exist_ok=True)
+import shutil as _shutil
+for helper in ('serve.py',):
+    if not (ROOT / helper).exists(): _shutil.copyfile(Path(__file__).resolve().parent / helper, ROOT / helper)
 manifest = json.loads((CANDIDATE / 'CANDIDATE.json').read_text())
 package = CANDIDATE / manifest['artifact']
 assert hashlib.sha256(package.read_bytes()).hexdigest() == manifest['sha256'], 'tarball does not match CANDIDATE.json'
