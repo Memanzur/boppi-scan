@@ -7,6 +7,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const hook = require('../src/cli/hook');
 const settings = require('../src/cli/settings');
+const events = require('../src/cli/events');
 
 let passed = 0, failed = 0;
 function ok(name, condition) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}`); } }
@@ -33,12 +34,16 @@ const input = JSON.stringify({ hook_event_name: 'PostToolUse', tool_name: 'mcp__
 const child = spawnSync(process.execPath, [cli, 'hook', '--home', home], { input, encoding: 'utf8' });
 ok('actual hook command records no payload content and emits no stdout', child.status === 0 && child.stdout === '' && !fs.readFileSync(hook.eventsFile(home), 'utf8').includes('PRIVATE'));
 const file = hook.eventsFile(home);
-fs.mkdirSync(path.dirname(file), { recursive: true });
+ok('writes owner-only event storage', (fs.statSync(file).mode & 0o777) === 0o600);
 fs.writeFileSync(file, JSON.stringify({ at: '2020-01-01T00:00:00.000Z', event: 'old' }) + '\n');
 hook.append(home, record, 30);
-const contents = fs.readFileSync(file, 'utf8');
-ok('writes owner-only event storage', (fs.statSync(file).mode & 0o777) === 0o600);
-ok('expires old events and caps the file to sanitized records', !contents.includes('2020-01-01') && !contents.includes('PRIVATE') && contents.trim().split('\n').length === 1);
+const segments = hook.segmentFiles(home);
+const stored = hook.storedFiles(home).map(f => fs.readFileSync(f, 'utf8')).join('');
+ok('an active file whose oldest record expired is rotated into an owner-only segment, never rewritten in place', segments.length === 1 && !fs.existsSync(file) && (fs.statSync(segments[0]).mode & 0o777) === 0o600 && stored.includes('2020-01-01'));
+ok('the timeline drops expired records and keeps the sanitized one', (() => { const read = events.readEvents(home, { sinceDays: 30 }); return read.records.length === 1 && read.expired === 1 && !stored.includes('PRIVATE'); })());
+fs.writeFileSync(file, JSON.stringify({ at: '2020-01-02T00:00:00.000Z', event: 'old' }) + '\n');
+hook.rotate(home, 30);
+ok('a segment whose newest record has expired is deleted on the next rotation; the fresh one stays', hook.segmentFiles(home).length === 1 && hook.storedFiles(home).map(f => fs.readFileSync(f, 'utf8')).join('').includes(record.id));
 
 section('safe settings defaults and validation');
 const defaults = settings.load(home);
@@ -57,6 +62,7 @@ ok('installation is explicitly refused', installed.status === 2 && installed.std
 const shownSettings = spawnSync(process.execPath, [cli, 'settings', '--home', home], { encoding: 'utf8' });
 ok('settings command is local and readable', shownSettings.status === 0 && shownSettings.stdout.includes('cloudSync'));
 ok('no hook command installs Claude settings', !fs.existsSync(path.join(home, '.claude', 'settings.json')));
+fs.writeFileSync(file, '');
 const beforeBadInput = fs.readFileSync(file, 'utf8');
 const tooLarge = spawnSync(process.execPath, [cli, 'hook', '--home', home], { input: 'x'.repeat(1024 * 1024 + 1), encoding: 'utf8', timeout: 4000 });
 ok('oversized hook input exits harmlessly without persisting content', tooLarge.status === 0 && tooLarge.stdout === '' && fs.readFileSync(file, 'utf8') === beforeBadInput);

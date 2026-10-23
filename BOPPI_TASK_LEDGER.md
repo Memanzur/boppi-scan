@@ -76,7 +76,7 @@ Nothing in this ledger was pushed, published, deployed, or applied to a real con
 
 | Id | Task | State | Evidence | Blocker or next |
 | --- | --- | --- | --- | --- |
-| P6-1 | Local runtime collector slice: event ids, pre/post correlation, concurrency-safe recording, local timeline | open | Hook prototype exists (`src/cli/hook.js`) | After Phase 3 identity work; local only. |
+| P6-1 | Local runtime collector slice: event ids, pre/post correlation, concurrency-safe recording, local timeline | done, local (2026-10-23) | `src/cli/hook.js` (schema 2: invocation id, source, six outcomes, O_APPEND lines, rename rotation, segment retention, health counters, disable/enable/forget), `src/cli/events.js` (`boppi events` timeline with every gap), `docs/phase6/RUNTIME_COLLECTOR.md`, `test/verify-hook-collector.js` (29 checks: 10 concurrent sessions, 1,000 records, 12 rotations, 0 lost, canaries, p95 82 ms) | Live calls on a consented Claude Code and the version pin are founder-run; cloud runtime transport stays gated (consent, isolation tests). Coverage envelope unchanged (`runtime: not_observed`). |
 | P7-1 | Suspicious-prompt feasibility spike | open | | After P6-1; document only. |
 | P8-1 | Evidence layers (configured, advertised, observed, hypothesis) and 20 mixed-evidence fixtures | open | | Baseline contract from Phase 1 exists. |
 | P9-1 | Dashboard-initiated remediation threat model and local state machine | open | | Design and local tests only; no connector pairing. |
