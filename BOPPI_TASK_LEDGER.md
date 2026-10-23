@@ -48,7 +48,7 @@ Nothing in this ledger was pushed, published, deployed, or applied to a real con
 
 | Id | Task | State | Evidence | Blocker or next |
 | --- | --- | --- | --- | --- |
-| P3-1 | Feasibility and threat-model spike document (transport and version support, consent, process side effects, hostile descriptions) | open | | First Phase 3 slice; a document, no process execution. |
+| P3-1 | Feasibility and threat-model spike document (transport and version support, consent, process side effects, hostile descriptions) | done (2026-10-23) | `docs/phase3/DISCOVERY_SPIKE.md` | Four founder decisions in section 12 (package-fetch launchers, description storage, HTTP scope, cache age). P3-2 fixtures can start without them. |
 | P3-2 | Fixture MCP servers (paginated tools, changed lists, no tools, malformed and oversized data, timeout, auth rejection, misleading read-only annotations, hostile descriptions) | open | | Synthetic stdio servers under `test/fixtures`; never launched by a passive scan. |
 | P3-3 | Consented discovery adapter with bounded `initialize` and `tools/list`, cancellation, timeout, cache invalidation, protocol recorder proving no `tools/call` | open | | Depends on P3-1; explicit flag and consent text; passive scans unchanged. |
 | P3-4 | Per-tool read, write, action scope and advertised versus established authorization | open | | Depends on P3-3. |
