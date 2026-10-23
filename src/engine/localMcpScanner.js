@@ -157,5 +157,5 @@
     if (!raw || !SOURCE_SPECS[raw.sourceId] || raw.consentRecorded !== true) fail('raw scan result lacks consent and source provenance');
     return { agent:raw.agent, mcpServers:raw.records || [], diagnostics:raw.diagnostics || [], source:raw.source, sourceId:raw.sourceId, dryRun:raw.dryRun !== false, consentRecorded:true };
   }
-  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, pathFingerprint, setFingerprintKey };
+  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, pathFingerprint, setFingerprintKey };
 });

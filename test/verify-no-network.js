@@ -87,6 +87,14 @@ function makeHome(root) {
   ok('supported rollback uses no network', restored.code === 0 && restored.attempts.length === 0);
 
   const real = run(['push', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1']);
+  const forgetAll = run(['discover', '--forget', '--all']);
+  ok('discover --forget --all starts no process and touches no network', forgetAll.code === 0 && forgetAll.attempts.length === 0);
+  const refusedLauncher = run(['discover', '--server', 'fetch', '--yes', '--only', 'claude-desktop']);
+  ok('discover refuses a package-fetching launcher before any process would start', refusedLauncher.code === 2 && refusedLauncher.attempts.length === 0);
+  fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ mcpServers: { local: { command: process.execPath, args: ['--version'] } } }));
+  const consented = run(['discover', '--server', 'local', '--yes']);
+  ok('a consented discover is the only command whose process start reaches the spawn hook (positive control)', consented.code === 3 && consented.attempts.join() === 'child_process.spawn' && consented.stdout.includes('could not be started'));
+  fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ mcpServers: {} }));
   ok('a real push does reach the network hook, so the hooks are live (positive control)', real.attempts.length > 0 && real.attempts.every(a => a === 'fetch'));
   ok('a real push is the only command that attempted the network', real.code !== 0);
 
