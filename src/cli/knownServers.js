@@ -52,7 +52,9 @@ function isExistingDirectory(candidate) {
 function inferCapabilities(name, server, options = {}) {
   const home = options.home || os.homedir();
   const args = Array.isArray(server.args) ? server.args.filter(v => typeof v === 'string') : [];
-  const haystack = [name, server.command || '', ...args, server.url || server.endpoint || ''].join(' ');
+  // A directory argument names a place on disk, not a service: a filesystem server pointed at ~/github is not a GitHub connector. Package specifiers (@scope/name) stay in the haystack.
+  const identityArgs = args.filter(v => !/^(~|\.{1,2}[\/\\]|[\/\\]|[A-Za-z]:[\/\\])/.test(v));
+  const haystack = [name, server.command || '', ...identityArgs, server.url || server.endpoint || ''].join(' ');
   const capabilities = new Set();
   const inferences = [];
   const capabilityEvidence = [];

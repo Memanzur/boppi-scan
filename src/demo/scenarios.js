@@ -23,7 +23,7 @@ const SCENARIOS = Object.freeze([
   },
   {
     id: 'broad-filesystem', file: 'broad-filesystem.json', title: 'Broad filesystem', client: 'claude-desktop',
-    summary: 'A filesystem server pointed at the whole home directory, next to a GitHub connector with a token, in Claude Desktop. Anything the agent can read, it can also send somewhere. Removing the GitHub connector closes the path; removing the filesystem server only lowers it, because the connector can still read its own token.',
+    summary: 'A filesystem server pointed at the whole home directory, next to a GitHub connector with a token, in Claude Desktop. Anything the agent can read, it can also send somewhere. Removing the GitHub connector closes the path; removing the filesystem server only lowers it, because the GitHub connector reads source code through its own tools.',
     expect: ['EP-A'],
   },
   {

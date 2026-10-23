@@ -64,7 +64,8 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   const contradictedPrediction = { ...byServer.fetch, predictionId: 'prediction_contradicted', edit: { action: 'remove_server', server: 'code-runner' }, predictedEliminated: [epA], predictedSurviving: keys.filter(k => k !== epA) };
   const partialPrediction = { ...byServer['code-runner'], predictionId: 'prediction_partial', predictedEliminated: keys, predictedSurviving: [] };
   const staleEngine = { ...byServer.fetch, predictionId: 'prediction_old_engine', engineVersion: '0.0.1' };
-  tampered.predictions = [contradictedPrediction, partialPrediction, staleEngine];
+  const staleRubric = { ...byServer.fetch, predictionId: 'prediction_old_rubric', rubricVersion: '1.0.1' };
+  tampered.predictions = [contradictedPrediction, partialPrediction, staleEngine, staleRubric];
   const tamperedFile = path.join(root, 'tampered.json');
   fs.writeFileSync(tamperedFile, JSON.stringify(tampered));
   writeDesktop(home, without(servers, 'code-runner'));
@@ -76,8 +77,10 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   ok('a wholly wrong claim is CONTRADICTED', rows.some(l => l.startsWith('CONTRADICTED') && l.includes('all_predicted_eliminated_present')));
   ok('a partly wrong claim is PARTIAL', rows.some(l => l.startsWith('PARTIAL') && l.includes('some_predicted_eliminated_present')));
   ok('a prediction from another engine version is flagged engine_changed', rowOf(graded, 'fetch').includes('engine_changed') && graded.stdout.includes('engine version changed'));
+  ok('a prediction from another rubric version is flagged rubric_changed', graded.stdout.split('\n').some(l => l.includes('remove fetch') && l.includes('rubric_changed')) && graded.stdout.includes('risk rubric changed since the prediction'));
+  ok('a prediction records the rubric version it was made under', typeof byServer.fetch.rubricVersion === 'string' && byServer.fetch.rubricVersion === require('../src/engine/riskRubric').RUBRIC_VERSION);
   const verification = JSON.parse(fs.readFileSync(verificationJson, 'utf8'));
-  ok('--json records every resolution with observed sets', verification.resolutions.length === 3 && verification.summary.contradicted === 1 && verification.summary.partial === 1 && verification.resolutions.find(r => r.predictionId === 'prediction_partial').observed.survivors.includes(epA));
+  ok('--json records every resolution with observed sets', verification.resolutions.length === 4 && verification.summary.contradicted === 1 && verification.summary.partial === 1 && verification.resolutions.find(r => r.predictionId === 'prediction_partial').observed.survivors.includes(epA));
   const files = fs.existsSync(contradictionsDir) ? fs.readdirSync(contradictionsDir) : [];
   ok('one contradiction fixture per PARTIAL or CONTRADICTED resolution', files.sort().join() === 'boppi-contradiction-prediction_contradicted.json,boppi-contradiction-prediction_partial.json');
   const bundle = JSON.parse(fs.readFileSync(path.join(contradictionsDir, 'boppi-contradiction-prediction_contradicted.json'), 'utf8'));

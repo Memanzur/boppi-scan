@@ -17,6 +17,14 @@ function makeStyle(useColor) {
   };
 }
 
+/** Why no single removal helps when the agent has no built-in residual: more than one server completes each path. */
+function noSingleEditSentence(paths) {
+  const servers = [...new Set(paths.flatMap(p => (p.nodes || []).filter(n => n.entityType === 'mcp_server').map(n => n.label)))].sort();
+  return servers.length
+    ? `Each path is completed by more than one server on the same agent (${servers.join(', ')}), so removing any one of them leaves the path open; boppi plan lists the smallest set of removals that closes them.`
+    : 'No single configuration edit changes these paths.';
+}
+
 function severityBadge(severity, useColor) {
   if (useColor) {
     if (severity === 'critical') return '🔴 CRITICAL';
@@ -268,8 +276,9 @@ function renderReport(report, options = {}) {
     out('');
     const { prediction: top, eliminatedSeverity, lowered } = ranked[0];
     const total = report.paths.length;
-    out(s.bold('ROOT CAUSE  '), s.dim('the single config edit that breaks the most exposures, checked by rescanning without it'));
-    out('  ', s.green('▸ '), s.bold(`Fix: ${editSentence(top)}`));
+    const lowersOnly = top.predictedEliminated.length === 0;
+    out(s.bold('ROOT CAUSE  '), s.dim(`the single config edit that ${lowersOnly ? 'lowers the most exposures; none closes one' : 'breaks the most exposures'}, checked by rescanning without it`));
+    out('  ', s.green('▸ '), s.bold(`${lowersOnly ? 'Lower' : 'Fix'}: ${editSentence(top)}`));
     for (const line of editLocations(top, report)) out('    ', s.dim('edit: '), line);
     const brk = [`${top.predictedEliminated.length} of ${total} exposure${total === 1 ? '' : 's'}`];
     if (eliminatedSeverity.critical) brk.push(`${eliminatedSeverity.critical} critical`);
@@ -281,7 +290,7 @@ function renderReport(report, options = {}) {
     out('    ', s.dim('compare every candidate fix with '), s.bold('boppi plan'), s.dim(', apply one with '), s.bold(`boppi fix --server ${JSON.stringify(top.edit.server)}`));
     const plan = report.remediationPlan;
     if (plan && plan.steps.length > 1) {
-      out('  ', s.dim(`Full plan to break all ${plan.targetedExposures} high-or-critical exposures, ${plan.steps.length} changes${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}:`));
+      out('  ', s.dim(`Full plan to break ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposures, ${plan.steps.length} changes${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}:`));
       plan.steps.forEach((step, i) => {
         out(s.dim(`     ${i + 1}. `), editSentence(step), s.dim(` (breaks ${step.breaksCount})`));
         for (const line of editLocations(step, report)) out(s.dim('        edit: '), line);
@@ -291,7 +300,9 @@ function renderReport(report, options = {}) {
   } else if ((command === 'paths' || command === 'scan') && report.paths.length) {
     out('');
     out(s.bold('ROOT CAUSE  '), s.dim('no MCP config edit closes or lowers a path on this scan'));
-    for (const sentence of builtinResidualSentences(report.builtinResidual, report.paths.map(p => p.exposureKey))) out('  ', s.dim(sentence));
+    const sentences = builtinResidualSentences(report.builtinResidual, report.paths.map(p => p.exposureKey));
+    for (const sentence of sentences) out('  ', s.dim(sentence));
+    if (!sentences.length) out('  ', s.dim(noSingleEditSentence(report.paths)));
   }
 
   if (command === 'scan') {
@@ -338,4 +349,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, PATH_RULE_FOR_TEMPLATE };

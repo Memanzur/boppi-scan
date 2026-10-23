@@ -24,6 +24,7 @@ const Controller = require('../engine/scanController');
 const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const rootCauseEngine = require('../engine/rootCauseEngine');
+const agentRiskEngine = require('../engine/agentRiskEngine');
 
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
@@ -397,15 +398,42 @@ function shadowEntries(client, overlayByServer) {
   return entries;
 }
 
-/** A rule-engine finding that an exposure path also describes takes the path's rubric priority, so every surface shows one severity for one exposure. */
-function alignFindings(findings, paths) {
+/**
+ * A rule-engine finding that an exposure path also describes takes the path's
+ * rubric priority, so every surface shows one severity for one exposure. The
+ * agent's score and band are then recomputed from the aligned findings with
+ * the engine's own arithmetic, and the band is then pinned to the worst open
+ * finding or exposure path on the agent (low when there is none), so the
+ * AGENTS row never says critical for a machine whose every path is medium,
+ * and never says medium next to a critical path. The score keeps the engine's
+ * points within that band.
+ */
+function alignFindings(inventory, paths) {
   const byKey = new Map(paths.map(p => [`${p.agentId}:${terminal.PATH_RULE_FOR_TEMPLATE[p.templateId]}`, p]));
-  for (const finding of findings || []) {
+  const touched = new Set();
+  for (const finding of inventory.findings || []) {
     const covering = byKey.get(`${finding.agentId}:${finding.ruleId}`);
     if (!covering || covering.severity === finding.severity) continue;
     finding.ruleSeverity = finding.severity;
     finding.severity = covering.severity;
     finding.description = `${finding.description} Priority ${covering.severity} follows the ${covering.templateId} exposure path assessment (rubric ${covering.assessment ? covering.assessment.rubricVersion : 'n/a'}); the rule's own severity is ${finding.ruleSeverity}.`;
+    touched.add(finding.agentId);
+  }
+  const { SEVERITY_RANK } = require('./simulate');
+  const { THRESHOLDS } = agentRiskEngine;
+  for (const agent of inventory.agents || []) {
+    const mine = records => (records || []).filter(r => r.agentId === agent.id);
+    if (touched.has(agent.id)) {
+      const rescored = agentRiskEngine.score({ findings: mine(inventory.findings), permissions: mine(inventory.permissions), mcpServers: mine(inventory.mcpServers), stale: !!agent.stale });
+      agent.riskScore = rescored.score;
+      agent.riskLevel = rescored.riskLevel;
+    }
+    const open = mine(inventory.findings).filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status));
+    const worst = [...open.map(f => f.severity), ...paths.filter(p => p.agentId === agent.id).map(p => p.severity)].sort((a, b) => (SEVERITY_RANK[b] || 0) - (SEVERITY_RANK[a] || 0))[0] || 'low';
+    const bands = ['low', 'medium', 'high', 'critical'];
+    const ceiling = bands[bands.indexOf(worst) + 1];
+    if ((SEVERITY_RANK[worst] || 0) > (SEVERITY_RANK[agent.riskLevel] || 0)) { agent.riskLevel = worst; agent.riskScore = Math.max(agent.riskScore || 0, THRESHOLDS[worst] || 0); }
+    else if ((SEVERITY_RANK[worst] || 0) < (SEVERITY_RANK[agent.riskLevel] || 0)) { agent.riskLevel = worst; agent.riskScore = Math.min(agent.riskScore || 0, ceiling ? THRESHOLDS[ceiling] - 1 : 100); }
   }
 }
 
@@ -469,7 +497,7 @@ async function performScan(options) {
 
   const graph = securityGraph.buildGraph(inventory);
   const paths = exposurePathEngine.findPaths(graph);
-  alignFindings(inventory.findings, paths);
+  alignFindings(inventory, paths);
   const prioritization = exposurePathEngine.prioritize(paths);
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
   const predictions = discovery.clients

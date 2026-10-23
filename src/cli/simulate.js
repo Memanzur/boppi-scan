@@ -123,7 +123,8 @@ function capabilitiesLost(inventory, agentId, serverId) {
   const server = mine.find(s => s.id === serverId);
   if (!server) return { lost: [], kept: [], builtin: [] };
   const elsewhere = new Set(mine.filter(s => s.id !== serverId).flatMap(s => s.capabilities || []));
-  const own = new Set(builtinCovers(inventory, agentId));
+  // The agent's own web tools stand in for a server's generic web reach, but not for a connector that carries a credential: WebFetch cannot open a pull request or post to a workspace.
+  const own = new Set((server.credentialReferences || []).length ? [] : builtinCovers(inventory, agentId));
   const capabilities = [...new Set(server.capabilities || [])].sort();
   return {
     lost: capabilities.filter(c => !elsewhere.has(c) && !own.has(c)),

@@ -4,6 +4,7 @@
  */
 'use strict';
 const models = require('../engine/models');
+const riskRubric = require('../engine/riskRubric');
 const { SEVERITY_RANK } = require('./simulate');
 const { loweredOf } = require('./predict');
 
@@ -53,6 +54,8 @@ function locateAgent(prediction, byAgent, options) {
 function resolvePrediction(prediction, byAgent, options = {}) {
   const flags = [];
   if (prediction.engineVersion !== models.ENGINE_VERSION) flags.push('engine_changed');
+  // Predictions made before rubric versions were recorded predate 1.0.2's lowered-priority semantics, so a missing version counts as changed.
+  if (prediction.rubricVersion !== riskRubric.RUBRIC_VERSION) flags.push('rubric_changed');
   const predictedLowered = loweredOf(prediction);
   const base = { predictionId: prediction.predictionId, agentId: prediction.agentId, client: prediction.client, edit: prediction.edit, predicted: { eliminated: prediction.predictedEliminated, surviving: prediction.predictedSurviving, lowered: predictedLowered }, flags };
   const located = locateAgent(prediction, byAgent, options);
@@ -103,6 +106,7 @@ function contradictionBundle(prediction, resolution, previous, scan) {
     kind: 'boppi-contradiction',
     createdAt: scan.startedAt,
     engineVersions: { prediction: prediction.engineVersion, verifier: models.ENGINE_VERSION },
+    rubricVersions: { prediction: prediction.rubricVersion || null, verifier: riskRubric.RUBRIC_VERSION },
     prediction,
     resolution,
     before: { inventory: inventoryFor(previousInventory, prediction.agentId), exposureKeys: prediction.before.exposureKeys },
@@ -121,15 +125,31 @@ const REASON_TEXT = Object.freeze({
   predicted_surviving_absent: 'paths predicted to survive are gone too',
   predicted_lowered_not_observed: 'paths predicted to drop in priority are still at their old priority',
   engine_changed: 'engine version changed since the prediction',
+  rubric_changed: 'risk rubric changed since the prediction',
   agent_matched_by_client: 'agent matched by client, its id changed',
 });
 const describeReason = code => (REASON_TEXT[code] ? `${REASON_TEXT[code]} (${code})` : code);
 
 const NEXT_STEP = Object.freeze({
-  PARTIAL: 'The fix did less than predicted. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
-  CONTRADICTED: 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.',
   UNRESOLVED: 'Nothing could be graded yet. Apply the recommended edit (remove the named server entry), then run boppi verify again.',
 });
+
+/**
+ * What a contradicted or partial result asks of the user. A prediction made
+ * under another engine or rubric is a model change, not an engine bug; a
+ * prediction that only promised a lower priority did not fail to remove
+ * anything; only a prediction from this engine and rubric that promised a
+ * closed path and did not get it is worth an issue.
+ */
+function disputedNextStep(status, resolutions) {
+  const disputed = resolutions.filter(r => r.status === STATUS.CONTRADICTED || r.status === STATUS.PARTIAL);
+  const versionChanged = disputed.some(r => r.flags.includes('engine_changed') || r.flags.includes('rubric_changed'));
+  if (versionChanged) return 'The engine or risk rubric changed since this prediction was made, so the difference may be the model rather than the fix. Run boppi scan --json for a fresh prediction and verify against that; no issue is needed.';
+  if (disputed.every(r => !(r.predicted.eliminated || []).length)) return 'The predicted drop in priority was not observed. The configuration may have changed since the prediction (a server added or a setting changed). Run boppi scan --json again for a fresh prediction; a contradiction fixture was written in case you want to report it.';
+  return status === STATUS.CONTRADICTED
+    ? 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.'
+    : 'The fix did less than predicted. A contradiction fixture was written; attach it to an issue so the engine can be corrected.';
+}
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /** What the confirmed resolutions actually closed and what still stands, counted from the rescan, never from the prediction. */
@@ -156,8 +176,8 @@ function confirmedSentence(outcome) {
 
 /** The one sentence after the table. A contradiction or partial result wins; otherwise the confirmed count says what closed and what remains, and a mix of graded and ungraded edits says so instead of calling the graded ones "nothing". */
 function nextStep(summary, resolutions = []) {
-  if (summary.contradicted) return NEXT_STEP.CONTRADICTED;
-  if (summary.partial) return NEXT_STEP.PARTIAL;
+  if (summary.contradicted) return disputedNextStep(STATUS.CONTRADICTED, resolutions);
+  if (summary.partial) return disputedNextStep(STATUS.PARTIAL, resolutions);
   if (summary.confirmed && summary.unresolved) {
     const outcome = confirmedOutcome(resolutions);
     const graded = outcome.zeroBenefit

@@ -85,13 +85,22 @@
       return models ? models.createRiskFinding(raw) : raw;
     });
     const findings = rawFindings;
+    return { ...score({ findings, permissions, mcpServers, stale }), findings, stale, confidence };
+  }
+  /**
+   * The agent score and band from a set of findings. Exposed so a caller that
+   * restates a finding at an exposure path's priority (the scanner's
+   * alignFindings) can rescore the agent with the same arithmetic, instead of
+   * leaving the row at the rule's own severity.
+   */
+  function score({ findings = [], permissions = [], mcpServers = [], stale = false } = {}) {
     const permissionPoints = Math.min(20, (permissions || []).reduce((sum, p) => sum + Math.max(0, Number(p.riskWeight) || 0), 0));
-    const rulePoints = findings.reduce((sum, f) => sum + SEVERITY_POINTS[f.severity], 0);
+    const rulePoints = (findings || []).reduce((sum, f) => sum + (SEVERITY_POINTS[f.severity] || 0), 0);
     const trustPoints = (mcpServers || []).some(s => (s.trustStatus || 'unknown') === 'unverified') ? 8 : 0;
     const staleFactor = stale ? 0.85 : 1;
-    const score = Math.min(100, Math.round((rulePoints + permissionPoints + trustPoints) * staleFactor));
-    const level = score >= THRESHOLDS.critical ? 'critical' : score >= THRESHOLDS.high ? 'high' : score >= THRESHOLDS.medium ? 'medium' : 'low';
-    return { score, riskLevel:level, findings, stale, confidence, contributingFactors:{ rulePoints, permissionPoints, trustPoints, staleFactor }, scoreExplanation: findings.length ? `${findings.length} explainable rule(s) triggered; permission and trust factors contributed ${permissionPoints + trustPoints} points.` : 'No dangerous combination was triggered; score reflects only permission and trust factors.' };
+    const total = Math.min(100, Math.round((rulePoints + permissionPoints + trustPoints) * staleFactor));
+    const level = total >= THRESHOLDS.critical ? 'critical' : total >= THRESHOLDS.high ? 'high' : total >= THRESHOLDS.medium ? 'medium' : 'low';
+    return { score: total, riskLevel: level, contributingFactors: { rulePoints, permissionPoints, trustPoints, staleFactor }, scoreExplanation: (findings || []).length ? `${findings.length} explainable rule(s) triggered; permission and trust factors contributed ${permissionPoints + trustPoints} points.` : 'No dangerous combination was triggered; score reflects only permission and trust factors.' };
   }
   function dedupeFindings(existing = [], next = []) {
     const map = new Map((existing || []).map(f => [f.id, f]));
@@ -105,5 +114,5 @@
     if (!finding || typeof finding !== 'object') throw new TypeError('finding is required');
     return { ...finding, status: active ? 'open' : 'resolved', lastSeenAt: new Date(now).toISOString() };
   }
-  return { RULES, SEVERITY_POINTS, THRESHOLDS, assess, dedupeFindings, updateFindingStatus };
+  return { RULES, SEVERITY_POINTS, THRESHOLDS, assess, score, dedupeFindings, updateFindingStatus };
 });

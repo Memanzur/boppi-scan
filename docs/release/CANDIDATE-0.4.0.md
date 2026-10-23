@@ -1,6 +1,6 @@
 # Release candidate: boppi 0.4.0 (local, unpublished)
 
-Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; `npm run verify-versions` checks that package, engine, rubric, changelog, this document, and the manifest agree, and `scripts/candidate-kit/prepare-fixtures.py <candidate dir>` rebuilds the six-case facilitator kit from the tarball; the manifest also carries the tarball sha256, engine 1.1.0, the rubric version (1.0.2 as of 2026-10-23; earlier builds are kept beside the current one as `Boppi-candidate-0.4.0-superseded-rubric-<version>`), and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
+Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; `npm run verify-versions` checks that package, engine, rubric, changelog, this document, and the manifest agree, and `scripts/candidate-kit/prepare-fixtures.py <candidate dir>` rebuilds the six-case facilitator kit from the tarball; the manifest also carries the tarball sha256, engine 1.1.0, the rubric version (1.0.3 as of 2026-10-23; earlier builds are kept beside the current one as `Boppi-candidate-0.4.0-superseded-rubric-<version>`), and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
 
 ## Supported
 
@@ -30,8 +30,8 @@ Remove: `npm uninstall -g --prefix ~/boppi-beta boppi`, then delete `~/boppi-bet
 - Each exposure path shows a priority badge, `based on:`, `assumes:`, and `not checked:` lines, `evidence confidence`, and `likelihood not assessed`. The badge can be lower than the template's worst case when evidence is weak; it is never raised.
 - A filesystem server at an ordinary folder plus a network server is medium, not critical, until the scan can show the files are sensitive. The home directory or a secrets folder stays critical.
 - `boppi verify` and `boppi fix` say how many paths closed, how many stayed open at a lower priority, and what remains; an edit that closes or lowers nothing says so before it is applied.
-- Claude Code's own WebFetch and WebSearch count as a web grant that asks before each use. A Claude Code install with no MCP server therefore shows a high exfiltration path and a medium privilege path, each stating that an approved prompt is the assumption. Removing an MCP fetch server from Claude Code lowers such a path rather than closing it, and the report says which built-in tools keep it open and where a settings deny rule would go. Boppi never edits settings.
-- A permission whose name suggests production access (for example `cluster.viewer`) is not a production path unless a tool list or an access level shows what it can change; the report lists it under COVERAGE as named like production access with nothing behind it.
+- Claude Code's own WebFetch and WebSearch count as two grants that ask before each use (WebFetch is an exit and untrusted content; WebSearch is untrusted content only, and a settings rule for one never changes the other). A Claude Code install with no MCP server therefore shows a high exfiltration path and a medium privilege path, each stating that an approved prompt is the assumption. Removing an MCP fetch server from Claude Code lowers such a path rather than closing it, and the report says which built-in tools keep it open and where a settings deny rule would go. Boppi never edits settings.
+- A permission whose name suggests production access (for example `cluster.viewer`) is not a production path unless a tool list or an access level shows what it can change; such a record is listed under COVERAGE as named like production access with nothing behind it when it is imported; a local scan never creates one, because it only derives production reach from write-verb tool names.
 - Unrecognized servers are counted in the INVENTORY line as unknown reach. Docker images run by tag are listed as tagged.
 
 ## Known limits
@@ -42,6 +42,7 @@ Remove: `npm uninstall -g --prefix ~/boppi-beta boppi`, then delete `~/boppi-bet
 - Sensitivity of files in an ordinary folder is not established; the path is kept at assumed strength.
 - Symlinks and mounts in filesystem arguments are not resolved.
 - Claude Desktop's and Cursor's web features are not modeled; Claude Code's WebFetch and WebSearch are.
+- The AGENTS band is the worst open finding or path on the agent; the score is the engine's points within that band.
 - Likelihood of exploitation is never estimated.
 
 ## Reporting a problem

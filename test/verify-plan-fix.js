@@ -105,6 +105,8 @@ function runCli(args, home, extra = {}) {
   const claudeJson = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8'));
   ok('the project-scoped entry is removed from projects[cwd].mcpServers only', code.code === 0 && !claudeJson.projects[home].mcpServers['project-fetch'] && claudeJson.mcpServers.github && claudeJson.projects[home].allowedTools[0] === 'Bash' && claudeJson.numStartups === 3);
 
+  ok('review finding 17: a lowered path appears once, annotated on its remains line, never as a second line', !/\n\s+lowered\s+\w+ to \w+/.test(code.stdout + applied.stdout) && (!code.stdout.includes('at a lower priority') || /remains\s+\w+ \(lowered from \w+\)/.test(code.stdout)));
+
   section('fix on a server outside every path');
   const quiet = runCli(['fix', '--server', 'time', '--client', 'cursor', '--yes'], home);
   ok('a server with no modeled exposure can still be removed, and the output says nothing was modeled', quiet.code === 0 && quiet.stdout.includes('no exposure path'));

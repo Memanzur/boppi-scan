@@ -192,9 +192,9 @@
     }
   }
 
-  /** Permission nodes whose name suggests production access without any evidence of what they can change. */
+  /** Every node whose name suggests production access without evidence of what it can change (a permission, or an imported server record); each is disclosed, never silently dropped. */
   function productionHints(graph) {
-    return (graph.nodes || []).filter(n => n.entityType === 'permission' && n.metadata && n.metadata.productionHint).map(n => n.label);
+    return (graph.nodes || []).filter(n => n.metadata && n.metadata.productionHint).map(n => n.label);
   }
 
   /**

@@ -14,6 +14,7 @@ const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
+const terminal = require('./terminal');
 const securityGraph = require('../../engine/securityGraph');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
@@ -274,7 +275,7 @@ ${builtinRows ? `
   ${report.historyChanges ? `<h2>Changes since last scan</h2><div class="card"><div class="kv">${report.historyChanges.newPaths} new exposure paths · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers.</div></div>` : '<h2>Changes since last scan</h2><div class="card muted">First local scan. Run Boppi again after changing the environment to compare results.</div>'}
 
   ${ranked.length ? `
-  <h2>Root cause: the single config edit that breaks the most exposures</h2>
+  <h2>Root cause: the single config edit that ${ranked[0].prediction.predictedEliminated.length ? 'breaks the most exposures' : 'lowers the most exposures (none closes one)'}</h2>
   <div class="card" style="border-left:3px solid var(--accent)">
     <b>${esc(editSentence(ranked[0].prediction))}</b>
     <div class="kv">Breaks <b>${ranked[0].prediction.predictedEliminated.length} of ${paths.length}</b> exposures${ranked[0].eliminatedSeverity.critical ? ` (${ranked[0].eliminatedSeverity.critical} critical)` : ''}${ranked[0].lowered.length ? `, lowers ${ranked[0].lowered.length} (${esc(ranked[0].lowered.map(step => `${step.from} to ${step.to}`).join(', '))})` : ''}; ${paths.length - ranked[0].prediction.predictedEliminated.length} would remain. Checked by rescanning without the server.</div>
@@ -283,7 +284,7 @@ ${builtinRows ? `
     ${plan && !plan.breaksAll ? builtinResidualSentences(report.builtinResidual, plan.residualExposureKeys).map(sentence => `<div class="kv muted small">${esc(sentence)}</div>`).join('') : ''}
   </div>` : paths.length ? `
   <h2>Root cause</h2>
-  <div class="card muted small">No MCP config edit closes or lowers a path on this scan. ${builtinResidualSentences(report.builtinResidual, paths.map(p => p.exposureKey)).map(esc).join(' ')}</div>` : ''}
+  <div class="card muted small">No MCP config edit closes or lowers a path on this scan. ${(builtinResidualSentences(report.builtinResidual, paths.map(p => p.exposureKey)).map(esc).join(' ')) || esc(terminal.noSingleEditSentence(paths))}</div>` : ''}
 
 ${graphSection(view)}
 

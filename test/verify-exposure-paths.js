@@ -94,6 +94,8 @@ test('software supply-chain path (source modification + production)', () => {
   const readOnly = graphFor(['modify_source_code', 'access_production_system'], { permission: { accessLevel: 'read' } });
   assert.ok(!engine.findPaths(readOnly.graph).some(p => p.category === 'software_supply_chain'), 'a read-level permission that merely sounds like production reaches no production system');
   assert.deepStrictEqual(graphlib.productionHints(readOnly.graph), ['access_production_system'], 'the name-only permission is listed as a hint');
+  const flagged = { nodes: [{ id: 'n1', entityType: 'mcp_server', label: 'prod-cluster', metadata: { productionHint: true } }, { id: 'n2', entityType: 'permission', label: 'other', metadata: {} }], edges: [] };
+  assert.deepStrictEqual(graphlib.productionHints(flagged), ['prod-cluster'], 'a hint on any node type is disclosed, never dropped silently');
 });
 
 test('supply-chain exposure requires an explicitly unverified MCP', () => {

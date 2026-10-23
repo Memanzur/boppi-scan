@@ -162,8 +162,9 @@ function outcome({ scanBefore, scanAfter, clientKey, prediction }) {
     .map(p => ({ pathId: p.id, exposureKey: p.exposureKey, label: p.label, from: p.severity, to: priorityAfter.get(p.exposureKey) }));
   const idsByKey = new Map(beforePaths.map(p => [p.exposureKey, p.id]));
   const predictedIds = prediction ? prediction.predictedEliminated.map(key => idsByKey.get(key) || key) : [];
+  const loweredByKey = new Map(lowered.map(step => [step.exposureKey, step]));
   const remaining = afterPaths.map(p => ({
-    pathId: p.id, label: p.label, severity: p.severity,
+    pathId: p.id, label: p.label, severity: p.severity, exposureKey: asBefore(p.exposureKey), loweredFrom: loweredByKey.has(asBefore(p.exposureKey)) ? loweredByKey.get(asBefore(p.exposureKey)).from : null,
     reason: `still reachable through ${p.nodes.filter(n => n.entityType === 'mcp_server').map(n => n.label).join(', ') || 'this agent'}${prediction && prediction.predictedSurviving.includes(asBefore(p.exposureKey)) ? ' (predicted to survive)' : ''}`,
   }));
   const kind = !beforePaths.length ? 'unresolved' : !afterPaths.length ? 'removed' : eliminated.length || lowered.length ? 'reduced' : 'unresolved';
@@ -269,8 +270,7 @@ function renderResult(result, indent = '  ') {
     : result.outcome === 'reduced' ? `${result.remaining.length} exposure path${result.remaining.length === 1 ? '' : 's'} remain${result.remaining.length === 1 ? 's' : ''}${lowered.length ? `, ${lowered.length} at a lower priority` : ''}`
     : result.remaining.length ? 'nothing modeled was eliminated or lowered' : 'no exposure path was modeled for this server';
   lines.push(`${indent}${'result'.padEnd(STAGE_WIDTH)} ${result.outcome.padEnd(7)} ${summary}; predicted ${predicted} eliminated, observed ${gone} of ${predicted}${result.eliminated.length > gone ? ` (+${result.eliminated.length - gone} not predicted)` : ''}`);
-  for (const step of lowered) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'lowered'.padEnd(7)} ${step.from} to ${step.to} ${step.label || step.exposureKey.split(':')[0]} [${step.pathId}]`);
-  for (const path of result.remaining) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'remains'.padEnd(7)} ${path.severity} ${path.label} [${path.pathId}]: ${path.reason}`);
+  for (const path of result.remaining) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'remains'.padEnd(7)} ${path.severity}${path.loweredFrom ? ` (lowered from ${path.loweredFrom})` : ''} ${path.label} [${path.pathId}]: ${path.reason}`);
   if (result.capabilitiesLost.length) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'lost'.padEnd(7)} ${result.capabilitiesLost.join(', ')}`);
   lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'undo'.padEnd(7)} boppi rollback --id ${result.manifestId}`);
   return lines.join('\n');

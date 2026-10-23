@@ -22,8 +22,8 @@ const BUILTIN_TOOLS = Object.freeze({
     Object.freeze({ tool: 'Read', capability: 'filesystem_access', prompts: false }),
     Object.freeze({ tool: 'Edit', capability: 'filesystem_access', prompts: true }),
     Object.freeze({ tool: 'Write', capability: 'filesystem_access', prompts: true }),
-    Object.freeze({ tool: 'WebFetch', capability: 'web_access', prompts: true }),
-    Object.freeze({ tool: 'WebSearch', capability: 'web_access', prompts: true }),
+    Object.freeze({ tool: 'WebFetch', capability: 'web_fetch', prompts: true }),
+    Object.freeze({ tool: 'WebSearch', capability: 'web_search', prompts: true }),
   ]),
   cursor: Object.freeze([
     Object.freeze({ tool: 'terminal', capability: 'shell_access', prompts: null }),
@@ -33,11 +33,13 @@ const BUILTIN_TOOLS = Object.freeze({
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const UNPROMPTED_MODES = new Set(['bypassPermissions', 'dontAsk']);
 const GATE_RANK = Object.freeze({ unprompted: 3, prompted: 2, unknown: 1, denied: 0 });
-const CAPABILITY_LABEL = Object.freeze({ shell_access: 'shell access', filesystem_access: 'file access', web_access: 'web access' });
-const CAPABILITY_VERB = Object.freeze({ shell_access: 'runs shell commands', filesystem_access: 'reads and writes files', web_access: 'fetches web pages and searches the web' });
-const RISK_WEIGHT = Object.freeze({ shell_access: 3, filesystem_access: 2, web_access: 2 });
-// A web tool is both an external destination and a source of untrusted content, so it is two permissions.
-const CATEGORIES = Object.freeze({ shell_access: ['run_shell_commands'], filesystem_access: ['read_files'], web_access: ['call_external_api', 'untrusted_external_content'] });
+const CAPABILITY_LABEL = Object.freeze({ shell_access: 'shell access', filesystem_access: 'file access', web_fetch: 'web fetch', web_search: 'web search' });
+const CAPABILITY_VERB = Object.freeze({ shell_access: 'runs shell commands', filesystem_access: 'reads and writes files', web_fetch: 'fetches web pages', web_search: 'searches the web' });
+const RISK_WEIGHT = Object.freeze({ shell_access: 3, filesystem_access: 2, web_fetch: 2, web_search: 1 });
+// Each web tool is its own grant, so a rule written for one is never asserted about the other (rubric 1.0.3).
+// WebFetch reaches a destination the model chooses and returns its content: an external destination and untrusted content.
+// WebSearch returns untrusted content; a search query is not treated as a destination the model can deliver data to.
+const CATEGORIES = Object.freeze({ shell_access: ['run_shell_commands'], filesystem_access: ['read_files'], web_fetch: ['call_external_api', 'untrusted_external_content'], web_search: ['untrusted_external_content'] });
 const UNREADABLE_SETTING = 'prompting not checked (the client keeps this setting outside readable configuration)';
 const UNREADABLE_FILE = 'prompting not checked (a permission settings file could not be read)';
 // Read inside the working folder never asks; outside it the client asks first.
@@ -214,7 +216,7 @@ function hasBuiltinTools(clientKey) { return (BUILTIN_TOOLS[clientKey] || []).le
 function builtinPermissions(agent, builtin, observedAt) {
   if (!builtin || !Array.isArray(builtin.grants)) return [];
   return builtin.grants.flatMap(grant => (CATEGORIES[grant.capability] || []).map(category => {
-    const toolNames = grant.tools.map(t => t.tool);
+    const toolNames = grant.tools.filter(t => t.gate !== 'denied').map(t => t.tool);
     const toolPhrase = `${joinNames(toolNames)} tool${toolNames.length === 1 ? '' : 's'}`;
     return models.createPermission({
       agentId: agent.id,
@@ -259,9 +261,9 @@ const SETTINGS_DENY_HINT = Object.freeze({ 'claude-code': 'permissions.deny in ~
 
 /**
  * The built-in tools that keep the given exposure paths open: one entry per
- * agent whose chain runs through a built-in grant, with the tool names behind
- * it. Read from the scan's own permission records, so a denied tool never
- * appears here.
+ * agent whose chain runs through a built-in grant, with the names of the
+ * tools that are not denied. `settingsHint` names where a deny rule goes only
+ * when this scan read the client's settings; `settingsRead` says whether it did.
  */
 function builtinHoldings(report, exposureKeys) {
   const keys = new Set(exposureKeys || []);
@@ -279,18 +281,19 @@ function builtinHoldings(report, exposureKeys) {
       const grant = match && client.builtin.grants.find(g => g.capability === match[1] && !g.viaShell);
       if (!grant) continue;
       const category = permission.normalizedCategory || permission.category || null;
-      if (!holdings.has(path.agentId)) holdings.set(path.agentId, { agentId: path.agentId, clientKey: client.clientKey, client: client.label, tools: new Set(), exposureKeys: new Set(), settingsHint: SETTINGS_DENY_HINT[client.clientKey] || null });
+      const settingsRead = !!(client.builtin.settings && client.builtin.settings.read);
+      if (!holdings.has(path.agentId)) holdings.set(path.agentId, { agentId: path.agentId, clientKey: client.clientKey, client: client.label, tools: new Set(), exposureKeys: new Set(), settingsRead, settingsHint: settingsRead ? SETTINGS_DENY_HINT[client.clientKey] || null : null });
       const holding = holdings.get(path.agentId);
       holding.exposureKeys.add(path.exposureKey);
-      for (const tool of grant.tools) if (!(category === 'read_files' && EDIT_TOOLS.has(tool.tool))) holding.tools.add(tool.tool);
+      for (const tool of grant.tools) if (tool.gate !== 'denied' && !(category === 'read_files' && EDIT_TOOLS.has(tool.tool))) holding.tools.add(tool.tool);
     }
   }
   return [...holdings.values()].map(h => ({ ...h, tools: [...h.tools].sort(), exposureKeys: [...h.exposureKeys].sort() }));
 }
 
-const BUILTIN_EQUIVALENTS = Object.freeze({ web_access: ['network_access', 'untrusted_external_content'] });
+const BUILTIN_EQUIVALENTS = Object.freeze({ web_fetch: ['network_access', 'untrusted_external_content'], web_search: ['untrusted_external_content'] });
 
-/** Server capability ids the agent's own tools also cover, so removing a server that provides them costs nothing. */
+/** Server capability ids the agent's own tools also cover. Whether a given server's loss is covered is decided by the caller (a server that carries a credential reaches something WebFetch cannot). */
 function builtinCovers(inventory, agentId) {
   return [...new Set(builtinCapabilities(inventory, agentId).flatMap(c => [c, ...(BUILTIN_EQUIVALENTS[c] || [])]))].sort();
 }
@@ -298,16 +301,20 @@ function builtinCovers(inventory, agentId) {
 /**
  * Plain sentences for the paths an agent's built-in tools hold on their own,
  * from a rescan with every MCP server removed (see predict.builtinResidualForClient).
- * `keys` limits the sentence to the paths in question. Boppi never edits settings.
+ * `keys` says which paths the caller is asking about: an agent whose residual
+ * touches none of them gets no sentence, and an agent that does gets its whole
+ * residual counted, so every surface states the same number. Boppi never edits settings.
  */
 function builtinResidualSentences(residual, keys) {
   const wanted = new Set(keys || []);
   return (residual || []).map(entry => {
-    const open = entry.exposureKeys.filter(key => wanted.has(key));
-    if (!open.length) return null;
-    const where = entry.settingsHint ? `Boppi never edits permission settings; a deny rule for a tool under ${entry.settingsHint} removes its grant, and the next scan shows the effect.` : `Boppi cannot read ${entry.client}'s permission settings, so this stays an unknown.`;
-    const list = open.map(key => `${key.split(':')[0]} at ${entry.priorities[key]}`).join(', ');
-    return `${open.length} path${open.length === 1 ? '' : 's'} would stay open on ${entry.client} with every MCP server removed, through its built-in tools (${entry.tools.join(', ')}): ${list}. ${where} Denying a core tool such as Read or Bash also changes how the agent works.`;
+    if (!entry.exposureKeys.some(key => wanted.has(key))) return null;
+    const count = entry.exposureKeys.length;
+    const where = entry.settingsHint ? `Boppi never edits permission settings; a deny rule for a tool under ${entry.settingsHint} removes its grant, and the next scan shows the effect.`
+      : entry.settingsRead === false && SETTINGS_DENY_HINT[entry.clientKey] ? `This scan did not read ${entry.client}'s permission settings (explicit --config mode), so whether these tools prompt is not checked here; a scan without --config reads them.`
+      : `Boppi cannot read ${entry.client}'s permission settings, so this stays an unknown.`;
+    const list = entry.exposureKeys.map(key => `${key.split(':')[0]} at ${entry.priorities[key]}`).join(', ');
+    return `${count} path${count === 1 ? '' : 's'} would stay open on ${entry.client} with every MCP server removed, through its built-in tools (${entry.tools.join(', ')}): ${list}. ${where} Denying a core tool such as Read or Bash also changes how the agent works.`;
   }).filter(Boolean);
 }
 

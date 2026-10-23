@@ -5,6 +5,7 @@
  */
 'use strict';
 const models = require('../engine/models');
+const riskRubric = require('../engine/riskRubric');
 const scanner = require('../engine/localMcpScanner');
 const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
@@ -54,6 +55,7 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
     schemaVersion: SCHEMA_VERSION,
     predictionId: models.stableId('prediction', [models.ENGINE_VERSION, client.agentId, edit, sim.before.exposureKeys]),
     engineVersion: models.ENGINE_VERSION,
+    rubricVersion: riskRubric.RUBRIC_VERSION,
     scannerVersion,
     createdAt: observedAt,
     client: { key: client.clientKey, label: client.label },

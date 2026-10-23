@@ -59,11 +59,11 @@ function runCli(args, home) {
   ok('exposure paths include data exfiltration (EP-A)', scan.stdout.includes('EP-A'));
   ok('exposure paths include credential exposure (EP-B)', scan.stdout.includes('EP-B'));
   ok('the terminal shows the five highest-ranked paths and points at --verbose for the rest', scan.stdout.includes('--verbose for all') && runCli(['paths', '--verbose'], home).stdout.includes('EP-E'));
-  ok('built-in tools are listed per coding agent with their prompting state', scan.stdout.includes('BUILT-IN TOOLS (5)') && scan.stdout.includes('Claude Code · shell access (Bash) · prompts') && scan.stdout.includes('Cursor · shell access (terminal) · not checked'));
+  ok('built-in tools are listed per coding agent with their prompting state', scan.stdout.includes('BUILT-IN TOOLS (6)') && scan.stdout.includes('Claude Code · shell access (Bash) · prompts') && scan.stdout.includes('Cursor · shell access (terminal) · not checked'));
   ok('rule-engine findings appear (AE rules)', /AE-\d{3}/.test(scan.stdout));
   ok('report explains inference honestly', scan.stdout.includes('inferred from evidenced identity'));
   ok('root-cause section names the single highest-leverage fix', scan.stdout.includes('ROOT CAUSE') && /breaks \d+ of \d+ exposure/.test(scan.stdout));
-  ok('minimal remediation plan is shown', scan.stdout.includes('Full plan to break all'));
+  ok('minimal remediation plan is shown, counting what it closes honestly', /Full plan to break (all|\d+ of) \d+ high-or-critical exposures/.test(scan.stdout) && !/break all \d+ high-or-critical exposures, \d+ changes \(\d+ would remain\)/.test(scan.stdout));
   ok('first scan explains coverage and uncertainty', scan.stdout.includes('COVERAGE') && scan.stdout.includes('Not established:') && scan.stdout.includes('Scan status: complete'));
   ok('first scan lists discovered MCP servers and capabilities', scan.stdout.includes('MCP SERVERS (7)') && scan.stdout.includes('capabilities:'));
   ok('first scan states that no prior comparison exists', scan.stdout.includes('First local scan'));
@@ -132,7 +132,7 @@ function runCli(args, home) {
   const builtinPermissions = permissions.filter(p => !p.integrationId);
   ok('every server-derived permission points at the server record it came from', serverPermissions.length > 0 && serverPermissions.every(p => serverIds.has(p.integrationId) && serverIds.get(p.integrationId).agentId === p.agentId));
   const codingAgentIds = new Set(exported.inventory.real.agents.filter(a => a.type === 'coding_agent').map(a => a.id));
-  ok('permissions without a server are built-in tool grants of the coding agents only', builtinPermissions.length === 6 && builtinPermissions.every(p => p.source.type === 'builtin-tool' && codingAgentIds.has(p.agentId) && /built-in (shell|file|web) access/.test(p.rawPermission)));
+  ok('permissions without a server are built-in tool grants of the coding agents only', builtinPermissions.length === 7 && builtinPermissions.every(p => p.source.type === 'builtin-tool' && codingAgentIds.has(p.agentId) && /built-in (shell access|file access|web fetch|web search)/.test(p.rawPermission)));
   ok('every scanned server with capabilities owns at least one permission', exported.inventory.real.mcpServers.filter(m => m.capabilities.length).every(m => permissions.some(p => p.integrationId === m.id)));
   const serialized = JSON.stringify(exported);
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));
