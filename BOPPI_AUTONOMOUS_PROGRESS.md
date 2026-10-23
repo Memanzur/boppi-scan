@@ -1,5 +1,16 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 23, 2026 (second session): rubric 1.0.3 after the cross-model review of 1.0.2; candidate rebuilt; discovery adapter (P3-3) in progress
+
+Autonomous session under the same "continue autonomous development" directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner branch `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0, rubric 1.0.3); control plane `~/Desktop/Boppi-auto` synced to the same engine. Exact heads: `git log --oneline -1` in each repo.
+
+- d98e700 rubric 1.0.3. The independent Opus review of `0df3b3e..d3defa9` reported 17 findings, 2 of them blockers: a bare Claude Code read `79/100 critical` in AGENTS while every path was medium, and `allow: ["WebSearch"]` graded `WebFetch` as never prompting (EP-A critical with no server). Every finding was reproduced on synthetic configs before any change. Fifteen fixed, one partly accepted (non-write-shaped access levels stay hints, per the founder's instruction), one accepted as a documentation defect (the COVERAGE production-hint sentence cannot appear in a local scan). `docs/milestone1/ADJUDICATION.md` rows 24 to 41. Corpus labels unchanged (54 of 54, same held-out metrics); 24 of 24 suites.
+- Candidate rebuilt at `~/Desktop/Boppi-candidate-0.4.0/` from the 1.0.3 code (sha256 in its `CANDIDATE.json`); the 1.0.2 build is kept at `~/Desktop/Boppi-candidate-0.4.0-superseded-rubric-1.0.2`, beside the 1.0.0 and 1.0.1 builds. `npm run verify-versions` agrees: package 0.4.0, engine 1.1.0, rubric 1.0.3.
+- Control plane: engine vendored at d98e700; `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` green (91 checks, engine port 26).
+- P3-3 `boppi discover` (stdio only) in progress: `src/cli/discovery/session.js` holds the launch plan (refuses remote endpoints, package-fetching launchers, and programs not installed on PATH), the session (initialize, initialized, paged tools/list, cancel on timeout, stdin close then SIGTERM then SIGKILL) and the protocol recorder proof. CLI wiring, consent text, cache, and tests are the next steps; the four section-12 decisions of `docs/phase3/DISCOVERY_SPIKE.md` are assumed as recommended until the founder decides.
+
+Open human gates (never marked complete by an agent): founder and security reviewer sign-off on `docs/milestone1/RISK_RUBRIC_v1.0.3.md` (open questions 1 to 4, 6, and 7); five uncoached comprehension sessions; Phase 0 sessions 0 of 5. Founder decisions pending: the rubric questions; Phase 3 section 12; whether Phase 0 runs on the frozen 0.3.1 kit or the 0.4.0 candidate; publication of 0.4.0.
+
 ## October 23, 2026: rubric 1.0.2 (production tiers, Claude Code web tools, lowered predictions); candidate rebuilt; task ledger created
 
 Autonomous session under the founder's "continue autonomous development" directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner head `35cb3be` on `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0, rubric 1.0.2). Control plane head `a4a0e58` in `~/Desktop/Boppi-auto` (engine vendored at 7cce8b5, engine port 26 checks). Master task ledger: `BOPPI_TASK_LEDGER.md` in both repos (every roadmap item with state, evidence, blocker).
