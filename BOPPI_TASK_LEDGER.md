@@ -77,10 +77,10 @@ Nothing in this ledger was pushed, published, deployed, or applied to a real con
 | Id | Task | State | Evidence | Blocker or next |
 | --- | --- | --- | --- | --- |
 | P6-1 | Local runtime collector slice: event ids, pre/post correlation, concurrency-safe recording, local timeline | done, local (2026-10-23) | `src/cli/hook.js` (schema 2: invocation id, source, six outcomes, O_APPEND lines, rename rotation, segment retention, health counters, disable/enable/forget), `src/cli/events.js` (`boppi events` timeline with every gap), `docs/phase6/RUNTIME_COLLECTOR.md`, `test/verify-hook-collector.js` (29 checks: 10 concurrent sessions, 1,000 records, 12 rotations, 0 lost, canaries, p95 82 ms) | Live calls on a consented Claude Code and the version pin are founder-run; cloud runtime transport stays gated (consent, isolation tests). Coverage envelope unchanged (`runtime: not_observed`). |
-| P7-1 | Suspicious-prompt feasibility spike | open | | After P6-1; document only. |
+| P7-1 | Suspicious-prompt feasibility spike | done, document (2026-10-23) | `docs/phase7/SUSPICIOUS_PROMPT_SPIKE.md`: which hook fields expose content (prompt, tool_input, tool_response, error, reason), what stays invisible (system and loaded instructions, non-hook content channels, the transcript), a bounded design with separate content consents, acceptance plan, stop conditions | Implementation needs the founder's content-consent decision; no prompt content is read today. |
 | P8-1 | Evidence layers (configured, advertised, observed, hypothesis) and 20 mixed-evidence fixtures | open | | Baseline contract from Phase 1 exists. |
 | P9-1 | Dashboard-initiated remediation threat model and local state machine | open | | Design and local tests only; no connector pairing. |
-| P10-1 | Governance discovery note | open | | Needs design partners (founder). |
+| P10-1 | Governance discovery note | blocked: founder | | Needs two design partners the founder recruits; no local work exists that does not presume their answers. |
 
 ## Standing rules
 

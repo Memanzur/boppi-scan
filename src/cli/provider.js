@@ -37,7 +37,8 @@ function reachPermissions(agent, server, inference, observedAt) {
   for (const entry of (inference && inference.reach) || []) {
     const shown = entry.tools.slice(0, 2).join(', ') + (entry.tools.length > 2 ? ` +${entry.tools.length - 2}` : '');
     const how = entry.because ? entry.because : `tools ${entry.tools.join(', ')}`;
-    const basis = entry.because ? 'configured' : entry.basis;
+    // A scope entry is configured unless it carries its own basis (a write tool the server only advertised keeps 'advertised').
+    const basis = entry.because ? (entry.basis || 'configured') : entry.basis;
     const inferred = basis !== 'configured';
     permissions.push(models.createPermission({
       agentId: agent.id,
@@ -47,7 +48,7 @@ function reachPermissions(agent, server, inference, observedAt) {
       accessLevel: 'broad',
       riskWeight: CATEGORY_RISK_WEIGHT[entry.category] || 1,
       normalizationConfidence: basis === 'advertised' ? 0.8 : inferred ? 0.7 : 0.85,
-      normalizationReason: `This server can ${entry.label} because ${how}${entry.because ? '' : ` (${basis === 'catalog' ? 'listed in the known-server catalog' : basis === 'advertised' ? 'advertised by the running server in a consented discovery; what the tool does was not verified' : 'declared in the configuration'})`}.`,
+      normalizationReason: `This server can ${entry.label} because ${how}${entry.because && basis !== 'advertised' ? '' : ` (${basis === 'catalog' ? 'listed in the known-server catalog' : basis === 'advertised' ? 'advertised by the running server in a consented discovery; what the tool does was not verified' : 'declared in the configuration'})`}.`,
       source: { ...agent.source, id: `tool-reach:${server.name}:${entry.category}`, evidenceClass: inferred ? 'inferred' : 'observed' },
       attributes: {
         basis,

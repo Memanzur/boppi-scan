@@ -12,7 +12,21 @@ const projection = require('./projection');
 const { createRecorder } = require('./recorder');
 
 const TIMEOUTS = Object.freeze({ initializeMs: 10000, pageMs: 10000, sessionMs: 60000, closeMs: 2000, termMs: 2000, killMs: 1000 });
-const PACKAGE_LAUNCHERS = /^(npx|uvx|pipx|bunx|docker)(\.exe|\.cmd)?$/i;
+const PACKAGE_LAUNCHERS = /^(npx|uvx|pipx|bunx|docker|podman)(\.exe|\.cmd)?$/i;
+/** Launchers that fetch when given a subcommand: `npm exec`, `npm x`, `bun x`, `pnpm dlx`, `yarn dlx`, `uv tool run`, `uv tool uvx`, `pipx run`, `deno run npm:…`. */
+function fetchingSubcommand(command, args) {
+  const base = path.basename(command).replace(/\.(exe|cmd)$/i, '').toLowerCase();
+  const list = Array.isArray(args) ? args.filter(a => typeof a === 'string') : [];
+  const first = (list[0] || '').toLowerCase(), second = (list[1] || '').toLowerCase();
+  if (base === 'npm' && (first === 'exec' || first === 'x')) return `${base} ${first}`;
+  if (base === 'bun' && first === 'x') return 'bun x';
+  if ((base === 'pnpm' || base === 'yarn') && first === 'dlx') return `${base} dlx`;
+  if (base === 'uv' && first === 'tool' && (second === 'run' || second === 'uvx')) return `uv tool ${second}`;
+  if (base === 'uv' && first === 'run' && list.slice(1).some(a => /^--with(=|$)/.test(a))) return 'uv run --with';
+  if (base === 'pipx' && first === 'run') return 'pipx run';
+  if (base === 'deno' && first === 'run' && list.slice(1).some(a => /^(npm:|jsr:|https?:\/\/)/i.test(a))) return 'deno run <remote module>';
+  return null;
+}
 const INHERITED_ENV = Object.freeze(['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'SystemRoot', 'USERPROFILE']);
 const PROTOCOL_VERSION = '2025-11-25';
 
@@ -37,6 +51,8 @@ function launchPlan(entry, { cwd }) {
   if (!entry.command && (entry.url || entry.endpoint)) return { refused: 'a remote endpoint (Streamable HTTP) is not supported by discovery in this release; only stdio servers are' };
   if (typeof entry.command !== 'string' || !entry.command.trim()) return { refused: 'the entry has no command to launch' };
   if (PACKAGE_LAUNCHERS.test(path.basename(entry.command))) return { refused: `"${path.basename(entry.command)}" fetches a package at start; Boppi never installs or fetches on your behalf. Install the server as a local program (or pin and pre-install it) and point the entry at it.` };
+  const fetching = fetchingSubcommand(entry.command, entry.args);
+  if (fetching) return { refused: `"${fetching}" fetches a package at start; Boppi never installs or fetches on your behalf. Install the server as a local program (or pin and pre-install it) and point the entry at it.` };
   const program = resolveProgram(entry.command, cwd);
   if (!program) return { refused: `the program "${entry.command}" is not installed where Boppi can find it (not an executable file on PATH or at that path)` };
   const args = Array.isArray(entry.args) ? entry.args.filter(a => typeof a === 'string') : [];
@@ -51,21 +67,44 @@ function launchPlan(entry, { cwd }) {
 }
 
 function processExited(child) { return child.exitCode !== null || child.signalCode !== null; }
+/** Signal the whole process group (the server and anything it started), falling back to the child alone. */
+function signal(child, name) {
+  if (process.platform !== 'win32' && child.pid) { try { process.kill(-child.pid, name); return; } catch { /* group gone or not a leader */ } }
+  try { child.kill(name); } catch { /* gone */ }
+}
 
-/** Close stdin, then SIGTERM, then SIGKILL, each after its wait. Resolves with how the process ended. */
+/** True while any process in the child's group is alive (the group outlives a leader that exited and left children). */
+function groupAlive(child) {
+  if (process.platform === 'win32' || !child.pid) return false;
+  try { process.kill(-child.pid, 0); return true; } catch { return false; }
+}
+
+/**
+ * Close stdin, then SIGTERM, then SIGKILL, each after its wait. When the
+ * server exits but left processes behind in its group, they get the same
+ * ladder. Resolves with how the process ended and whether anything it
+ * started was still running.
+ */
 function shutdown(child, timeouts) {
   return new Promise(resolve => {
     let forced = null;
-    const finish = () => resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child) });
+    const finish = () => {
+      if (!groupAlive(child)) return resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child), leftoverSignalled: false });
+      signal(child, 'SIGTERM');
+      setTimeout(() => {
+        if (groupAlive(child)) signal(child, 'SIGKILL');
+        setTimeout(() => resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child), leftoverSignalled: true, leftoverStillRunning: groupAlive(child) }), 200);
+      }, timeouts.termMs);
+    };
     if (processExited(child)) return finish();
     child.once('exit', () => setImmediate(finish));
     try { child.stdin.end(); } catch { /* already closed */ }
     setTimeout(() => {
       if (processExited(child)) return;
-      forced = 'SIGTERM'; try { child.kill('SIGTERM'); } catch { /* gone */ }
+      forced = 'SIGTERM'; signal(child, 'SIGTERM');
       setTimeout(() => {
         if (processExited(child)) return;
-        forced = 'SIGKILL'; try { child.kill('SIGKILL'); } catch { /* gone */ }
+        forced = 'SIGKILL'; signal(child, 'SIGKILL');
         setTimeout(() => { if (!processExited(child)) finish(); }, timeouts.killMs);
       }, timeouts.termMs);
     }, timeouts.closeMs);
@@ -80,7 +119,8 @@ function runSession(plan, options = {}) {
   return new Promise(resolve => {
     let child;
     try {
-      child = spawn(plan.program, plan.args, { cwd: plan.cwd, env: plan.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true });
+      // Its own process group, so shutdown can signal the server and every process it started.
+      child = spawn(plan.program, plan.args, { cwd: plan.cwd, env: plan.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, detached: process.platform !== 'win32' });
     } catch (error) {
       return resolve({ outcome: 'failed', reason: `could not start the program: ${error.message}`, protocolVersion: PROTOCOL_VERSION, initialize: null, list: null, listError: null, listChangedDuringSession: false, record: recorder.dump(), methods: recorder.methods(), violations: recorder.violations(), process: null, durationMs: Date.now() - startedAt });
     }
@@ -168,4 +208,4 @@ function runSession(plan, options = {}) {
   });
 }
 
-module.exports = { TIMEOUTS, PACKAGE_LAUNCHERS, PROTOCOL_VERSION, resolveProgram, launchPlan, runSession, shutdown };
+module.exports = { TIMEOUTS, PACKAGE_LAUNCHERS, PROTOCOL_VERSION, resolveProgram, fetchingSubcommand, launchPlan, runSession, shutdown };

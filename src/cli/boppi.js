@@ -215,7 +215,7 @@ function parseArgs(argv) {
   if (options.command === 'events' && !options.help && !options.version && (!Number.isFinite(options.since) || options.since < 1 || options.since > 3650)) throw new Error('--since must be a number of days from 1 to 3650');
   if (options.command === 'watch' && !options.help && !options.version) {
     if (!Number.isFinite(options.interval) || options.interval < 1) throw new Error('--interval must be a number of seconds, at least 1');
-    if (!Number.isFinite(options.duration) || options.duration < 0) throw new Error('--duration must be a number of seconds');
+    if (!Number.isFinite(options.duration) || options.duration < 0 || options.duration > 2000000) throw new Error('--duration must be a number of seconds up to 2000000 (about 23 days)');
     if (options.config) throw new Error('watch follows discovered client files; --config is not supported');
   }
   if (options.command === 'discover' && !options.help && !options.version) {

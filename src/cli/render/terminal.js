@@ -18,6 +18,9 @@ function makeStyle(useColor) {
 }
 
 /** One line per server with a stored tool list from `boppi discover`: what it advertised, what maps to a reach category, what stays unknown, or that the list is stale. */
+/** Text from a configuration file, with control characters replaced so a crafted name cannot forge terminal lines or colors. */
+function safeText(value) { return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?'); }
+
 function advertisedSentence(report, server) {
   const clientList = Array.isArray(report.discovery) ? report.discovery : (report.discovery && report.discovery.clients) || [];
   const client = clientList.find(c => c.agentId === server.agentId);
@@ -206,7 +209,7 @@ function renderReport(report, options = {}) {
       if (known && known.pin === 'unpinned') tags.push(s.yellow('unpinned'));
       if (known && known.pin === 'tagged') tags.push(s.yellow('tagged image'));
       const reach = serverReach(report, server);
-      out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`), tags.length ? s.dim(' · ') + tags.join(s.dim(' · ')) : '');
+      out('  ', s.bold(safeText(server.name)), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`), tags.length ? s.dim(' · ') + tags.join(s.dim(' · ')) : '');
       if (reach.scope) out(s.dim(`      file scope: ${reach.scope}`));
       if (reach.categories.length) out(s.dim('      reach through tools: '), reach.categories.join(', '));
       const advertised = advertisedSentence(report, server);
@@ -218,7 +221,7 @@ function renderReport(report, options = {}) {
       out(s.bold(`UNRECOGNIZED SERVERS (${unknownServers.length})`), s.dim('  Boppi could not establish what these can do; they sit in no exposure path, which is not the same as safe'));
       for (const item of unknownServers) {
         const server = report.inventory.mcpServers.find(m => m.id === item.serverId);
-        out('  ', s.bold(item.server), s.dim(` · ${item.clientLabel} · `), recognition.launchSummary(item, server), s.dim(` · ${item.reasons.join(', ')}`));
+        out('  ', s.bold(safeText(item.server)), s.dim(` · ${item.clientLabel} · `), safeText(recognition.launchSummary(item, server)), s.dim(` · ${safeText(item.reasons.join(', '))}`));
       }
       out(s.dim(`  ${recognition.ADVICE}`));
     }
@@ -366,4 +369,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, safeText, PATH_RULE_FOR_TEMPLATE };

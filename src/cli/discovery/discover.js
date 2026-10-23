@@ -26,8 +26,55 @@ function cachePath(home, serverId) { return path.join(discoveryDir(home), `${ser
 function lockPath(home, serverId) { return path.join(discoveryDir(home), `.lock-${serverId}`); }
 function ensureDir(home) { fs.mkdirSync(discoveryDir(home), { recursive: true, mode: 0o700 }); }
 
-/** The configuration entry as a stable hash, so a passive scan can tell when the stored list no longer matches the entry it came from. */
-function entryHash(entry) { return crypto.createHash('sha256').update(JSON.stringify(canonical(entry))).digest('hex'); }
+/**
+ * The configuration entry as a stable hash, so a passive scan can tell when the
+ * stored list no longer matches the entry it came from. Hashed over the
+ * sanitized launch (program, redacted arguments, env names) so a low-entropy
+ * secret cannot be guessed offline from the stored hash; a changed secret value
+ * alone does not invalidate a tool list, a changed program or argument does.
+ */
+function entryHash(entry) {
+  const safe = !entry || typeof entry !== 'object' ? entry : {
+    command: typeof entry.command === 'string' ? entry.command : null,
+    args: redactedArgs(entry),
+    envNames: entry.env && typeof entry.env === 'object' && !Array.isArray(entry.env) ? Object.keys(entry.env).sort() : [],
+    cwd: typeof entry.cwd === 'string' ? entry.cwd : null,
+    url: typeof entry.url === 'string' ? entry.url.replace(/\/\/[^/@]+@/, '//[redacted]@') : null,
+  };
+  return crypto.createHash('sha256').update(JSON.stringify(canonical(safe))).digest('hex');
+}
+
+/** Arguments with the ones the sanitizer treats as secrets replaced by a fixed marker; paths stay verbatim (the sanitizer's path fingerprint depends on the local key, this hash must not). */
+function redactedArgs(entry) {
+  const args = Array.isArray(entry.args) ? entry.args.filter(a => typeof a === 'string') : [];
+  const sanitized = scanner.sanitizeArguments(args);
+  return args.map((value, index) => (/^\[redacted/.test(sanitized[index]) ? '[redacted]' : value));
+}
+
+/** Every value from the entry that must never appear in what the server returns: env values, arguments the sanitizer redacts, url credentials. */
+function secretValues(entry) {
+  const out = new Set();
+  if (!entry || typeof entry !== 'object') return out;
+  if (entry.env && typeof entry.env === 'object' && !Array.isArray(entry.env)) for (const value of Object.values(entry.env)) if (typeof value === 'string' && value.length >= 4) out.add(value);
+  const args = Array.isArray(entry.args) ? entry.args.filter(a => typeof a === 'string') : [];
+  redactedArgs(entry).forEach((value, index) => { if (value === '[redacted]' && args[index].length >= 4) out.add(args[index]); });
+  const credential = typeof entry.url === 'string' ? /\/\/([^/@]+)@/.exec(entry.url) : null;
+  if (credential && credential[1].length >= 4) out.add(credential[1]);
+  return out;
+}
+
+/** Replace every occurrence of an entry secret in every string of a value (a server can echo its own environment back). */
+function redactDeep(value, secrets) {
+  if (!secrets.size) return value;
+  const scrub = text => { let out = text; for (const secret of secrets) while (out.includes(secret)) out = out.split(secret).join('[redacted]'); return out; };
+  const walk = node => {
+    if (typeof node === 'string') return scrub(node);
+    if (Array.isArray(node)) return node.map(walk);
+    if (node && typeof node === 'object') return Object.fromEntries(Object.entries(node).map(([k, v]) => [scrub(k), walk(v)]));
+    return node;
+  };
+  return walk(value);
+}
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
@@ -80,6 +127,12 @@ function acquireLock(home, serverId) {
   return () => { try { fs.unlinkSync(file); } catch { /* already gone */ } };
 }
 
+/** Write a user-named file without following a symlink and leave it owner-only even if it existed. */
+function writeOwnerOnly(file, text) {
+  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | (fs.constants.O_NOFOLLOW || 0), 0o600);
+  try { fs.fchmodSync(fd, 0o600); fs.writeSync(fd, text); } finally { fs.closeSync(fd); }
+}
+
 function writeCache(home, record) {
   ensureDir(home);
   const file = cachePath(home, record.serverId);
@@ -97,7 +150,7 @@ function cacheStatus(record, entry, now = Date.now()) {
   if (!record || record.schemaVersion !== CACHE_SCHEMA_VERSION) return { usable: false, reason: 'no stored list' };
   if (record.entryHash !== entryHash(entry)) return { usable: false, reason: 'advertised list is stale (configuration changed)' };
   const age = now - Date.parse(record.discoveredAt);
-  if (!(age >= 0) || age > (record.maxAgeDays || MAX_AGE_DAYS) * 86400000) return { usable: false, reason: `advertised list is stale (older than ${record.maxAgeDays || MAX_AGE_DAYS} days)` };
+  if (!(age >= 0) || age > MAX_AGE_DAYS * 86400000) return { usable: false, reason: `advertised list is stale (older than ${MAX_AGE_DAYS} days)` };
   return { usable: true, reason: null };
 }
 
@@ -230,6 +283,8 @@ async function runDiscover(options, deps) {
   } finally {
     release();
   }
+  // The server may echo its own environment or arguments back in serverInfo, tool names, or descriptions.
+  result = redactDeep(result, secretValues(entry));
 
   let cacheFile = null;
   if (result.outcome === 'discovered') {
@@ -241,7 +296,7 @@ async function runDiscover(options, deps) {
     });
   }
   if (options.record) {
-    fs.writeFileSync(options.record, JSON.stringify({ schemaVersion: 1, kind: 'boppi-discovery-record', server: options.server, client: client.clientKey, outcome: result.outcome, methods: result.methods, violations: result.violations, record: result.record, process: result.process }, null, 2), { mode: 0o600 });
+    writeOwnerOnly(options.record, JSON.stringify({ schemaVersion: 1, kind: 'boppi-discovery-record', server: options.server, client: client.clientKey, outcome: result.outcome, methods: result.methods, violations: result.violations, record: result.record, process: result.process }, null, 2));
   }
   out('');
   for (const line of summaryLines(result, options.server, cacheFile)) out(line);
@@ -249,4 +304,4 @@ async function runDiscover(options, deps) {
   return result.outcome === 'discovered' ? 0 : result.outcome === 'rejected' ? 3 : 3;
 }
 
-module.exports = { CACHE_SCHEMA_VERSION, MAX_AGE_DAYS, NEVER_SENT, discoveryDir, cachePath, entryHash, serverIdOf, sanitizedLaunch, consentText, acquireLock, writeCache, readCache, cacheStatus, forget, locate, workingDirectoryFor, advertisedLookup, advertisedSummary, runDiscover };
+module.exports = { CACHE_SCHEMA_VERSION, MAX_AGE_DAYS, NEVER_SENT, discoveryDir, cachePath, entryHash, secretValues, redactDeep, writeOwnerOnly, serverIdOf, sanitizedLaunch, consentText, acquireLock, writeCache, readCache, cacheStatus, forget, locate, workingDirectoryFor, advertisedLookup, advertisedSummary, runDiscover };

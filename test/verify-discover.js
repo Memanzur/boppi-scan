@@ -37,6 +37,9 @@ const cacheFiles = home => fs.existsSync(discover.discoveryDir(home)) ? fs.readd
       npxserver: { command: 'npx', args: ['-y', 'some-package'] },
       remote: { url: 'https://example.test/mcp' },
       missing: { command: 'no-such-program-boppi-xyz' },
+      npmexec: { command: 'npm', args: ['exec', '-y', 'some-package'] },
+      echo: { ...fixture('echo-env', '--token', 'argSECRET9value', path.join(home, 'src-tree')), env: { API_KEY: 'envSECRET6value' } },
+      spawner: fixture('spawns-child'),
     },
     projects: {},
   }));
@@ -128,6 +131,37 @@ const cacheFiles = home => fs.existsSync(discover.discoveryDir(home)) ? fs.readd
   ok('--forget --server removes that one stored list', forgetOne.code === 0 && forgetOne.stdout.includes('Removed the stored tool list for "paged"') && cacheFiles(home).length === before - 1);
   const forgetAll = run(['--forget', '--all'], home);
   ok('--forget --all removes every stored list', forgetAll.code === 0 && cacheFiles(home).length === 0);
+
+  section('Review 2026-10-23: fetching subcommands, echoed secrets, process groups, advertised write tools');
+  const npmExec = run(['--server', 'npmexec', '--yes'], home);
+  ok('npm exec is refused like npx', npmExec.code === 2 && npmExec.stderr.includes('fetches a package'));
+  const session = require('../src/cli/discovery/session');
+  ok('bun x, pnpm dlx, yarn dlx, uv tool run, pipx run, and deno run npm: are refused; a plain local program is not', ['bun x', 'pnpm dlx', 'yarn dlx', 'uv tool run', 'pipx run'].every(spec => session.fetchingSubcommand(spec.split(' ')[0], spec.split(' ').slice(1).concat(['pkg'])) !== null) && session.fetchingSubcommand('deno', ['run', '-A', 'npm:some-server']) !== null && session.fetchingSubcommand('node', ['server.js']) === null && session.fetchingSubcommand('npm', ['run', 'start']) === null);
+  fs.mkdirSync(path.join(home, 'src-tree', '.git'), { recursive: true });
+  const echoed = run(['--server', 'echo', '--yes'], home);
+  const echoCache = cacheFiles(home).map(f => fs.readFileSync(path.join(discover.discoveryDir(home), f), 'utf8')).join('');
+  ok('a server that echoes its env and secret arguments back is redacted on the terminal and in the cache', echoed.code === 0 && !echoed.stdout.includes('SECRET') && !echoCache.includes('SECRET') && echoCache.includes('[redacted]'));
+  ok('the record file is redacted too and written owner-only', (() => { const rec = path.join(root, 'echo.json'); fs.writeFileSync(rec, 'x', { mode: 0o644 }); const r = run(['--server', 'echo', '--yes', '--record', rec], home); return r.code === 0 && !fs.readFileSync(rec, 'utf8').includes('SECRET') && (fs.statSync(rec).mode & 0o077) === 0; })());
+  ok('a symlinked --record path is refused', (() => { const victim = path.join(root, 'victim.json'); fs.writeFileSync(victim, 'keep'); const link = path.join(root, 'link.json'); fs.symlinkSync(victim, link); const r = run(['--server', 'echo', '--yes', '--record', link], home); return r.code !== 0 && fs.readFileSync(victim, 'utf8') === 'keep'; })());
+  const rotatedConfig = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8'));
+  rotatedConfig.mcpServers.echo.env.API_KEY = 'rotatedSECRET7value';
+  fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify(rotatedConfig));
+  const afterRotate = spawnSync(process.execPath, [CLI, 'scan', '--json', path.join(root, 'rotate.json'), '--only', 'claude-code', '--home', home, '--cwd', home, '--no-color'], { encoding: 'utf8' });
+  const rotated = JSON.parse(fs.readFileSync(path.join(root, 'rotate.json'), 'utf8'));
+  const echoSummary = (rotated.advertised || []).find(a => a.server === 'echo');
+  ok('rotating a secret value does not invalidate the stored list (the hash covers the sanitized entry), and the scan still sees no secret', afterRotate.status === 0 && echoSummary && echoSummary.status === 'usable' && !fs.readFileSync(path.join(root, 'rotate.json'), 'utf8').includes('SECRET'));
+  const echoPermission = (rotated.inventory.real.permissions || []).find(p => /write_file/.test(p.rawPermission || '') && p.agentId && (p.attributes || {}).basis);
+  ok('a write tool the server only advertised, on a source-tree directory, is a modify-source permission with basis advertised, not configured', echoPermission && echoPermission.attributes.basis === 'advertised' && /not verified/.test(echoPermission.normalizationReason || ''));
+  if (process.platform !== 'win32') {
+    const pidFile = path.join(root, 'boppi-grandchild.pid');
+    const spawned = run(['--server', 'spawner', '--yes'], home, { env: { TMPDIR: root } });
+    const grandchild = fs.existsSync(pidFile) ? Number(fs.readFileSync(pidFile, 'utf8')) : 0;
+    const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    let gone = !alive(grandchild);
+    for (let i = 0; i < 20 && !gone; i++) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100); gone = !alive(grandchild); }
+    if (!gone) { try { process.kill(grandchild, 'SIGKILL'); } catch { /* raced */ } }
+    ok(`shutdown reaches a process the server started (grandchild pid ${grandchild})`, spawned.code === 0 && grandchild > 0 && gone);
+  }
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);

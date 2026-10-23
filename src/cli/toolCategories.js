@@ -134,11 +134,14 @@ const WRITE_TOOL = /^(write|edit|move|create|delete|rename|append|git_(commit|ad
 function scopeReach(scope, tools) {
   if (!scope) return [];
   const out = [];
-  const canWrite = (tools || []).some(t => WRITE_TOOL.test(t.tool));
+  const writers = (tools || []).filter(t => WRITE_TOOL.test(t.tool));
+  const canWrite = writers.length > 0;
+  // A write tool the server only advertised keeps that basis: the directory is configured, the ability to write there is not verified.
+  const writeBasis = writers.some(t => t.basis !== 'advertised') ? 'configured' : 'advertised';
   if (scope.grades.includes('secrets') || scope.grades.includes('home') || scope.grades.includes('system')) out.push({ category: 'access_credentials', label: CATEGORY_LABEL.access_credentials, tools: [], basis: 'configured', because: `the directory argument covers ${SCOPE_LABEL[scope.grades.find(g => ['secrets', 'home', 'system'].includes(g))]}` });
   if (scope.grades.includes('source') || scope.grades.includes('home') || scope.grades.includes('system')) {
     out.push({ category: 'read_source_code', label: CATEGORY_LABEL.read_source_code, tools: [], basis: 'configured', because: 'the directory argument covers a source tree' });
-    if (canWrite) out.push({ category: 'modify_source_code', label: CATEGORY_LABEL.modify_source_code, tools: (tools || []).filter(t => WRITE_TOOL.test(t.tool)).map(t => t.tool), basis: 'configured', because: 'the directory argument covers a source tree and the server has write tools' });
+    if (canWrite) out.push({ category: 'modify_source_code', label: CATEGORY_LABEL.modify_source_code, tools: writers.map(t => t.tool), basis: writeBasis, because: writeBasis === 'advertised' ? 'the directory argument covers a source tree and the running server advertised write tools' : 'the directory argument covers a source tree and the server has write tools' });
   }
   return out;
 }
