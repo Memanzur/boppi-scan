@@ -68,8 +68,8 @@ Nothing in this ledger was pushed, published, deployed, or applied to a real con
 
 | Id | Task | State | Evidence | Blocker or next |
 | --- | --- | --- | --- | --- |
-| P5-1 | Migration reconciliation note for the four pending migrations and a restore rehearsal plan | open | `BOPPI_NEXT_SESSION.md` (prod migrations pending) | Document only; execution needs the founder's DB authorization. |
-| P5-2 | Dashboard shows the pushed recognition field | open | Pushed since 66532fd; not displayed | Small control plane slice. |
+| P5-1 | Migration reconciliation note for the four pending migrations and a restore rehearsal plan | done, document (2026-10-23) | `docs/release/MIGRATION_RECONCILIATION_2026-10-23.md` (control plane): per-migration table (changes, dependents, reversibility), fixed order and why, failure handling, six-step founder rehearsal, what the note does not claim | Execution (backup secrets, restore, `migrate-production.sh --apply`, app promotion) is the founder's. |
+| P5-2 | Dashboard shows the pushed recognition field | done (2026-10-23) | `lib/engine/inventory.ts` parses `metadata.recognition` with a value allowlist into `recognitionByServerId`; `lib/engine/analyze.ts` carries it; AI inventory page lists every MCP server as recognized, not recognized, or not reported, with the launcher and a pin label; `scripts/verify-engine-port.ts` (30 checks: carried, stray values dropped, absent stays absent) | A server pushed by a scanner older than 0.3.1 shows not reported with a rescan hint. |
 | P5-3 | Disposable-stack rehearsal, staging, production promotion, cohort | blocked: founder | Docker off; staging writes need separate authorization | |
 
 ## Phases 6 to 10
