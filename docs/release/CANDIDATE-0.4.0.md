@@ -29,7 +29,9 @@ Remove: `npm uninstall -g --prefix ~/boppi-beta boppi`, then delete `~/boppi-bet
 
 - Each exposure path shows a priority badge, `based on:`, `assumes:`, and `not checked:` lines, `evidence confidence`, and `likelihood not assessed`. The badge can be lower than the template's worst case when evidence is weak; it is never raised.
 - A filesystem server at an ordinary folder plus a network server is medium, not critical, until the scan can show the files are sensitive. The home directory or a secrets folder stays critical.
-- `boppi verify` and `boppi fix` say how many paths closed and what remains; an edit that closes nothing says so before it is applied.
+- `boppi verify` and `boppi fix` say how many paths closed, how many stayed open at a lower priority, and what remains; an edit that closes or lowers nothing says so before it is applied.
+- Claude Code's own WebFetch and WebSearch count as a web grant that asks before each use. A Claude Code install with no MCP server therefore shows a high exfiltration path and a medium privilege path, each stating that an approved prompt is the assumption. Removing an MCP fetch server from Claude Code lowers such a path rather than closing it, and the report says which built-in tools keep it open and where a settings deny rule would go. Boppi never edits settings.
+- A permission whose name suggests production access (for example `cluster.viewer`) is not a production path unless a tool list or an access level shows what it can change; the report lists it under COVERAGE as named like production access with nothing behind it.
 - Unrecognized servers are counted in the INVENTORY line as unknown reach. Docker images run by tag are listed as tagged.
 
 ## Known limits
@@ -39,7 +41,7 @@ Remove: `npm uninstall -g --prefix ~/boppi-beta boppi`, then delete `~/boppi-bet
 - Whether a client prompts before an MCP tool call is not checked.
 - Sensitivity of files in an ordinary folder is not established; the path is kept at assumed strength.
 - Symlinks and mounts in filesystem arguments are not resolved.
-- Built-in web tools of the clients are not modeled.
+- Claude Desktop's and Cursor's web features are not modeled; Claude Code's WebFetch and WebSearch are.
 - Likelihood of exploitation is never estimated.
 
 ## Reporting a problem

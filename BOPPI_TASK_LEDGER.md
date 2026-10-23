@@ -40,7 +40,7 @@ Nothing in this ledger was pushed, published, deployed, or applied to a real con
 | P2-3 | Version agreement check (package, engine, rubric, changelog, README, manifest) | done | 1c34b24; `npm run verify-versions` | |
 | P2-4 | Six-case facilitator kit rebuilt from the exact tarball | done | fbaed03; `scripts/candidate-kit/prepare-fixtures.py`; `~/Desktop/Boppi-candidate-0.4.0/kit` | |
 | P2-5 | Linux and Windows config-location lookups exercised by the journey on macOS (path lookup only, platforms stay experimental) | open | `test/verify-cli-scan.js` covers Linux paths; the journey does not yet | Next safe slice. |
-| P2-6 | Tester-facing wording pass on CHANGELOG and BETA_TESTER_GUIDE for 0.4.0 | open | Guide targets 0.4.0; the lowered and residual wording is new | After the 1.0.2 review lands. |
+| P2-6 | Tester-facing wording pass on the candidate note and BETA_TESTER_GUIDE for 0.4.0 | done (2026-10-23) | `docs/release/CANDIDATE-0.4.0.md` (what is new, known limits); `BETA_TESTER_GUIDE.md` (lowered versus closed, built-in paths on Claude Code, question for testers) | Re-read after the 1.0.2 review is adjudicated. |
 | P2-7 | Five testers complete install and demo without code edits | blocked: human gate | | |
 | P2-8 | Publish to npm, tag, website link | blocked: founder | NPM_TOKEN missing; publication needs explicit authorization | |
 
