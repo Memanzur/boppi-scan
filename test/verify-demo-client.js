@@ -59,6 +59,8 @@ function makeDocument(dataJson) {
   const preview = buttons().find(b => b.textContent.startsWith('Preview removal of'));
   const fix = broad.remediations.find(r => preview.textContent === `Preview removal of ${r.server}`);
   ok('the fixture has a removal that closes every path, the case that used to blank the card', !!fix && fix.after.paths.length === 0 && basePaths > 0);
+  const lowering = broad.remediations.find(r => r.lowered.length);
+  ok('the fixture also has a removal that only lowers a path, and the page says so', !!lowering && lowering.eliminated.length === 0 && lowering.after.paths.length === basePaths);
   preview.click();
   ok('the Preview counter and result line follow the simulation', text('demo-after') === '0' && text('demo-result').startsWith('Simulated. No file was changed.') && preview.getAttribute('aria-pressed') === 'true');
   ok('the headline counters still describe the actual sample', text('demo-path-count') === String(basePaths) && text('demo-before') === String(basePaths));
@@ -67,6 +69,9 @@ function makeDocument(dataJson) {
   ok('the inventory follows the preview state', document.byId['demo-inventory'].children.every(row => row.children[0].textContent !== fix.server));
   buttons().find(b => b.textContent === 'Reset simulation').click();
   ok('reset restores the counters and the next-step sentence', text('demo-after') === String(basePaths) && text('demo-risk-action').startsWith('Next: inspect the path below') && buttons().every(b => b.getAttribute('aria-pressed') !== 'true'));
+  buttons().find(b => b.textContent === `Preview removal of ${lowering.server}`).click();
+  ok('a lowering-only preview reports the priority drop instead of claiming a closed path', text('demo-result').includes('closes 0 potential paths and lowers 1 path (critical to high)') && text('demo-after') === String(basePaths));
+  buttons().find(b => b.textContent === 'Reset simulation').click();
   const tidyIndex = bundle.scenarios.findIndex(s => s.view.paths.length === 0);
   nav[tidyIndex].click();
   ok('a sample with no path says so on its own card', text('demo-risk-title') === 'No potential paths in this sample' && text('demo-risk-action').startsWith('Next: choose another sample') && document.byId['demo-investigate'].hidden === true);

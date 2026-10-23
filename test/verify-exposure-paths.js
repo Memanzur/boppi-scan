@@ -85,12 +85,15 @@ test('critical credential-exposure path (credential + execution + network)', () 
 });
 
 test('software supply-chain path (source modification + production)', () => {
-  const { graph } = graphFor(['modify_source_code', 'access_production_system'], { agent: { name: 'Cursor', type: 'coding_agent' } });
+  const { graph } = graphFor(['modify_source_code', 'access_production_system'], { agent: { name: 'Cursor', type: 'coding_agent' }, permission: { accessLevel: 'admin' } });
   const paths = engine.findPaths(graph);
   const supply = paths.find(p => p.category === 'software_supply_chain');
   assert.ok(supply, 'EP-C must fire');
-  assert.strictEqual(supply.severity, 'high', 'a bare production permission with no tool evidence is one step below the template');
+  assert.strictEqual(supply.severity, 'high', 'a write-shaped production permission with no tool evidence is inferred: one step below the template');
   assert.ok(supply.nodes.some(n => n.entityType === 'production_system'));
+  const readOnly = graphFor(['modify_source_code', 'access_production_system'], { permission: { accessLevel: 'read' } });
+  assert.ok(!engine.findPaths(readOnly.graph).some(p => p.category === 'software_supply_chain'), 'a read-level permission that merely sounds like production reaches no production system');
+  assert.deepStrictEqual(graphlib.productionHints(readOnly.graph), ['access_production_system'], 'the name-only permission is listed as a hint');
 });
 
 test('supply-chain exposure requires an explicitly unverified MCP', () => {
@@ -261,14 +264,15 @@ test('production write access is graded by the environment the configuration nam
   const perm = (category, attributes, raw) => models.createPermission({ agentId: a.id, normalizedCategory: category, rawPermission: raw || category, accessLevel: 'broad', normalizationConfidence: 0.9, normalizationReason: 'test', source: importedSource, createdAt: NOW, attributes });
   const build = prod => graphlib.buildGraph({ agents: [a], integrations: [], mcpServers: [], permissions: [perm('modify_source_code', { basis: 'catalog' }, 'github'), perm('access_production_system', prod, 'k8s')] });
   const priority = g => engine.findPaths(g).find(x => x.templateId === 'EP-C').severity;
-  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'production' })), 'critical');
+  assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'production' })), 'critical', 'demonstrated: write tools and a production name');
   assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'unknown' })), 'high');
   assert.strictEqual(priority(build({ basis: 'catalog', writeAccess: true, environment: 'non_production' })), 'high', 'a non-production name is a one-step assumption, not a two-step fact');
   const staging = engine.findPaths(build({ basis: 'catalog', writeAccess: true, environment: 'non_production' })).find(x => x.templateId === 'EP-C').assessment;
   assert.ok(staging.assumptions.some(t => /names a non-production environment/.test(t)));
-  assert.strictEqual(priority(build({})), 'high', 'a contract that names production without tool or environment evidence is potential, not established');
+  assert.strictEqual(priority(build({})), 'high', 'inferred: a broad access level with no tool evidence is one step down');
   const bare = engine.findPaths(build({})).find(x => x.templateId === 'EP-C').assessment;
   assert.ok(bare.unknowns.some(u => /no tool list showed what it can change/.test(u)));
+  assert.strictEqual(priority(build({ basis: 'catalog', environment: 'production' })), 'high', 'a production name without write tools is still inferred, never established');
 });
 
 test('a credential known only by a variable name is potential; a secrets-folder scope is established', () => {

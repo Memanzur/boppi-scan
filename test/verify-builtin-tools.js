@@ -25,7 +25,7 @@ function exportOf(args, home, cwd = home) {
 const FETCH = { command: 'uvx', args: ['mcp-server-fetch'] };
 const COMMANDER = { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] };
 const pathsOf = exported => exported.exposurePaths.map(p => `${p.templateId}:${p.agentName}`).sort();
-const builtinOf = (exported, capability) => exported.inventory.real.permissions.find(p => p.source.type === 'builtin-tool' && p.source.id.endsWith(`:${capability}`));
+const builtinOf = (exported, capability) => exported.inventory.real.permissions.find(p => p.source.type === 'builtin-tool' && p.source.id.split(':')[2] === capability);
 
 (function main() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-builtin-'));
@@ -56,15 +56,26 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   ok('the path chain names the built-in shell, not an MCP server', epE.nodes.some(n => n.label === 'Claude Code built-in shell access (Bash)') && epE.nodes.filter(n => n.entityType === 'mcp_server').every(n => n.label === 'fetch'));
   ok('the path cites the built-in tool table as evidence', epE.evidence.some(e => e.type === 'builtin-tool' && e.name === 'Claude Code built-in tools'));
   const fetchPrediction = code.exported.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === 'fetch');
-  ok('removing fetch is predicted to break the path, since the shell cannot be removed', fetchPrediction && fetchPrediction.predictedEliminated.some(k => k.startsWith('EP-E:')));
+  ok('removing fetch closes nothing, because the built-in WebFetch keeps the same reach; it only lowers the exfiltration path from the catalog-backed server to the prompted built-in', fetchPrediction && fetchPrediction.predictedEliminated.length === 0 && fetchPrediction.predictedSurviving.some(k => k.startsWith('EP-E:')) && fetchPrediction.predictedLowered.length === 1 && fetchPrediction.predictedLowered[0].exposureKey.startsWith('EP-A:') && fetchPrediction.predictedLowered[0].from === 'critical' && fetchPrediction.predictedLowered[0].to === 'high');
+  const bareHome = path.join(root, 'bare-home');
+  writeJson(path.join(bareHome, '.claude.json'), { mcpServers: {}, projects: {} });
+  const bare = exportOf(['scan', '--only', 'claude-code'], bareHome);
+  const bareE = bare.exported.exposurePaths.find(p => p.templateId === 'EP-E');
+  ok('with no MCP server at all, the privilege path survives on the built-in web tools alone, at the same priority', bareE && bareE.severity === epE.severity && bareE.nodes.some(n => n.label === 'Claude Code built-in web access (WebFetch, WebSearch)'));
+  const bareTerminal = runCli(['scan', '--only', 'claude-code'], bareHome);
+  ok('with no closing edit, the root cause names the built-in tools and the settings deny location', bareTerminal.stdout.includes('ROOT CAUSE  no MCP config edit closes or lowers a path on this scan') && bareTerminal.stdout.includes('2 paths would stay open on Claude Code with every MCP server removed, through its built-in tools (Bash, Read, WebFetch, WebSearch): EP-A at high, EP-E at medium.') && bareTerminal.stdout.includes('permissions.deny in ~/.claude/settings.json') && bareTerminal.stdout.includes('Boppi never edits permission settings'));
+  ok('the export carries the built-in residual with its priorities', bare.exported.builtinResidual.length === 1 && bare.exported.builtinResidual[0].client === 'Claude Code' && bare.exported.builtinResidual[0].exposureKeys.length === 2 && Object.values(bare.exported.builtinResidual[0].priorities).sort().join() === 'high,medium');
   const desktopHome = path.join(root, 'desktop-home');
   writeJson(path.join(desktopHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), { mcpServers: { fetch: FETCH } });
   const desktop = exportOf(['scan', '--only', 'claude-desktop'], desktopHome);
   ok('the same fetch server in Claude Desktop, which has no built-in shell, yields no path', desktop.run.code === 0 && desktop.exported.exposurePaths.length === 0 && desktop.exported.inventory.real.permissions.every(p => p.source.type !== 'builtin-tool'));
   const terminal = runCli(['scan', '--only', 'claude-code'], codeHome);
-  ok('the terminal separates built-in tools from MCP servers', terminal.stdout.includes('BUILT-IN TOOLS (2)') && terminal.stdout.indexOf('MCP SERVERS (1)') < terminal.stdout.indexOf('BUILT-IN TOOLS (2)'));
+  ok('the terminal separates built-in tools from MCP servers', terminal.stdout.includes('BUILT-IN TOOLS (3)') && terminal.stdout.indexOf('MCP SERVERS (1)') < terminal.stdout.indexOf('BUILT-IN TOOLS (3)'));
+  ok('the root cause says the fetch removal lowers a path rather than closing one', /Fix: Remove the "fetch" entry/.test(terminal.stdout) && terminal.stdout.includes('breaks 0 of 2 exposures · lowers 1 (critical to high)'));
+  ok('the plan says what remains and which built-in tools hold it', terminal.stdout.includes('1 path would stay open on Claude Code with every MCP server removed, through its built-in tools (Bash, Read, WebFetch, WebSearch): EP-A at high.') && terminal.stdout.includes('permissions.deny in ~/.claude/settings.json'));
+  ok('the cost line does not claim a loss the built-in web tools cover', fetchPrediction.disruption.lost.length === 0 && fetchPrediction.disruption.builtin.sort().join() === 'network_access,untrusted_external_content');
   ok('without a settings file the shell is reported as prompted by client default', terminal.stdout.includes('Claude Code · shell access (Bash) · prompts · asks before each use (no permission settings file; client default)'));
-  ok('coverage counts the built-in grants', terminal.stdout.includes('2 built-in tool grants'));
+  ok('coverage counts the built-in grants', terminal.stdout.includes('3 built-in tool grants'));
   ok('the settings locations are listed as not found, not as errors', terminal.stdout.includes('.claude/settings.json') && terminal.stdout.includes('settings.local.json') && !terminal.stdout.includes('could not be scanned'));
   const html = path.join(root, 'report.html');
   runCli(['scan', '--only', 'claude-code', '--html', html], codeHome);
@@ -79,14 +90,14 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   ok('removing the MCP shell server does not break the privilege path, because the built-in shell remains', commander && commander.predictedSurviving.some(k => k.startsWith('EP-E:')) && !commander.predictedEliminated.some(k => k.startsWith('EP-E:')));
   ok('the cost of removing the shell server names the built-in shell that stays', commander.disruption.lost.length === 0 && commander.disruption.builtin.includes('shell_access'));
   const fetchBoth = both.exported.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === 'fetch');
-  ok('removing fetch is still the edit that breaks the path', fetchBoth && fetchBoth.predictedEliminated.some(k => k.startsWith('EP-E:')));
+  ok('removing fetch closes nothing here either; it lowers the exfiltration path and the built-in web tools keep the privilege path', fetchBoth && fetchBoth.predictedEliminated.length === 0 && fetchBoth.predictedLowered.some(l => l.exposureKey.startsWith('EP-A:')) && fetchBoth.predictedSurviving.some(k => k.startsWith('EP-E:')));
   const bothTerminal = runCli(['scan', '--only', 'claude-code'], bothHome);
-  ok('the recommended fix is the fetch server, with the built-in shell in the cost line', /Fix: Remove the "fetch" entry/.test(bothTerminal.stdout));
+  ok('the recommended edit is the fetch removal, presented as lowering, with the built-in shell in the cost line', /Fix: Remove the "fetch" entry/.test(bothTerminal.stdout) && bothTerminal.stdout.includes('breaks 0 of 2 exposures · lowers 2 (critical to high, high to medium)') && bothTerminal.stdout.includes('it keeps network_access, untrusted_external_content through its own built-in tools'));
 
   section('Claude Code permission settings grade each built-in tool');
   const allowHome = path.join(root, 'allow-home');
   writeJson(path.join(allowHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });
-  writeJson(path.join(allowHome, '.claude', 'settings.json'), { permissions: { allow: ['Bash', 'Bash(cat /Users/secretperson/notes/*)'], deny: ['WebFetch'], defaultMode: 'default' } });
+  writeJson(path.join(allowHome, '.claude', 'settings.json'), { permissions: { allow: ['Bash', 'Bash(cat /Users/secretperson/notes/*)'], deny: ['WebFetch(domain:secretdomain.example)'], defaultMode: 'default' } });
   const allow = exportOf(['scan', '--only', 'claude-code'], allowHome);
   ok('a whole-tool allow rule makes the shell unprompted', builtinOf(allow.exported, 'shell_access').accessLevel === 'unprompted');
   const allowTerminal = runCli(['scan', '--only', 'claude-code'], allowHome);
@@ -94,7 +105,7 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   ok('the settings file is in the privacy footer', allowTerminal.stdout.split('PRIVACY')[1].includes(path.join(allowHome, '.claude', 'settings.json')));
   ok('the terminal shows no prompt for the shell', allowTerminal.stdout.includes('Claude Code · shell access (Bash) · no prompt · never prompts (a settings allow rule covers the whole tool)'));
   const serialized = JSON.stringify(allow.exported) + allowTerminal.stdout;
-  ok('allow and deny rule text never appears in the export or the terminal', !serialized.includes('secretperson') && !serialized.includes('WebFetch'));
+  ok('allow and deny rule text never appears in the export or the terminal', !serialized.includes('secretperson') && !serialized.includes('secretdomain'));
   ok('the export carries only counts for the settings file', allow.exported.discovery.clients.some(c => c.files.some(f => f.kind === 'settings' && f.status === 'found' && f.rules.allow === 2 && f.rules.deny === 1 && f.rules.mode === 'default')));
 
   const denyHome = path.join(root, 'deny-home');
@@ -103,7 +114,7 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   const deny = exportOf(['scan', '--only', 'claude-code'], denyHome);
   ok('a whole-tool deny rule removes the shell grant and with it the privilege path', !builtinOf(deny.exported, 'shell_access') && !pathsOf(deny.exported).includes('EP-E:Claude Code') && builtinOf(deny.exported, 'filesystem_access'));
   const denyTerminal = runCli(['scan', '--only', 'claude-code'], denyHome);
-  ok('the denied tool is still reported, marked denied and out of the graph', denyTerminal.stdout.includes('Claude Code · shell access (Bash) · denied · denied by a settings deny rule; not in the graph') && denyTerminal.stdout.includes('1 built-in tool grant,'));
+  ok('the denied tool is still reported, marked denied and out of the graph', denyTerminal.stdout.includes('Claude Code · shell access (Bash) · denied · denied by a settings deny rule; not in the graph') && denyTerminal.stdout.includes('2 built-in tool grants,'));
 
   const denyAllHome = path.join(root, 'deny-all-home');
   writeJson(path.join(denyAllHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });
@@ -111,7 +122,7 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   const denyAll = exportOf(['scan', '--only', 'claude-code'], denyAllHome);
   ok('denying Read, Edit, Write, and Bash removes every built-in grant and every path that needed one', !builtinOf(denyAll.exported, 'filesystem_access') && !builtinOf(denyAll.exported, 'shell_access') && denyAll.exported.exposurePaths.length === 0);
   const denyAllTerminal = runCli(['scan', '--only', 'claude-code'], denyAllHome);
-  ok('the terminal lists both denied grants and counts zero built-in grants', denyAllTerminal.stdout.includes('file access (Read, Edit, Write) · denied') && denyAllTerminal.stdout.includes('0 built-in tool grants,'));
+  ok('the terminal lists both denied grants and counts only the web grant', denyAllTerminal.stdout.includes('file access (Read, Edit, Write) · denied') && denyAllTerminal.stdout.includes('web access (WebFetch, WebSearch) · prompts') && denyAllTerminal.stdout.includes('1 built-in tool grant,'));
   const scopedDenyHome = path.join(root, 'scoped-deny-home');
   writeJson(path.join(scopedDenyHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });
   writeJson(path.join(scopedDenyHome, '.claude', 'settings.json'), { permissions: { deny: ['Read(/Users/secretperson/.ssh/**)'] } });
@@ -179,7 +190,22 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
     const shellRead = perms.find(p => p.normalizedCategory === 'read_files');
     ok('the shell file grant is a home-scope read with no path in its label', !!shellRead && shellRead.attributes.scope === 'home' && shellRead.attributes.gate === 'unprompted' && !shellRead.attributes.scopeLabel.includes('/'));
     const allDenied = builtinTools.describeBuiltin('claude-code', [{ path: (() => { const f = path.join(shellRoot, 'all.json'); fs.writeFileSync(f, JSON.stringify({ permissions: { deny: ['Read', 'Edit', 'Write', 'Bash'] } })); return f; })(), scope: 'user' }], { home: shellRoot, cwd: shellRoot });
-    ok('denying the shell too leaves no file grant', allDenied.grants.length === 0);
+    ok('denying the shell too leaves only the web grant', allDenied.grants.map(g => g.capability).join() === 'web_access');
+  }
+
+  section('built-in web tools');
+  {
+    const webRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-web-'));
+    const none = builtinTools.describeBuiltin('claude-code', [{ path: path.join(webRoot, 'settings.json'), scope: 'user' }], { home: webRoot, cwd: webRoot });
+    const web = none.grants.find(g => g.capability === 'web_access');
+    ok('Claude Code carries WebFetch and WebSearch as a prompted web grant', !!web && web.gate === 'prompted' && web.tools.map(t => t.tool).sort().join() === 'WebFetch,WebSearch');
+    const perms = builtinTools.builtinPermissions({ id: 'a', name: 'Claude Code', source: { id: 's', type: 'config', name: 'n', evidenceClass: 'observed', evidenceRef: 'r' } }, none, new Date().toISOString());
+    ok('the web grant is both an external destination and untrusted content', ['call_external_api', 'untrusted_external_content'].every(c => perms.some(p => p.normalizedCategory === c && p.attributes.basis === 'builtin' && p.attributes.gate === 'prompted')));
+    ok('built-in capability ids read back from the inventory include web access once', JSON.stringify(builtinTools.builtinCapabilities({ permissions: perms.map(p => ({ ...p, agentId: 'a' })) }, 'a')) === JSON.stringify(['filesystem_access', 'shell_access', 'web_access']));
+    const deniedFile = path.join(webRoot, 'deny-web.json');
+    fs.writeFileSync(deniedFile, JSON.stringify({ permissions: { deny: ['WebFetch', 'WebSearch'] } }));
+    const denied = builtinTools.describeBuiltin('claude-code', [{ path: deniedFile, scope: 'user' }], { home: webRoot, cwd: webRoot });
+    ok('denying both web tools removes the web grant', !denied.grants.some(g => g.capability === 'web_access') && denied.denied.some(g => g.capability === 'web_access'));
   }
 
   fs.rmSync(root, { recursive: true, force: true });

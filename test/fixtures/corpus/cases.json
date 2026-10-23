@@ -219,7 +219,7 @@
     },
     {
       "id": "N10-code-no-servers",
-      "kind": "negative",
+      "kind": "limited",
       "split": "heldout",
       "client": "claude-code",
       "cwd": "project",
@@ -227,8 +227,11 @@
       "config": {
         "mcpServers": {}
       },
-      "expected": {},
-      "because": "built-in tools alone evidence no external destination (built-in web tools are not modeled; reported as unknown)"
+      "expected": {
+        "EP-A": "high",
+        "EP-E": "medium"
+      },
+      "because": "Claude Code's own WebFetch and WebSearch tools reach the web and bring back untrusted content; both ask before use (one step). Read covers the source tree without a prompt (one step), so EP-A high; untrusted content reaching the prompted Bash is EP-E medium. Re-labeled 2026-10-22 when built-in web tools were modeled (rubric 1.0.2); was a negative control with no path"
     },
     {
       "id": "N11-docker-tagged-memory",

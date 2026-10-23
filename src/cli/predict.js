@@ -6,10 +6,12 @@
 'use strict';
 const models = require('../engine/models');
 const scanner = require('../engine/localMcpScanner');
-const { simulateConfigEdit, simulateMoveServer, capabilitiesLost } = require('./simulate');
+const securityGraph = require('../engine/securityGraph');
+const exposurePathEngine = require('../engine/exposurePathEngine');
+const { SEVERITY_RANK, clientInventory, simulateConfigEdit, simulateMoveServer, capabilitiesLost } = require('./simulate');
+const { builtinHoldings } = require('./builtinTools');
 
 const SCHEMA_VERSION = 1;
-const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
 
 /** Identity of the evidence a prediction was computed from. Timestamps are excluded so the same config hashes the same on every run. */
 function inventoryDigest(inventory, agentId) {
@@ -59,9 +61,10 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
     configFingerprint,
     edit,
     serverId: server.id,
-    before: { exposureKeys: sim.before.exposureKeys },
+    before: { exposureKeys: sim.before.exposureKeys, priorities: sim.before.priorities },
     predictedEliminated: sim.eliminated,
     predictedSurviving: sim.survived,
+    predictedLowered: sim.lowered,
     disruption: capabilitiesLost(inventory, client.agentId, server.id),
     inventoryHash,
   });
@@ -78,6 +81,20 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
   });
 }
 
+/**
+ * What one agent's built-in tools hold open with every MCP server removed:
+ * the paths of a rescan on an empty server list, with the tools on their
+ * chains. Null when the client has no built-in grants or nothing survives.
+ */
+function builtinResidualForClient({ client, observedAt, home, overlay = null }) {
+  if (!client.builtin || !Array.isArray(client.builtin.grants) || !client.builtin.grants.length) return null;
+  const inventory = clientInventory({ clientKey: client.clientKey, label: client.label, source: client.source, configPath: client.primaryPath, observedAt, home, overlay, builtin: client.builtin, mergedServers: {} });
+  const paths = exposurePathEngine.findPaths(securityGraph.buildGraph(inventory));
+  if (!paths.length) return null;
+  const [holding] = builtinHoldings({ inventory, paths, discovery: [client] }, paths.map(p => p.exposureKey));
+  return holding ? { ...holding, priorities: Object.fromEntries(paths.map(p => [p.exposureKey, p.severity])) } : null;
+}
+
 function severityByKey(paths) { return new Map(paths.map(p => [p.exposureKey, p.severity])); }
 function breakdown(keys, severities) {
   const out = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -85,20 +102,30 @@ function breakdown(keys, severities) {
   return out;
 }
 
-/** Predictions ordered by what they break: critical count, weighted severity, count, then id. */
+/** Priorities a prediction lowers without closing the path; absent on predictions made before the field existed. */
+function loweredOf(prediction) { return Array.isArray(prediction.predictedLowered) ? prediction.predictedLowered : []; }
+
+/**
+ * Predictions ordered by what they change: critical paths closed, then the
+ * weighted priority they remove (a closed path counts its whole priority, a
+ * lowered path the steps it drops), then counts, then id.
+ */
 function rankPredictions(predictions, paths) {
   const severities = severityByKey(paths);
   return predictions
     .map(prediction => {
       const eliminatedSeverity = breakdown(prediction.predictedEliminated, severities);
-      const weight = prediction.predictedEliminated.reduce((sum, key) => sum + (SEVERITY_RANK[severities.get(key)] || 0), 0);
+      const lowered = loweredOf(prediction);
+      const weight = prediction.predictedEliminated.reduce((sum, key) => sum + (SEVERITY_RANK[severities.get(key)] || 0), 0)
+        + lowered.reduce((sum, step) => sum + Math.max(0, (SEVERITY_RANK[step.from] || 0) - (SEVERITY_RANK[step.to] || 0)), 0);
       const appeared = prediction.target ? prediction.target.predictedAppeared.length : 0;
       const lost = prediction.disruption ? prediction.disruption.lost.length : 0;
-      return { prediction, eliminatedSeverity, weight, appeared, lost };
+      return { prediction, eliminatedSeverity, lowered, weight, appeared, lost };
     })
-    .filter(entry => entry.prediction.predictedEliminated.length)
+    .filter(entry => entry.prediction.predictedEliminated.length || entry.lowered.length)
     .sort((a, b) => (b.eliminatedSeverity.critical - a.eliminatedSeverity.critical) || (b.weight - a.weight)
       || (b.prediction.predictedEliminated.length - a.prediction.predictedEliminated.length)
+      || (b.lowered.length - a.lowered.length)
       || (a.appeared - b.appeared) || (a.lost - b.lost)
       || ((a.prediction.edit.action === 'move_server') - (b.prediction.edit.action === 'move_server'))
       || a.prediction.predictionId.localeCompare(b.prediction.predictionId));
@@ -130,4 +157,4 @@ function planFromPredictions(predictions, paths, options = {}) {
   return { schemaVersion: SCHEMA_VERSION, targetedExposures: targeted, severityFloor: options.severityFloor || 'low', steps, residualExposureKeys: [...remaining].sort(), breaksAll: remaining.size === 0 };
 }
 
-module.exports = { SCHEMA_VERSION, inventoryDigest, participatingServers, predictForClient, rankPredictions, planFromPredictions };
+module.exports = { SCHEMA_VERSION, inventoryDigest, participatingServers, predictForClient, builtinResidualForClient, loweredOf, rankPredictions, planFromPredictions };

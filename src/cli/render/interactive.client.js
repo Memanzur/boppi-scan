@@ -161,7 +161,7 @@
   function remediationRow(r) {
     return h('button', { class: 'fix-row' + (state.remediation === r.id ? ' active' : ''), type: 'button', 'data-remediation': r.id, 'aria-pressed': state.remediation === r.id ? 'true' : 'false', onclick: function () { state.remediation = r.id; renderAll(); } }, [
       h('b', { text: remediationTitle(r) + (r.guided ? ' (guided)' : '') }),
-      h('span', { class: 'small', text: 'Removes ' + plural(r.eliminates.length, 'path') + (r.survives.length ? ', ' + r.survives.length + ' remain' : ', none remain') + (r.loses.length ? ' · the agent loses ' + capList(r.loses) : ' · loses nothing it does not get elsewhere') }),
+      h('span', { class: 'small', text: 'Removes ' + plural(r.eliminates.length, 'path') + ((r.lowers || []).length ? ', lowers ' + r.lowers.length : '') + (r.survives.length ? ', ' + r.survives.length + ' remain' : ', none remain') + (r.loses.length ? ' · the agent loses ' + capList(r.loses) : ' · loses nothing it does not get elsewhere') }),
     ]);
   }
   function renderPathPanel(panel, p) {
@@ -209,7 +209,7 @@
     box.appendChild(h('h4', { text: 'Paths that disappear (' + r.eliminates.length + ')' }));
     box.appendChild(h('ul', { class: 'small' }, r.eliminates.map(function (id) { var p = index.path[id]; return h('li', {}, [badge(p.severity), ' ', p.label]); })));
     box.appendChild(h('h4', { text: 'Paths that remain (' + r.survives.length + ')' }));
-    box.appendChild(r.survives.length ? h('ul', { class: 'small' }, r.survives.map(function (id) { var p = index.path[id]; return h('li', {}, [badge(p.severity), ' ', p.label, h('span', { class: 'muted', text: ' · not reached through "' + r.server + '"' })]); })) : h('p', { class: 'small muted', text: 'None of the paths found for this agent would remain.' }));
+    box.appendChild(r.survives.length ? h('ul', { class: 'small' }, r.survives.map(function (id) { var p = index.path[id]; var step = (r.lowers || []).filter(function (l) { return l.pathId === id; })[0]; return h('li', {}, [badge(p.severity), ' ', p.label, h('span', { class: 'muted', text: step ? ' · stays open at ' + step.to + ' instead of ' + step.from : ' · not reached through "' + r.server + '"' })]); })) : h('p', { class: 'small muted', text: 'None of the paths found for this agent would remain.' }));
     box.appendChild(h('h4', { text: 'What the agent loses' }));
     box.appendChild(h('p', { class: 'small', text: r.loses.length ? capList(r.loses) + '.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + ' through other servers.' : '') : 'No capability it does not also get from another server.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + '.' : '') }));
     if (r.target) box.appendChild(h('p', { class: 'small muted', text: 'Moving creates ' + plural(r.target.appears, 'new path') + ' for ' + r.target.label + '.' }));
@@ -307,7 +307,7 @@
     var titles = { removed: 'Exposure removed', reduced: 'Exposure reduced', unresolved: 'Unresolved', failed: 'Not applied', restored: 'Backup restored' };
     var card = h('div', { class: 'result ' + result.outcome }, [h('h4', { text: titles[result.outcome] || result.outcome })]);
     if (result.outcome === 'removed') card.appendChild(h('p', { class: 'small', text: plural((result.eliminated || []).length, 'potential exposure path') + ' no longer appear in the rescan.' }));
-    if (result.outcome === 'reduced') card.appendChild(h('p', { class: 'small', text: plural((result.eliminated || []).length, 'path') + ' gone, ' + plural((result.remaining || []).length, 'path') + ' remain.' }));
+    if (result.outcome === 'reduced') card.appendChild(h('p', { class: 'small', text: plural((result.eliminated || []).length, 'path') + ' gone, ' + ((result.lowered || []).length ? plural(result.lowered.length, 'path') + ' lowered in priority, ' : '') + plural((result.remaining || []).length, 'path') + ' remain.' }));
     if (result.outcome === 'unresolved') card.appendChild(h('p', { class: 'small', text: 'The change was applied, but the rescan still finds the paths below.' }));
     if (result.detail) card.appendChild(h('p', { class: 'small', text: result.detail }));
     if (result.remaining && result.remaining.length) card.appendChild(h('ul', { class: 'small' }, result.remaining.map(function (item) { return h('li', {}, [badge(item.severity || 'low'), ' ', item.label, h('span', { class: 'muted', text: ' · ' + item.reason })]); })));

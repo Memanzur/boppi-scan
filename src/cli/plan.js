@@ -4,8 +4,9 @@
  * preview shows the sanitized server record, never the raw config.
  */
 'use strict';
-const { rankPredictions } = require('./predict');
+const { rankPredictions, loweredOf } = require('./predict');
 const { editFiles } = require('./configFiles');
+const { builtinResidualSentences } = require('./builtinTools');
 
 function pad(value, width) {
   const text = String(value ?? '');
@@ -27,6 +28,7 @@ function candidateRows(report) {
       prediction: p,
       edit: editLabel(p),
       breaks: p.predictedEliminated.length,
+      lowers: loweredOf(p).length,
       critical: entry.eliminatedSeverity.critical,
       high: entry.eliminatedSeverity.high,
       remain: p.predictedSurviving.length + (p.target ? p.target.predictedAppeared.length : 0),
@@ -50,21 +52,22 @@ function renderPlan(report, options = {}) {
     return lines.join('\n');
   }
   out('CANDIDATE FIXES  best first');
-  out('  ', pad('#', 3), pad('edit', 58), pad('breaks', 10), pad('critical', 10), pad('new', 6), 'agent loses');
+  out('  ', pad('#', 3), pad('edit', 58), pad('breaks', 10), pad('lowers', 8), pad('critical', 10), pad('new', 6), 'agent loses');
   rows.forEach((row, i) => {
     const loses = row.loses.length ? row.loses.join(', ') : 'nothing it does not already have elsewhere';
-    out('  ', pad(i + 1, 3), pad(row.edit, 58), pad(`${row.breaks}/${total}`, 10), pad(row.critical, 10), pad(row.appears, 6), loses);
+    out('  ', pad(i + 1, 3), pad(row.edit, 58), pad(`${row.breaks}/${total}`, 10), pad(row.lowers, 8), pad(row.critical, 10), pad(row.appears, 6), loses);
   });
   out('');
-  out('  breaks: exposure paths that disappear on the agent being edited. new: paths that appear on the target when a server is moved.');
+  out('  breaks: exposure paths that disappear on the agent being edited. lowers: paths that stay open at a lower priority. new: paths that appear on the target when a server is moved.');
   out('  agent loses: capabilities that no other server on that agent provides; the workflow cost of the edit.');
 
   const plan = report.remediationPlan;
   if (plan && plan.steps.length) {
     out('');
-    out(`SMALLEST SET  ${plan.steps.length} removal${plan.steps.length === 1 ? '' : 's'} break all ${plan.targetedExposures} high-or-critical exposures${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}`);
+    out(`SMALLEST SET  ${plan.steps.length} removal${plan.steps.length === 1 ? '' : 's'} break ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposures${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}`);
     plan.steps.forEach((step, i) => out(`  ${i + 1}. remove "${step.edit.server}" from ${step.client.label} (breaks ${step.breaksCount})`));
   }
+  if (plan && !plan.breaksAll) for (const sentence of builtinResidualSentences(report.builtinResidual, plan.residualExposureKeys)) out(`  ${sentence}`);
 
   out('');
   out('EDITS  what to change, per file');

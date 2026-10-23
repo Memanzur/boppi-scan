@@ -205,7 +205,7 @@ function historyEntry(scan, changes = null) {
     confidence: pathItem.confidence,
     stale: pathItem.stale,
   }));
-  const recommendation = (scan.predictions || []).find(prediction => prediction.predictedEliminated.length);
+  const recommendation = (scan.predictions || []).find(prediction => prediction.predictedEliminated.length || predict.loweredOf(prediction).length);
   return {
     schemaVersion: 1,
     scannedAt: scan.startedAt,
@@ -226,6 +226,7 @@ function historyEntry(scan, changes = null) {
       client: recommendation.client.label,
       server: recommendation.edit.server,
       eliminated: recommendation.predictedEliminated.length,
+      lowered: predict.loweredOf(recommendation).length,
     } : null,
   };
 }
@@ -306,7 +307,7 @@ function renderHistory(file) {
     const incomplete = entry.incomplete?.length ? ` · incomplete: ${entry.incomplete.join(', ')}` : '';
     lines.push(`${entry.scannedAt} · ${entry.agents} agents · ${entry.mcpServers} MCP servers · ${entry.exposurePaths} paths (${severity})${incomplete}`);
     if (entry.changes) lines.push(`  changes: ${entry.changes.newPaths} new · ${entry.changes.resolvedPaths} resolved · ${entry.changes.agentDelta >= 0 ? '+' : ''}${entry.changes.agentDelta} agents · ${entry.changes.serverDelta >= 0 ? '+' : ''}${entry.changes.serverDelta} MCP servers`);
-    if (entry.recommendedEdit) lines.push(`  recommended: remove "${entry.recommendedEdit.server}" from ${entry.recommendedEdit.client} (${entry.recommendedEdit.eliminated} paths modeled eliminated)`);
+    if (entry.recommendedEdit) lines.push(`  recommended: remove "${entry.recommendedEdit.server}" from ${entry.recommendedEdit.client} (${entry.recommendedEdit.eliminated} paths modeled eliminated${entry.recommendedEdit.lowered ? `, ${entry.recommendedEdit.lowered} lowered` : ''})`);
   }
   lines.push('', 'History contains sanitized summaries only. Raw config values and file contents are never stored.');
   return lines.join('\n');
@@ -475,6 +476,10 @@ async function performScan(options) {
     .filter(c => c.agentId && !c.scanError)
     .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION, otherClients: discovery.clients }));
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
+  const builtinResidual = discovery.clients
+    .filter(c => c.agentId && !c.scanError)
+    .map(client => predict.builtinResidualForClient({ client, observedAt: startedAt, home: options.home, overlay }))
+    .filter(Boolean);
   const storageExport = await controller.getExport();
 
   const diagnostics = overlay
@@ -482,7 +487,7 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
-  return { startedAt, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
+  return { startedAt, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -514,6 +519,7 @@ function exportPayload(scan) {
     rootCauses: scan.rootCauses,
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
+    builtinResidual: scan.builtinResidual,
     recognition: scan.recognition,
     scanArgs: scan.scanArgs,
     ...envelope,
@@ -632,9 +638,11 @@ async function runFix(options) {
 
   process.stdout.write(`BOPPI · FIX  remove "${options.server}" from ${client.label}\n`);
   process.stdout.write(`  file:    ${preview.file} (${preview.scope} scope)\n`);
+  const lowered = prediction ? predict.loweredOf(prediction) : [];
   if (prediction) process.stdout.write(`  breaks:  ${prediction.predictedEliminated.length} of ${prediction.before.exposureKeys.length} exposure path${prediction.before.exposureKeys.length === 1 ? '' : 's'} on ${client.label}, by rescanning without it\n`);
   else process.stdout.write('  breaks:  nothing modeled; this server takes part in no exposure path\n');
-  if (prediction && !prediction.predictedEliminated.length) process.stdout.write('  note:    this edit is not predicted to close any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
+  if (lowered.length) process.stdout.write(`  lowers:  ${lowered.map(step => `${step.exposureKey.split(':')[0]} ${step.from} to ${step.to}`).join(', ')} (the path stays open through what remains)\n`);
+  if (prediction && !prediction.predictedEliminated.length && !lowered.length) process.stdout.write('  note:    this edit is not predicted to close or lower any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
   process.stdout.write(`  loses:   ${lost.length ? lost.join(', ') : 'no capability the agent does not also get elsewhere'}\n`);
   process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
   process.stdout.write(remediate.renderPreview(preview) + '\n');
@@ -804,7 +812,7 @@ async function run(argv) {
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
-    inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, recognition: scan.recognition, incomplete, scanArgs: scan.scanArgs,
+    inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, builtinResidual: scan.builtinResidual || [], inferenceByClient: scan.inferenceByClient, recognition: scan.recognition, incomplete, scanArgs: scan.scanArgs,
   };
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);

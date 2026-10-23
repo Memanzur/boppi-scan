@@ -1,8 +1,9 @@
 /** ANSI terminal report renderer for the Boppi CLI. */
 'use strict';
 const { rankPredictions } = require('../predict');
-const { builtinCapabilities } = require('../builtinTools');
+const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
+const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
@@ -222,7 +223,8 @@ function renderReport(report, options = {}) {
     const grantCount = builtin.filter(line => line.gate !== 'denied').length;
     out('  ', s.green('Established: '), `${report.inventory.agents.length} agent${report.inventory.agents.length === 1 ? '' : 's'}, ${report.inventory.mcpServers.length} MCP server${report.inventory.mcpServers.length === 1 ? '' : 's'}, ${grantCount} built-in tool grant${grantCount === 1 ? '' : 's'}, and ${report.filesRead.length} configuration file${report.filesRead.length === 1 ? '' : 's'} examined.`);
     const unknownSentence = recognition.coverageSentence(report.recognition);
-    out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}`);
+    const hints = report.graph ? securityGraph.productionHints(report.graph) : [];
+    out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}${hints.length ? ` ${plural(hints.length, 'permission')} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''}`);
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
     else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');
   }
@@ -264,7 +266,7 @@ function renderReport(report, options = {}) {
   const ranked = (command === 'paths' || command === 'scan') ? rankPredictions(report.predictions || [], report.paths) : [];
   if (ranked.length) {
     out('');
-    const { prediction: top, eliminatedSeverity } = ranked[0];
+    const { prediction: top, eliminatedSeverity, lowered } = ranked[0];
     const total = report.paths.length;
     out(s.bold('ROOT CAUSE  '), s.dim('the single config edit that breaks the most exposures, checked by rescanning without it'));
     out('  ', s.green('▸ '), s.bold(`Fix: ${editSentence(top)}`));
@@ -272,6 +274,7 @@ function renderReport(report, options = {}) {
     const brk = [`${top.predictedEliminated.length} of ${total} exposure${total === 1 ? '' : 's'}`];
     if (eliminatedSeverity.critical) brk.push(`${eliminatedSeverity.critical} critical`);
     if (eliminatedSeverity.high) brk.push(`${eliminatedSeverity.high} high`);
+    if (lowered.length) brk.push(`lowers ${lowered.length} (${lowered.map(step => `${step.from} to ${step.to}`).join(', ')})`);
     out('    ', s.dim('breaks '), s.bold(brk.join(' · ')), s.dim(`  (leaves ${total - top.predictedEliminated.length})`));
     const cost = disruptionSentence(top);
     if (cost) out('    ', s.dim('cost: '), cost);
@@ -284,6 +287,11 @@ function renderReport(report, options = {}) {
         for (const line of editLocations(step, report)) out(s.dim('        edit: '), line);
       });
     }
+    if (plan && !plan.breaksAll) for (const sentence of builtinResidualSentences(report.builtinResidual, plan.residualExposureKeys)) out('  ', s.dim(sentence));
+  } else if ((command === 'paths' || command === 'scan') && report.paths.length) {
+    out('');
+    out(s.bold('ROOT CAUSE  '), s.dim('no MCP config edit closes or lowers a path on this scan'));
+    for (const sentence of builtinResidualSentences(report.builtinResidual, report.paths.map(p => p.exposureKey))) out('  ', s.dim(sentence));
   }
 
   if (command === 'scan') {

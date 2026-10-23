@@ -45,6 +45,7 @@
   ]);
   const CREDENTIAL_CATEGORIES = new Set(['access_credentials', 'access_environment_variables']);
   const PRODUCTION_CATEGORIES = new Set(['access_production_system']);
+  const WRITE_SHAPED_LEVELS = new Set(['admin', 'write', 'broad']);
   const EXTERNAL_FACING = new Set(['browse_internet', 'call_external_api', 'send_external_message', 'send_email']);
   const SENSITIVE_DATA = new Set(['read_files', 'read_email', 'read_source_code', 'access_customer_data', 'access_financial_data', 'access_health_data', 'access_hr_data']);
   const PRIVILEGED_CAPABILITIES = new Set(['run_shell_commands', 'execute_code', 'delete_files', 'modify_source_code']);
@@ -182,9 +183,18 @@
       return;
     }
     if (PRODUCTION_CATEGORIES.has(category)) {
+      // A production system is reached only when a tool list showed write access (demonstrated) or the permission carries a write-shaped access level (inferred). A name alone is a hint, recorded on the permission node and listed as an unknown.
+      const attributes = (fromNode.metadata && fromNode.metadata.attributes) || {};
+      const level = fromNode.metadata && fromNode.metadata.accessLevel;
+      if (attributes.writeAccess !== true && !WRITE_SHAPED_LEVELS.has(level)) { fromNode.metadata.productionHint = true; return; }
       const production = derivedNode(builder, 'production', agentScope, category, 'production_system', 'Production system', record, { category });
       builder.addEdge(fromNode, production, 'permission_grants_production_access', record, edgeMeta);
     }
+  }
+
+  /** Permission nodes whose name suggests production access without any evidence of what they can change. */
+  function productionHints(graph) {
+    return (graph.nodes || []).filter(n => n.entityType === 'permission' && n.metadata && n.metadata.productionHint).map(n => n.label);
   }
 
   /**
@@ -320,6 +330,6 @@
     CAPABILITY_CATEGORIES: [...CAPABILITY_CATEGORIES], DATA_CATEGORIES: [...DATA_CATEGORIES],
     SENSITIVE_DATA: [...SENSITIVE_DATA], EXTERNAL_FACING: [...EXTERNAL_FACING],
     PRIVILEGED_CAPABILITIES: [...PRIVILEGED_CAPABILITIES],
-    buildGraph,
+    buildGraph, productionHints,
   };
 });

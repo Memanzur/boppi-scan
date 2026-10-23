@@ -84,7 +84,7 @@ function runCli(args, home) {
   ok('the Claude Code exfiltration path, fed by two readers and two network servers, lists no single-server remediation', !!twoRoutes && twoRoutes.remediationIds.length === 0 && twoRoutes.chain[0] === 'Claude Code' && twoRoutes.chain[twoRoutes.chain.length - 1] === 'External destination');
 
   section('Remediations');
-  ok('remediations come from predictions that eliminate at least one path', view.remediations.length > 0 && view.remediations.every(r => r.eliminates.length >= 1 && exported.predictions.some(p => p.predictionId === r.id)));
+  ok('remediations come from predictions that eliminate or lower at least one path', view.remediations.length > 0 && view.remediations.every(r => (r.eliminates.length >= 1 || r.lowers.length >= 1) && exported.predictions.some(p => p.predictionId === r.id)));
   const top = view.remediations[0];
   ok('top remediation names the file, the key, and the sanitized entry', top.files.from.length === 1 && top.files.from[0].startsWith('~/') && top.keyPath === `mcpServers.${JSON.stringify(top.server)}` && top.entry && top.entry.command);
   ok('eliminates and survives reference view path ids', [...top.eliminates, ...top.survives].every(id => view.paths.some(p => p.id === id)));

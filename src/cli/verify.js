@@ -4,6 +4,8 @@
  */
 'use strict';
 const models = require('../engine/models');
+const { SEVERITY_RANK } = require('./simulate');
+const { loweredOf } = require('./predict');
 
 const STATUS = Object.freeze({ CONFIRMED: 'CONFIRMED', PARTIAL: 'PARTIAL', CONTRADICTED: 'CONTRADICTED', UNRESOLVED: 'UNRESOLVED' });
 
@@ -12,10 +14,15 @@ function currentState(scan) {
   const byAgent = new Map();
   for (const client of scan.discovery.clients) {
     if (!client.agentId || client.scanError) continue;
-    byAgent.set(client.agentId, { agentId: client.agentId, client: { key: client.clientKey, label: client.label }, serverNames: new Set(), exposureKeys: [] });
+    byAgent.set(client.agentId, { agentId: client.agentId, client: { key: client.clientKey, label: client.label }, serverNames: new Set(), exposureKeys: [], priorities: {} });
   }
   for (const server of scan.inventory.mcpServers) byAgent.get(server.agentId)?.serverNames.add(server.name);
-  for (const path of scan.paths) byAgent.get(path.agentId)?.exposureKeys.push(path.exposureKey);
+  for (const path of scan.paths) {
+    const state = byAgent.get(path.agentId);
+    if (!state) continue;
+    state.exposureKeys.push(path.exposureKey);
+    state.priorities[path.exposureKey] = path.severity;
+  }
   for (const state of byAgent.values()) state.exposureKeys.sort();
   return byAgent;
 }
@@ -35,16 +42,19 @@ function locateAgent(prediction, byAgent, options) {
  * Rules, in order:
  * 1. agent absent from the new scan: UNRESOLVED agent_not_scanned
  * 2. server key still present: UNRESOLVED edit_not_applied
- * 3. every predicted-eliminated key absent and every predicted-surviving key present: CONFIRMED
- * 4. some predicted-eliminated keys present: PARTIAL, survivors listed
- * 5. all predicted-eliminated keys present: CONTRADICTED
+ * 3. every predicted-eliminated key absent, every predicted-surviving key present,
+ *    and every predicted-lowered key gone or at or below its predicted priority: CONFIRMED
+ * 4. some predicted change missing (a survivor, a path still at its old priority,
+ *    or a predicted survivor gone): PARTIAL
+ * 5. every predicted change missing: CONTRADICTED
  * 6. keys in neither list are reported as appeared and do not change status
  * 7. a different engine version is flagged engine_changed, status still computed
  */
 function resolvePrediction(prediction, byAgent, options = {}) {
   const flags = [];
   if (prediction.engineVersion !== models.ENGINE_VERSION) flags.push('engine_changed');
-  const base = { predictionId: prediction.predictionId, agentId: prediction.agentId, client: prediction.client, edit: prediction.edit, predicted: { eliminated: prediction.predictedEliminated, surviving: prediction.predictedSurviving }, flags };
+  const predictedLowered = loweredOf(prediction);
+  const base = { predictionId: prediction.predictionId, agentId: prediction.agentId, client: prediction.client, edit: prediction.edit, predicted: { eliminated: prediction.predictedEliminated, surviving: prediction.predictedSurviving, lowered: predictedLowered }, flags };
   const located = locateAgent(prediction, byAgent, options);
   flags.push(...located.flags);
   if (!located.state) return { ...base, status: STATUS.UNRESOLVED, reason: 'agent_not_scanned', observed: null };
@@ -59,12 +69,17 @@ function resolvePrediction(prediction, byAgent, options = {}) {
   const vanished = prediction.predictedSurviving.filter(key => !present.has(key));
   const known = new Set([...prediction.predictedEliminated, ...prediction.predictedSurviving]);
   const appeared = current.filter(key => !known.has(key));
-  const observed = { exposureKeys: state.exposureKeys, eliminated: prediction.predictedEliminated.filter(key => !present.has(key)), survivors, vanished, appeared };
+  const priorityNow = key => state.priorities[key.replace(prediction.agentId, state.agentId)] || state.priorities[key];
+  const stillAt = step => present.has(step.exposureKey) && (SEVERITY_RANK[priorityNow(step.exposureKey)] || 0) > (SEVERITY_RANK[step.to] || 0);
+  const notLowered = predictedLowered.filter(stillAt);
+  const lowered = predictedLowered.filter(step => !stillAt(step)).map(step => ({ ...step, observed: present.has(step.exposureKey) ? priorityNow(step.exposureKey) : null }));
+  const observed = { exposureKeys: state.exposureKeys, eliminated: prediction.predictedEliminated.filter(key => !present.has(key)), survivors, vanished, lowered, notLowered, appeared };
 
-  // A prediction that named nothing to eliminate can only confirm that nothing changed; it is never a fix that worked.
-  if (!survivors.length && !vanished.length) return { ...base, status: STATUS.CONFIRMED, reason: prediction.predictedEliminated.length ? null : 'no_change_predicted', observed };
-  if (prediction.predictedEliminated.length && survivors.length === prediction.predictedEliminated.length) return { ...base, status: STATUS.CONTRADICTED, reason: 'all_predicted_eliminated_present', observed };
-  return { ...base, status: STATUS.PARTIAL, reason: survivors.length ? 'some_predicted_eliminated_present' : 'predicted_surviving_absent', observed };
+  // A prediction that named nothing to eliminate or lower can only confirm that nothing changed; it is never a fix that worked.
+  const expected = prediction.predictedEliminated.length + predictedLowered.length;
+  if (!survivors.length && !vanished.length && !notLowered.length) return { ...base, status: STATUS.CONFIRMED, reason: expected ? null : 'no_change_predicted', observed };
+  if (expected && survivors.length + notLowered.length === expected) return { ...base, status: STATUS.CONTRADICTED, reason: prediction.predictedEliminated.length ? 'all_predicted_eliminated_present' : 'predicted_lowered_not_observed', observed };
+  return { ...base, status: STATUS.PARTIAL, reason: survivors.length ? 'some_predicted_eliminated_present' : notLowered.length ? 'predicted_lowered_not_observed' : 'predicted_surviving_absent', observed };
 }
 
 function resolveAll(previous, scan, options = {}) {
@@ -98,12 +113,13 @@ function contradictionBundle(prediction, resolution, previous, scan) {
 function pad(value, width) { const text = String(value ?? ''); return text.length >= width ? text : text + ' '.repeat(width - text.length); }
 
 const REASON_TEXT = Object.freeze({
-  no_change_predicted: 'this edit was never expected to close a path; nothing changed, as predicted',
+  no_change_predicted: 'this edit was never expected to close or lower a path; nothing changed, as predicted',
   agent_not_scanned: 'that agent was not in this scan',
   edit_not_applied: 'the server is still configured',
   all_predicted_eliminated_present: 'every path predicted to vanish is still present',
   some_predicted_eliminated_present: 'some paths predicted to vanish are still present',
   predicted_surviving_absent: 'paths predicted to survive are gone too',
+  predicted_lowered_not_observed: 'paths predicted to drop in priority are still at their old priority',
   engine_changed: 'engine version changed since the prediction',
   agent_matched_by_client: 'agent matched by client, its id changed',
 });
@@ -120,14 +136,22 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 function confirmedOutcome(resolutions) {
   const confirmed = (resolutions || []).filter(r => r.status === STATUS.CONFIRMED && r.observed);
   const closed = new Set(confirmed.flatMap(r => r.observed.eliminated));
+  const lowered = new Set(confirmed.flatMap(r => (r.observed.lowered || []).filter(step => step.observed).map(step => step.exposureKey)));
   const remaining = new Set(confirmed.flatMap(r => r.observed.exposureKeys));
-  return { closed: closed.size, remaining: remaining.size, zeroBenefit: confirmed.length > 0 && confirmed.every(r => r.reason === 'no_change_predicted') };
+  return { closed: closed.size, lowered: lowered.size, remaining: remaining.size, zeroBenefit: confirmed.length > 0 && confirmed.every(r => r.reason === 'no_change_predicted') };
+}
+
+/** "2 paths closed and 1 lowered", or either half alone. */
+function changeSummary(outcome) {
+  const parts = [`${plural(outcome.closed, 'path')} closed`];
+  if (outcome.lowered) parts.push(`${outcome.lowered} lowered in priority`);
+  return parts.join(' and ');
 }
 
 function confirmedSentence(outcome) {
-  if (outcome.zeroBenefit) return `The edit was applied and changed nothing about exposure, as predicted: 0 paths closed, ${plural(outcome.remaining, 'path')} remain${outcome.remaining === 1 ? 's' : ''}. This was not a risk-reducing fix; run boppi plan to compare edits that close paths.`;
+  if (outcome.zeroBenefit) return `The edit was applied and changed nothing about exposure, as predicted: 0 paths closed, ${plural(outcome.remaining, 'path')} remain${outcome.remaining === 1 ? 's' : ''}. This was not a risk-reducing fix; run boppi plan to compare edits that close or lower paths.`;
   const rest = outcome.remaining ? `${plural(outcome.remaining, 'path')} remain${outcome.remaining === 1 ? 's' : ''} on this agent; boppi plan lists the next edit.` : 'No modeled path remains on this agent.';
-  return `Confirmed by rescanning: ${plural(outcome.closed, 'path')} closed, as predicted. ${rest} Run boppi scan --json again to record the new baseline.`;
+  return `Confirmed by rescanning: ${changeSummary(outcome)}, as predicted. ${rest} Run boppi scan --json again to record the new baseline.`;
 }
 
 /** The one sentence after the table. A contradiction or partial result wins; otherwise the confirmed count says what closed and what remains, and a mix of graded and ungraded edits says so instead of calling the graded ones "nothing". */
@@ -138,7 +162,7 @@ function nextStep(summary, resolutions = []) {
     const outcome = confirmedOutcome(resolutions);
     const graded = outcome.zeroBenefit
       ? `${plural(summary.confirmed, 'edit')} applied and changed nothing about exposure, as predicted (0 paths closed, ${outcome.remaining} remaining); this was not a risk-reducing fix`
-      : `${plural(summary.confirmed, 'fix')} confirmed as predicted (${plural(outcome.closed, 'path')} closed, ${outcome.remaining} remaining)`;
+      : `${plural(summary.confirmed, 'fix')} confirmed as predicted (${changeSummary(outcome)}, ${outcome.remaining} remaining)`;
     return `${graded}; ${plural(summary.unresolved, 'other prediction')} not graded because that edit was not applied. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
   }
   if (summary.unresolved) return NEXT_STEP.UNRESOLVED;
@@ -152,8 +176,10 @@ function renderTable(result, useColor) {
   const lines = [];
   const rows = result.resolutions.map(r => {
     const total = r.predicted.eliminated.length + r.predicted.surviving.length;
-    const observed = r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed` : 'n/a';
-    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} closed / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
+    const lowered = (r.predicted.lowered || []).length;
+    const loweredText = count => (lowered ? `, ${count} lowered` : '');
+    const observed = r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed${loweredText((r.observed.lowered || []).length)}` : 'n/a';
+    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} closed${loweredText(lowered)} / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;
   const widths = { status: width('status'), agent: width('agent'), edit: width('edit'), outcome: Math.max('predicted vs observed'.length, ...rows.map(row => row.outcome.length)) + 2 };

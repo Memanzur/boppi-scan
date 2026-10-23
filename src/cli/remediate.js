@@ -6,6 +6,7 @@
  * the rescan, never from the prediction.
  */
 'use strict';
+const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
 const fix = require('./fix');
 const verify = require('./verify');
@@ -154,15 +155,19 @@ function outcome({ scanBefore, scanAfter, clientKey, prediction }) {
   const afterPaths = after && after.agentId ? scanAfter.paths.filter(p => p.agentId === after.agentId) : [];
   const asBefore = key => (after && before && after.agentId !== before.agentId ? key.replace(after.agentId, before.agentId) : key);
   const present = new Set(afterPaths.map(p => asBefore(p.exposureKey)));
+  const priorityAfter = new Map(afterPaths.map(p => [asBefore(p.exposureKey), p.severity]));
   const eliminated = beforePaths.filter(p => !present.has(p.exposureKey));
+  const lowered = beforePaths
+    .filter(p => present.has(p.exposureKey) && (SEVERITY_RANK[priorityAfter.get(p.exposureKey)] || 0) < (SEVERITY_RANK[p.severity] || 0))
+    .map(p => ({ pathId: p.id, exposureKey: p.exposureKey, label: p.label, from: p.severity, to: priorityAfter.get(p.exposureKey) }));
   const idsByKey = new Map(beforePaths.map(p => [p.exposureKey, p.id]));
   const predictedIds = prediction ? prediction.predictedEliminated.map(key => idsByKey.get(key) || key) : [];
   const remaining = afterPaths.map(p => ({
     pathId: p.id, label: p.label, severity: p.severity,
     reason: `still reachable through ${p.nodes.filter(n => n.entityType === 'mcp_server').map(n => n.label).join(', ') || 'this agent'}${prediction && prediction.predictedSurviving.includes(asBefore(p.exposureKey)) ? ' (predicted to survive)' : ''}`,
   }));
-  const kind = !beforePaths.length ? 'unresolved' : !afterPaths.length ? 'removed' : eliminated.length ? 'reduced' : 'unresolved';
-  return { outcome: kind, eliminated: eliminated.map(p => p.id), predicted: predictedIds, remaining, capabilitiesLost: prediction ? prediction.disruption.lost : [] };
+  const kind = !beforePaths.length ? 'unresolved' : !afterPaths.length ? 'removed' : eliminated.length || lowered.length ? 'reduced' : 'unresolved';
+  return { outcome: kind, eliminated: eliminated.map(p => p.id), lowered, predicted: predictedIds, remaining, capabilitiesLost: prediction ? prediction.disruption.lost : [] };
 }
 
 /**
@@ -259,10 +264,12 @@ function renderResult(result, indent = '  ') {
   const lines = [];
   const predicted = result.predicted.length;
   const gone = result.predicted.filter(id => result.eliminated.includes(id)).length;
+  const lowered = result.lowered || [];
   const summary = result.outcome === 'removed' ? 'every exposure path on this agent is gone'
-    : result.outcome === 'reduced' ? `${result.remaining.length} exposure path${result.remaining.length === 1 ? '' : 's'} remain${result.remaining.length === 1 ? 's' : ''}`
-    : result.remaining.length ? 'nothing modeled was eliminated' : 'no exposure path was modeled for this server';
+    : result.outcome === 'reduced' ? `${result.remaining.length} exposure path${result.remaining.length === 1 ? '' : 's'} remain${result.remaining.length === 1 ? 's' : ''}${lowered.length ? `, ${lowered.length} at a lower priority` : ''}`
+    : result.remaining.length ? 'nothing modeled was eliminated or lowered' : 'no exposure path was modeled for this server';
   lines.push(`${indent}${'result'.padEnd(STAGE_WIDTH)} ${result.outcome.padEnd(7)} ${summary}; predicted ${predicted} eliminated, observed ${gone} of ${predicted}${result.eliminated.length > gone ? ` (+${result.eliminated.length - gone} not predicted)` : ''}`);
+  for (const step of lowered) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'lowered'.padEnd(7)} ${step.from} to ${step.to} ${step.label || step.exposureKey.split(':')[0]} [${step.pathId}]`);
   for (const path of result.remaining) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'remains'.padEnd(7)} ${path.severity} ${path.label} [${path.pathId}]: ${path.reason}`);
   if (result.capabilitiesLost.length) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'lost'.padEnd(7)} ${result.capabilitiesLost.join(', ')}`);
   lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'undo'.padEnd(7)} boppi rollback --id ${result.manifestId}`);

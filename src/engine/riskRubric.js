@@ -20,7 +20,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const RUBRIC_VERSION = '1.0.1';
+  const RUBRIC_VERSION = '1.0.2';
   const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
   const RANK_SEVERITY = Object.freeze({ 4: 'critical', 3: 'high', 2: 'medium', 1: 'low' });
   const STRENGTH = Object.freeze(['established', 'potential', 'assumed']);
@@ -64,6 +64,7 @@
       scope: attributes.scope || null,
       scopeLabel: attributes.scopeLabel || null,
       environment: attributes.environment || null,
+      writeAccess: attributes.writeAccess === true,
       credentialKind: attributes.credentialKind || (edge.metadata && edge.metadata.credentialKind) || (edge.relationshipType === 'mcp_references_credential' ? 'environment_name' : null),
       settingsRead: attributes.settingsRead,
       edge,
@@ -113,10 +114,10 @@
       if (s === 0 && category === 'read_files' && grant.scope) reasons.push({ kind: 'fact', text: `the files in reach cover ${SCOPE_TEXT[grant.scope] || grant.scope}` });
     }
     if (node.entityType === 'production_system') {
-      if (grant.environment === 'production') reasons.push({ kind: 'fact', text: 'the configuration names a production environment' });
+      if (grant.writeAccess !== true) { steps += 1; reasons.push({ kind: 'unknown', text: 'the permission name and access level suggest production access; no tool list showed what it can change or which environment it reaches' }); }
+      else if (grant.environment === 'production') reasons.push({ kind: 'fact', text: 'a tool list shows write access and the configuration names a production environment' });
       else if (grant.environment === 'non_production') { steps += 1; reasons.push({ kind: 'assumption', text: 'the configuration names a non-production environment; which system it really points at was not checked' }); }
-      else if (grant.environment === 'unknown') { steps += 1; reasons.push({ kind: 'unknown', text: 'nothing in the configuration names the environment; the system is treated as production-capable' }); }
-      else { steps += 1; reasons.push({ kind: 'unknown', text: 'the permission names a production system, but no tool list showed what it can change or which environment it reaches' }); }
+      else { steps += 1; reasons.push({ kind: 'unknown', text: 'nothing in the configuration names the environment; the system is treated as production-capable' }); }
     }
     if (node.entityType === 'credential_reference') {
       const kind = grant.credentialKind || ((node.metadata && node.metadata.category) === 'access_environment_variables' ? 'environment_name' : null);

@@ -12,8 +12,9 @@ const fs = require('fs');
 const path = require('path');
 const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
-const { builtinCapabilities } = require('../builtinTools');
+const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
+const securityGraph = require('../../engine/securityGraph');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
 const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
@@ -195,7 +196,8 @@ function renderHtml(report, options = {}) {
   const unknownServers = recognition.unrecognized(report.recognition);
   const loose = recognition.unpinned(report.recognition);
   const movable = recognition.tagged(report.recognition);
-  const unknownSentence = recognition.coverageSentence(report.recognition);
+  const hints = report.graph ? securityGraph.productionHints(report.graph) : [];
+  const unknownSentence = [recognition.coverageSentence(report.recognition), hints.length ? `${hints.length} permission${hints.length === 1 ? '' : 's'} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''].filter(Boolean).join(' ');
   const coverageNote = report.incomplete?.length
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
     : 'Complete for the supported configuration sources that were found.';
@@ -275,10 +277,13 @@ ${builtinRows ? `
   <h2>Root cause: the single config edit that breaks the most exposures</h2>
   <div class="card" style="border-left:3px solid var(--accent)">
     <b>${esc(editSentence(ranked[0].prediction))}</b>
-    <div class="kv">Breaks <b>${ranked[0].prediction.predictedEliminated.length} of ${paths.length}</b> exposures${ranked[0].eliminatedSeverity.critical ? ` (${ranked[0].eliminatedSeverity.critical} critical)` : ''}; ${paths.length - ranked[0].prediction.predictedEliminated.length} would remain. Checked by rescanning without the server.</div>
+    <div class="kv">Breaks <b>${ranked[0].prediction.predictedEliminated.length} of ${paths.length}</b> exposures${ranked[0].eliminatedSeverity.critical ? ` (${ranked[0].eliminatedSeverity.critical} critical)` : ''}${ranked[0].lowered.length ? `, lowers ${ranked[0].lowered.length} (${esc(ranked[0].lowered.map(step => `${step.from} to ${step.to}`).join(', '))})` : ''}; ${paths.length - ranked[0].prediction.predictedEliminated.length} would remain. Checked by rescanning without the server.</div>
     ${ranked[0].prediction.disruption ? `<div class="kv muted small">Cost: ${costSentence(ranked[0].prediction.disruption)}.</div>` : ''}
-    ${plan && plan.steps.length > 1 ? `<div class="kv muted small">Plan to break all ${plan.targetedExposures} high-or-critical exposures (${plan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${plan.steps.map(st => `<li>${esc(editSentence(st))} <b>(breaks ${st.breaksCount})</b></li>`).join('')}</ol>` : ''}
-  </div>` : ''}
+    ${plan && plan.steps.length > 1 ? `<div class="kv muted small">Plan to break ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposures (${plan.steps.length} changes):</div><ol class="small muted" style="margin:6px 0 0 18px">${plan.steps.map(st => `<li>${esc(editSentence(st))} <b>(breaks ${st.breaksCount})</b></li>`).join('')}</ol>` : ''}
+    ${plan && !plan.breaksAll ? builtinResidualSentences(report.builtinResidual, plan.residualExposureKeys).map(sentence => `<div class="kv muted small">${esc(sentence)}</div>`).join('') : ''}
+  </div>` : paths.length ? `
+  <h2>Root cause</h2>
+  <div class="card muted small">No MCP config edit closes or lowers a path on this scan. ${builtinResidualSentences(report.builtinResidual, paths.map(p => p.exposureKey)).map(esc).join(' ')}</div>` : ''}
 
 ${graphSection(view)}
 

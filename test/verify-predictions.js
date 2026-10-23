@@ -100,7 +100,7 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   const zeroCopy = path.join(root, 'reroute-copy.json');
   fs.writeFileSync(zeroCopy, JSON.stringify(reroute));
   const zeroFix = runCli(['fix', '--server', 'fetch', '--config', zeroCopy, '--source', 'claude-desktop', '--yes'], home);
-  ok('fix warns before applying an edit predicted to close no path', zeroFix.stdout.includes('note:    this edit is not predicted to close any exposure path') && zeroFix.stdout.includes('no_change_predicted') && !zeroFix.stdout.includes('worked as predicted'));
+  ok('fix warns before applying an edit predicted to close no path', zeroFix.stdout.includes('note:    this edit is not predicted to close or lower any exposure path') && zeroFix.stdout.includes('no_change_predicted') && !zeroFix.stdout.includes('worked as predicted'));
 
   section('Unusable input');
   ok('a missing file exits 2', runCli(['verify', path.join(root, 'nope.json')], home).code === 2);

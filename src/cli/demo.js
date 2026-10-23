@@ -11,6 +11,7 @@
  * prefilled so plan, fix, and verify can be tried on a file nobody uses.
  */
 'use strict';
+const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -33,8 +34,8 @@ function reportFrom(scan, version) {
   };
 }
 
-async function viewOf(file, options, deps) {
-  const scan = await deps.performScan({ ...options, config: file, source: 'claude-code', only: null, overlay: null });
+async function viewOf(file, options, deps, source) {
+  const scan = await deps.performScan({ ...options, config: file, source, only: null, overlay: null });
   if (scan.failed) throw new Error(`demo: scan of ${file} failed: ${scan.failed}`);
   if (scan.incomplete.length) throw new Error(`demo: scan of ${file} was incomplete`);
   return buildGraphView(reportFrom(scan, deps.version));
@@ -57,18 +58,20 @@ async function buildScenario(scenario, options, deps) {
   const config = JSON.parse(original);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(file, original);
-  const view = await viewOf(file, options, deps);
+  const view = await viewOf(file, options, deps, scenario.client);
   const remediations = [];
   try {
     for (const r of view.remediations) {
       if (r.action !== 'remove_server') continue;
       const { [r.server]: removed, ...rest } = config.mcpServers;
       fs.writeFileSync(file, JSON.stringify({ ...config, mcpServers: rest }, null, 2) + '\n');
-      const after = await viewOf(file, options, deps);
+      const after = await viewOf(file, options, deps, scenario.client);
       const afterKeys = new Set(after.paths.map(p => p.exposureKey));
+      const afterPriority = new Map(after.paths.map(p => [p.exposureKey, p.severity]));
       remediations.push({
         id: r.id, server: r.server, after: afterOnly(after),
         eliminated: view.paths.filter(p => !afterKeys.has(p.exposureKey)).map(p => p.id),
+        lowered: view.paths.filter(p => afterKeys.has(p.exposureKey) && (SEVERITY_RANK[afterPriority.get(p.exposureKey)] || 0) < (SEVERITY_RANK[p.severity] || 0)).map(p => ({ pathId: p.id, from: p.severity, to: afterPriority.get(p.exposureKey) })),
         remaining: view.paths.filter(p => afterKeys.has(p.exposureKey)).map(p => p.id),
         loses: r.loses,
       });
@@ -111,11 +114,11 @@ async function runDemo(options, deps) {
   out(`${scenarios.BANNER} The sandbox is the only file these commands read or edit.\n`);
   const exportFile = path.join(dir, 'scan.json');
   const code = await deps.run([
-    'scan', '--config', file, '--source', 'claude-code', '--home', options.home, '--cwd', options.cwd, '--platform', options.platform,
+    'scan', '--config', file, '--source', scenario.client, '--home', options.home, '--cwd', options.cwd, '--platform', options.platform,
     '--html', path.join(dir, 'report.html'), '--json', exportFile, '--history-file', path.join(dir, 'history.json'),
     ...(options.color ? [] : ['--no-color']), ...(options.quiet ? ['--quiet'] : []), ...(options.verbose ? ['--verbose'] : []),
   ]);
-  const target = `--config ${shellPath(file)} --source claude-code${homeFlag(options)}`;
+  const target = `--config ${shellPath(file)} --source ${scenario.client}${homeFlag(options)}`;
   out([
     '',
     'Next, on the sandbox only:',

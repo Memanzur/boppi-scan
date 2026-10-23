@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Verify suite for the boppi CLI (bin/boppi.js): discovery, engine reuse, report, exports, exit codes. */
 'use strict';
+const { SEVERITY_RANK } = require('../src/cli/simulate');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -58,7 +59,7 @@ function runCli(args, home) {
   ok('exposure paths include data exfiltration (EP-A)', scan.stdout.includes('EP-A'));
   ok('exposure paths include credential exposure (EP-B)', scan.stdout.includes('EP-B'));
   ok('the terminal shows the five highest-ranked paths and points at --verbose for the rest', scan.stdout.includes('--verbose for all') && runCli(['paths', '--verbose'], home).stdout.includes('EP-E'));
-  ok('built-in tools are listed per coding agent with their prompting state', scan.stdout.includes('BUILT-IN TOOLS (4)') && scan.stdout.includes('Claude Code · shell access (Bash) · prompts') && scan.stdout.includes('Cursor · shell access (terminal) · not checked'));
+  ok('built-in tools are listed per coding agent with their prompting state', scan.stdout.includes('BUILT-IN TOOLS (5)') && scan.stdout.includes('Claude Code · shell access (Bash) · prompts') && scan.stdout.includes('Cursor · shell access (terminal) · not checked'));
   ok('rule-engine findings appear (AE rules)', /AE-\d{3}/.test(scan.stdout));
   ok('report explains inference honestly', scan.stdout.includes('inferred from evidenced identity'));
   ok('root-cause section names the single highest-leverage fix', scan.stdout.includes('ROOT CAUSE') && /breaks \d+ of \d+ exposure/.test(scan.stdout));
@@ -118,7 +119,12 @@ function runCli(args, home) {
   ok('removing filesystem breaks only the exfiltration exposure', filesystemPrediction && filesystemPrediction.predictedEliminated.length === 1 && filesystemPrediction.predictedEliminated[0].startsWith('EP-A:'));
   const topCount = require('../src/cli/predict').rankPredictions(predictions, exported.exposurePaths)[0].prediction.predictedEliminated.length;
   ok('the terminal root cause states the top prediction\'s count over all exposures', scan.stdout.includes(`breaks ${topCount} of ${exported.exposurePaths.length} exposures`));
-  ok('the remediation plan is built from predictions and covers every high-or-critical exposure', exported.remediationPlan.breaksAll === true && exported.remediationPlan.steps.every(st => predictions.some(p => p.predictionId === st.predictionId)) && exported.remediationPlan.steps.reduce((n, st) => n + st.breaksCount, 0) === exported.remediationPlan.targetedExposures);
+  ok('the remediation plan is built from predictions and names the high-or-critical exposures no removal closes', exported.remediationPlan.breaksAll === false && exported.remediationPlan.steps.every(st => predictions.some(p => p.predictionId === st.predictionId)) && exported.remediationPlan.steps.reduce((n, st) => n + st.breaksCount, 0) + exported.remediationPlan.residualExposureKeys.length === exported.remediationPlan.targetedExposures);
+  const codeAgent = exported.inventory.real.agents.find(a => a.name === 'Claude Code');
+  ok('the residual exposures are the ones Claude Code holds through its own tools', exported.remediationPlan.residualExposureKeys.length > 0 && exported.remediationPlan.residualExposureKeys.every(k => k.endsWith(`:${codeAgent.id}`)));
+  ok('the terminal says which built-in tools keep them open and where a deny rule would go, without editing anything', /\d paths? would stay open on Claude Code with every MCP server removed, through its built-in tools \(/.test(scan.stdout) && scan.stdout.includes('permissions.deny in ~/.claude/settings.json') && scan.stdout.includes('Boppi never edits permission settings'));
+  ok('every prediction carries the before priorities and the lowered list', predictions.every(p => Array.isArray(p.predictedLowered) && p.before.priorities && p.before.exposureKeys.every(k => typeof p.before.priorities[k] === 'string')));
+  ok('a lowered entry names a path that survives at a lower priority', predictions.flatMap(p => p.predictedLowered.map(l => ({ p, l }))).every(({ p, l }) => p.predictedSurviving.includes(l.exposureKey) && SEVERITY_RANK[l.to] < SEVERITY_RANK[l.from]));
   ok('export records discovery provenance', Array.isArray(exported.discovery.filesRead) && exported.discovery.filesRead.length === 3);
   const serverIds = new Map(exported.inventory.real.mcpServers.map(m => [m.id, m]));
   const permissions = exported.inventory.real.permissions;
@@ -126,7 +132,7 @@ function runCli(args, home) {
   const builtinPermissions = permissions.filter(p => !p.integrationId);
   ok('every server-derived permission points at the server record it came from', serverPermissions.length > 0 && serverPermissions.every(p => serverIds.has(p.integrationId) && serverIds.get(p.integrationId).agentId === p.agentId));
   const codingAgentIds = new Set(exported.inventory.real.agents.filter(a => a.type === 'coding_agent').map(a => a.id));
-  ok('permissions without a server are built-in tool grants of the coding agents only', builtinPermissions.length === 4 && builtinPermissions.every(p => p.source.type === 'builtin-tool' && codingAgentIds.has(p.agentId) && /built-in (shell|file) access/.test(p.rawPermission)));
+  ok('permissions without a server are built-in tool grants of the coding agents only', builtinPermissions.length === 6 && builtinPermissions.every(p => p.source.type === 'builtin-tool' && codingAgentIds.has(p.agentId) && /built-in (shell|file|web) access/.test(p.rawPermission)));
   ok('every scanned server with capabilities owns at least one permission', exported.inventory.real.mcpServers.filter(m => m.capabilities.length).every(m => permissions.some(p => p.integrationId === m.id)));
   const serialized = JSON.stringify(exported);
   ok('secret env values never appear in the export', !serialized.includes('SUPERSECRETVALUE'));

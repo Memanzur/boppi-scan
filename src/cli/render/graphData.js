@@ -202,6 +202,7 @@ function buildGraphView(report) {
     const server = serverById.get(p.serverId);
     const eliminates = keysToPathIds(p.predictedEliminated);
     const survives = keysToPathIds(p.predictedSurviving);
+    const lowers = entry.lowered.flatMap(step => (pathIdsByKey.get(step.exposureKey) || []).map(pathId => ({ pathId, from: step.from, to: step.to })));
     return {
       id: p.predictionId,
       action: p.edit.action,
@@ -215,7 +216,7 @@ function buildGraphView(report) {
       files,
       keyPath: `mcpServers.${JSON.stringify(p.edit.server)}`,
       entry: server ? { command: server.command, arguments: server.arguments, endpoint: server.endpoint, capabilities: server.capabilities, environmentVariableNames: server.environmentVariableNames } : null,
-      eliminates, survives,
+      eliminates, survives, lowers,
       eliminatedSeverity: entry.eliminatedSeverity,
       loses: p.disruption ? p.disruption.lost : [],
       keeps: p.disruption ? p.disruption.kept : [],
@@ -234,7 +235,7 @@ function buildGraphView(report) {
     assessment: pathItem.assessment || null,
     evidenceCount: pathItem.evidenceCount,
     evidence: (pathItem.evidence || []).map(source => ({ name: source.name || source.id || 'evidence', evidenceClass: source.evidenceClass || 'unknown', evidenceLabel:evidenceLabel(source.evidenceClass), type: source.type || null, observedAt: source.observedAt || null })),
-    remediationIds: remediations.filter(r => r.eliminates.includes(pathItem.id)).map(r => r.id),
+    remediationIds: remediations.filter(r => r.eliminates.includes(pathItem.id) || r.lowers.some(step => step.pathId === pathItem.id)).map(r => r.id),
   }));
 
   const plan = report.remediationPlan ? {

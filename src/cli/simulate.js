@@ -10,7 +10,7 @@ const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const { inferCapabilities } = require('./knownServers');
 const { createConfigProvider } = require('./provider');
-const { builtinCapabilities } = require('./builtinTools');
+const { builtinCovers } = require('./builtinTools');
 const overlayModule = require('./overlay');
 
 /** Inject catalog-inferred capabilities into raw server entries before scanning, and match overlay claims per server. */
@@ -43,8 +43,24 @@ function clientInventory({ mergedServers, clientKey, label, source, configPath, 
   return { agents: normalized.agents, integrations: [], permissions: normalized.permissions, mcpServers: normalized.mcpServers, inferenceByServer };
 }
 
+const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
+
 function exposureKeysOf(inventory) {
   return exposurePathEngine.findPaths(securityGraph.buildGraph(inventory)).map(p => p.exposureKey).sort();
+}
+
+/** Exposure keys plus the priority of each, so a rescan can show a path that stays open at a lower priority. */
+function exposureStateOf(inventory) {
+  const priorities = {};
+  for (const p of exposurePathEngine.findPaths(securityGraph.buildGraph(inventory))) priorities[p.exposureKey] = p.severity;
+  return { exposureKeys: Object.keys(priorities).sort(), priorities };
+}
+
+/** Keys present in both states whose priority dropped, with the step they dropped. */
+function loweredBetween(before, after) {
+  return before.exposureKeys
+    .filter(key => after.priorities[key] && (SEVERITY_RANK[after.priorities[key]] || 0) < (SEVERITY_RANK[before.priorities[key]] || 0))
+    .map(key => ({ exposureKey: key, from: before.priorities[key], to: after.priorities[key] }));
 }
 
 function diffKeys(before, after) {
@@ -67,9 +83,9 @@ function simulateConfigEdit({ rawConfig, agentContext, edit }) {
   const servers = rawConfig && rawConfig.mcpServers ? rawConfig.mcpServers : {};
   if (!Object.prototype.hasOwnProperty.call(servers, edit.server)) throw new TypeError(`Simulate: server ${edit.server} is not in the config`);
   const { [edit.server]: removed, ...rest } = servers;
-  const before = exposureKeysOf(clientInventory({ ...agentContext, mergedServers: servers }));
-  const after = exposureKeysOf(clientInventory({ ...agentContext, mergedServers: rest }));
-  return { before: { exposureKeys: before }, after: { exposureKeys: after }, ...diffKeys(before, after) };
+  const before = exposureStateOf(clientInventory({ ...agentContext, mergedServers: servers }));
+  const after = exposureStateOf(clientInventory({ ...agentContext, mergedServers: rest }));
+  return { before, after, ...diffKeys(before.exposureKeys, after.exposureKeys), lowered: loweredBetween(before, after) };
 }
 
 /**
@@ -85,15 +101,14 @@ function simulateMoveServer({ rawConfig, agentContext, targetRawConfig, targetAg
   const targetServers = targetRawConfig && targetRawConfig.mcpServers ? targetRawConfig.mcpServers : {};
   if (Object.prototype.hasOwnProperty.call(targetServers, edit.server)) throw new TypeError(`Simulate: target already has a server named ${edit.server}`);
   const { [edit.server]: moved, ...rest } = servers;
-  const source = diffKeys(
-    exposureKeysOf(clientInventory({ ...agentContext, mergedServers: servers })),
-    exposureKeysOf(clientInventory({ ...agentContext, mergedServers: rest })),
-  );
+  const sourceBefore = exposureStateOf(clientInventory({ ...agentContext, mergedServers: servers }));
+  const sourceAfter = exposureStateOf(clientInventory({ ...agentContext, mergedServers: rest }));
+  const source = diffKeys(sourceBefore.exposureKeys, sourceAfter.exposureKeys);
   const target = diffKeys(
     exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: targetServers })),
     exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: { ...targetServers, [edit.server]: moved } })),
   );
-  return { eliminated: source.eliminated, survived: source.survived, appeared: target.appeared, before: { exposureKeys: [...source.eliminated, ...source.survived].sort() } };
+  return { eliminated: source.eliminated, survived: source.survived, appeared: target.appeared, lowered: loweredBetween(sourceBefore, sourceAfter), before: sourceBefore };
 }
 
 /**
@@ -108,7 +123,7 @@ function capabilitiesLost(inventory, agentId, serverId) {
   const server = mine.find(s => s.id === serverId);
   if (!server) return { lost: [], kept: [], builtin: [] };
   const elsewhere = new Set(mine.filter(s => s.id !== serverId).flatMap(s => s.capabilities || []));
-  const own = new Set(builtinCapabilities(inventory, agentId));
+  const own = new Set(builtinCovers(inventory, agentId));
   const capabilities = [...new Set(server.capabilities || [])].sort();
   return {
     lost: capabilities.filter(c => !elsewhere.has(c) && !own.has(c)),
@@ -117,4 +132,4 @@ function capabilitiesLost(inventory, agentId, serverId) {
   };
 }
 
-module.exports = { enrich, clientInventory, exposureKeysOf, diffKeys, simulateConfigEdit, simulateMoveServer, capabilitiesLost };
+module.exports = { SEVERITY_RANK, enrich, clientInventory, exposureKeysOf, exposureStateOf, diffKeys, loweredBetween, simulateConfigEdit, simulateMoveServer, capabilitiesLost };
