@@ -201,9 +201,10 @@ function renderHtml(report, options = {}) {
   const movable = recognition.tagged(report.recognition);
   const hints = report.graph ? securityGraph.productionHints(report.graph) : [];
   const unknownSentence = [recognition.coverageSentence(report.recognition), hints.length ? `${hints.length} permission${hints.length === 1 ? '' : 's'} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''].filter(Boolean).join(' ');
-  const coverageNote = report.incomplete?.length
+  const coverageNote = (report.incomplete?.length
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
-    : 'Complete for the supported configuration sources that were found.';
+    : 'Complete for the supported configuration sources that were found.')
+    + (report.traversal && !report.traversal.complete ? ` Search limit: ${terminal.traversalSentence(report.traversal)} Paths beyond the limit were not examined.` : '');
   const GATE_WORD = { unprompted: 'No prompt', prompted: 'Prompts', denied: 'Denied', unknown: 'Not checked' };
   const builtinRows = (report.discovery || []).filter(c => c.builtin && c.agentId).flatMap(client => {
     const name = agentName(client.agentId);

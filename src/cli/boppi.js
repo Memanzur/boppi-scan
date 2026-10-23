@@ -544,7 +544,7 @@ async function performScan(options) {
     .map(c => c.label);
 
   const graph = securityGraph.buildGraph(inventory);
-  const paths = exposurePathEngine.findPaths(graph);
+  const { paths, traversal } = exposurePathEngine.analyze(graph);
   alignFindings(inventory, paths);
   const prioritization = exposurePathEngine.prioritize(paths);
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
@@ -563,7 +563,7 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
-  const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
+  const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, traversal, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
   // The observed layer reads only this machine's hook events (a local file); a home with none stored says so.
   const storedEvents = options.config ? null : (hook.storedFiles(options.home).length ? eventsCommand.readEvents(options.home, { sinceDays: 30 }) : null);
   scan.evidenceLayers = evidence.layersFor(scan, { events: storedEvents ? { ...storedEvents, calls: eventsCommand.timeline(storedEvents.records).calls } : null, sinceDays: 30 });
@@ -595,6 +595,7 @@ function exportPayload(scan) {
     engineVersion: models.ENGINE_VERSION,
     graph: scan.graph,
     exposurePaths: scan.paths,
+    traversal: scan.traversal,
     prioritization: scan.prioritization,
     rootCauses: scan.rootCauses,
     predictions: scan.predictions,
@@ -897,7 +898,7 @@ async function run(argv) {
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead, evidenceLayers: scan.evidenceLayers,
-    inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, builtinResidual: scan.builtinResidual || [], inferenceByClient: scan.inferenceByClient, recognition: scan.recognition, incomplete, scanArgs: scan.scanArgs,
+    inventory, graph: scan.graph, paths, traversal: scan.traversal, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, builtinResidual: scan.builtinResidual || [], inferenceByClient: scan.inferenceByClient, recognition: scan.recognition, incomplete, scanArgs: scan.scanArgs,
   };
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);

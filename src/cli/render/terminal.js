@@ -23,6 +23,12 @@ function makeStyle(useColor) {
 function safeText(value) { return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?'); }
 
 /** The observed-layer line for a server from the scan's evidence layers, or null when the export carries none. */
+/** One sentence naming every cap the path search reached. */
+function traversalSentence(traversal) {
+  const parts = (traversal.truncated || []).map(t => `${t.cap} cap of ${t.limit}${t.agentId ? ` at ${safeText(t.agentId)}` : ''}`);
+  return `the path search stopped at the ${parts.join(', ')} (${traversal.agentsSearched} of ${traversal.agents} agents searched).`;
+}
+
 function observedSentence(report, server) {
   const layers = report.evidenceLayers && report.evidenceLayers.servers ? report.evidenceLayers.servers.find(s => s.serverId === server.id) : null;
   return layers ? evidence.observedSentence(layers) : null;
@@ -264,6 +270,7 @@ function renderReport(report, options = {}) {
     out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}${hints.length ? ` ${plural(hints.length, 'permission')} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''}`);
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
     else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');
+    if (report.traversal && !report.traversal.complete) out('  ', s.yellow('Search limit: '), `${traversalSentence(report.traversal)} Paths beyond the limit were not examined; a missing path is not evidence of absence.`);
   }
 
   if (command === 'paths' || command === 'scan') {
@@ -378,4 +385,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, safeText, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, traversalSentence, safeText, PATH_RULE_FOR_TEMPLATE };
