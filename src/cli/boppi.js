@@ -41,6 +41,7 @@ const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
 const discoverCommand = require('./discovery/discover');
+const watchCommand = require('./watch');
 const demo = require('./demo');
 const remediate = require('./remediate');
 const rollback = require('./rollback');
@@ -49,13 +50,13 @@ const settingsModule = require('./settings');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -71,6 +72,7 @@ function usage() {
     '  boppi hook                    record one sanitized Claude Code hook event locally; never blocks the observed tool',
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
+    '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
     '',
     'Push options (the only command that uses the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
@@ -100,6 +102,12 @@ function usage() {
     '',
     'demo options:',
     '  --reset             restore the sandbox config from the bundled fixture',
+    '',
+    'watch options:',
+    '  --interval <s>      periodic rescan interval in seconds (default 60, minimum 1)',
+    '  --duration <s>      stop after this many seconds (default: until Ctrl-C)',
+    '  --once              print the baseline and exit',
+    '  --log <file>        append one JSON line per baseline, change, hold, and stop (owner-only file)',
     '',
     'discover options:',
     '  --server <name>     the MCP server entry to start (as boppi scan names it); remote (url) entries and package-fetching launchers (npx, uvx, docker) are refused',
@@ -138,10 +146,10 @@ function parseArgs(argv) {
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false,
-    install: false, printConfig: false, set: [], record: null, forget: false, all: false,
+    install: false, printConfig: false, set: [], record: null, forget: false, all: false, interval: 60, duration: 0, once: false, log: null,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set']);
+  const takesValue = new Set(['--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -175,6 +183,9 @@ function parseArgs(argv) {
       else if (arg === '--id') options.id = value;
       else if (arg === '--set') options.set.push(value);
       else if (arg === '--record') options.record = value;
+      else if (arg === '--interval') options.interval = Number(value);
+      else if (arg === '--duration') options.duration = Number(value);
+      else if (arg === '--log') options.log = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
@@ -183,12 +194,18 @@ function parseArgs(argv) {
     else if (arg === '--install') options.install = true;
     else if (arg === '--print-config') options.printConfig = true;
     else if (arg === '--forget') options.forget = true;
+    else if (arg === '--once') options.once = true;
     else if (arg === '--all') options.all = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
+  if (options.command === 'watch' && !options.help && !options.version) {
+    if (!Number.isFinite(options.interval) || options.interval < 1) throw new Error('--interval must be a number of seconds, at least 1');
+    if (!Number.isFinite(options.duration) || options.duration < 0) throw new Error('--duration must be a number of seconds');
+    if (options.config) throw new Error('watch follows discovered client files; --config is not supported');
+  }
   if (options.command === 'discover' && !options.help && !options.version) {
     if (!options.server && !(options.forget && options.all)) throw new Error('discover requires --server <name> (or --forget --all)');
     if (options.all && !options.forget) throw new Error('--all is only accepted with --forget; discovery starts one server per run');
@@ -845,6 +862,7 @@ async function run(argv) {
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
+  if (options.command === 'watch') return watchCommand.runWatch({ ...options, only: options.only ? options.only.map(v => ONLY_ALIASES[v] || v) : null }, { performScan, writeHistory });
   if (options.command === 'discover') return discoverCommand.runDiscover({ ...options, clientKey: options.client ? ONLY_ALIASES[options.client] : null }, { discover, confirm: fix.confirm, version: VERSION });
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
   if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });

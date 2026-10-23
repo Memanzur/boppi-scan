@@ -29,7 +29,7 @@ const SUITES = [
   'verify-interactive-report.js',
   'verify-rubric-corpus.js',
   'verify-discovery-fixtures.js',
-  'verify-discover.js',
+  'verify-discover.js', 'verify-watch.js',
 ];
 
 let failures = 0;

@@ -87,6 +87,8 @@ function makeHome(root) {
   ok('supported rollback uses no network', restored.code === 0 && restored.attempts.length === 0);
 
   const real = run(['push', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1']);
+  const watchOnce = run(['watch', '--once', '--only', 'claude-code']);
+  ok('watch --once starts no process and touches no network', watchOnce.code === 0 && watchOnce.attempts.length === 0 && watchOnce.stdout.includes('BOPPI · WATCH'));
   const forgetAll = run(['discover', '--forget', '--all']);
   ok('discover --forget --all starts no process and touches no network', forgetAll.code === 0 && forgetAll.attempts.length === 0);
   const refusedLauncher = run(['discover', '--server', 'fetch', '--yes', '--only', 'claude-desktop']);
