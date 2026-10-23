@@ -43,6 +43,7 @@ const fix = require('./fix');
 const discoverCommand = require('./discovery/discover');
 const watchCommand = require('./watch');
 const eventsCommand = require('./events');
+const evidence = require('./evidence');
 const demo = require('./demo');
 const remediate = require('./remediate');
 const rollback = require('./rollback');
@@ -562,7 +563,11 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
-  return { startedAt, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
+  const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
+  // The observed layer reads only this machine's hook events (a local file); a home with none stored says so.
+  const storedEvents = options.config ? null : (hook.storedFiles(options.home).length ? eventsCommand.readEvents(options.home, { sinceDays: 30 }) : null);
+  scan.evidenceLayers = evidence.layersFor(scan, { events: storedEvents ? { ...storedEvents, calls: eventsCommand.timeline(storedEvents.records).calls } : null, sinceDays: 30 });
+  return scan;
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -596,6 +601,7 @@ function exportPayload(scan) {
     remediationPlan: scan.remediationPlan,
     builtinResidual: scan.builtinResidual,
     advertised: discoverCommand.advertisedSummary(scan.inferenceByClient),
+    evidenceLayers: scan.evidenceLayers,
     recognition: scan.recognition,
     scanArgs: scan.scanArgs,
     ...envelope,
@@ -890,7 +896,7 @@ async function run(argv) {
 
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
-    discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
+    discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead, evidenceLayers: scan.evidenceLayers,
     inventory, graph: scan.graph, paths, prioritization: scan.prioritization, rootCauses: scan.rootCauses, predictions: scan.predictions, remediationPlan: scan.remediationPlan, builtinResidual: scan.builtinResidual || [], inferenceByClient: scan.inferenceByClient, recognition: scan.recognition, incomplete, scanArgs: scan.scanArgs,
   };
 

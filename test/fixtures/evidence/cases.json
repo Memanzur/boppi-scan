@@ -1,0 +1,547 @@
+{
+  "schemaVersion": 1,
+  "note": "Mixed-evidence fixtures for the evidence layers (Phase 8, P8-1). Every value is synthetic. Servers named shellA/shellB carry a credential and shell access so paths exist; events are hook records written through the real hook module; discovery caches are written through the real discover module. Expectations are written before the verifier runs them.",
+  "cases": [
+    {
+      "id": "E01",
+      "title": "configured only, no hook events on the machine",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "expect": {
+        "observed": {
+          "claude-code/shellA": "no_hook_events"
+        },
+        "coverageObserved": "no hook events on this machine",
+        "pathsMin": 1,
+        "pathsObserved": "possible_reach_only"
+      }
+    },
+    {
+      "id": "E02",
+      "title": "observed calls on a server in a path",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i2",
+          "outcome": "ok"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i3",
+          "outcome": "denied"
+        }
+      ],
+      "expect": {
+        "observed": {
+          "claude-code/shellA": "observed"
+        },
+        "calls": {
+          "claude-code/shellA": 3
+        },
+        "sessions": {
+          "claude-code/shellA": 1
+        },
+        "pathsObserved": "servers_invoked"
+      }
+    },
+    {
+      "id": "E03",
+      "title": "same server name on two clients: events attach only to the monitored client",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        },
+        "claude-desktop": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "observed": {
+          "claude-code/shellA": "observed",
+          "claude-desktop/shellA": "not_monitored"
+        },
+        "calls": {
+          "claude-code/shellA": 1
+        }
+      }
+    },
+    {
+      "id": "E04",
+      "title": "concurrent sessions are counted apart",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s2",
+          "invocation": "i1",
+          "outcome": "ok"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s3",
+          "invocation": "i1",
+          "outcome": "failed"
+        }
+      ],
+      "expect": {
+        "calls": {
+          "claude-code/shellA": 3
+        },
+        "sessions": {
+          "claude-code/shellA": 3
+        }
+      }
+    },
+    {
+      "id": "E05",
+      "title": "missing telemetry: events exist for another server only",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky",
+          "notes": "plain"
+        }
+      },
+      "events": [
+        {
+          "server": "notes",
+          "tool": "read",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "observed": {
+          "claude-code/shellA": "none",
+          "claude-code/notes": "observed"
+        },
+        "pathsObserved": "possible_reach_only"
+      }
+    },
+    {
+      "id": "E06",
+      "title": "old configuration: events for a server no longer configured",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "gone",
+          "tool": "x",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "unmatchedObserved": [
+          "gone"
+        ],
+        "observed": {
+          "claude-code/shellA": "none"
+        }
+      }
+    },
+    {
+      "id": "E07",
+      "title": "expired events outside the window do not count",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok",
+          "daysAgo": 40
+        }
+      ],
+      "expect": {
+        "observed": {
+          "claude-code/shellA": "none"
+        },
+        "calls": {
+          "claude-code/shellA": 0
+        }
+      }
+    },
+    {
+      "id": "E08",
+      "title": "a new engine version is visible next to the old baseline",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "history": {
+        "engineVersion": "0.9.0"
+      },
+      "expect": {
+        "versionsCurrent": true,
+        "historyOldVersionKept": true
+      }
+    },
+    {
+      "id": "E09",
+      "title": "alternate routes: removing one of two equivalent servers closes nothing",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky",
+          "shellB": "risky"
+        }
+      },
+      "expect": {
+        "pathsMin": 1,
+        "alternateRoute": {
+          "client": "claude-code",
+          "remove": "shellA"
+        }
+      }
+    },
+    {
+      "id": "E10",
+      "title": "advertised layer usable from a consented discovery",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "discovery": [
+        {
+          "client": "claude-code",
+          "server": "shellA",
+          "tools": [
+            "get_file_contents",
+            "fixture_tool"
+          ]
+        }
+      ],
+      "expect": {
+        "advertised": {
+          "claude-code/shellA": "usable"
+        },
+        "advertisedBasisPresent": true
+      }
+    },
+    {
+      "id": "E11",
+      "title": "advertised layer stale after the entry changed",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "discovery": [
+        {
+          "client": "claude-code",
+          "server": "shellA",
+          "tools": [
+            "get_file_contents"
+          ],
+          "forEntryArgs": [
+            "other.js"
+          ]
+        }
+      ],
+      "expect": {
+        "advertised": {
+          "claude-code/shellA": "stale"
+        },
+        "advertisedBasisPresent": false
+      }
+    },
+    {
+      "id": "E12",
+      "title": "outcomes stay separate: ok, denied, failed, unknown",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i2",
+          "outcome": "denied"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i3",
+          "outcome": "failed"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i4",
+          "outcome": "unknown"
+        }
+      ],
+      "expect": {
+        "outcomes": {
+          "claude-code/shellA": {
+            "ok": 1,
+            "denied": 1,
+            "failed": 1,
+            "unknown": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "E13",
+      "title": "a duplicate delivery is one call",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        },
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok",
+          "duplicate": true
+        }
+      ],
+      "expect": {
+        "calls": {
+          "claude-code/shellA": 1
+        },
+        "coverageIncludes": {
+          "claude-code/shellA": "3 duplicate"
+        }
+      }
+    },
+    {
+      "id": "E14",
+      "title": "a torn line is visible in coverage, the other events still count",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "torn": true,
+      "expect": {
+        "calls": {
+          "claude-code/shellA": 1
+        },
+        "coverageIncludes": {
+          "claude-code/shellA": "1 unreadable"
+        }
+      }
+    },
+    {
+      "id": "E15",
+      "title": "an event without an invocation id is an unknown call, never paired",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "outcome": "invoked-only"
+        }
+      ],
+      "expect": {
+        "calls": {
+          "claude-code/shellA": 1
+        },
+        "outcomes": {
+          "claude-code/shellA": {
+            "unknown": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "E16",
+      "title": "a server configured in both .claude.json and the project .mcp.json keeps its scope suffix and both rows match events by base name",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "projectServers": {
+        "shellA": "risky"
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "observedByBaseName": {
+          "shellA": "observed"
+        }
+      }
+    },
+    {
+      "id": "E17",
+      "title": "a selected scan reports selected coverage and omits the other client",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        },
+        "claude-desktop": {
+          "shellA": "risky"
+        }
+      },
+      "only": "claude-code",
+      "expect": {
+        "coverageConfigured": "selected",
+        "clientsAbsent": [
+          "claude-desktop"
+        ]
+      }
+    },
+    {
+      "id": "E18",
+      "title": "the hypothesis layer is never available",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "hypothesis": "not_available"
+      }
+    },
+    {
+      "id": "E19",
+      "title": "an explicit --config scan reports explicit coverage and no runtime",
+      "clients": {
+        "claude-code": {
+          "shellA": "risky"
+        }
+      },
+      "explicitConfig": true,
+      "expect": {
+        "coverageConfigured": "explicit"
+      }
+    },
+    {
+      "id": "E20",
+      "title": "events never cross clients: a Cursor server name seen in Claude Code hooks is unmatched",
+      "clients": {
+        "claude-code": {
+          "notes": "plain"
+        },
+        "cursor": {
+          "shellA": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "shellA",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "observed": {
+          "cursor/shellA": "not_monitored",
+          "claude-code/notes": "none"
+        },
+        "unmatchedObserved": [
+          "shellA"
+        ]
+      }
+    }
+  ]
+}

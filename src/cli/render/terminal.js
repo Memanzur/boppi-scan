@@ -3,6 +3,7 @@
 const { rankPredictions } = require('../predict');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
+const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
 
@@ -20,6 +21,12 @@ function makeStyle(useColor) {
 /** One line per server with a stored tool list from `boppi discover`: what it advertised, what maps to a reach category, what stays unknown, or that the list is stale. */
 /** Text from a configuration file, with control characters replaced so a crafted name cannot forge terminal lines or colors. */
 function safeText(value) { return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?'); }
+
+/** The observed-layer line for a server from the scan's evidence layers, or null when the export carries none. */
+function observedSentence(report, server) {
+  const layers = report.evidenceLayers && report.evidenceLayers.servers ? report.evidenceLayers.servers.find(s => s.serverId === server.id) : null;
+  return layers ? evidence.observedSentence(layers) : null;
+}
 
 function advertisedSentence(report, server) {
   const clientList = Array.isArray(report.discovery) ? report.discovery : (report.discovery && report.discovery.clients) || [];
@@ -214,6 +221,8 @@ function renderReport(report, options = {}) {
       if (reach.categories.length) out(s.dim('      reach through tools: '), reach.categories.join(', '));
       const advertised = advertisedSentence(report, server);
       if (advertised) out(s.dim(`      ${advertised}`));
+      const observed = observedSentence(report, server);
+      if (observed) out(s.dim(`      ${observed}`));
     }
     const unknownServers = recognition.unrecognized(report.recognition);
     if (unknownServers.length) {
@@ -369,4 +378,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, safeText, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, safeText, PATH_RULE_FOR_TEMPLATE };
