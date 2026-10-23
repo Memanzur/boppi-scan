@@ -1,5 +1,22 @@
 # Boppi: next session (updated October 22, 2026)
 
+## October 23, 2026: rubric 1.0.2 (production tiers, Claude Code web tools, lowered predictions); candidate rebuilt; task ledger created
+
+Autonomous session under the founder's "continue autonomous development" directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner head `35cb3be` on `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0, rubric 1.0.2). Control plane head `a4a0e58` in `~/Desktop/Boppi-auto` (engine vendored at 7cce8b5, engine port 26 checks). Master task ledger: `BOPPI_TASK_LEDGER.md` in both repos (every roadmap item with state, evidence, blocker).
+
+Done this session, in commit order:
+
+- 7cce8b5 rubric 1.0.2: production access by evidence tier (demonstrated 0 / inferred +1 / name-only read grant such as `cluster.viewer` is no production node, listed as a hint in COVERAGE), on the founder's instruction. Claude Code WebFetch and WebSearch modeled as a prompted web grant. Predictions carry `predictedLowered` and `before.priorities`; plan (`lowers` column), ROOT CAUSE, `boppi fix` (`lowers:` line), `boppi verify` (`N closed, M lowered`, reason `predicted_lowered_not_observed`), interactive page, and demo report closed, lowered, remaining. Every scan reports `builtinResidual` (what stays open with every MCP server removed, the built-in tools, and where a settings deny rule would go; Boppi never edits settings). Cost line no longer claims a loss a built-in covers. Demo scenarios name their client. Corpus N10 relabeled (logged). 23/23 suites, corpus 54/54 (held-out critical 5/5 and 5/5, high-or-critical 21/21 and 21/21).
+- d3defa9 docs: `RISK_RUBRIC_v1.0.2.md` (question 5 resolved; questions 1 to 4 keep their recommendations; new question 6: a bare Claude Code grades EP-A high under the step rule, founder to decide), ADJUDICATION rows 20 to 23, CHANGELOG, README, DECISIONS rows. Rubric NOT marked founder-approved.
+- 35cb3be candidate journey checks Linux and Windows config lookups on macOS (22 checks); `BOPPI_TASK_LEDGER.md`. Candidate rebuilt at `~/Desktop/Boppi-candidate-0.4.0/` from clean 35cb3be (sha256 9ab93ff6…, rubric 1.0.2) with the six-case kit; the rubric 1.0.1 build is kept at `~/Desktop/Boppi-candidate-0.4.0-superseded-rubric-1.0.1/`.
+- Control plane 71af421 (engine sync, cluster.viewer port test), a4a0e58 (ledger mirror); `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` green.
+
+Not finished (session cut by the usage limit): a cross-model (Opus) review of the 1.0.2 diff `0df3b3e..d3defa9` was started and had not reported; its findings are not adjudicated. Rerun that review next session (same brief as the 1.0.0 review, scope `git diff 0df3b3e..d3defa9`) and adjudicate in ADJUDICATION.md before further rubric work. The final reply's "Attention" section for this unit is therefore pending. Tester-facing wording pass on CHANGELOG and BETA_TESTER_GUIDE (ledger P2-6) not started.
+
+Open human gates (never marked complete by an agent): founder and security reviewer sign-off on `RISK_RUBRIC_v1.0.2.md`; five uncoached comprehension sessions; Phase 0 sessions 0 of 5. Founder decisions pending: rubric questions 1 to 4 and 6; whether Phase 0 runs on the frozen 0.3.1 kit or the 0.4.0 candidate kit (recommended 0.4.0); publication (NPM_TOKEN).
+
+Next session: start from `docs/milestone1/NEXT_SESSION_PROMPT.md` in the scanner repo; the ledger names the next safe slices (P2-6 wording pass, then Phase 3 spike document P3-1 and fixture servers P3-2, then Phase 4 `boppi watch` P4-1).
+
 ## October 22, 2026: Milestone 1 reviewed and closed (rubric 1.0.1); Milestone 2 slice 1 done; human gates open
 
 Autonomous session under the founder's directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner head `0df3b3e` on `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0, rubric 1.0.1). Control plane head `f9f0ffc` in `~/Desktop/Boppi-auto`. Both handoff docs in both repos carry this same section.
