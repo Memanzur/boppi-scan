@@ -36,7 +36,10 @@ const SEGMENT_BYTES = Number(process.env.BOPPI_HOOK_SEGMENT_BYTES) > 0 ? Number(
 const MAX_SEGMENTS = 16;
 const LOCK_STALE_MS = 10000;
 const LINE_CAP = 10000;
-const HEALTH_REASONS = Object.freeze(['oversized', 'timeout', 'invalid_json', 'unsupported_event', 'bad_tool_name', 'write_failed']);
+const HEALTH_REASONS = Object.freeze(['oversized', 'timeout', 'invalid_json', 'unsupported_event', 'bad_tool_name', 'write_failed', 'segment_cap', 'bad_flags']);
+const HEALTH_BYTES = 256 * 1024;
+const HEALTH_KEEP_LINES = 2000;
+const hasEvent = name => typeof name === 'string' && Object.hasOwn(OUTCOME_BY_EVENT, name);
 
 const dir = home => path.join(home, '.boppi');
 function eventsFile(home) { return path.join(dir(home), 'events.jsonl'); }
@@ -48,14 +51,14 @@ function segmentFiles(home) {
 const digest = value => crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
 
 /** The sanitized record for one payload, or null when the payload is not a supported hook event. */
-function toRecord(payload, { now, fingerprint }) {
-  if (!payload || typeof payload !== 'object' || !OUTCOME_BY_EVENT[payload.hook_event_name]) return null;
+function toRecord(payload, { now, fingerprint, keyedDigest = digest }) {
+  if (!payload || typeof payload !== 'object' || !hasEvent(payload.hook_event_name)) return null;
   const toolName = typeof payload.tool_name === 'string' && SAFE_TOOL_NAME.test(payload.tool_name) ? payload.tool_name : null;
   if (!toolName) return null;
   const mcp = MCP_TOOL.exec(toolName);
   const event = payload.hook_event_name;
-  const session = typeof payload.session_id === 'string' && payload.session_id.length <= 200 ? digest(payload.session_id) : null;
-  const invocation = typeof payload.tool_use_id === 'string' && payload.tool_use_id.length > 0 && payload.tool_use_id.length <= 200 ? digest(payload.tool_use_id) : null;
+  const session = typeof payload.session_id === 'string' && payload.session_id.length <= 200 ? keyedDigest(payload.session_id) : null;
+  const invocation = typeof payload.tool_use_id === 'string' && payload.tool_use_id.length > 0 && payload.tool_use_id.length <= 200 ? keyedDigest(payload.tool_use_id) : null;
   const source = mcp && payload.mcp_server && typeof payload.mcp_server === 'object' && typeof payload.mcp_server.source === 'string' && SAFE_SOURCE.test(payload.mcp_server.source) ? payload.mcp_server.source : null;
   let outcome = OUTCOME_BY_EVENT[event];
   if (event === 'PostToolUse' && responseFailed(payload.tool_response)) outcome = 'error';
@@ -79,10 +82,11 @@ function toRecord(payload, { now, fingerprint }) {
   return record;
 }
 
-/** Only whether an error-ish field is set, never what it says. */
+/** Only whether an error-ish field holds something, never what it says. An empty list or object is not an error. */
 function responseFailed(response) {
   if (!response || typeof response !== 'object') return false;
-  return Object.entries(response).some(([key, value]) => ERROR_FIELD.test(key) && Boolean(value));
+  const present = value => Array.isArray(value) ? value.length > 0 : value && typeof value === 'object' ? Object.keys(value).length > 0 : Boolean(value);
+  return Object.entries(response).some(([key, value]) => ERROR_FIELD.test(key) && present(value));
 }
 
 function ensureDir(home) { fs.mkdirSync(dir(home), { recursive: true, mode: 0o700 }); }
@@ -98,10 +102,21 @@ function append(home, record, retentionDays) {
   rotate(home, retentionDays);
 }
 
-/** Append a health counter line ({at, reason}); never throws. */
-function recordHealth(home, reason) {
+/** Append a health counter line ({at, reason, dropped?}); never throws. The file keeps its newest lines when it grows past HEALTH_BYTES. */
+function recordHealth(home, reason, extra = {}) {
   if (!HEALTH_REASONS.includes(reason)) return;
-  try { ensureDir(home); fs.appendFileSync(healthFile(home), JSON.stringify({ at: new Date().toISOString(), reason }) + '\n', { mode: 0o600 }); } catch { /* best effort */ }
+  try {
+    ensureDir(home);
+    const file = healthFile(home);
+    const line = JSON.stringify({ at: new Date().toISOString(), reason, ...(Number.isInteger(extra.dropped) ? { dropped: extra.dropped } : {}) }) + '\n';
+    fs.appendFileSync(file, line, { mode: 0o600 });
+    if (fs.statSync(file).size > HEALTH_BYTES) {
+      const kept = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-HEALTH_KEEP_LINES).join('\n') + '\n';
+      const temp = `${file}.${process.pid}.tmp`;
+      fs.writeFileSync(temp, kept, { mode: 0o600 });
+      fs.renameSync(temp, file);
+    }
+  } catch { /* best effort */ }
 }
 
 function withLock(home, fn) {
@@ -165,7 +180,12 @@ function rotate(home, retentionDays) {
     const segments = segmentFiles(home);
     for (const segment of segments) { const newest = lastLineAt(segment); if (newest !== null && newest < cutoff) { try { fs.unlinkSync(segment); } catch { /* gone */ } } }
     const remaining = segmentFiles(home);
-    for (const segment of remaining.slice(0, Math.max(0, remaining.length - MAX_SEGMENTS))) { try { fs.unlinkSync(segment); } catch { /* gone */ } }
+    let dropped = 0;
+    for (const segment of remaining.slice(0, Math.max(0, remaining.length - MAX_SEGMENTS))) {
+      try { dropped += fs.readFileSync(segment, 'utf8').split('\n').filter(Boolean).length; } catch { /* unreadable; counted as zero */ }
+      try { fs.unlinkSync(segment); } catch { /* gone */ }
+    }
+    if (dropped) recordHealth(home, 'segment_cap', { dropped });
   });
 }
 
@@ -220,10 +240,11 @@ const PRINT_CONFIG_NOTE = [
 ].join('\n');
 
 /** Entry point for every `boppi hook` invocation. Returns the exit code. */
-async function runHook(options, { fingerprint, settings }) {
+async function runHook(options, { fingerprint, keyedDigest, settings }) {
   if (options.install) {
+    // Exit 0 on purpose: a hook that exits 2 blocks the tool call Claude Code was about to make.
     process.stderr.write('hook --install requires your approval and is not available in this version. Run `boppi hook --print-config` and add the snippet to your Claude Code settings yourself.\n');
-    return 2;
+    return 0;
   }
   if (options.printConfig) {
     process.stdout.write(JSON.stringify(claudeCodeConfig(), null, 2) + '\n');
@@ -243,11 +264,11 @@ async function runHook(options, { fingerprint, settings }) {
     }
     let payload;
     try { payload = JSON.parse(raw); } catch { recordHealth(options.home, 'invalid_json'); return 0; }
-    const record = toRecord(payload, { now: new Date().toISOString(), fingerprint });
-    if (!record) { recordHealth(options.home, payload && OUTCOME_BY_EVENT[payload.hook_event_name] ? 'bad_tool_name' : 'unsupported_event'); return 0; }
+    const record = toRecord(payload, { now: new Date().toISOString(), fingerprint, keyedDigest });
+    if (!record) { recordHealth(options.home, payload && hasEvent(payload.hook_event_name) ? 'bad_tool_name' : 'unsupported_event'); return 0; }
     try { append(options.home, record, settings.retentionDays); } catch { recordHealth(options.home, 'write_failed'); }
   } catch { /* a hook must never fail the tool call it observes */ }
   return 0;
 }
 
-module.exports = { runHook, toRecord, eventsFile, healthFile, disabledFile, segmentFiles, storedFiles, append, rotate, forget, recordHealth, claudeCodeConfig, EVENT_KEYS, OUTCOME_BY_EVENT, HEALTH_REASONS, LINE_CAP, SCHEMA, SEGMENT_BYTES };
+module.exports = { runHook, toRecord, eventsFile, healthFile, disabledFile, segmentFiles, storedFiles, append, rotate, forget, recordHealth, claudeCodeConfig, EVENT_KEYS, OUTCOME_BY_EVENT, HEALTH_REASONS, LINE_CAP, SCHEMA, SEGMENT_BYTES, MAX_SEGMENTS, HEALTH_BYTES };

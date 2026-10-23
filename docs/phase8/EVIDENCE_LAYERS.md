@@ -21,16 +21,16 @@ Module: `src/cli/evidence.js`. Built in `performScan` after the graph, paths, pr
 
 - `configured`: `status: present`, the config path, the rubric bases found on its permissions (`configured`, `inferred`, `advertised`), permission and edge counts, first and last seen, `uncertainty` as one minus the server confidence, and `coverage` (`complete` for a full scan, `selected clients only` for `--only`, `one explicit file` for `--config`).
 - `advertised`: `none` (no stored discovery), `stale` (entry changed or expired, nothing used), or `usable` with the discovered time, the tool names, which mapped and which did not, and whether the list was partial.
-- `observed`: `not_monitored` (any client other than Claude Code), `no_hook_events` (nothing recorded on this machine), `none` (events exist, none for this server in the window), or `observed` with `calls`, `outcomes` by kind, `tools`, `sessions`, `firstAt`, `lastAt`, up to 50 `eventIds` (`session:invocation`), the window, and a `coverage` string that counts records, unreadable lines, and duplicates. The `uncertainty` text is fixed: an invocation says the client called the tool, not what it did; a call with no outcome is unknown.
+- `observed`: `not_monitored` (any client other than Claude Code), `no_hook_events` (nothing recorded on this machine), `none` (events exist, none for this server in the window), or `observed` with `calls`, `outcomes` by kind, `tools`, `sessions`, `firstAt`, `lastAt`, up to 50 `callKeys` (`session:invocation`, the pairing keys `boppi events --json` lists; `-` stands for a missing id), `reportedAs` (the exact names hooks used), the window, and a `coverage` string that counts records, unreadable lines, duplicates, and records dropped at the segment cap (then the window is partial and the oldest retained time is named). A fifth status, `ambiguous`, is used when two configured names would reach hooks as the same name; neither is credited. The `uncertainty` text is fixed: an invocation says the client called the tool, not what it did; a call with no outcome is unknown.
 - `hypothesis`: `not_available`.
 
 ### Observed matching rules
 
 - Only Claude Code is monitored (`MONITORED_CLIENTS`). A Cursor or Claude Desktop server never gets observed calls, even when a Claude Code hook reported the same server name (fixture E03, E20).
-- Events match a configured server by base name. A scope suffix the scan adds when two files hold the same name (`shellA (project)`) is stripped before matching, so both rows show the same calls (E16). Hooks report the server name, not the file it came from, so the scan cannot attribute a call to one of the two files.
+- Events match a configured server on the form Claude Code puts in tool names: characters outside `A-Za-z0-9_-` become `_`, so `my.server` meets `my_server` (E21). A scope suffix is stripped only when the scan itself added it because two files held the same name (`shellA (project)`, recorded as `renamed` on the discovery file), so both rows show the same calls (E16); a server literally named `x (project)` keeps its name and is never credited with `x`'s calls (E22). Two configured names that reach hooks identically are `ambiguous` and neither is credited (E23). Hooks report the server name, not the file it came from, so the scan cannot attribute a call to one of two files.
 - Calls are the pairs `boppi events` builds from `session:invocation`. A pre event without an invocation id is an unknown call and is never paired (E15). A duplicate delivery of the same pair is one call and is counted in coverage as a duplicate (E13). Torn lines are counted, not guessed (E14).
 - The window is 30 days back from the scan start. Older events do not count (E07).
-- `unmatchedObserved[]` lists every server name with calls in the window that is not in the current Claude Code configuration (removed since, or a project the scan did not cover) (E06, E20). Nothing is invented for it.
+- `unmatchedObserved[]` lists every server name with calls in the window that is not in the current Claude Code configuration (removed since, or a project the scan did not cover) (E06, E20). Nothing is invented for it. The terminal and HTML reports print one line for it under the MCP servers.
 - An explicit `--config` scan reads no events (E19); `--only` reads events but reports selected coverage (E17).
 
 ## Per-path layers
@@ -50,18 +50,18 @@ Closure is decided by the existing prediction engine, not by the layers. Removin
 
 ## Surfaces
 
-- Terminal: one `runtime:` line under each MCP SERVERS row (`not monitored`, `no hook events recorded`, `0 calls observed in the last 30 days`, or `observed N calls ... across S sessions, last <time>; an observed call shows the tool was invoked, not what it did`). Server names pass through `safeText`.
+- Terminal: one `runtime:` line under each MCP SERVERS row (`not monitored`, `no hook events recorded`, `0 calls observed in the last 30 days`, or `observed N calls ... across S sessions, last <time>; an observed call shows the tool was invoked, not what it did`). The whole line passes through `safeText`, and so does every name `boppi events` prints, because stored records are writable by the same user.
 - HTML report: the same line under each server.
 - JSON export: the whole `evidenceLayers` object.
 - `boppi push`: unchanged. No layer, event, or event id leaves the machine; the push envelope still says `runtime: not_observed`.
 
 ## Fixtures
 
-`test/verify-evidence-layers.js` builds 20 homes (`test/fixtures/evidence/cases.json`), writes real hook events through `hook.append`, stored discoveries through `discover.writeCache`, and history files, runs the real CLI with `--json`, and checks 123 assertions. The roadmap's acceptance list maps as follows.
+`test/verify-evidence-layers.js` builds 23 homes (`test/fixtures/evidence/cases.json`), writes real hook events through `hook.append`, stored discoveries through `discover.writeCache`, and history files, runs the real CLI with `--json`, and checks 143 assertions. The roadmap's acceptance list maps as follows.
 
 | Acceptance item | Fixtures |
 | --- | --- |
-| same-name servers on different machines or clients | E03, E16, E20 |
+| same-name servers on different machines or clients | E03, E16, E20, E21, E22, E23 |
 | concurrent sessions | E04 |
 | missing telemetry | E01, E05, E14, E15 |
 | old configurations | E06, E07 |

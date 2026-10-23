@@ -14,6 +14,8 @@ const hook = require('./hook');
 
 const OUTCOMES = Object.freeze(['ok', 'error', 'failed', 'interrupted', 'denied', 'unknown']);
 const FINAL = new Set(['ok', 'error', 'failed', 'interrupted', 'denied']);
+/** Stored records are same-user writable, so a planted control character must never reach the terminal. */
+const safe = value => String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?');
 
 /** Every record on disk within the window, oldest first, with torn-line and duplicate counts. */
 function readEvents(home, { sinceDays = 30, now = Date.now() } = {}) {
@@ -28,7 +30,7 @@ function readEvents(home, { sinceDays = 30, now = Date.now() } = {}) {
       if (!line) continue;
       let record;
       try { record = JSON.parse(line); } catch { torn++; continue; }
-      if (!record || typeof record !== 'object' || typeof record.at !== 'string' || typeof record.event !== 'string') { torn++; continue; }
+      if (!record || typeof record !== 'object' || typeof record.at !== 'string' || typeof record.event !== 'string' || Number.isNaN(Date.parse(record.at))) { torn++; continue; }
       if (Date.parse(record.at) < cutoff) { expired++; continue; }
       if (record.id && seen.has(record.id)) { duplicates++; continue; }
       if (record.id) seen.add(record.id);
@@ -41,10 +43,10 @@ function readEvents(home, { sinceDays = 30, now = Date.now() } = {}) {
   try {
     for (const line of fs.readFileSync(hook.healthFile(home), 'utf8').split('\n')) {
       if (!line) continue;
-      try { const entry = JSON.parse(line); if (Date.parse(entry.at) >= cutoff && hook.HEALTH_REASONS.includes(entry.reason)) health[entry.reason] = (health[entry.reason] || 0) + 1; } catch { torn++; }
+      try { const entry = JSON.parse(line); if (Date.parse(entry.at) >= cutoff && hook.HEALTH_REASONS.includes(entry.reason)) health[entry.reason] = (health[entry.reason] || 0) + (entry.reason === 'segment_cap' && Number.isInteger(entry.dropped) ? entry.dropped : 1); } catch { torn++; }
     }
   } catch { /* no health file */ }
-  return { records, torn, duplicates, expired, uncorrelated, health };
+  return { records, torn, duplicates, expired, uncorrelated, health, oldestAt: records.length ? records[0].at : null };
 }
 
 /** Pair invocations with outcomes. An invocation is one tool call seen by the client. */
@@ -93,10 +95,10 @@ function render(result, { sinceDays }) {
   if (!records.length) {
     lines.push('  no events recorded. Capture starts only after you add the snippet from `boppi hook --print-config` to your Claude Code settings.');
   } else {
-    lines.push(`  ${'server / tool'.padEnd(44)} ${'calls'.padStart(5)} ${OUTCOMES.map(o => o.padStart(11)).join('')}`);
+    lines.push(`  ${'server / tool'.padEnd(44)} ${'calls'.padStart(5)} ${OUTCOMES.map(o => o.padStart(12)).join('')}`);
     for (const row of rows) {
-      const name = `${row.kind === 'mcp' ? `${row.server}${row.source ? ` (${row.source})` : ''} / ` : ''}${row.tool}`.slice(0, 44);
-      lines.push(`  ${name.padEnd(44)} ${String(row.calls).padStart(5)} ${OUTCOMES.map(o => String(row[o] || 0).padStart(11)).join('')}`);
+      const name = safe(`${row.kind === 'mcp' ? `${row.server}${row.source ? ` (${row.source})` : ''} / ` : ''}${row.tool}`).slice(0, 44);
+      lines.push(`  ${name.padEnd(44)} ${String(row.calls).padStart(5)} ${OUTCOMES.map(o => String(row[o] || 0).padStart(12)).join('')}`);
     }
   }
   const gaps = [];
@@ -106,7 +108,10 @@ function render(result, { sinceDays }) {
   if (uncorrelated) gaps.push(`${uncorrelated} record${uncorrelated === 1 ? '' : 's'} without an invocation id (unsupported client version; cannot be paired)`);
   if (duplicates) gaps.push(`${duplicates} duplicate deliver${duplicates === 1 ? 'y' : 'ies'} ignored`);
   if (torn) gaps.push(`${torn} unreadable line${torn === 1 ? '' : 's'} (a hook was interrupted mid-write)`);
-  for (const [reason, count] of Object.entries(health)) gaps.push(`${count} payload${count === 1 ? '' : 's'} refused: ${reason.replace('_', ' ')}`);
+  for (const [reason, count] of Object.entries(health)) {
+    if (reason === 'segment_cap') gaps.push(`${count} record${count === 1 ? '' : 's'} dropped at the ${hook.MAX_SEGMENTS}-segment cap (the window is partial; oldest retained ${result.oldestAt || 'none'})`);
+    else gaps.push(`${count} payload${count === 1 ? '' : 's'} refused: ${reason.replace('_', ' ')}`);
+  }
   lines.push(gaps.length ? `  gaps: ${gaps.join('; ')}` : '  gaps: none');
   lines.push('  only Claude Code is monitored, and only the MCP tool calls its hooks report; other clients are not monitored. A reported call is not evidence of what the tool did to files or the network.');
   return lines.join('\n');

@@ -542,6 +542,86 @@
           "shellA"
         ]
       }
+    },
+    {
+      "id": "E21",
+      "title": "a configured name with a dot matches the underscore form Claude Code puts in tool names",
+      "clients": {
+        "claude-code": {
+          "my.server": "risky"
+        }
+      },
+      "events": [
+        {
+          "server": "my_server",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "observed": {
+          "claude-code/my.server": "observed"
+        },
+        "calls": {
+          "claude-code/my.server": 1
+        },
+        "unmatchedObserved": []
+      }
+    },
+    {
+      "id": "E22",
+      "title": "a server literally named with a scope suffix is not credited with the base name's calls",
+      "clients": {
+        "claude-code": {
+          "x": "risky",
+          "x (project)": "plain"
+        }
+      },
+      "events": [
+        {
+          "server": "x",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "observed": {
+          "claude-code/x": "observed",
+          "claude-code/x (project)": "none"
+        },
+        "calls": {
+          "claude-code/x": 1
+        }
+      }
+    },
+    {
+      "id": "E23",
+      "title": "two configured names that hooks report identically are ambiguous and neither is credited",
+      "clients": {
+        "claude-code": {
+          "my.server": "risky",
+          "my_server": "plain"
+        }
+      },
+      "events": [
+        {
+          "server": "my_server",
+          "tool": "run",
+          "session": "s1",
+          "invocation": "i1",
+          "outcome": "ok"
+        }
+      ],
+      "expect": {
+        "ambiguous": [
+          "claude-code/my.server",
+          "claude-code/my_server"
+        ]
+      }
     }
   ]
 }

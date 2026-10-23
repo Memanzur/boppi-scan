@@ -70,6 +70,45 @@ const cliHook = (home, input, args = []) => spawnSync(process.execPath, [CLI, 'h
   ok('oversized, invalid JSON, unsupported event, and bad tool name are counted as refused payloads, with no content', health.oversized === 1 && health.invalid_json === 1 && health.unsupported_event === 1 && health.bad_tool_name === 1 && !fs.readFileSync(hook.healthFile(home), 'utf8').includes('CANARY'));
   ok('refused payloads add no event record', hook.segmentFiles(home).length === seg);
 
+  section('review fixes: prototype keys, empty error fields, bad timestamps, bad flags, segment cap, health cap');
+  const fp = value => `fp-${value.length}`;
+  ok('a prototype key as the event name is refused, not recorded', ['constructor', '__proto__', 'toString', 'hasOwnProperty'].every(name => hook.toRecord({ hook_event_name: name, tool_name: 'mcp__github__delete_repo' }, { now: new Date().toISOString(), fingerprint: fp }) === null));
+  const protoBefore = events.readEvents(home, { sinceDays: 3650 }).health.unsupported_event || 0;
+  cliHook(home, JSON.stringify({ hook_event_name: 'constructor', tool_name: 'mcp__github__delete_repo' }));
+  ok('through the command it counts as an unsupported event', (events.readEvents(home, { sinceDays: 3650 }).health.unsupported_event || 0) === protoBefore + 1);
+  const outcomeOf = response => hook.toRecord({ hook_event_name: 'PostToolUse', tool_name: 'mcp__a__b', tool_response: response }, { now: new Date().toISOString(), fingerprint: fp }).outcome;
+  ok('an empty errors list or empty error object is ok; a non-empty one is error', outcomeOf({ errors: [] }) === 'ok' && outcomeOf({ error: {} }) === 'ok' && outcomeOf({ errors: ['x'] }) === 'error' && outcomeOf({ isError: true }) === 'error' && outcomeOf({ content: [] }) === 'ok');
+  const keyedA = hook.toRecord({ hook_event_name: 'PreToolUse', tool_name: 'mcp__a__b', session_id: 'same', tool_use_id: 'toolu_1' }, { now: new Date().toISOString(), fingerprint: fp, keyedDigest: v => `k1-${v}` });
+  const keyedB = hook.toRecord({ hook_event_name: 'PreToolUse', tool_name: 'mcp__a__b', session_id: 'same', tool_use_id: 'toolu_1' }, { now: new Date().toISOString(), fingerprint: fp, keyedDigest: v => `k2-${v}` });
+  ok('session and invocation ids are keyed digests, so two machines never store the same hash for one session', keyedA.session !== keyedB.session && keyedA.invocation !== keyedB.invocation && keyedA.session === 'k1-same');
+  const badAtHome = path.join(root, 'bad-at');
+  fs.mkdirSync(badAtHome, { recursive: true });
+  hook.append(badAtHome, { schema: 2, id: 'bad-at', at: 'garbage', event: 'PreToolUse', kind: 'mcp', server: 's', tool: 't', session: 'x', invocation: 'i', outcome: 'invoked' }, 3650);
+  hook.append(badAtHome, { schema: 2, id: 'good-at', at: new Date().toISOString(), event: 'PreToolUse', kind: 'mcp', server: 's', tool: 't', session: 'x', invocation: 'j', outcome: 'invoked' }, 3650);
+  const badAt = events.readEvents(badAtHome, { sinceDays: 1 });
+  ok('a record whose time does not parse is unreadable, not a call that never expires', badAt.torn === 1 && badAt.records.length === 1);
+  const badFlags = spawnSync(process.execPath, [CLI, 'hook', '--bogus'], { encoding: 'utf8', env: { ...process.env, HOME: path.join(root, 'flags-home') } });
+  ok('a mistyped hook flag exits 0 (a hook exiting 2 would block the tool call) and leaves a health line', badFlags.status === 0 && /unknown|unexpected|bogus/i.test(badFlags.stderr) && fs.existsSync(path.join(root, 'flags-home', '.boppi', 'events.health.jsonl')) && fs.readFileSync(path.join(root, 'flags-home', '.boppi', 'events.health.jsonl'), 'utf8').includes('bad_flags'));
+  const capHome = path.join(root, 'cap');
+  fs.mkdirSync(capHome, { recursive: true });
+  const capRun = spawnSync(process.execPath, ['-e', `
+    const hook = require(${JSON.stringify(path.join(__dirname, '..', 'src', 'cli', 'hook.js'))});
+    for (let i = 0; i < 2000; i++) hook.append(${JSON.stringify(capHome)}, { schema: 2, id: 'id' + i, at: new Date().toISOString(), event: 'PreToolUse', kind: 'mcp', server: 's', tool: 't', session: 'x', invocation: 'i' + i, outcome: 'invoked' }, 3650);
+  `], { encoding: 'utf8', env: { ...process.env, BOPPI_HOOK_SEGMENT_BYTES: '4000' } });
+  const capRead = events.readEvents(capHome, { sinceDays: 3650 });
+  ok(`records dropped at the segment cap are counted: ${capRead.records.length} kept, ${capRead.health.segment_cap || 0} dropped`, capRun.status === 0 && capRead.records.length < 2000 && capRead.records.length + capRead.health.segment_cap === 2000 && hook.segmentFiles(capHome).length <= hook.MAX_SEGMENTS);
+  ok('boppi events names the partial window and the oldest retained record', /dropped at the 16-segment cap .*oldest retained 20/.test(events.render(capRead, { sinceDays: 3650 })));
+  const healthHome = path.join(root, 'health');
+  fs.mkdirSync(healthHome, { recursive: true });
+  for (let i = 0; i < 6000; i++) hook.recordHealth(healthHome, 'invalid_json');
+  ok('the health file is capped (newest lines kept) instead of growing without bound', fs.statSync(hook.healthFile(healthHome)).size <= hook.HEALTH_BYTES && fs.readFileSync(hook.healthFile(healthHome), 'utf8').split('\n').filter(Boolean).length >= 2000);
+  const escHome = path.join(root, 'esc');
+  fs.mkdirSync(escHome, { recursive: true });
+  const escServer = 'ok\u001b]0;pwned\u0007';
+  hook.append(escHome, { schema: 2, id: 'esc', at: new Date().toISOString(), event: 'PreToolUse', kind: 'mcp', server: escServer, tool: 't', session: 'x', invocation: 'i', outcome: 'invoked' }, 3650);
+  const escEvents = spawnSync(process.execPath, [CLI, 'events', '--home', escHome], { encoding: 'utf8' });
+  ok('an escape sequence planted in a stored record never reaches the terminal', !/\u001b/.test(escEvents.stdout + escEvents.stderr));
+
   section('disable, enable, forget');
   const payload = JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'mcp__srv9__t', session_id: 's', tool_use_id: 'toolu_live', cwd: '/x' });
   const beforeDisable = events.readEvents(home, { sinceDays: 3650 }).records.length;

@@ -58,7 +58,7 @@ section('CLI wiring');
 const shown = spawnSync(process.execPath, [cli, 'hook', '--print-config', '--home', home], { encoding: 'utf8' });
 ok('hook config is printable without installing', shown.status === 0 && shown.stdout.includes('PostToolUse') && shown.stderr.includes('does not install it'));
 const installed = spawnSync(process.execPath, [cli, 'hook', '--install', '--home', home], { encoding: 'utf8' });
-ok('installation is explicitly refused', installed.status === 2 && installed.stderr.includes('requires your approval'));
+ok('installation is explicitly refused, and the hook still exits 0 so no tool call is blocked', installed.status === 0 && installed.stderr.includes('requires your approval'));
 const shownSettings = spawnSync(process.execPath, [cli, 'settings', '--home', home], { encoding: 'utf8' });
 ok('settings command is local and readable', shownSettings.status === 0 && shownSettings.stdout.includes('cloudSync'));
 ok('no hook command installs Claude settings', !fs.existsSync(path.join(home, '.claude', 'settings.json')));

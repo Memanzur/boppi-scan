@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Evidence layers (P8-1): 20 mixed-evidence fixtures through the real scan. Every observed claim links to stored events, layers never merge, alternate routes never read as closure, and versions are visible. */
+/** Evidence layers (P8-1): 23 mixed-evidence fixtures through the real scan. Every observed claim links to stored events, layers never merge, alternate routes never read as closure, and versions are visible. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -76,7 +76,7 @@ function runScan(home, testCase, jsonFile) {
     const byKey = new Map(layers.servers.map(s => [`${s.client}/${s.name}`, s]));
     const e = testCase.expect;
     ok('every server carries the four layers and every path is possible reach from the configured layer', layers.servers.every(s => ['configured', 'advertised', 'observed', 'hypothesis'].every(k => s.layers[k] && s.layers[k].status)) && layers.paths.every(p => p.layers.configured.status === 'possible_reach'));
-    ok('every observed claim links to stored events and never asserts effects', layers.servers.filter(s => s.layers.observed.status === 'observed').every(s => s.layers.observed.eventIds.length > 0 && /not what it did/.test(s.layers.observed.uncertainty)));
+    ok('every observed claim links to stored events and never asserts effects', layers.servers.filter(s => s.layers.observed.status === 'observed').every(s => s.layers.observed.callKeys.length > 0 && s.layers.observed.callKeys.every(k => /^[0-9a-f-]+:[0-9a-f-]+$/.test(k)) && /not what it did/.test(s.layers.observed.uncertainty)));
     ok('the layers note says they never merge', /never merge/.test(layers.note));
     for (const [key, status] of Object.entries(e.observed || {})) ok(`${key} observed layer is ${status}`, byKey.get(key) && byKey.get(key).layers.observed.status === status);
     for (const [key, n] of Object.entries(e.calls || {})) ok(`${key} has ${n} observed calls`, byKey.get(key) && (byKey.get(key).layers.observed.calls || 0) === n);
@@ -98,6 +98,7 @@ function runScan(home, testCase, jsonFile) {
       ok('the old baseline stays in history with its engine version and the new entry carries the current one', history.length === 2 && history[0].engineVersion === testCase.history.engineVersion && history[1].engineVersion === models.ENGINE_VERSION);
     }
     if (e.observedByBaseName) for (const [name, status] of Object.entries(e.observedByBaseName)) ok(`every server named ${name} (any scope suffix) is ${status}`, layers.servers.filter(s => s.name.startsWith(name)).length >= 2 && layers.servers.filter(s => s.name.startsWith(name)).every(s => s.layers.observed.status === status));
+    if (e.ambiguous) for (const key of e.ambiguous) ok(`${key} observed layer is ambiguous and credits no calls`, byKey.get(key) && byKey.get(key).layers.observed.status === 'ambiguous' && byKey.get(key).layers.observed.calls === 0);
     if (e.alternateRoute) {
       const prediction = (exported.predictions || []).find(p => p.client && p.client.key === e.alternateRoute.client && p.edit && p.edit.action === 'remove_server' && p.edit.server === e.alternateRoute.remove);
       ok(`removing ${e.alternateRoute.remove} while an equivalent server remains closes no path (predictedEliminated empty, surviving keys kept)`, prediction && prediction.predictedEliminated.length === 0 && prediction.predictedSurviving.length > 0);

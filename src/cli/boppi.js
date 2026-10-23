@@ -376,7 +376,7 @@ function loadFingerprintKey(home) {
   } catch (_) { /* first run */ }
   const key = crypto.randomBytes(32).toString('hex');
   try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     fs.writeFileSync(file, key + '\n', { mode: 0o600 });
   } catch (_) { /* read-only home: the key lives for this process only */ }
   return key;
@@ -411,6 +411,7 @@ function discover(options) {
             const key = client.mergedServers[name] ? `${name} (${file.scope})` : name;
             client.mergedServers[key] = server;
             entry.servers.push(key);
+            if (key !== name) (entry.renamed = entry.renamed || []).push({ from: name, to: key });
           }
         } catch (error) {
           entry.status = 'unreadable';
@@ -862,6 +863,8 @@ async function run(argv) {
   let options;
   try { options = parseArgs(argv); } catch (error) {
     process.stderr.write(`${error.message}\n\n${usage()}\n`);
+    // A hook that exits 2 blocks the tool call Claude Code was about to make, so a mistyped snippet is a health line, not a blocked tool.
+    if (argv[0] === 'hook') { hook.recordHealth(os.homedir(), 'bad_flags'); return 0; }
     return 2;
   }
   if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
@@ -877,7 +880,7 @@ async function run(argv) {
       return 2;
     }
   }
-  if (options.command === 'hook') return hook.runHook(options, { fingerprint: value => crypto.createHmac('sha256', loadFingerprintKey(options.home)).update(value).digest('hex').slice(0, 16), settings: options.install || options.printConfig ? settingsModule.defaults() : settingsModule.load(options.home) });
+  if (options.command === 'hook') return hook.runHook(options, { fingerprint: value => crypto.createHmac('sha256', loadFingerprintKey(options.home)).update(value).digest('hex').slice(0, 16), keyedDigest: value => crypto.createHmac('sha256', loadFingerprintKey(options.home)).update(`id|${value}`).digest('hex').slice(0, 32), settings: options.install || options.printConfig ? settingsModule.defaults() : settingsModule.load(options.home) });
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);

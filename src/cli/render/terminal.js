@@ -31,7 +31,7 @@ function traversalSentence(traversal) {
 
 function observedSentence(report, server) {
   const layers = report.evidenceLayers && report.evidenceLayers.servers ? report.evidenceLayers.servers.find(s => s.serverId === server.id) : null;
-  return layers ? evidence.observedSentence(layers) : null;
+  return layers ? safeText(evidence.observedSentence(layers)) : null;
 }
 
 function advertisedSentence(report, server) {
@@ -230,6 +230,8 @@ function renderReport(report, options = {}) {
       const observed = observedSentence(report, server);
       if (observed) out(s.dim(`      ${observed}`));
     }
+    const unmatched = report.evidenceLayers ? evidence.unmatchedSentence(report.evidenceLayers) : null;
+    if (unmatched) out('  ', s.dim(safeText(unmatched)));
     const unknownServers = recognition.unrecognized(report.recognition);
     if (unknownServers.length) {
       out('');

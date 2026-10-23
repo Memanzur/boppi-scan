@@ -15,6 +15,7 @@ const { buildGraphView, capabilityLabel } = require('./graphData');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
 const terminal = require('./terminal');
+const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
@@ -196,6 +197,8 @@ function renderHtml(report, options = {}) {
     const detail = [scoped ? `file scope: ${esc(scoped[1])}` : '', reach.length ? `reach through tools: ${esc(reach.join(', '))}` : '', advertised ? esc(advertised) : '', observed ? esc(observed) : ''].filter(Boolean).join('<br>');
     return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}${detail ? `<div class="muted small">${detail}</div>` : ''}</td><td class="small">${recognitionCell(recognitionById.get(server.id))}</td></tr>`;
   }).join('');
+  const unmatchedObserved = report.evidenceLayers ? evidence.unmatchedSentence(report.evidenceLayers) : null;
+  const unmatchedRow = unmatchedObserved ? `<tr><td colspan="4" class="muted small">${esc(unmatchedObserved)}</td></tr>` : '';
   const unknownServers = recognition.unrecognized(report.recognition);
   const loose = recognition.unpinned(report.recognition);
   const movable = recognition.tagged(report.recognition);
@@ -256,7 +259,7 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
   <h2 id="inventory">Discovered MCP servers and capabilities</h2>
   <div class="table-scroll"><table>
     <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th><th>Recognition</th></tr></thead>
-    <tbody>${serverRows || '<tr><td colspan="4" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}</tbody>
+    <tbody>${serverRows || '<tr><td colspan="4" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}${unmatchedRow}</tbody>
   </table></div>
 ${unknownServers.length ? `
   <h2 id="unrecognized">Unrecognized servers (${unknownServers.length})</h2>

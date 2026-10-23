@@ -15,22 +15,40 @@ const riskRubric = require('../engine/riskRubric');
 
 const MONITORED_CLIENTS = Object.freeze(['claude-code']);
 const OUTCOMES = Object.freeze(['ok', 'error', 'failed', 'interrupted', 'denied', 'unknown']);
-const baseName = name => String(name || '').replace(/ \((user|project|local|global|explicit)\)$/, '');
+const SCOPE_SUFFIX = / \((user|project|local|global|explicit)\)$/;
+const baseName = name => String(name || '').replace(SCOPE_SUFFIX, '');
+/** Claude Code builds tool names as mcp__<server>__<tool> from a charset-limited server name; compare on that form so `my.server` meets `my_server`. */
+const hookName = name => String(name || '').replace(/[^A-Za-z0-9_-]/g, '_');
+
+/** Names the scan itself suffixed because two files of one client held the same server name (never a name the user typed). */
+function renamedByScan(scan) {
+  const renamed = new Map();
+  for (const client of (scan.discovery && scan.discovery.clients) || []) {
+    for (const file of client.files || []) for (const r of file.renamed || []) renamed.set(`${client.clientKey}/${r.to}`, r.from);
+  }
+  return renamed;
+}
+
+/** The name hooks would report for a configured server: the scan's suffix removed only when the scan added it, then the hook charset. */
+function configuredHookName(clientKey, name, renamed) {
+  return hookName(renamed.get(`${clientKey}/${name}`) || name);
+}
 
 /** Observed calls per server base name from the events timeline (calls already paired by session and invocation). */
 function observedIndex(calls) {
   const index = new Map();
   for (const call of calls || []) {
     if (call.kind !== 'mcp' || !call.server) continue;
-    const row = index.get(call.server) || { calls: 0, outcomes: Object.fromEntries(OUTCOMES.map(o => [o, 0])), firstAt: call.at, lastAt: call.at, sessions: new Set(), eventIds: [], tools: new Set() };
+    const row = index.get(hookName(call.server)) || { calls: 0, outcomes: Object.fromEntries(OUTCOMES.map(o => [o, 0])), firstAt: call.at, lastAt: call.at, sessions: new Set(), callKeys: [], tools: new Set(), reportedAs: new Set() };
+    row.reportedAs.add(call.server);
     row.calls++;
     row.outcomes[call.outcome] = (row.outcomes[call.outcome] || 0) + 1;
     if (call.at < row.firstAt) row.firstAt = call.at;
     if (call.at > row.lastAt) row.lastAt = call.at;
     if (call.session) row.sessions.add(call.session);
     if (call.tool) row.tools.add(call.tool);
-    if (row.eventIds.length < 50) row.eventIds.push(`${call.session || '-'}:${call.invocation || '-'}`);
-    index.set(call.server, row);
+    if (row.callKeys.length < 50) row.callKeys.push(`${call.session || '-'}:${call.invocation || '-'}`);
+    index.set(hookName(call.server), row);
   }
   return index;
 }
@@ -62,11 +80,14 @@ function advertisedLayer(scan, clientKey, server) {
   return { status: 'usable', source: 'consented discovery', discoveredAt: advertised.discoveredAt, tools: advertised.tools, mapped: advertised.mapped, unmapped: advertised.unmapped, partial: !!advertised.partial, coverage: advertised.partial ? 'partial list' : 'full list', uncertainty: 'tool names only; what each tool does was not verified' };
 }
 
-function observedLayer({ clientKey, server, index, events, window }) {
+function observedLayer({ clientKey, server, index, events, window, renamed, ambiguous }) {
   if (!MONITORED_CLIENTS.includes(clientKey)) return { status: 'not_monitored', source: 'none', coverage: 'none', note: `${clientKey} has no supported hook; only Claude Code is monitored` };
   if (!events) return { status: 'no_hook_events', source: 'Claude Code hooks', coverage: 'none', note: 'no hook events recorded on this machine; add the snippet from boppi hook --print-config to observe calls' };
-  const row = index.get(baseName(server.name));
-  const base = { source: 'Claude Code hooks', coverage: `${window.sinceDays}-day window, ${events.records.length} records, ${events.torn} unreadable, ${events.duplicates} duplicate`, window };
+  const matchName = configuredHookName(clientKey, server.name, renamed);
+  const dropped = events.health && events.health.segment_cap ? `, ${events.health.segment_cap} dropped at the segment cap (partial window, oldest retained ${events.oldestAt || 'none'})` : '';
+  const base = { source: 'Claude Code hooks', matchName, coverage: `${window.sinceDays}-day window, ${events.records.length} records, ${events.torn} unreadable, ${events.duplicates} duplicate${dropped}`, window };
+  if (ambiguous.has(matchName)) return { ...base, status: 'ambiguous', calls: 0, note: `more than one configured server reports to hooks as ${matchName}; calls cannot be attributed to one of them` };
+  const row = index.get(matchName);
   if (!row) return { ...base, status: 'none', calls: 0, note: 'no invocation of this server was reported in the window; hooks only see Claude Code calls' };
   return {
     ...base,
@@ -77,7 +98,8 @@ function observedLayer({ clientKey, server, index, events, window }) {
     sessions: row.sessions.size,
     firstAt: row.firstAt,
     lastAt: row.lastAt,
-    eventIds: row.eventIds,
+    callKeys: row.callKeys,
+    reportedAs: [...row.reportedAs].sort(),
     uncertainty: 'an invocation says the client called the tool, not what it did to files or the network; a call with no outcome is unknown',
   };
 }
@@ -88,6 +110,16 @@ function layersFor(scan, { events = null, sinceDays = 30 } = {}) {
   const window = { sinceDays, to: scan.startedAt };
   const calls = events ? events.calls : [];
   const index = observedIndex(calls);
+  const renamed = renamedByScan(scan);
+  const matchCounts = new Map();
+  for (const server of scan.inventory.mcpServers || []) {
+    const clientKey = clientByAgent.get(server.agentId) || null;
+    if (!clientKey || !MONITORED_CLIENTS.includes(clientKey)) continue;
+    const name = configuredHookName(clientKey, server.name, renamed);
+    matchCounts.set(name, (matchCounts.get(name) || 0) + 1);
+  }
+  // Two configured names that hooks would report identically, other than a scan-added scope duplicate of one name, cannot be told apart.
+  const ambiguous = new Set([...matchCounts.entries()].filter(([name, count]) => count > [...renamed.entries()].filter(([key, from]) => hookName(from) === name).length + 1).map(([name]) => name));
   const servers = (scan.inventory.mcpServers || []).map(server => {
     const clientKey = clientByAgent.get(server.agentId) || null;
     return {
@@ -98,14 +130,14 @@ function layersFor(scan, { events = null, sinceDays = 30 } = {}) {
       layers: {
         configured: configuredLayer(scan, server),
         advertised: advertisedLayer(scan, clientKey, server),
-        observed: observedLayer({ clientKey, server, index, events, window }),
+        observed: observedLayer({ clientKey, server, index, events, window, renamed, ambiguous }),
         hypothesis: { status: 'not_available', source: 'none', coverage: 'none', note: 'no prompt or content analysis is enabled (Phase 7 is a document only)' },
       },
     };
   });
   const byId = new Map(servers.map(s => [s.serverId, s]));
-  const configuredNames = new Set(servers.filter(s => s.client && MONITORED_CLIENTS.includes(s.client)).map(s => baseName(s.name)));
-  const unmatchedObserved = [...index.entries()].filter(([name]) => !configuredNames.has(name)).map(([name, row]) => ({ server: name, calls: row.calls, lastAt: row.lastAt, note: 'calls were reported for a server that is not in the current Claude Code configuration (removed since, or a project the scan did not cover)' }));
+  const configuredNames = new Set(servers.filter(s => s.client && MONITORED_CLIENTS.includes(s.client)).map(s => s.layers.observed.matchName).filter(Boolean));
+  const unmatchedObserved = [...index.entries()].filter(([name]) => !configuredNames.has(name)).map(([name, row]) => ({ server: [...row.reportedAs].sort().join(', '), calls: row.calls, lastAt: row.lastAt, note: 'calls were reported for a server that is not in the current Claude Code configuration (removed since, or a project the scan did not cover)' }));
   const paths = (scan.paths || []).map(p => {
     const serverIds = (p.nodes || []).filter(n => n.entityType === 'mcp_server').map(n => n.entityId || n.id).filter(id => byId.has(id));
     const invoked = serverIds.map(id => byId.get(id)).filter(s => s.layers.observed.status === 'observed').map(s => ({ serverId: s.serverId, name: s.name, calls: s.layers.observed.calls, lastAt: s.layers.observed.lastAt }));
@@ -147,9 +179,18 @@ function observedSentence(serverLayers) {
   const o = serverLayers.layers.observed;
   if (o.status === 'not_monitored') return `runtime: not monitored (only Claude Code hooks are supported)`;
   if (o.status === 'no_hook_events') return 'runtime: no hook events recorded (add the snippet from boppi hook --print-config to observe calls)';
+  if (o.status === 'ambiguous') return `runtime: calls cannot be attributed (${o.note})`;
   if (o.status === 'none') return `runtime: 0 calls observed in the last ${o.window.sinceDays} days`;
   const parts = OUTCOMES.filter(k => o.outcomes[k]).map(k => `${o.outcomes[k]} ${k}`);
   return `runtime: observed ${o.calls} call${o.calls === 1 ? '' : 's'} in the last ${o.window.sinceDays} days (${parts.join(', ')}) across ${o.sessions} session${o.sessions === 1 ? '' : 's'}, last ${o.lastAt}; an observed call shows the tool was invoked, not what it did`;
 }
 
-module.exports = { MONITORED_CLIENTS, OUTCOMES, baseName, observedIndex, layersFor, observedSentence };
+/** One terminal line for calls that matched no configured server, or null. */
+function unmatchedSentence(layers) {
+  const rows = (layers && layers.unmatchedObserved) || [];
+  if (!rows.length) return null;
+  const total = rows.reduce((n, r) => n + r.calls, 0);
+  return `runtime: ${total} call${total === 1 ? '' : 's'} reported by Claude Code hooks for ${rows.length} server${rows.length === 1 ? '' : 's'} not in the current configuration (${rows.map(r => r.server).join(', ')}); removed since, or a project this scan did not cover`;
+}
+
+module.exports = { MONITORED_CLIENTS, OUTCOMES, baseName, hookName, observedIndex, layersFor, observedSentence, unmatchedSentence };
