@@ -1,0 +1,551 @@
+{
+  "initialize": {
+    "accepted": true,
+    "protocolVersion": "2025-11-25",
+    "serverInfo": {
+      "name": "paged-fixture",
+      "version": "1.0.0",
+      "title": null
+    },
+    "toolsCapability": true,
+    "listChanged": false
+  },
+  "list": {
+    "tools": [
+      {
+        "name": "fixture_tool_01",
+        "title": null,
+        "description": "Fixture tool fixture_tool_01",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_02",
+        "title": null,
+        "description": "Fixture tool fixture_tool_02",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_03",
+        "title": null,
+        "description": "Fixture tool fixture_tool_03",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_04",
+        "title": null,
+        "description": "Fixture tool fixture_tool_04",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_05",
+        "title": null,
+        "description": "Fixture tool fixture_tool_05",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_06",
+        "title": null,
+        "description": "Fixture tool fixture_tool_06",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_07",
+        "title": null,
+        "description": "Fixture tool fixture_tool_07",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_08",
+        "title": null,
+        "description": "Fixture tool fixture_tool_08",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_09",
+        "title": null,
+        "description": "Fixture tool fixture_tool_09",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_10",
+        "title": null,
+        "description": "Fixture tool fixture_tool_10",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_11",
+        "title": null,
+        "description": "Fixture tool fixture_tool_11",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_12",
+        "title": null,
+        "description": "Fixture tool fixture_tool_12",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_13",
+        "title": null,
+        "description": "Fixture tool fixture_tool_13",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_14",
+        "title": null,
+        "description": "Fixture tool fixture_tool_14",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_15",
+        "title": null,
+        "description": "Fixture tool fixture_tool_15",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_16",
+        "title": null,
+        "description": "Fixture tool fixture_tool_16",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_17",
+        "title": null,
+        "description": "Fixture tool fixture_tool_17",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_18",
+        "title": null,
+        "description": "Fixture tool fixture_tool_18",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_19",
+        "title": null,
+        "description": "Fixture tool fixture_tool_19",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_20",
+        "title": null,
+        "description": "Fixture tool fixture_tool_20",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_21",
+        "title": null,
+        "description": "Fixture tool fixture_tool_21",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_22",
+        "title": null,
+        "description": "Fixture tool fixture_tool_22",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_23",
+        "title": null,
+        "description": "Fixture tool fixture_tool_23",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_24",
+        "title": null,
+        "description": "Fixture tool fixture_tool_24",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_25",
+        "title": null,
+        "description": "Fixture tool fixture_tool_25",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_26",
+        "title": null,
+        "description": "Fixture tool fixture_tool_26",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_27",
+        "title": null,
+        "description": "Fixture tool fixture_tool_27",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_28",
+        "title": null,
+        "description": "Fixture tool fixture_tool_28",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_29",
+        "title": null,
+        "description": "Fixture tool fixture_tool_29",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_30",
+        "title": null,
+        "description": "Fixture tool fixture_tool_30",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_31",
+        "title": null,
+        "description": "Fixture tool fixture_tool_31",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_32",
+        "title": null,
+        "description": "Fixture tool fixture_tool_32",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_33",
+        "title": null,
+        "description": "Fixture tool fixture_tool_33",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_34",
+        "title": null,
+        "description": "Fixture tool fixture_tool_34",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_35",
+        "title": null,
+        "description": "Fixture tool fixture_tool_35",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_36",
+        "title": null,
+        "description": "Fixture tool fixture_tool_36",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_37",
+        "title": null,
+        "description": "Fixture tool fixture_tool_37",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "fixture_tool_38",
+        "title": null,
+        "description": "Fixture tool fixture_tool_38",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "get_file_contents",
+        "title": null,
+        "description": "Fixture tool get_file_contents",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "push_files",
+        "title": null,
+        "description": "Fixture tool push_files",
+        "inputSchemaValid": true,
+        "parameterCount": 2,
+        "parameterHints": [
+          "path"
+        ],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      }
+    ],
+    "rejected": [],
+    "counts": {
+      "pages": 3,
+      "received": 40,
+      "kept": 40,
+      "rejected": 0,
+      "duplicates": 0
+    },
+    "partial": false,
+    "partialReason": null
+  },
+  "notifications": [],
+  "listError": null,
+  "oversizedLines": 0,
+  "ignoredLines": 0
+}

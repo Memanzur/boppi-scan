@@ -1,0 +1,30 @@
+{
+  "initialize": {
+    "accepted": true,
+    "protocolVersion": "2025-11-25",
+    "serverInfo": {
+      "name": "no-tools-fixture",
+      "version": "1.0.0",
+      "title": null
+    },
+    "toolsCapability": true,
+    "listChanged": false
+  },
+  "list": {
+    "tools": [],
+    "rejected": [],
+    "counts": {
+      "pages": 1,
+      "received": 0,
+      "kept": 0,
+      "rejected": 0,
+      "duplicates": 0
+    },
+    "partial": false,
+    "partialReason": null
+  },
+  "notifications": [],
+  "listError": null,
+  "oversizedLines": 0,
+  "ignoredLines": 0
+}

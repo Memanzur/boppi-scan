@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Every command except a real push must run with no socket, DNS lookup, or fetch. Proven by preloading hooks that record and refuse each attempt. */
+/** Every command except a real push must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -22,6 +22,8 @@ dns.lookup = function () { refuse('dns.lookup'); };
 if (dns.promises) dns.promises.lookup = async function () { refuse('dns.promises.lookup'); };
 for (const mod of ['http', 'https']) { const m = require(mod); m.request = function () { refuse(mod + '.request'); }; m.get = function () { refuse(mod + '.get'); }; }
 globalThis.fetch = async function () { refuse('fetch'); };
+const cp = require('child_process');
+for (const fn of ['spawn', 'exec', 'execFile', 'fork', 'spawnSync', 'execSync', 'execFileSync']) cp[fn] = function () { refuse('child_process.' + fn); };
 `;
 
 function makeHome(root) {

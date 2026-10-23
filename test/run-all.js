@@ -28,6 +28,7 @@ const SUITES = [
   'verify-policy-sarif.js',
   'verify-interactive-report.js',
   'verify-rubric-corpus.js',
+  'verify-discovery-fixtures.js',
 ];
 
 let failures = 0;

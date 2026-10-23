@@ -1,0 +1,76 @@
+{
+  "initialize": {
+    "accepted": true,
+    "protocolVersion": "2025-11-25",
+    "serverInfo": {
+      "name": "malformed-fixture",
+      "version": "1.0.0",
+      "title": null
+    },
+    "toolsCapability": true,
+    "listChanged": false
+  },
+  "list": {
+    "tools": [
+      {
+        "name": "git_diff",
+        "title": null,
+        "description": "Fixture tool git_diff",
+        "inputSchemaValid": true,
+        "parameterCount": 0,
+        "parameterHints": [],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false,
+        "duplicate": true
+      },
+      {
+        "name": "read_file",
+        "title": null,
+        "description": "Fixture tool read_file",
+        "inputSchemaValid": false,
+        "parameterCount": 0,
+        "parameterHints": [],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "search_code",
+        "title": null,
+        "description": "Fixture tool search_code",
+        "inputSchemaValid": false,
+        "parameterCount": 0,
+        "parameterHints": [],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      }
+    ],
+    "rejected": [
+      {
+        "reason": "tool name is not 1 to 128 characters of letters, digits, underscore, hyphen, dot",
+        "name": "a tool name with spaces and commas, whic…"
+      },
+      {
+        "reason": "tool has no name"
+      },
+      {
+        "reason": "tool is not an object"
+      }
+    ],
+    "counts": {
+      "pages": 1,
+      "received": 7,
+      "kept": 3,
+      "rejected": 3,
+      "duplicates": 1
+    },
+    "partial": false,
+    "partialReason": null
+  },
+  "notifications": [],
+  "listError": null,
+  "oversizedLines": 0,
+  "ignoredLines": 2
+}

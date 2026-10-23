@@ -1,0 +1,56 @@
+{
+  "initialize": {
+    "accepted": true,
+    "protocolVersion": "2025-11-25",
+    "serverInfo": {
+      "name": "list-changed-fixture",
+      "version": "1.0.0",
+      "title": null
+    },
+    "toolsCapability": true,
+    "listChanged": true
+  },
+  "list": {
+    "tools": [
+      {
+        "name": "kubectl_apply",
+        "title": null,
+        "description": "Fixture tool kubectl_apply",
+        "inputSchemaValid": true,
+        "parameterCount": 0,
+        "parameterHints": [],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false
+      },
+      {
+        "name": "search_code",
+        "title": null,
+        "description": "Fixture tool search_code",
+        "inputSchemaValid": true,
+        "parameterCount": 0,
+        "parameterHints": [],
+        "schemaTruncated": false,
+        "annotations": {},
+        "hasOutputSchema": false,
+        "duplicate": true
+      }
+    ],
+    "rejected": [],
+    "counts": {
+      "pages": 2,
+      "received": 3,
+      "kept": 2,
+      "rejected": 0,
+      "duplicates": 1
+    },
+    "partial": false,
+    "partialReason": null
+  },
+  "notifications": [
+    "notifications/tools/list_changed"
+  ],
+  "listError": null,
+  "oversizedLines": 0,
+  "ignoredLines": 0
+}

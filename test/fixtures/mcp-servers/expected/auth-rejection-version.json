@@ -1,0 +1,23 @@
+{
+  "initialize": {
+    "accepted": false,
+    "reason": "initialize error -32602: Unsupported protocol version"
+  },
+  "list": {
+    "tools": [],
+    "rejected": [],
+    "counts": {
+      "pages": 0,
+      "received": 0,
+      "kept": 0,
+      "rejected": 0,
+      "duplicates": 0
+    },
+    "partial": false,
+    "partialReason": null
+  },
+  "notifications": [],
+  "listError": null,
+  "oversizedLines": 0,
+  "ignoredLines": 0
+}
