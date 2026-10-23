@@ -114,22 +114,23 @@
     return ids;
   }
 
-  /** Bounded, deterministic, cycle-safe BFS. Returns nodeId → ordered edge chain from root. */
-  function reachFrom(rootId, adjacency) {
+  /** Bounded, deterministic, cycle-safe BFS. Returns nodeId → ordered edge chain from root. `stats`, when given, records whether a cap stopped the walk. */
+  function reachFrom(rootId, adjacency, stats = null) {
     const chains = new Map([[rootId, []]]);
     const queue = [rootId];
     let visited = 0;
     while (queue.length) {
       const currentId = queue.shift();
       const chain = chains.get(currentId);
-      if (chain.length >= MAX_DEPTH) continue;
+      if (chain.length >= MAX_DEPTH) { if (stats && (adjacency.get(currentId) || []).some(e => !chains.has(e.toEntityId))) stats.depthCapHit = true; continue; }
       for (const edge of adjacency.get(currentId) || []) {
         if (chains.has(edge.toEntityId)) continue; // cycle-safe: first (shortest) chain wins
-        if (++visited > MAX_VISITED) return chains;
+        if (++visited > MAX_VISITED) { if (stats) stats.visitedCapHit = true; return chains; }
         chains.set(edge.toEntityId, [...chain, edge]);
         queue.push(edge.toEntityId);
       }
     }
+    if (stats) stats.visited = visited;
     return chains;
   }
 
@@ -251,8 +252,17 @@
   }
 
   /** Find exposure paths across the whole graph. Deterministic and bounded. */
-  function findPaths(graph) {
+  function findPaths(graph) { return analyze(graph).paths; }
+
+  /**
+   * Paths plus the traversal record: the budget that bounded the search and
+   * which caps were reached. A truncated search is still deterministic, but
+   * a path it did not find is not evidence of absence, so callers must show
+   * `traversal.truncated` whenever it is non-empty.
+   */
+  function analyze(graph) {
     if (!graph || !Array.isArray(graph.nodes)) throw new TypeError('Exposure path engine: graph is required');
+    const traversal = { budget: { maxDepth: MAX_DEPTH, maxVisitedPerAgent: MAX_VISITED, maxPaths: MAX_PATHS }, agents: 0, agentsSearched: 0, truncated: [] };
     const nodesById = new Map(graph.nodes.map(n => [n.id, n]));
     const adjacency = buildAdjacency(graph, nodesById);
     const incoming = rubric.buildIncoming(graph);
@@ -265,9 +275,14 @@
       .sort((a, b) => a.id.localeCompare(b.id));
 
     const paths = [];
+    traversal.agents = agents.length;
     for (const agentNode of agents) {
-      if (paths.length >= MAX_PATHS) break;
-      const chains = reachFrom(agentNode.id, adjacency);
+      if (paths.length >= MAX_PATHS) { traversal.truncated.push({ cap: 'paths', limit: MAX_PATHS, agentId: agentNode.id, note: 'the path cap was reached before this agent was searched' }); continue; }
+      traversal.agentsSearched += 1;
+      const stats = {};
+      const chains = reachFrom(agentNode.id, adjacency, stats);
+      if (stats.visitedCapHit) traversal.truncated.push({ cap: 'visited', limit: MAX_VISITED, agentId: agentNode.id, note: 'reach from this agent stopped at the visited-edge cap; nodes beyond it were not examined' });
+      if (stats.depthCapHit) traversal.truncated.push({ cap: 'depth', limit: MAX_DEPTH, agentId: agentNode.id, note: 'reach from this agent stopped at the depth cap; longer chains were not examined' });
       const groups = classifyReach(chains, nodesById);
       for (const template of TEMPLATES) {
         if (paths.length >= MAX_PATHS) break;
@@ -286,7 +301,9 @@
         paths.push(assemblePath(template, agentNode, branches, nodesById, userEdgesByAgent.get(agentNode.id) || null, incoming));
       }
     }
-    return paths.sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0) || b.confidence - a.confidence || a.id.localeCompare(b.id));
+    if (paths.length >= MAX_PATHS && !traversal.truncated.some(t => t.cap === 'paths')) traversal.truncated.push({ cap: 'paths', limit: MAX_PATHS, agentId: null, note: 'the path cap was reached; later templates or agents may have more paths' });
+    traversal.complete = traversal.truncated.length === 0;
+    return { paths: paths.sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0) || b.confidence - a.confidence || a.id.localeCompare(b.id)), traversal };
   }
 
   /**
@@ -379,5 +396,5 @@
     return { counts, perAgent, total: (paths || []).length };
   }
 
-  return { SCHEMA_VERSION, MAX_DEPTH, MAX_PATHS, TEMPLATES, DISCLAIMER, RUBRIC_VERSION: rubric.RUBRIC_VERSION, exposureKey, findPaths, prioritize, blastRadius };
+  return { SCHEMA_VERSION, MAX_DEPTH, MAX_VISITED, MAX_PATHS, TEMPLATES, DISCLAIMER, RUBRIC_VERSION: rubric.RUBRIC_VERSION, exposureKey, findPaths, analyze, prioritize, blastRadius };
 });
