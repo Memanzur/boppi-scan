@@ -102,6 +102,18 @@ const git = args => sh('git', ['-C', ROOT, ...args]).stdout.trim();
   const restored = id ? B(['rollback', '--id', id, '--yes', ...common]) : { code: 1, stdout: '' };
   check('rollback restores the exact original bytes and rescans', restored.code === 0 && fs.readFileSync(desktopConfig, 'utf8') === originalConfig && restored.stdout.includes('Rescan:'));
 
+  console.log('\nConfig lookup on the experimental platforms (path lookup only; nothing here proves a Linux or Windows machine)');
+  const linuxHome = path.join(work, 'linux-home');
+  fs.mkdirSync(path.join(linuxHome, '.config', 'Claude'), { recursive: true });
+  fs.writeFileSync(path.join(linuxHome, '.config', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
+  const linux = B(['scan', '--only', 'claude-desktop', '--platform', 'linux', '--home', linuxHome, '--cwd', linuxHome, '--no-color', '--history-file', path.join(work, 'linux-history.json')]);
+  check('linux: Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes('.config/Claude/claude_desktop_config.json') && linux.stdout.includes('1 MCP server'));
+  const winHome = path.join(work, 'win-home');
+  fs.mkdirSync(path.join(winHome, 'AppData', 'Roaming', 'Claude'), { recursive: true });
+  fs.writeFileSync(path.join(winHome, 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
+  const win = B(['scan', '--only', 'claude-desktop', '--platform', 'win32', '--home', winHome, '--cwd', winHome, '--no-color', '--history-file', path.join(work, 'win-history.json')], { env: { APPDATA: '' } });
+  check('win32: Claude Desktop is read from AppData/Roaming/Claude when APPDATA is unset', win.code === 0 && win.stdout.includes(path.join('AppData', 'Roaming', 'Claude', 'claude_desktop_config.json')) && win.stdout.includes('1 MCP server'));
+
   console.log('\nUninstall');
   const removed = sh('npm', ['uninstall', '-g', '--prefix', prefix, pkg.name]);
   check('npm uninstall from the prefix leaves no bin', removed.code === 0 && !fs.existsSync(bin));
