@@ -100,15 +100,26 @@ function inferCapabilities(name, server, options = {}) {
   }
 
   const configuredTools = Array.isArray(server.tools) ? server.tools.filter(v => typeof v === 'string') : [];
-  const tools = [...new Set([...configuredTools, ...(catalog ? catalog.tools : [])])];
-  const toolEvidence = tools.map(tool => ({ tool, basis: configuredTools.includes(tool) ? 'configured' : 'catalog' }));
+  const catalogTools = catalog ? catalog.tools : [];
+  // A stored tool list from a consented `boppi discover` adds advertised tool names: the server itself said they exist, nothing verified what they do.
+  const stored = typeof options.advertised === 'function' ? options.advertised(name, server) : null;
+  const advertisedTools = stored && stored.usable ? stored.tools.filter(t => !configuredTools.includes(t) && !catalogTools.includes(t)) : [];
+  const tools = [...new Set([...configuredTools, ...catalogTools, ...advertisedTools])];
+  const toolEvidence = tools.map(tool => ({ tool, basis: configuredTools.includes(tool) ? 'configured' : catalogTools.includes(tool) ? 'catalog' : 'advertised' }));
   // Finer reach than the eight capability ids: per-tool categories and the scope of directory arguments, graded here while the raw path is still known.
   const filesystemScope = toolCategories.filesystemScope(filesystemPaths.map(p => expandHome(p, home)), home);
   // A server whose filesystem capability is already established carries its file reach, with its scope, on that capability; a scope-less tool-name grant would only repeat it.
   const reach = [...toolCategories.toolReach(toolEvidence, haystack, toolCategories.environmentHaystack(name, server)), ...toolCategories.scopeReach(filesystemScope, toolEvidence)]
     .filter(entry => !(entry.category === 'read_files' && capabilities.has('filesystem_access')))
     .filter((entry, index, list) => list.findIndex(other => other.category === entry.category) === index);
-  return { capabilities: [...capabilities], filesystemPaths, filesystemScope, reach, inferences, catalog, tools, toolEvidence, capabilityEvidence };
+  const advertised = !stored ? { status: 'none' }
+    : !stored.usable ? { status: 'stale', reason: stored.reason, discoveredAt: stored.discoveredAt }
+    : (() => {
+      const mapped = new Set(reach.flatMap(entry => entry.tools));
+      const unmapped = stored.tools.filter(t => !mapped.has(t) && !configuredTools.includes(t) && !catalogTools.includes(t));
+      return { status: 'usable', discoveredAt: stored.discoveredAt, partial: stored.partial, tools: stored.tools.length, mapped: stored.tools.filter(t => mapped.has(t)), unmapped, catalogNotAdvertised: catalogTools.filter(t => !stored.tools.includes(t)) };
+    })();
+  return { capabilities: [...capabilities], filesystemPaths, filesystemScope, reach, inferences, catalog, tools, toolEvidence, capabilityEvidence, advertised };
 }
 
 module.exports = { RULES, inferCapabilities };

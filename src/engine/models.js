@@ -45,7 +45,7 @@
   // file scope is, and so on. Flat, bounded, label-only; never a path or value.
   // The whole vocabulary is enumerated here: a producer cannot smuggle a path, a value, or an identifier through an attribute.
   const ATTRIBUTE_SCHEMA = Object.freeze({
-    basis: ['configured', 'catalog', 'builtin', 'inferred', 'observed'],
+    basis: ['configured', 'catalog', 'builtin', 'inferred', 'observed', 'advertised'],
     gate: ['unprompted', 'prompted', 'unknown', 'denied'],
     scope: ['system', 'home', 'secrets', 'source', 'other'],
     environment: ['production', 'non_production', 'unknown'],

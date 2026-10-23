@@ -191,7 +191,8 @@ function renderHtml(report, options = {}) {
     const mine = (inventory.permissions || []).filter(p => p.integrationId === server.id);
     const scoped = mine.map(p => /\(filesystem_access: (.+)\)$/.exec(p.rawPermission || '')).find(Boolean);
     const reach = mine.filter(p => p.source && typeof p.source.id === 'string' && p.source.id.startsWith('tool-reach:')).map(p => p.normalizedCategory.replace(/_/g, ' '));
-    const detail = [scoped ? `file scope: ${esc(scoped[1])}` : '', reach.length ? `reach through tools: ${esc(reach.join(', '))}` : ''].filter(Boolean).join('<br>');
+    const advertised = terminal.advertisedSentence(report, server);
+    const detail = [scoped ? `file scope: ${esc(scoped[1])}` : '', reach.length ? `reach through tools: ${esc(reach.join(', '))}` : '', advertised ? esc(advertised) : ''].filter(Boolean).join('<br>');
     return `<tr><td><b>${esc(server.name)}</b></td><td>${esc(agent?.name || 'Unknown agent')}</td><td>${esc(capabilities)}${detail ? `<div class="muted small">${detail}</div>` : ''}</td><td class="small">${recognitionCell(recognitionById.get(server.id))}</td></tr>`;
   }).join('');
   const unknownServers = recognition.unrecognized(report.recognition);

@@ -34,6 +34,7 @@ Steps are added per grant:
 | Condition | Steps | Reason recorded as |
 | --- | --- | --- |
 | Capability inferred from the server name only (no tool list, no catalog entry) | +1 | assumption |
+| Capability from a tool name the running server advertised in a consented `boppi discover` tool list (`basis: advertised`, P3-4, additive in 1.0.3: no existing grade changes and it applies only after a discovery) | +0 | fact that the server lists the tool; the reason says what it does was not verified. An advertised name with no reach-table mapping creates no capability and is listed as "advertised, reach unknown"; a stored list is used only while the entry hash matches and it is younger than seven days, otherwise the report says it is stale |
 | The client asks before each use of the tool (`prompted`) | +1 | assumption: a prompt could be approved |
 | Prompting could not be checked (`unknown`, including unreadable settings and clients whose prompt setting is not read) | +1 | unknown |
 | Tool denied in settings | no grant | the capability is removed from the graph |

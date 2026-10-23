@@ -17,6 +17,21 @@ function makeStyle(useColor) {
   };
 }
 
+/** One line per server with a stored tool list from `boppi discover`: what it advertised, what maps to a reach category, what stays unknown, or that the list is stale. */
+function advertisedSentence(report, server) {
+  const clientList = Array.isArray(report.discovery) ? report.discovery : (report.discovery && report.discovery.clients) || [];
+  const client = clientList.find(c => c.agentId === server.agentId);
+  const inference = client && report.inferenceByClient && report.inferenceByClient[client.clientKey] && report.inferenceByClient[client.clientKey][server.name];
+  const a = inference && inference.advertised;
+  if (!a || a.status === 'none') return null;
+  if (a.status === 'stale') return `advertised list stale (${a.reason.replace(/^advertised list is stale \(/, '').replace(/\)$/, '')}); run boppi discover --server ${JSON.stringify(server.name)} again`;
+  const when = a.discoveredAt ? a.discoveredAt.slice(0, 10) : 'unknown date';
+  const parts = [`advertised: ${a.tools} tool${a.tools === 1 ? '' : 's'} from a consented discovery on ${when}${a.partial ? ' (partial list)' : ''}, not verified`];
+  if (a.unmapped.length) parts.push(`${a.unmapped.length} with no known reach (${a.unmapped.slice(0, 5).join(', ')}${a.unmapped.length > 5 ? ', ...' : ''}): advertised, reach unknown`);
+  if (a.catalogNotAdvertised.length) parts.push(`catalog lists ${a.catalogNotAdvertised.slice(0, 3).join(', ')}${a.catalogNotAdvertised.length > 3 ? ', ...' : ''}, which the running server did not advertise; the catalog capability is kept`);
+  return parts.join('; ');
+}
+
 /** Why no single removal helps when the agent has no built-in residual: more than one server completes each path. */
 function noSingleEditSentence(paths) {
   const servers = [...new Set(paths.flatMap(p => (p.nodes || []).filter(n => n.entityType === 'mcp_server').map(n => n.label)))].sort();
@@ -194,6 +209,8 @@ function renderReport(report, options = {}) {
       out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`), tags.length ? s.dim(' · ') + tags.join(s.dim(' · ')) : '');
       if (reach.scope) out(s.dim(`      file scope: ${reach.scope}`));
       if (reach.categories.length) out(s.dim('      reach through tools: '), reach.categories.join(', '));
+      const advertised = advertisedSentence(report, server);
+      if (advertised) out(s.dim(`      ${advertised}`));
     }
     const unknownServers = recognition.unrecognized(report.recognition);
     if (unknownServers.length) {
@@ -349,4 +366,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, PATH_RULE_FOR_TEMPLATE };

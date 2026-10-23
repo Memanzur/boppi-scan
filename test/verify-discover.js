@@ -87,6 +87,32 @@ const cacheFiles = home => fs.existsSync(discover.discoveryDir(home)) ? fs.readd
   ok('no canary from the hostile fixture reaches the terminal, the record, or the cache', hostile.code === 0 && CANARIES.every(c => !everything.includes(c)));
   ok('no escape sequence from the hostile fixture reaches the terminal', !/\u001b\[/.test(hostile.stdout));
 
+  section('The passive scan reads the stored list as advertised evidence, never as verified reach');
+  const scanJson = path.join(root, 'scan.json');
+  const scanHtml = path.join(root, 'scan.html');
+  const scanRun = spawnSync(process.execPath, [CLI, 'scan', '--only', 'claude-code', '--json', scanJson, '--html', scanHtml, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { encoding: 'utf8' });
+  const exported = JSON.parse(fs.readFileSync(scanJson, 'utf8'));
+  const advertisedPerms = exported.inventory.real.permissions.filter(p => p.attributes && p.attributes.basis === 'advertised');
+  ok('advertised tool names that map through the reach table become permissions with basis advertised', scanRun.status === 0 && advertisedPerms.some(p => p.normalizedCategory === 'read_source_code' && /get_file_contents/.test(p.rawPermission)) && advertisedPerms.some(p => p.normalizedCategory === 'modify_source_code' && /push_files/.test(p.rawPermission)));
+  ok('the permission reason says the tool was advertised and not verified', advertisedPerms.every(p => /advertised by the running server in a consented discovery; what the tool does was not verified/.test(p.normalizationReason)));
+  ok('the terminal names the discovery date, the count, and the tools with no known reach', /advertised: 40 tools from a consented discovery on \d{4}-\d{2}-\d{2}, not verified; 38 with no known reach \(fixture_tool_01/.test(scanRun.stdout) && scanRun.stdout.includes('advertised, reach unknown'));
+  ok('the HTML report carries the same advertised line', fs.readFileSync(scanHtml, 'utf8').includes('advertised: 40 tools from a consented discovery'));
+  const pagedRow = exported.advertised.find(r => r.server === 'paged');
+  ok('the export lists the advertised status per server with mapped and unmapped tool names', pagedRow && pagedRow.status === 'usable' && pagedRow.mapped.sort().join() === 'get_file_contents,push_files' && pagedRow.unmapped.length === 38);
+  ok('a path that runs through an advertised tool says so in its reasons', exported.exposurePaths.some(p => JSON.stringify(p).includes('advertised by the running server in a consented tool list')));
+  const config = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8'));
+  const original = JSON.stringify(config);
+  config.mcpServers.paged.args.push('--changed');
+  fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify(config));
+  const staleRun = spawnSync(process.execPath, [CLI, 'scan', '--only', 'claude-code', '--json', scanJson, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { encoding: 'utf8' });
+  const staleExport = JSON.parse(fs.readFileSync(scanJson, 'utf8'));
+  ok('after the entry changes the stored list is reported stale and adds no permission', staleRun.status === 0 && staleRun.stdout.includes('advertised list stale (configuration changed); run boppi discover --server "paged" again') && !staleExport.inventory.real.permissions.some(p => p.attributes && p.attributes.basis === 'advertised' && /^paged \(/.test(p.rawPermission)) && staleExport.advertised.find(r => r.server === 'paged').status === 'stale');
+  fs.writeFileSync(path.join(home, '.claude.json'), original);
+  const models = require('../src/engine/models');
+  let accepted = true;
+  try { models.createPermission({ agentId: 'a', rawPermission: 'x', normalizedCategory: 'read_files', accessLevel: 'read', riskWeight: 1, normalizationConfidence: 0.8, normalizationReason: 'r', source: { id: 's', type: 'config', name: 'n', evidenceClass: 'observed', evidenceRef: 'r' }, attributes: { basis: 'advertised' }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }); } catch { accepted = false; }
+  ok('the attribute schema accepts basis advertised', accepted);
+
   section('Lock and forget');
   const pagedEntry = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8')).mcpServers.paged;
   const serverId = discover.serverIdOf({ source: 'claude-code' }, 'paged', pagedEntry);

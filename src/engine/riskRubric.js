@@ -36,6 +36,7 @@
   const BASIS_TEXT = Object.freeze({
     configured: 'declared in the configuration', catalog: 'listed in the known-server catalog', builtin: 'the client\'s own built-in tool',
     inferred: 'inferred from the server name only', observed: 'declared in the configuration',
+    advertised: 'advertised by the running server in a consented tool list; what the tool does was not verified',
   });
   const GATE_TEXT = Object.freeze({ unprompted: 'never prompts', prompted: 'asks before each use', unknown: 'prompting not checked', denied: 'denied' });
   const SCOPE_TEXT = Object.freeze({

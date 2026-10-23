@@ -46,8 +46,8 @@ function reachPermissions(agent, server, inference, observedAt) {
       normalizedCategory: entry.category,
       accessLevel: 'broad',
       riskWeight: CATEGORY_RISK_WEIGHT[entry.category] || 1,
-      normalizationConfidence: inferred ? 0.7 : 0.85,
-      normalizationReason: `This server can ${entry.label} because ${how}${entry.because ? '' : ` (${basis === 'catalog' ? 'listed in the known-server catalog' : 'declared in the configuration'})`}.`,
+      normalizationConfidence: basis === 'advertised' ? 0.8 : inferred ? 0.7 : 0.85,
+      normalizationReason: `This server can ${entry.label} because ${how}${entry.because ? '' : ` (${basis === 'catalog' ? 'listed in the known-server catalog' : basis === 'advertised' ? 'advertised by the running server in a consented discovery; what the tool does was not verified' : 'declared in the configuration'})`}.`,
       source: { ...agent.source, id: `tool-reach:${server.name}:${entry.category}`, evidenceClass: inferred ? 'inferred' : 'observed' },
       attributes: {
         basis,

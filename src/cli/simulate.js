@@ -12,15 +12,16 @@ const { inferCapabilities } = require('./knownServers');
 const { createConfigProvider } = require('./provider');
 const { builtinCovers } = require('./builtinTools');
 const overlayModule = require('./overlay');
+const { advertisedLookup } = require('./discovery/discover');
 
-/** Inject catalog-inferred capabilities into raw server entries before scanning, and match overlay claims per server. */
-function enrich(mergedServers, home, overlay = null) {
+/** Inject catalog-inferred capabilities into raw server entries before scanning, and match overlay claims per server. `advertised` is the stored-tool-list lookup for this client (see discover.advertisedLookup); it reads files only. */
+function enrich(mergedServers, home, overlay = null, advertised = null) {
   const inferenceByServer = {};
   const overlayByServer = {};
   const mcpServers = {};
   for (const [name, server] of Object.entries(mergedServers || {})) {
     if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
-    const inference = inferCapabilities(name, server, { home });
+    const inference = inferCapabilities(name, server, { home, advertised });
     inferenceByServer[name] = inference;
     overlayByServer[name] = overlayModule.matchClaims(overlay, name, server);
     mcpServers[name] = {
@@ -37,7 +38,7 @@ function enrich(mergedServers, home, overlay = null) {
 
 /** The inventory one client's raw servers produce, through the provider path a scan uses. */
 function clientInventory({ mergedServers, clientKey, label, source, configPath, observedAt, home, overlay = null, builtin = null }) {
-  const { config, inferenceByServer, overlayByServer } = enrich(mergedServers, home, overlay);
+  const { config, inferenceByServer, overlayByServer } = enrich(mergedServers, home, overlay, advertisedLookup(home, source));
   const scannerResult = scanner.scanConfig({ source, consent: true, dryRun: true, config, configPath, observedAt });
   const normalized = createConfigProvider({ clientKey, label, scannerResult, inferenceByServer, overlayByServer, builtin }).normalize(scannerResult, { now: observedAt });
   return { agents: normalized.agents, integrations: [], permissions: normalized.permissions, mcpServers: normalized.mcpServers, inferenceByServer };

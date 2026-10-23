@@ -115,6 +115,37 @@ function forget(home, { serverId, all }) {
   return { removed: 1 };
 }
 
+/**
+ * A lookup the passive scan uses to read a stored tool list for one entry:
+ * `(serverName, entry) => null | { usable, reason, tools, discoveredAt, partial, counts }`.
+ * Reads files only; never starts anything. A list whose entry hash or age no
+ * longer matches is returned as unusable with the reason, so the scan can
+ * say the list is stale instead of silently using or dropping it.
+ */
+function advertisedLookup(home, source) {
+  return (serverName, entry) => {
+    if (!home || !source || !entry || typeof entry !== 'object') return null;
+    const record = readCache(home, serverIdOf({ source }, serverName, entry));
+    if (!record) return null;
+    const status = cacheStatus(record, entry);
+    const tools = status.usable && record.list && Array.isArray(record.list.tools) ? record.list.tools.map(t => t.name).filter(n => typeof n === 'string') : [];
+    return { usable: status.usable, reason: status.reason, tools, discoveredAt: record.discoveredAt, partial: !!(record.list && record.list.partial), counts: record.list ? record.list.counts : null, serverInfo: record.serverInfo || null };
+  };
+}
+
+/** The per-server advertised status of a scan, for the export: one row per server that has a stored list, usable or stale. */
+function advertisedSummary(inferenceByClient) {
+  const rows = [];
+  for (const [client, byServer] of Object.entries(inferenceByClient || {})) {
+    for (const [server, inference] of Object.entries(byServer || {})) {
+      const a = inference && inference.advertised;
+      if (!a || a.status === 'none') continue;
+      rows.push({ client, server, status: a.status, reason: a.reason || null, discoveredAt: a.discoveredAt || null, partial: !!a.partial, tools: a.tools || 0, mapped: a.mapped || [], unmapped: a.unmapped || [], catalogNotAdvertised: a.catalogNotAdvertised || [] });
+    }
+  }
+  return rows;
+}
+
 function locate(clients, options) {
   const holders = clients.filter(c => c.primaryPath && Object.prototype.hasOwnProperty.call(c.mergedServers, options.server));
   const candidates = options.clientKey ? holders.filter(c => c.clientKey === options.clientKey) : holders;
@@ -218,4 +249,4 @@ async function runDiscover(options, deps) {
   return result.outcome === 'discovered' ? 0 : result.outcome === 'rejected' ? 3 : 3;
 }
 
-module.exports = { CACHE_SCHEMA_VERSION, MAX_AGE_DAYS, NEVER_SENT, discoveryDir, cachePath, entryHash, serverIdOf, sanitizedLaunch, consentText, acquireLock, writeCache, readCache, cacheStatus, forget, locate, workingDirectoryFor, runDiscover };
+module.exports = { CACHE_SCHEMA_VERSION, MAX_AGE_DAYS, NEVER_SENT, discoveryDir, cachePath, entryHash, serverIdOf, sanitizedLaunch, consentText, acquireLock, writeCache, readCache, cacheStatus, forget, locate, workingDirectoryFor, advertisedLookup, advertisedSummary, runDiscover };

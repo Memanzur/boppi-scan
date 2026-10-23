@@ -476,7 +476,7 @@ async function performScan(options) {
   const recognition = [];
   for (const client of discovery.clients) {
     if (!client.primaryPath) continue; // nothing found for this client
-    const { config, inferenceByServer, overlayByServer } = enrich(client.mergedServers, options.home, overlay);
+    const { config, inferenceByServer, overlayByServer } = enrich(client.mergedServers, options.home, overlay, discoverCommand.advertisedLookup(options.home, client.source));
     inferenceByClient[client.clientKey] = inferenceByServer;
     shadow.push(...shadowEntries(client, overlayByServer));
     for (const [serverName, match] of Object.entries(overlayByServer)) for (const claim of match.validated) applied.push({ client: client.clientKey, server: serverName, package: match.package.name, claimId: claim.id, capability: claim.capability });
@@ -566,6 +566,7 @@ function exportPayload(scan) {
     predictions: scan.predictions,
     remediationPlan: scan.remediationPlan,
     builtinResidual: scan.builtinResidual,
+    advertised: discoverCommand.advertisedSummary(scan.inferenceByClient),
     recognition: scan.recognition,
     scanArgs: scan.scanArgs,
     ...envelope,
