@@ -1,6 +1,6 @@
 # Release candidate: boppi 0.4.0 (local, unpublished)
 
-Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; the manifest also carries the tarball sha256, engine 1.1.0, rubric 1.0.0, and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
+Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; `npm run verify-versions` checks that package, engine, rubric, changelog, this document, and the manifest agree, and `scripts/candidate-kit/prepare-fixtures.py <candidate dir>` rebuilds the six-case facilitator kit from the tarball; the manifest also carries the tarball sha256, engine 1.1.0, rubric 1.0.0, and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
 
 ## Supported
 
