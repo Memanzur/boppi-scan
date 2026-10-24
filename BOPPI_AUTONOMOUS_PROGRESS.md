@@ -1,5 +1,15 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 23, 2026: grounded local questions and inactive intelligence loop
+
+U-3 and U-4 complete locally. Scanner `boppi ask --file ... --question ...` reads only an explicit export and prints grounded, bounded answers on stdout; no scan/model/network/state write. Access/basis, saved rubric explanations and removal forecast/cost cite records; unsupported questions, unused permissions and one-snapshot change history remain unknown. Evidence: scanner `docs/access/LOCAL_QUESTIONS.md`, 16 focused tests and no-network/process proof.
+
+`research/intelligence/` demonstrates minimized synthetic observations/version stamps, deterministic candidates, frozen toy evaluation, separate signed synthetic review, signed versioned local distribution, receiver re-evaluation, shadow-only overlay and signed bound rollback with a preserved high-water mark. Ten tests; default scanner grants/grades unchanged. Demo output is owner-only under `/tmp` (actual path printed by `npm run intelligence:demo`). Ephemeral private keys never written. No real feedback intake, human approval, production rule change or independent-package accuracy claim; old failed inspector experiment untouched.
+
+Scanner full verification: 33/33 suites; network/process guard 22; rubric unchanged 1.0.3 (unapproved). Candidate rebuild is pending the final clean scanner checkpoint; do not mistake the prior candidate for this source yet.
+
+Final source review found U-5: historical path reduction lacks snapshot analysis-version/completeness comparison and can imply closure after partial/truncated or differently versioned input. Continue locally with inventory-revision binding, persisted snapshot context and fail-closed comparison tests before final candidate/handoff. Control-plane sync privacy migration remains unhosted; all founder/human/deployment gates remain open. No remote operations or real data collection.
+
 ## October 23, 2026: updated directive, recovery and optional sync privacy
 
 New authority: control-plane `BOPPI_MASTER_PLAN.md` reconciles the Agent + optional Cloud + deterministic Intelligence vision with the old roadmap. Current competitive research confirms overlap in graphs, natural-language access, approval/JIT and runtime controls; no exclusivity claim is justified. Source/worktree recovery recorded in `docs/validation/STATE_RECOVERY_2026-10-23.md` (control plane): 24 worktrees, four older dirty trees untouched; active starting heads scanner 4bea110/control plane 1821b7f.

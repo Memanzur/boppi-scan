@@ -45,6 +45,7 @@ const watchCommand = require('./watch');
 const eventsCommand = require('./events');
 const evidence = require('./evidence');
 const demo = require('./demo');
+const askCommand = require('./ask');
 const remediate = require('./remediate');
 const rollback = require('./rollback');
 const hook = require('./hook');
@@ -52,13 +53,13 @@ const settingsModule = require('./settings');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch|events] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch|events|ask] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -71,7 +72,8 @@ function usage() {
     '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
     '  boppi demo                     scan a synthetic risky config copied to ~/.boppi/demo/ (never your real configs); --reset restores it',
     '  boppi demo --html <file>       write a self-contained interactive demo page built from four synthetic environments',
-    '  boppi hook                    record one sanitized Claude Code hook event locally; never blocks the observed tool',
+    '  boppi hook                    record one sanitized Claude Code hook event locally; best effort, live delivery unverified',
+    '  boppi ask --file <export.json> --question <question>  answer supported access questions locally; use --server/--client for removal predictions, --json - for JSON stdout',
     '  boppi events                  local timeline of recorded hook events: calls per server and tool, outcomes, and every gap',
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
@@ -158,10 +160,11 @@ function parseArgs(argv) {
     install: false, printConfig: false, set: [], record: null, forget: false, all: false, interval: 60, duration: 0, once: false, log: null, since: 30, disable: false, enable: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
-  const takesValue = new Set(['--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set']);
+  let askRequested = false;
+  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (COMMANDS.has(arg)) options.command = arg;
+    if (COMMANDS.has(arg)) { options.command = arg; if (arg === 'ask') askRequested = true; }
     else if (arg === '--quiet') options.quiet = true;
     else if (arg === '--verbose') options.verbose = true;
     else if (arg === '--no-color') options.color = false;
@@ -170,7 +173,8 @@ function parseArgs(argv) {
     else if (takesValue.has(arg)) {
       const value = argv[++i];
       if (value === undefined) throw new Error(`${arg} requires a value`);
-      if (arg === '--json') options.json = value;
+      if (arg === '--question') options.question = value;
+      else if (arg === '--json') options.json = value;
       else if (arg === '--html') options.html = value;
       else if (arg === '--only') options.only = value.split(',').map(v => v.trim()).filter(Boolean);
       else if (arg === '--config') options.config = value;
@@ -210,6 +214,12 @@ function parseArgs(argv) {
     else if (arg === '--all') options.all = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
+  }
+  if (askRequested && options.command !== 'ask') throw new Error('ask does not accept a second command');
+  if (options.command === 'ask' && !options.help && !options.version) {
+    if (!options.file || !options.question || options.question.length > 500) throw new Error('ask requires --file <scan-export.json> and --question <supported question> (at most 500 characters)');
+    if (options.json && options.json !== '-') throw new Error('ask writes only to stdout; use --json -');
+    if (options.config || options.overlay || options.policy || options.html || options.sarif || options.yes || options.install) throw new Error('ask reads an export only; scan, fix and installation options are not supported');
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
@@ -869,6 +879,7 @@ async function run(argv) {
   }
   if (options.help) { process.stdout.write(usage() + '\n'); return 0; }
   if (options.version) { process.stdout.write(VERSION + '\n'); return 0; }
+  if (options.command === 'ask') return askCommand.runAsk({ ...options, client: options.client ? ONLY_ALIASES[options.client] : undefined });
   if (options.command === 'history') { process.stdout.write(renderHistory(options.historyFile) + '\n'); return 0; }
   if (options.command === 'settings') {
     try {

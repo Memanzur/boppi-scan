@@ -1,0 +1,9 @@
+# Grounded local access questions
+
+`boppi ask --file scan.json --question "What can my AI tools access?"` reads only a selected saved export and writes only stdout. No discovery, key/history write, model, network request, server launch or configuration edit occurs. Use `--json -` for structured output. README lists the supported questions.
+
+Access answers retain configuration/catalog/advertised/built-in/inferred basis and approval-model labels, with JSON-pointer evidence references. Sensitive answers reproduce the saved rubric facts, assumptions and unknowns. Removal answers require an exact stored remove_server prediction (and --client for ambiguity) and show closed/lowered/remaining plus lost/kept access and a separate verification step. A zero-benefit removal is never described as a fix that worked.
+
+Unused permissions and recent changes cannot be established from one configuration export and return unknown. Arbitrary questions/instructions are unsupported. This is a fixed deterministic question interface, not open-ended natural-language reasoning or an entitlement verifier. An editable export is not authenticated effective-access evidence; capped/selected coverage remains visible. Output caps/omissions are disclosed; the detailed export remains the record.
+
+Acceptance: 16 focused tests cover reference grounding, basis, rubric evidence, stored forecast/cost, ambiguity, unknowns, injection, terminal controls, forged identities/forecasts, limited coverage, bounded output, regular-file/16-MiB checks and non-writing behavior. The no-network/process guard also exercises ask (22 checks total). Full scanner suite: 33/33 including ten intelligence tests. Human comprehension, real devices and full cloud access querying remain unvalidated/outside this slice. No risk-rubric rule changed.

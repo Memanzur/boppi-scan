@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "version": "synthetic-v1",
+  "development": [
+    {"id":"dev-reader","subject":"@boppi-fixtures/reader","version":"1.0.0","capabilities":["read_files"]},
+    {"id":"dev-relay","subject":"@boppi-fixtures/relay","version":"1.0.0","capabilities":["call_external_api"]},
+    {"id":"dev-clean","subject":"@boppi-fixtures/tidy","version":"1.0.0","capabilities":[]}
+  ],
+  "heldOut": [
+    {"id":"held-reader-one","subject":"@boppi-fixtures/reader","version":"1.0.0","capabilities":["read_files"]},
+    {"id":"held-reader-two","subject":"@boppi-fixtures/reader","version":"1.0.0","capabilities":["read_files"]},
+    {"id":"held-relay-one","subject":"@boppi-fixtures/relay","version":"1.0.0","capabilities":["call_external_api"]},
+    {"id":"held-relay-two","subject":"@boppi-fixtures/relay","version":"1.0.0","capabilities":["call_external_api"]},
+    {"id":"held-clean-one","subject":"@boppi-fixtures/tidy","version":"1.0.0","capabilities":[]},
+    {"id":"held-clean-two","subject":"@boppi-fixtures/unknown","version":"1.0.0","capabilities":[]},
+    {"id":"held-other-version","subject":"@boppi-fixtures/reader","version":"2.0.0","capabilities":[]},
+    {"id":"held-other-relay-version","subject":"@boppi-fixtures/relay","version":"2.0.0","capabilities":[]}
+  ]
+}

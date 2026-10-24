@@ -69,6 +69,9 @@ function makeHome(root) {
     ok(`${command} exits 0 with no network attempt`, result.code === 0 && result.attempts.length === 0);
   }
 
+  const asked = run(['ask', '--file', exportPath, '--question', 'What can my AI tools access?']);
+  ok('ask reads a saved export without network or child processes', asked.code === 0 && asked.attempts.length === 0 && asked.stdout.includes('LOCAL ACCESS QUESTIONS'));
+
   const verify = run(['verify', exportPath]);
   ok('verify rescans with no network attempt', verify.code === 0 && verify.attempts.length === 0);
 
