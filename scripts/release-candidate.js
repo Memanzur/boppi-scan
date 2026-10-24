@@ -33,6 +33,9 @@ function sh(cmd, args, options = {}) {
 const git = args => sh('git', ['-C', ROOT, ...args]).stdout.trim();
 
 (function main() {
+  if (fs.existsSync(path.join(OUT, 'CANDIDATE.json'))) {
+    throw new Error(`Candidate already exists at ${OUT}; move it aside or choose a new --out directory.`);
+  }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-candidate-'));
   fs.mkdirSync(OUT, { recursive: true });
 
@@ -101,6 +104,30 @@ const git = args => sh('git', ['-C', ROOT, ...args]).stdout.trim();
   check('rollback lists the backup', Boolean(id));
   const restored = id ? B(['rollback', '--id', id, '--yes', ...common]) : { code: 1, stdout: '' };
   check('rollback restores the exact original bytes and rescans', restored.code === 0 && fs.readFileSync(desktopConfig, 'utf8') === originalConfig && restored.stdout.includes('Rescan:'));
+
+  console.log('\nParticipant wrapper against the installed tarball (QA only)');
+  const kit = path.join(work, 'kit');
+  const modules = path.join(kit, 'runtime', 'node_modules');
+  fs.mkdirSync(modules, { recursive: true });
+  fs.symlinkSync(path.join(prefix, 'lib', 'node_modules', pkg.name), path.join(modules, pkg.name), 'dir');
+  const wrapper = path.join(kit, 'session.py');
+  fs.copyFileSync(path.join(ROOT, 'scripts', 'candidate-kit', 'session.py'), wrapper);
+  const participant = (action, confirm = false) => sh('python3', [...(confirm ? [path.join(ROOT, 'test', 'helpers', 'confirm-in-pty.py')] : []), wrapper, 'QA', action], { timeout: 30000 });
+  const started = participant('start');
+  const sandboxConfig = path.join(kit, 'participants', 'QA', 'synthetic-home', '.boppi', 'demo', 'mcp.json');
+  const sandboxOriginal = fs.existsSync(sandboxConfig) ? fs.readFileSync(sandboxConfig, 'utf8') : '';
+  check('QA start creates a synthetic sandbox and prints a matching Desktop fix', started.code === 0 && sandboxOriginal.includes('github') && /--client claude-desktop .*--source claude-desktop/.test(started.stdout));
+  const preview = participant('plan');
+  check('QA plan previews without editing the sandbox', preview.code === 0 && fs.readFileSync(sandboxConfig, 'utf8') === sandboxOriginal);
+  const applied = participant('fix', true);
+  check('QA fix confirms interactively and removes github from the sandbox', applied.code === 0 && !JSON.parse(fs.readFileSync(sandboxConfig, 'utf8')).mcpServers.github, applied.stderr);
+  const graded = participant('verify');
+  check('QA verify grades the saved sandbox scan', graded.code === 0 && /paths? closed/.test(graded.stdout));
+  const rollback = participant('rollback', true);
+  check('QA rollback restores the exact sandbox bytes', rollback.code === 0 && fs.readFileSync(sandboxConfig, 'utf8') === sandboxOriginal, rollback.stderr);
+  const again = participant('start');
+  check('QA start preserves an existing sandbox', again.code === 0 && again.stdout.includes('Earlier work is preserved') && fs.readFileSync(sandboxConfig, 'utf8') === sandboxOriginal);
+  check('QA rehearsal creates no T1-T5 participant homes', ['T1', 'T2', 'T3', 'T4', 'T5'].every(id => !fs.existsSync(path.join(kit, 'participants', id))) && fs.readFileSync(desktopConfig, 'utf8') === originalConfig);
 
   console.log('\nConfig lookup on the experimental platforms (path lookup only; nothing here proves a Linux or Windows machine)');
   const linuxHome = path.join(work, 'linux-home');

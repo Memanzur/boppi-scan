@@ -2,6 +2,10 @@
 
 Status: implemented 2026-10-23, local only. No cloud transport, no new table, RPC, or route; the coverage envelope still reports `runtime: not_observed` for every push, because runtime evidence has no ingest contract yet (a separate consent and isolation slice, founder-gated). Live calls on a real Claude Code (the roadmap's "controlled live calls on one consented supported client") have not been run; everything below is proven on synthetic payloads.
 
+## Live compatibility note (2026-10-23)
+
+The [live validation plan](LIVE_VALIDATION_PLAN.md) is prepared but unrun. Current client documentation limits `PermissionDenied` to auto-mode denials, excluding manual rejection and deny rules; cancellation may produce no `PostToolUseFailure` event. Consequently the collector's synthetic `denied` and `interrupted` cases do not establish complete coverage of real denials or cancellations. Missing outcomes remain unknown. See the linked plan's official sources and version-recording procedure.
+
 ## Supported client and payload shape
 
 Claude Code only, hook payloads as documented at code.claude.com/docs/en/hooks on 2026-10-23: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, and `PermissionDenied`, each carrying `tool_use_id`, and `mcp_server.source` for MCP tools. `PermissionRequest` is not captured (it has no `tool_use_id`, so it could not be paired). The hook records `schema: 2`; a payload without `tool_use_id` is stored with `invocation: null` and the timeline counts it as uncorrelated instead of guessing a pair. Any other client shows as not monitored.

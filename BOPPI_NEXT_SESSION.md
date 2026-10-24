@@ -1,5 +1,15 @@
 # Boppi: next session (updated October 22, 2026)
 
+## October 23, 2026: interrupted preparation resumed locally
+
+Completed the interrupted tester wrapper and review handoff. The demo now emits a fix for the actual Claude Desktop sandbox and quotes scan paths with spaces. Candidate journey covers interactive QA start/plan/fix/verify/rollback without creating T1-T5 homes (29 checks). The earlier candidate directory is preserved before rebuilding; use the current `~/Desktop/Boppi-candidate-0.4.0/CANDIDATE.json` for exact source/checksum. The candidate includes the later local discovery/monitoring commands; release scope remains a founder decision.
+
+Prepared: control-plane `docs/validation/FOUNDER_DECISION_REGISTER.md`, `SECURITY_REVIEW_PACKAGE.md`, `docs/beta/usability-kit-0.4.0/`; scanner rubric-question companion and `docs/phase6/LIVE_VALIDATION_PLAN.md`. The live plan uses an isolated event home, preserves existing history, and records denial/cancellation coverage gaps. Official documentation says deny rules/manual rejection do not trigger PermissionDenied; a live session remains unrun. No human or external review gate is closed.
+
+Verification: scanner 31 suites (including live fixture 7 and static HTML accessibility 26), demo regression 9, fresh candidate journey 29; control-plane `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` passed including remediation 311. Ledger copies reconciled, missing explicit scanner path fails, mismatch/extra lines checked. Local commits only; no push, publication, deployment, hosted operation, real scan, device pairing or persistent installation.
+
+Next: use the decision register to choose the next gate. Human sessions remain 0/5, rubric remains unapproved, and no new founder answer was inferred from this handoff. Resume from scanner `docs/milestone1/NEXT_SESSION_PROMPT.md`.
+
 ## October 23, 2026 (second session): rubric 1.0.3 after the cross-model review of 1.0.2; candidate rebuilt; discovery adapter (P3-3) in progress
 
 Autonomous session under the same "continue autonomous development" directive. All work is local; nothing was pushed, published, deployed, or migrated. Scanner branch `codex/live-brand-alignment` in `~/Desktop/boppi-scan-auto` (package 0.4.0 unpublished, engine 1.1.0, rubric 1.0.3); control plane `~/Desktop/Boppi-auto` synced to the same engine. Exact heads: `git log --oneline -1` in each repo.

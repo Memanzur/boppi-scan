@@ -12,7 +12,7 @@ CANDIDATE = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.home() / 
 ROOT = CANDIDATE / 'kit'
 ROOT.mkdir(parents=True, exist_ok=True)
 import shutil as _shutil
-for helper in ('serve.py',):
+for helper in ('serve.py', 'session.py'):
     if not (ROOT / helper).exists(): _shutil.copyfile(Path(__file__).resolve().parent / helper, ROOT / helper)
 manifest = json.loads((CANDIDATE / 'CANDIDATE.json').read_text())
 package = CANDIDATE / manifest['artifact']

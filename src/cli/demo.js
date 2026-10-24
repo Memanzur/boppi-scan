@@ -123,8 +123,8 @@ async function runDemo(options, deps) {
     '',
     'Next, on the sandbox only:',
     `  boppi plan ${target}`,
-    `  boppi fix --server "github" --client claude-code ${target}`,
-    `  boppi verify ${exportFile} ${target}`,
+    `  boppi fix --server "github" --client ${scenario.client} ${target}`,
+    `  boppi verify ${shellPath(exportFile)} ${target}`,
     `  boppi demo --reset${homeFlag(options)}`,
   ].join('\n'));
   return code;

@@ -2,6 +2,12 @@
 
 Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; `npm run verify-versions` checks that package, engine, rubric, changelog, this document, and the manifest agree, and `scripts/candidate-kit/prepare-fixtures.py <candidate dir>` rebuilds the six-case facilitator kit from the tarball; the manifest also carries the tarball sha256, engine 1.1.0, the rubric version (1.0.3 as of 2026-10-23; earlier builds are kept beside the current one as `Boppi-candidate-0.4.0-superseded-rubric-<version>`), and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
 
+## October 23 preparation snapshot
+
+The candidate was rebuilt locally after correcting the demo's printed client and quoting a saved scan path with spaces. Its manifest is the authority for the exact commit/checksum (older builds remain beside it). The journey now has 29 checks, including an interactive QA-only participant wrapper; human sessions remain 0/5. The kit's sandbox wrapper requires Python 3.9 or newer in addition to Node. The wrapper's `fix` and `rollback` keep their confirmation prompts.
+
+This snapshot includes the later opt-in discovery, foreground watch and hook/evidence code in the current source tree. Those commands are outside the usability exercise, and their live-client, consent and release-scope gates remain open. The baseline limits below describe a passive scan; they do not claim that an explicitly launched discovery server has no network or process side effects. Read the founder decision register and review package in the control-plane repo before choosing a publication scope.
+
 ## Supported
 
 | Platform | Status | Config locations read |
