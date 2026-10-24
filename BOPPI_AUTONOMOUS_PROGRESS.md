@@ -1,5 +1,17 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## Urgent GitHub backup checkpoint — October 23, 2026
+
+Melody explicitly authorized saving the current work to GitHub before credits run out. Push authorization covers `codex/live-brand-alignment` in Memanzur/boppi-scan and Memanzur/boppii; it does not authorize merge, package publication, hosted migrations or deployment. Branch-specific Vercel deployment guards were added at repository/project roots before pushing; no release tag is created. Scanner repository is public; control-plane repository is private. No tracked credential files were found by the checkpoint filename check.
+
+Completed source is preserved: U-1 recovery/competitive assessment, U-2 optional sync privacy (65 database checks and local advisor; hosted migration not applied), U-3 grounded read-only questions (16 focused checks), U-4 inactive signed synthetic intelligence demonstration (10 tests). Scanner 33/33 suites passed; source implementation checkpoint 30444f6. Candidate remains the earlier 4bea110 build and must be rebuilt after final verification; previous candidates are preserved.
+
+**U-5 is WORK IN PROGRESS, not complete.** Source now binds analysis to a locked collector inventory revision, stores version/completeness context, and withholds closure across incompatible, partial, legacy, unowned or tied snapshots. Checkpoint tests actually run: typecheck passes; reducer 25 checks; snapshot context 3 tests; actual ingest route 24 checks; 14 migrations plus the existing 65 database/transaction checks pass. Still required: dedicated SQL tests for revision mismatch and context validation/tenant isolation, expanded concurrency cases for the new snapshot input, final full control-plane verification and review, final candidate rebuild, and corresponding ledger completion. Do not mark this work release-ready.
+
+Unfinished source is committed in the control-plane checkpoint: ingest route; dashboard collectors/history/overview; reduction; snapshot-context and typed database contracts; package scripts; ingest/reduction/context tests; migration `20261024050103_snapshot_comparison_context.sql`. Exact final commit ids: `git log -1` in each repo. Resume from scanner `docs/milestone1/NEXT_SESSION_PROMPT.md`.
+
+All human and production gates remain: rubric approval, 0/5 usability sessions, live supported-client check, independent security review, real-device pairing/remediation, retention/two-person/rollback decisions, runtime/content/hashed-id consent, backup/restore/hosted migration approval and publication. Nothing in this checkpoint is a production-readiness claim.
+
 ## October 23, 2026: grounded local questions and inactive intelligence loop
 
 U-3 and U-4 complete locally. Scanner `boppi ask --file ... --question ...` reads only an explicit export and prints grounded, bounded answers on stdout; no scan/model/network/state write. Access/basis, saved rubric explanations and removal forecast/cost cite records; unsupported questions, unused permissions and one-snapshot change history remain unknown. Evidence: scanner `docs/access/LOCAL_QUESTIONS.md`, 16 focused tests and no-network/process proof.

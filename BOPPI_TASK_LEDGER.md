@@ -104,6 +104,10 @@ Current product authority: `BOPPI_MASTER_PLAN.md` in the control-plane repo (sup
 | U-4 | Synthetic Observe → Propose → Evaluate → Review → Version → Distribute → Verify demonstration | done, synthetic mechanism | Scanner `research/intelligence/README.md`; ten tests; demo generated owner-only local files, recomputed toy evaluation (4/4 precision and recall), verified reviewer/publisher signatures, enforced version/rollback bindings, real scanner shadow leaves grants/grades unchanged | No production or human approval, real-data intake, network updater, persistent protected trust state or real-world accuracy claim. Failed inspector experiment and real held-out labels unchanged |
 | U-5 | Version/completeness-aware cloud snapshot comparisons | in progress | Final source review found history can infer closure across incomplete, capped, legacy or differently versioned snapshots | Acceptance: bind stored analysis to collector inventory revision, persist version/coverage context, withhold closure across non-comparable snapshots; adversarial local SQL/route/reducer tests. No hosted migration |
 
+## GitHub preservation authorization (2026-10-23)
+
+Melody explicitly requested saving all current work to GitHub before credits run out. Both `codex/live-brand-alignment` branches are checkpointed for push without merge, release tags, publication or deployment. U-5 remains in progress: typecheck, reducer 25, context 3, route 24 and existing 65 local DB checks pass; dedicated revision/context SQL tests, final full verification and final candidate rebuild remain pending. See the newest handoff for exact continuation. Branch-specific Vercel guards are included to prevent automatic deployment.
+
 ## Standing rules
 
 - Human gates (P0-2, P1-9, P1-10, P2-7) are never marked done by an agent.
