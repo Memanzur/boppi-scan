@@ -3,3 +3,4 @@ node_modules/
 report.html
 export.json
 .DS_Store
+__pycache__/
