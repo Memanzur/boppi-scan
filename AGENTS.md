@@ -1,6 +1,9 @@
 # Boppi scanner: resuming local development
 
-Read BOPPI_NEXT_SESSION.md and BOPPI_AUTONOMOUS_PROGRESS.md first. They identify
+Read BOPPI_NEXT_SESSION.md and BOPPI_AUTONOMOUS_PROGRESS.md first.
+Read BOPPI_PRODUCT_VISION.md (founder-approved direction, 2026-10-24) before
+selecting any new work; it decides what is worth building, never what is
+authorized. They identify
 the active development checkout, exact verified checkpoints, preserved
 worktrees, test evidence, current brand authority, and remaining work.
 

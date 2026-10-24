@@ -1,4 +1,16 @@
-# Boppi: next session (updated October 22, 2026)
+# Boppi: next session (updated October 24, 2026)
+
+## October 24, 2026: U-5 finished locally; founder product vision persisted
+
+Session under Melody's 2026-10-24 product vision directive (direction only; no deployment, publication, production change, or security-gate decision). All work is local on `codex/live-brand-alignment` in `~/Desktop/Boppi-auto` and `~/Desktop/boppi-scan-auto`. Nothing was pushed, merged, published, deployed, or migrated. Exact heads: `git log -1` in each repo.
+
+**U-5 done (control plane).** Snapshot analysis is bound to a locked collector inventory revision; one analysis per revision; a sibling collector's takeover of a record invalidates this collector's revision and completeness; a snapshot without a client timestamp is never complete; unknown client keys lower completeness instead of dropping the row; the reducer counts absences only inside a contiguous, compatible, strictly ordered window and reports withheld comparisons; pages fetch the newest 500 rows; history wording says "no longer reported in comparable snapshots" and names history as device-attested configuration evidence. Evidence: `docs/validation/HISTORY_COMPARISON_2026-10-24.md` (control plane). Local database suite 122 PASS (14 migrations; 52 snapshot context checks; 5 real snapshot races); context 3, reducer 25, route 25; `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` exit 0 (organization 92, remediation 311). An independent model review found 0 blockers and 4 should-fix defects; all 4 fixed with tests, nits fixed, one deferred as a contract change (scanner `docs/milestone1/ADJUDICATION.md` rows 79 to 88). Migration `20261024050103_snapshot_comparison_context.sql` remains local only.
+
+**Product vision persisted.** `BOPPI_PRODUCT_VISION.md` exists byte-identical in both repos; `apps/control-plane/scripts/verify-ledger-mirror.mjs` (part of `npm run verify`) now fails on drift of the vision as well as the ledger. It separates approved direction, implemented capabilities, planned work, hypotheses needing user validation, and open gates, and lists five strategic conflicts for the founder: the 2026-08 enterprise-first `docs/PRODUCT-VISION.md` (now banner-marked superseded); Phase 2 connected-app coverage has no inspectable evidence source yet; personal guardrails and monitoring stop at foreground `watch` and the opt-in hook until P4-4 is decided; notifications need a channel and retention decision; "verification" keeps meaning rescan evidence, never proof of effect. `AGENTS.md` in both repos and both `BOPPI_MASTER_PLAN.md` files point at the vision; sessions read it before selecting work.
+
+**Candidate.** Rebuilt from the clean scanner head after this session's scanner commit (see the candidate section below if present, and `~/Desktop/Boppi-candidate-0.4.0/CANDIDATE.json`); the earlier build is preserved beside it. Scanner source is unchanged this session apart from documentation; 33 of 33 suites passed before the rebuild.
+
+Open human and founder gates are unchanged: rubric 1.0.3 sign-off, five comprehension sessions, Phase 0 sessions 0 of 5, independent security review of remediation, real-device pairing, retention/two-person/rollback decisions, runtime/content/hashed-id consent, hosted migrations (now six pending), backup/restore rehearsal, publication, merge, deployment, campaign publication. Next session: read `BOPPI_PRODUCT_VISION.md`, then `docs/milestone1/NEXT_SESSION_PROMPT.md` (scanner).
 
 ## Urgent GitHub backup checkpoint — October 23, 2026
 
