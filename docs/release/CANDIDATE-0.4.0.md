@@ -2,6 +2,10 @@
 
 Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; `npm run verify-versions` checks that package, engine, rubric, changelog, this document, and the manifest agree, and `scripts/candidate-kit/prepare-fixtures.py <candidate dir>` rebuilds the six-case facilitator kit from the tarball; the manifest also carries the tarball sha256, engine 1.1.0, the rubric version (1.0.3 as of 2026-10-23; earlier builds are kept beside the current one as `Boppi-candidate-0.4.0-superseded-rubric-<version>`), and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
 
+## October 24 rebuild
+
+Rebuilt from the clean scanner head after the control plane's snapshot comparison work (U-5) and the product vision checkpoint. Scanner source is unchanged from the October 23 build apart from documentation; 33 of 33 suites passed before the rebuild and the journey passed 29 of 29 checks. `CANDIDATE.json` names the exact commit and sha256; the October 23 build is preserved as `~/Desktop/Boppi-candidate-0.4.0-superseded-20261024T174429Z-pre-u5`. Package 0.4.0, engine 1.1.0, rubric 1.0.3 (unapproved). Still unpublished; human sessions 0 of 5.
+
 ## October 23 preparation snapshot
 
 The candidate was rebuilt locally after correcting the demo's printed client and quoting a saved scan path with spaces. Its manifest is the authority for the exact commit/checksum (older builds remain beside it). The journey now has 29 checks, including an interactive QA-only participant wrapper; human sessions remain 0/5. The kit's sandbox wrapper requires Python 3.9 or newer in addition to Node. The wrapper's `fix` and `rollback` keep their confirmation prompts.

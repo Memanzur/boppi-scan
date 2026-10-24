@@ -1,5 +1,13 @@
 # Boppi: next session (updated October 24, 2026)
 
+## October 24, 2026 (second session): milestone preparation; nothing pushed
+
+Remote check first: GitHub holds the authorized backup only (boppi-scan b30c65d, boppii 35b28e9). Local work since then is ahead (control plane and scanner commits listed in `git log`); no push, merge, publish, deploy, hosted migration, telemetry, or background monitoring. Working trees clean at commit time.
+
+Done locally: (1) real browser validation of the history page against a disposable Supabase stack with synthetic data; numbers equal the reducer; withdraw and erase exercised through the UI and confirmed in the database; two journey assertions corrected for rubric 1.0.2 and two added (`local-beta.mjs verify` 18/18); a redirect-notice defect fixed with a test. (2) Six-migration audit with order proof and a rehearsal from the production baseline (27/27). (3) Integration surfaces research and priority matrix with labeled evidence. (4) Notification and retention proposal. (5) Cloud sync journey script with observed results. Ledger rows M-1 to M-6; adjudication rows 89 to 92; vision conflicts 6 to 8; master plan item 5a names the next eligible local tasks.
+
+Limitations: 390 px not checked in a browser; erase and withdraw messages not re-checked after the fix; agent identity depends on the literal config path (row 90, founder decision); migration 5 would refuse every existing production token until owners consent (audit verdict). Open human and founder gates unchanged.
+
 ## October 24, 2026: U-5 finished locally; founder product vision persisted
 
 Session under Melody's 2026-10-24 product vision directive (direction only; no deployment, publication, production change, or security-gate decision). All work is local on `codex/live-brand-alignment` in `~/Desktop/Boppi-auto` and `~/Desktop/boppi-scan-auto`. Nothing was pushed, merged, published, deployed, or migrated. Exact heads: `git log -1` in each repo.
