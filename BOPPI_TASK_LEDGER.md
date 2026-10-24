@@ -92,6 +92,17 @@ Nothing in this ledger was pushed, published, deployed, or applied to a real con
 - Security review brief: `Boppi-auto/docs/validation/SECURITY_REVIEW_PACKAGE.md`. Live-check procedure isolates the event home and cleanup, records unavailable outcomes, and makes no stopwatch-based hook p95 claim. Fixture 7 checks and static HTML accessibility 26 checks are included in the scanner's 31 suites; these are limited synthetic/static checks, not a live-client or full accessibility audit.
 - The local unpublished candidate is rebuilt for the demo fix, with the prior directory preserved; its manifest names the source commit and checksum. This snapshot includes later local discovery/monitoring code and needs explicit release-scope review before publication.
 
+## Updated founder directive — Agent, Cloud, Intelligence (2026-10-23)
+
+Current product authority: `BOPPI_MASTER_PLAN.md` in the control-plane repo (supersedes enterprise-only historical architecture). Detailed older phase acceptance remains in `BOPPI_ROADMAP_2026.md`; previous founder/human gates remain unchanged. The current directive authorizes the independent local slices below.
+
+| Id | Task | State | Evidence | Blocker or next |
+| --- | --- | --- | --- | --- |
+| U-1 | Recover all worktrees/versions and assess current Opal, Snyk Agent Scan, Zenity, Astrix, Runlayer | done, local/research | `docs/validation/STATE_RECOVERY_2026-10-23.md`; `docs/research/COMPETITIVE_GAPS_2026-10-23.md` (control plane); 24 worktree statuses recorded, four dirty historical trees preserved | Competitor pages document overlapping capabilities; differentiation/adoption remain unvalidated |
+| U-2 | Explicit cloud-sync enrollment/consent, withdrawal and scoped collector erasure | done, local code/SQL | control-plane `docs/validation/SYNC_PRIVACY_2026-10-23.md`; 65 database checks including four real transaction races; control-plane verify green, consent tests 4, remediation 311; synthetic shared-form browser proof at 1280/390px | Migration `20261024043421_collector_sync_privacy.sql` remains local/unapplied. Full authenticated browser journey, hosted review and deployment remain gated/unrun. Ingestion collector is not a paired remediation device |
+| U-3 | Grounded read-only access questions over explicitly supplied local exports | open | Reuse inventory, rubric/path facts, prediction seams | Deterministic supported questions only; no LLM, invented relationships, private collection or inferred unused-permission claim |
+| U-4 | Synthetic Observe → Propose → Evaluate → Review → Version → Distribute → Verify demonstration | open | Existing overlay and prediction verification are reusable; static inspector experiment remains failed | Frozen/held-out evaluation, poisoned proposals refused, signed versioned inactive bundles, human review required; no production rule activation |
+
 ## Standing rules
 
 - Human gates (P0-2, P1-9, P1-10, P2-7) are never marked done by an agent.

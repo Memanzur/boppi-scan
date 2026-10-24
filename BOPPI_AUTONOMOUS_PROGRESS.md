@@ -1,5 +1,15 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 23, 2026: updated directive, recovery and optional sync privacy
+
+New authority: control-plane `BOPPI_MASTER_PLAN.md` reconciles the Agent + optional Cloud + deterministic Intelligence vision with the old roadmap. Current competitive research confirms overlap in graphs, natural-language access, approval/JIT and runtime controls; no exclusivity claim is justified. Source/worktree recovery recorded in `docs/validation/STATE_RECOVERY_2026-10-23.md` (control plane): 24 worktrees, four older dirty trees untouched; active starting heads scanner 4bea110/control plane 1821b7f.
+
+Completed U-2 locally: versioned cloud-sync consent on collectors, explicit enrollment (no token issued on Welcome mount), default-off legacy/unconsented collectors, shared token-gate consent check, withdrawal that revokes tokens and cannot be bypassed by rotation, separately confirmed current-inventory/snapshot erasure, active-workspace/tenant/role guards and bounded audits. This is ingestion identity, not remediation pairing. Local migration `20261024043421_collector_sync_privacy.sql` is NOT hosted. See control-plane `docs/validation/SYNC_PRIVACY_2026-10-23.md` for exact scope and retained data.
+
+Tests: 65 local database PASS checks (34 existing, 27 privacy, four real transaction races); local security advisor no warning/error issues; full control-plane verify passes (organization 92, consent 4, remediation 311). Actual shared form UI checked at 1280px and 390px with unchecked consent and exact DELETE confirmation. Authenticated browser journey was updated but not run; no hosted or real-client claim. Scanner source unchanged in this unit.
+
+Next authorized independent slices: U-3 grounded local-export questions, then U-4 synthetic inactive rule evaluation/distribution. Existing human sessions 0/5, rubric sign-off, external review, real client/device, runtime/content/hashed-id consent, retention/two-person/rollback decisions, production migrations and publication remain open. No push, deploy, publish, remote mutation, telemetry, real scan/fix or persistent install.
+
 ## October 23, 2026: interrupted preparation resumed locally
 
 Completed the interrupted tester wrapper and review handoff. The demo now emits a fix for the actual Claude Desktop sandbox and quotes scan paths with spaces. Candidate journey covers interactive QA start/plan/fix/verify/rollback without creating T1-T5 homes (29 checks). The earlier candidate directory is preserved before rebuilding; use the current `~/Desktop/Boppi-candidate-0.4.0/CANDIDATE.json` for exact source/checksum. The candidate includes the later local discovery/monitoring commands; release scope remains a founder decision.
