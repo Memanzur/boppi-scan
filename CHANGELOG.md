@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (development branch `dev/claude-code-settings-5a`, not in the 0.4.0 candidate)
+
+- Passive Claude Code settings discovery (master plan 5a(a)). The scan reads the documented MCP enablement keys (`enableAllProjectMcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers` in settings files; `enabledMcpServers` and `disabledMcpServers` for the project in `~/.claude.json`), counts hook handlers per event without storing command text, matchers, or prompts, and reads the machine-wide managed location for the platform (`managed-settings.json`, `managed-settings.d/*.json`, presence and server count of `managed-mcp.json`). Each server is reported as enabled, awaiting approval, disabled, or unknown (`discovery.clients[].mcpPolicy`, a `Settings read:` line in COVERAGE and the HTML coverage card). Inspect-only: no hook or server is run (`test/verify-claude-code-settings.js` runs every scan under a preload that refuses processes and network), a disabled server is still graded (rubric open question), and a wildcard URL rule is unknown rather than evaluated. Grades change only when a managed file exists: its rules merge with highest precedence, `allowManagedPermissionRulesOnly` drops rules from other files, and `permissions.disableBypassPermissionsMode` cancels a user-set bypass mode. `managedSettingsRead` is true on built-in permissions when a managed file was read; MDM, registry, and server-managed settings are still not read and the report says so. Missing managed locations print as one line. 57 new checks: positive, precedence, negative, malformed, privacy, compatibility.
+
 ## 0.4.0
 
 Local candidate (unpublished). Milestone 1, trustworthy checkup.

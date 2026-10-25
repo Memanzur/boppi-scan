@@ -31,6 +31,7 @@ const agentRiskEngine = require('../engine/agentRiskEngine');
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const builtinTools = require('./builtinTools');
+const claudeCodeSettings = require('./claudeCodeSettings');
 const recognitionModule = require('./recognition');
 const predict = require('./predict');
 const verify = require('./verify');
@@ -179,6 +180,8 @@ function parseArgs(argv) {
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false, code: null, name: null, subcommand: null,
     install: false, printConfig: false, set: [], record: null, forget: false, all: false, interval: 60, duration: 0, once: false, log: null, since: 30, disable: false, enable: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
+    // Fixtures only: where to look for managed-settings.json instead of the platform location.
+    managedDir: process.env.BOPPI_MANAGED_SETTINGS_DIR || null,
   };
   let askRequested = false;
   const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--overlay-bundle', '--trust', '--receipt', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
@@ -491,6 +494,11 @@ function discover(options) {
       filesRead.add(entry.path);
       if (entry.status === 'found' && !client.primaryPath) client.primaryPath = entry.path;
     }
+    // The documented per-project enablement lists, from a document readClient already parsed.
+    for (const file of descriptor.files) {
+      const json = file.policy && read.documents.get(path.resolve(file.path));
+      if (json) client.projectPolicy = file.policy(json);
+    }
     if (builtinTools.hasBuiltinTools(client.clientKey)) {
       // Permission settings are read only when discovery found this client, and never in explicit --config mode.
       client.builtin = builtinTools.describeBuiltin(client.clientKey, client.primaryPath ? descriptor.settingsFiles || null : null, { home: options.home, cwd: options.cwd });
@@ -498,15 +506,34 @@ function discover(options) {
         if (entry.status !== 'not_found') filesRead.add(entry.path);
         client.files.push(entry);
       }
+      if (client.builtin.policy) client.mcpPolicy = mcpPolicyFor(client);
+      delete client.builtin.policy;
     }
     client.coverageIdentity = evidenceIdentity.digest('client-coverage-v2', {
       key: client.clientKey, source: client.source, platform: options.platform,
       home: path.resolve(options.home), cwd: path.resolve(options.cwd), explicit: !!options.config,
       files: client.files.map(f => ({ path: path.resolve(f.path), scope: f.scope, kind: f.kind || 'config' })).sort((a, b) => a.path.localeCompare(b.path)),
     });
+    delete client.projectPolicy;
     clients.push(client);
   }
   return { clients, filesRead: [...filesRead] };
+}
+
+/** Enablement, hook counts and managed policy for one Claude Code install, from settings already read. Inspect-only. */
+function mcpPolicyFor(client) {
+  const policy = client.builtin.policy;
+  const scopeOf = new Map();
+  for (const file of client.files) if (file.kind !== 'settings' && file.kind !== 'managed-mcp') for (const key of file.servers || []) scopeOf.set(key, file.scope);
+  const servers = Object.entries(client.mergedServers).map(([name, server]) => ({ name, scope: scopeOf.get(name) || 'user', server }));
+  const { servers: graded, counts } = claudeCodeSettings.enablement({ servers, policy, project: client.projectPolicy || null });
+  return {
+    servers: graded,
+    counts,
+    hooks: policy.hooks,
+    managed: { checked: policy.managed.checked, found: policy.managed.found, locks: Object.keys(policy.managed.locks).sort(), mcpFile: policy.managed.mcpFile, mcpServerCount: policy.managed.mcpServerCount, rules: { allowed: policy.managed.allowed ? policy.managed.allowed.count : null, denied: policy.managed.denied ? policy.managed.denied.count : null }, disableBypassPermissionsMode: policy.managed.disableBypassPermissionsMode },
+    complete: policy.unreadable === 0,
+  };
 }
 
 /** Shadow entries: what experimental claims would have added. Reported, never applied. */
@@ -676,13 +703,18 @@ function portablePath(file, home) {
   if (file === root || file.startsWith(root + path.sep)) return '~' + file.slice(root.length).split(path.sep).join('/');
   return scanner.pathFingerprint(file);
 }
+/** A managed settings file at its documented machine-wide location names nothing personal, so it keeps its literal path; anywhere else it is fingerprinted like any other path outside the home. */
+function portableSettingsPath(file, home) {
+  if (file.scope === 'managed' && Object.values(claudeCodeSettings.MANAGED_DIR).some(dir => file.path.startsWith(dir))) return file.path;
+  return portablePath(file.path, home);
+}
 function portableDiscovery(discovery, home) {
   return {
     clients: discovery.clients.map(({ mergedServers, ...client }) => ({
       ...client,
       primaryPath: client.primaryPath ? portablePath(client.primaryPath, home) : null,
-      files: client.files.map(file => ({ ...file, path: portablePath(file.path, home) })),
-      ...(client.builtin ? { builtin: { ...client.builtin, settings: { ...client.builtin.settings, files: client.builtin.settings.files.map(file => ({ ...file, path: portablePath(file.path, home) })) } } } : {}),
+      files: client.files.map(file => ({ ...file, path: portableSettingsPath(file, home) })),
+      ...(client.builtin ? { builtin: { ...client.builtin, settings: { ...client.builtin.settings, files: client.builtin.settings.files.map(file => ({ ...file, path: portableSettingsPath(file, home) })) } } } : {}),
     })),
     filesRead: discovery.filesRead.map(file => portablePath(file, home)),
   };

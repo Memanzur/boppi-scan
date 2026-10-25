@@ -144,7 +144,7 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   const bypass = exportOf(['scan', '--only', 'claude-code'], bypassHome, project);
   const bypassShell = builtinOf(bypass.exported, 'shell_access');
   ok('a project-local bypassPermissions mode overrides the user settings and makes every tool unprompted', bypassShell.accessLevel === 'unprompted' && bypassShell.normalizationReason.includes('defaultMode bypassPermissions in local settings'));
-  ok('user, project, and local settings files are all listed under the client', bypass.exported.discovery.clients.find(c => c.clientKey === 'claude-code').files.filter(f => f.kind === 'settings').map(f => f.scope).sort().join() === 'local,project,user');
+  ok('user, project, local, and managed settings files are all listed under the client', bypass.exported.discovery.clients.find(c => c.clientKey === 'claude-code').files.filter(f => f.kind === 'settings').map(f => f.scope).sort().join() === 'local,managed,project,user');
 
   const editsHome = path.join(root, 'edits-home');
   writeJson(path.join(editsHome, '.claude.json'), { mcpServers: { fetch: FETCH }, projects: {} });

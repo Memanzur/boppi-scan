@@ -55,7 +55,7 @@ Steps are added per grant:
 | Claude Code built-in `WebSearch`, prompted by default (1.0.3: was folded into one web grant with `WebFetch`, so an allow rule for `WebSearch` graded `WebFetch` as never prompting) | +1 | assumption: a prompt could be approved; the grant is untrusted content only. A search query is not treated as a destination the model can deliver data to (open question 7) |
 | No grant traceable for a branch | 2 | the path is reported at assumed strength |
 
-Two standing unknowns are attached to every path: no tool call, data transfer, or attack was observed; and whether the client asks before each MCP tool call was not checked. Built-in grants add: managed (machine-wide) permission settings were not read.
+Two standing unknowns are attached to every path: no tool call, data transfer, or attack was observed; and whether the client asks before each MCP tool call was not checked. Built-in grants add: managed (machine-wide) permission settings were not read. (Development branch `dev/claude-code-settings-5a`, not yet in a candidate: the managed settings files at their documented location are read and merged with highest precedence; the unknown narrows to settings delivered by an MDM profile, the Windows registry, or server-managed policy, which are still not read.)
 
 ## Worked examples (from the frozen corpus)
 
@@ -77,7 +77,7 @@ Two standing unknowns are attached to every path: no tool call, data transfer, o
 ## What this rubric does not claim
 
 - It does not estimate likelihood. A critical priority means the configuration establishes every link of a high-impact chain, not that an attack is probable.
-- It does not emulate the client's exact permission engine. Built-in grades read the settings files Boppi can see; managed settings, sandboxes, and unsupported modes are reported as unknowns.
+- It does not emulate the client's exact permission engine. Built-in grades read the settings files Boppi can see; managed settings (until the development branch above lands), sandboxes, and unsupported modes are reported as unknowns. A server that settings disable or that awaits approval is still graded as configured; whether to lower or drop it is an open founder question (`docs/validation/FOUNDER_REVIEW_2026-10-24.md` in the control plane).
 - It does not lower a path because an alternative route exists. Every route is its own path; the fix text names what remains.
 - A downgrade never hides a path. Assumed-strength paths stay in the report with their unknowns.
 - The AGENTS table band is not a second scale (1.0.3). An agent's band is the worst open finding or exposure path on that agent (low when there is none), and the score is the engine's points within that band; a rule finding that an exposure path also covers is restated at the path's priority first. A machine whose every path is medium is a medium agent, and an agent with a critical path is a critical agent.

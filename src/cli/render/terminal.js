@@ -2,7 +2,9 @@
 'use strict';
 const { rankPredictions } = require('../predict');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
+const path = require('path');
 const recognition = require('../recognition');
+const claudeCodeSettings = require('../claudeCodeSettings');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
@@ -97,13 +99,20 @@ function serverReach(report, server) {
 
 /** A permission settings file's DISCOVERY status: rule counts and mode, never rule text. */
 function settingsStatus(file) {
+  if (file.kind === 'managed-mcp') return `managed MCP policy (${file.serverCount} managed server${file.serverCount === 1 ? '' : 's'}; servers configured elsewhere are not loaded)`;
   const rules = file.rules || {};
   const parts = [];
   if (rules.mode) parts.push(`mode ${rules.mode}`);
   if (rules.allow) parts.push(`${rules.allow} allow`);
   if (rules.deny) parts.push(`${rules.deny} deny`);
   if (rules.ask) parts.push(`${rules.ask} ask`);
-  return `permission settings (${parts.length ? parts.join(' · ') : 'no permission rules'})`;
+  const mcp = file.mcp || {};
+  if (mcp.enableAllProjectMcpServers === true) parts.push('all project servers enabled');
+  if (mcp.enabledMcpjsonServers && mcp.enabledMcpjsonServers.length) parts.push(`${mcp.enabledMcpjsonServers.length} project server${mcp.enabledMcpjsonServers.length === 1 ? '' : 's'} enabled`);
+  if (mcp.disabledMcpjsonServers && mcp.disabledMcpjsonServers.length) parts.push(`${mcp.disabledMcpjsonServers.length} project server${mcp.disabledMcpjsonServers.length === 1 ? '' : 's'} disabled`);
+  if (file.hooks && file.hooks.handlers) parts.push(`${file.hooks.handlers} hook handler${file.hooks.handlers === 1 ? '' : 's'}`);
+  if (file.locks) { const locks = Object.keys(file.locks).filter(k => file.locks[k] === true); if (locks.length) parts.push(`locks: ${locks.join(', ')}`); }
+  return `${file.scope === 'managed' ? 'managed ' : ''}permission settings (${parts.length ? parts.join(' · ') : 'no permission rules'})`;
 }
 
 function editSentence(step) {
@@ -175,10 +184,17 @@ function renderReport(report, options = {}) {
   out(s.bold('DISCOVERY'));
   const labelWidth = Math.max(16, ...report.discovery.map(client => client.label.length + 2));
   for (const client of report.discovery) {
+    const managedFiles = client.files.filter(file => file.scope === 'managed');
+    const missingManaged = managedFiles.every(file => file.status === 'not_found') ? managedFiles : [];
     for (const file of client.files) {
+      if (missingManaged.includes(file)) {
+        if (file !== missingManaged[0]) continue;
+        out(s.dim('  · '), pad(client.label, labelWidth), pad(path.dirname(file.path), 64), '  ', s.dim(`managed settings: none found (${missingManaged.length} location${missingManaged.length === 1 ? '' : 's'} checked)`));
+        continue;
+      }
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
       const status = file.status === 'found'
-        ? (file.kind === 'settings' ? settingsStatus(file) : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
+        ? (file.kind === 'settings' || file.kind === 'managed-mcp' ? settingsStatus(file) : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
         : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
       out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
@@ -270,6 +286,10 @@ function renderReport(report, options = {}) {
     const unknownSentence = recognition.coverageSentence(report.recognition);
     const hints = report.graph ? securityGraph.productionHints(report.graph) : [];
     out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}${hints.length ? ` ${plural(hints.length, 'permission')} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''}`);
+    for (const client of report.discovery) {
+      const sentence = claudeCodeSettings.coverageSentence(client.mcpPolicy);
+      if (sentence) out('  ', s.dim('Settings read: '), sentence);
+    }
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
     else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');
     if (report.traversal && !report.traversal.complete) out('  ', s.yellow('Search limit: '), `${traversalSentence(report.traversal)} Paths beyond the limit were not examined; a missing path is not evidence of absence.`);

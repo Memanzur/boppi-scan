@@ -20,7 +20,7 @@ function descriptorsFor(options) {
       files: [{ path: path.resolve(options.config), scope: 'explicit', blocks: [{ keyPath: ['mcpServers'], scope: 'explicit' }] }],
     }];
   }
-  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
+  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform, managedDir: options.managedDir || null }));
 }
 
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
