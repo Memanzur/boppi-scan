@@ -257,7 +257,7 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
 
   ${evidenceGuide()}
   <h2 id="inventory">Discovered MCP servers and capabilities</h2>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" role="region" aria-label="Discovered MCP servers and capabilities" tabindex="0"><table>
     <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th><th>Recognition</th></tr></thead>
     <tbody>${serverRows || '<tr><td colspan="4" class="muted">No supported MCP servers were found in the examined files.</td></tr>'}${unmatchedRow}</tbody>
   </table></div>
@@ -273,7 +273,7 @@ ${movable.length ? `<div class="card"><div class="kv"><b>Docker tags:</b> ${mova
 ${builtinRows ? `
   <h2 id="builtin">Built-in tools</h2>
   <p class="muted small">The agent's own tools, with no MCP server involved. Removing a server never removes these. "Prompts" means the client asks before each use; "No prompt" means a permission setting lets the tool run without asking.</p>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" role="region" aria-label="Built-in tools" tabindex="0"><table>
     <thead><tr><th>Agent</th><th>Capability</th><th>Tools</th><th>Permission settings</th></tr></thead>
     <tbody>${builtinRows}</tbody>
   </table></div>` : ''}
@@ -309,7 +309,7 @@ ${graphSection(view)}
   </div>`).join('') : '<div class="card muted">No potential exposure paths from the evidenced inventory.</div>'}
 
   <h2>Findings (${openFindings.length})</h2>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" role="region" aria-label="Findings" tabindex="0"><table>
     <thead><tr><th>Severity</th><th>Rule</th><th>Agent</th><th>Finding</th><th>Suggested fix</th></tr></thead>
     <tbody>${openFindings.length ? openFindings.map(f => `
       <tr><td>${sevBadge(f.severity)}</td><td>${esc(f.ruleId)}</td><td>${esc(agentName(f.agentId))}</td>
@@ -318,7 +318,7 @@ ${graphSection(view)}
   </table></div>
 
   <h2>Agents (${inventory.agents.length})</h2>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" role="region" aria-label="Agents" tabindex="0"><table>
     <thead><tr><th>Agent</th><th>Risk</th><th>MCP servers</th><th>Worst exposure path</th></tr></thead>
     <tbody>${inventory.agents.map(a => {
       const servers = inventory.mcpServers.filter(m => m.agentId === a.id);
@@ -371,7 +371,7 @@ function renderDemoHtml(bundle) {
 ${graphSection(first)}
 <h2 id="inventory">Agent and MCP inventory</h2>
 <p class="muted small">Configured identities from the sample. Capabilities may be inferred; select a graph node to inspect the evidence.</p>
-<div class="table-scroll"><table class="demo-inventory"><thead><tr><th>MCP server</th><th>Agent</th><th>Evidence</th><th>Capabilities (inferred where labeled)</th></tr></thead><tbody id="demo-inventory"></tbody></table></div>
+<div class="table-scroll" role="region" aria-label="Agent and MCP inventory" tabindex="0"><table class="demo-inventory"><thead><tr><th>MCP server</th><th>Agent</th><th>Evidence</th><th>Capabilities (inferred where labeled)</th></tr></thead><tbody id="demo-inventory"></tbody></table></div>
 <h2 id="coverage">Know what was checked</h2>
 <div class="coverage-strip"><section class="card"><h3>Included in this demo</h3><p>Synthetic MCP configuration, configured servers, metadata-derived capabilities, and potential paths evaluated by the real Boppi engine.</p></section><section class="card"><h3>Not checked</h3><p>Your device, secret values, file contents, actual tool calls, installed package behavior, or whether an agent has been exploited. A clean sample is not proof of safety.</p></section></div>
 ${evidenceGuide()}

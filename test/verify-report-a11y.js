@@ -60,6 +60,8 @@ function check(label, html) {
   const controls = [...voids(html, 'input'), ...elements(html, 'select').map(e => e.attrs), ...elements(html, 'textarea').map(e => e.attrs)].filter(a => a.type !== 'hidden');
   ok(`every form control has a label (${controls.length} controls)`, controls.every(a => a['aria-label'] || a['aria-labelledby'] || (a.id && labelsFor.has(a.id))));
   ok('no positive tabindex', !/tabindex="[1-9]/i.test(html));
+  const scrollers = [...html.matchAll(/<div class="table-scroll"[^>]*>/gi)].map(m => attrs(m[0].slice(4, -1)));
+  ok(`every horizontally scrollable table region is keyboard focusable and named (${scrollers.length} regions)`, scrollers.length > 0 && scrollers.every(a => a.tabindex === '0' && a['aria-label']));
   const svgs = elements(html, 'svg');
   ok(`every inline svg is named or hidden from assistive tech (${svgs.length} svgs)`, svgs.every(s => s.attrs['aria-hidden'] === 'true' || hasName(s, false) || /<title>[^<]+<\/title>/i.test(s.inner)));
   ok('no element relies on color alone for the severity badge (badge text present)', !/class="[^"]*badge[^"]*"[^>]*>\s*</i.test(html));
