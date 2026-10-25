@@ -1,5 +1,14 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
+
+Scanner source `3fde321`, control-plane implementation `ce2b2aa`. Full scanner 35/35; source and packaged blocker regressions 29; exact-package privacy 31 and no-network 22; fresh-install journey 29; control verify exit 0; DB 124 with no security-advisor issues; recovery barrier and all consent suites pass. Candidate `~/Boppi-beta-blocker-repairs-20261025/candidate-0.4.0-3fde321`, sha256 `2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747`.
+
+History is coverage-bound; moves require both endpoints, matching server configuration and destination exposure evidence; unknown/partial/legacy evidence never confirms. Consent migration is non-reversible: only file-6 rollback or forward repair is supported after consent installation, and older down files refuse direct bypass attempts. Full reversal to the pre-consent API is unsupported.
+
+Decision: HOLD pending Codex independent retest. The review package and evidence are at `~/Boppi-beta-blocker-repairs-20261025/review/`; active report `docs/release/RELEASE_DECISION_2026-10-25.md` in the control repo. Human sessions 0/5, rubric unapproved; all founder, external security, real-device and hosted gates remain. No push, merge, publication, deployment, hosted migration or founder approval. Prior candidates and independent continuation preserved. The dirty 5a(b) worktree remains at `3447992`, excluded and untouched. Do not rebuild old candidates or restart these repairs without checking the new evidence first.
+
+
 ## October 24, 2026 (fourth session): candidate preserved, 5a(a) on a development branch, founder review; nothing pushed
 
 Under Melody's parallel-development directive. The rebuilt 0.4.0 candidate (`~/Desktop/Boppi-candidate-0.4.0`, source `cd44081`, tarball sha256 `95c6a425…`) is the proposed Phase 0 human-testing candidate pending independent confirmation. It is read-only, with checksums, manifests, logs and browser evidence in `~/Desktop/Boppi-candidate-0.4.0-evidence-2026-10-24/`, and release branches `release/candidate-0.4.0` in both repos (scanner tag `candidate-0.4.0-cd44081`, control plane tag `candidate-0.4.0-control-plane`). Local only.

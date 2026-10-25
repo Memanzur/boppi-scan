@@ -154,3 +154,12 @@ Melody explicitly requested saving all current work to GitHub before credits run
 - Human gates (P0-2, P1-9, P1-10, P2-7) are never marked done by an agent.
 - Every unit ends with: tests run and recorded, security and privacy check, local commit, a `DECISIONS.tsv` row, this ledger, and the handoff files.
 - When a task is blocked by a founder decision, record it here and move to the next open item.
+
+## Verified beta blocker repairs (2026-10-25)
+
+| ID | Work | State | Evidence | Remaining gate |
+| --- | --- | --- | --- | --- |
+| V-1 | Bind selected/explicit history and verification to actual coverage | fixed locally | scanner 3fde321; 29 source and package blocker checks; scope-switch reproduction now withheld | independent Codex confirmation |
+| V-2 | Verify moved server at both endpoints, identity and destination exposures | fixed locally | scanner 3fde321; removal-only unresolved, real moves confirmed, modified/partial/unknown evidence not confirmed | independent Codex confirmation |
+| V-3 | Retain informed consent throughout supported recovery | fixed locally | control ce2b2aa; file-5 and older downs refuse after consent; full/partial consent suites, 10 atomic refusal attempts; DB 124 | independent review; hosted recovery plan and restore rehearsal |
+| V-4 | Freeze new exact-artifact candidate and prepare review package | prepared, HOLD | candidate 0.4.0-3fde321; sha256 2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747; journey 29, privacy 31, network guard 22; ~/Boppi-beta-blocker-repairs-20261025 | human sessions 0/5; rubric/founder/external security gates open |

@@ -1,5 +1,14 @@
 # Boppi: next session (updated October 24, 2026)
 
+## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
+
+Scanner source `3fde321`, control-plane implementation `ce2b2aa`. Full scanner 35/35; source and packaged blocker regressions 29; exact-package privacy 31 and no-network 22; fresh-install journey 29; control verify exit 0; DB 124 with no security-advisor issues; recovery barrier and all consent suites pass. Candidate `~/Boppi-beta-blocker-repairs-20261025/candidate-0.4.0-3fde321`, sha256 `2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747`.
+
+History is coverage-bound; moves require both endpoints, matching server configuration and destination exposure evidence; unknown/partial/legacy evidence never confirms. Consent migration is non-reversible: only file-6 rollback or forward repair is supported after consent installation, and older down files refuse direct bypass attempts. Full reversal to the pre-consent API is unsupported.
+
+Decision: HOLD pending Codex independent retest. The review package and evidence are at `~/Boppi-beta-blocker-repairs-20261025/review/`; active report `docs/release/RELEASE_DECISION_2026-10-25.md` in the control repo. Human sessions 0/5, rubric unapproved; all founder, external security, real-device and hosted gates remain. No push, merge, publication, deployment, hosted migration or founder approval. Prior candidates and independent continuation preserved. The dirty 5a(b) worktree remains at `3447992`, excluded and untouched. Do not rebuild old candidates or restart these repairs without checking the new evidence first.
+
+
 ## October 25, 2026 (fifth session, cut short by the usage limit): private beta readiness sprint; nothing pushed
 
 Done: review findings F-01 and F-02 fixed (scanner `7427b01`) and F-03 fixed (control plane `20333ac`), each reproduced on the vulnerable revision and shown fixed; second candidate `~/Desktop/Boppi-candidate-0.4.0-7427b01` built, probed on the installed tarball, locked read-only, evidence bundle `~/Desktop/Boppi-candidate-0.4.0-7427b01-evidence-2026-10-25/`, local tags `candidate-0.4.0-7427b01` and `candidate-0.4.0-control-plane-20333ac`; review response `docs/validation/INDEPENDENT_REVIEW_RESPONSE_2026-10-25.md` with reviewer copy `~/Desktop/Boppi-independent-review-response-20261025/`; free-user audit `docs/beta/FREE_USER_EXPERIENCE_AUDIT_2026-10-25.md`; beta package `docs/beta/private-beta-package/`; decision report `docs/release/RELEASE_DECISION_2026-10-25.md`. Three audit fixes committed on the scanner ledger branch as `09f755b` (Node check, verify move labels and plural, push hint), suite 34 of 34, NOT in any candidate.

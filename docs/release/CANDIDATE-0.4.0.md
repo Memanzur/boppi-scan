@@ -1,5 +1,14 @@
 # Release candidate: boppi 0.4.0 (local, unpublished)
 
+## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
+
+Scanner source `3fde321`, control-plane implementation `ce2b2aa`. Full scanner 35/35; source and packaged blocker regressions 29; exact-package privacy 31 and no-network 22; fresh-install journey 29; control verify exit 0; DB 124 with no security-advisor issues; recovery barrier and all consent suites pass. Candidate `~/Boppi-beta-blocker-repairs-20261025/candidate-0.4.0-3fde321`, sha256 `2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747`.
+
+History is coverage-bound; moves require both endpoints, matching server configuration and destination exposure evidence; unknown/partial/legacy evidence never confirms. Consent migration is non-reversible: only file-6 rollback or forward repair is supported after consent installation, and older down files refuse direct bypass attempts. Full reversal to the pre-consent API is unsupported.
+
+Decision: HOLD pending Codex independent retest. The review package and evidence are at `~/Boppi-beta-blocker-repairs-20261025/review/`; active report `docs/release/RELEASE_DECISION_2026-10-25.md` in the control repo. Human sessions 0/5, rubric unapproved; all founder, external security, real-device and hosted gates remain. No push, merge, publication, deployment, hosted migration or founder approval. Prior candidates and independent continuation preserved. The dirty 5a(b) worktree remains at `3447992`, excluded and untouched. Do not rebuild old candidates or restart these repairs without checking the new evidence first.
+
+
 Built by `npm run release-candidate` from the commit named in the candidate's `CANDIDATE.json`; `npm run verify-versions` checks that package, engine, rubric, changelog, this document, and the manifest agree, and `scripts/candidate-kit/prepare-fixtures.py <candidate dir>` rebuilds the six-case facilitator kit from the tarball; the manifest also carries the tarball sha256, engine 1.1.0, the rubric version (1.0.3 as of 2026-10-23; earlier builds are kept beside the current one as `Boppi-candidate-0.4.0-superseded-rubric-<version>`), and the journey check results. Publishing to npm, tagging, and any website change need separate founder authorization and are not part of this document.
 
 ## October 24 rebuild
