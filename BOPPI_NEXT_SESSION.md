@@ -1,55 +1,31 @@
-# Boppi next-day handoff, 2026-10-25 05:30 UTC
+# Boppi handoff, 2026-10-25T063755Z
 
-Founder local date at this checkpoint: October 24, 2026 (America/Denver). Start with this file, then `docs/release/RELEASE_BLOCKERS.md` (authoritative states), `docs/release/RELEASE_DECISION_2026-10-25.md` (now with a fresh-reviewer continuation section) and `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md` (what the founder decides, in order). Do not infer release status from older candidate labels or summaries.
+Written by Claude Fable 5.1 after the full-product recovery directive and the "stop research, implement" follow-up. Nothing was pushed, published, deployed, merged, or applied to a real machine. Both repos are clean on `codex/live-brand-alignment`.
 
-## A. Executive summary
+## Where things stand
 
-A different model and session (Claude Fable 5.1) picked up the 04:27 UTC Codex handoff after Codex ran out of usage. It retested candidate 0.4.0-2d65a09 through the separate review package without touching the frozen artifact, then worked the five eligible tasks the handoff listed. Everything the earlier session claimed held up on the real tarball. Three new findings came out of the work the earlier session could not run: a Linux-only collector defect (low, fixed in scanner source), a backup role blind to RLS-protected auth rows (high, backup script now refuses), and a fresh-platform restore that silently widened privileges on every table (high, rehearsal script and runbook now align default privileges first and compare grants). Candidate 2d65a09 is unchanged and remains recommended for the human sessions.
+- Scanner `~/Desktop/boppi-scan-auto`: c863007 (engine 1.1.1 at 53e5d0e and 82c0095). `npm test` 36/36 on macOS after both engine commits. Candidate 0.4.0-2d65a09 is untouched and carries engine 1.1.0; `npm run verify-versions` now reports the candidate's engine behind source, which is expected until the founder decides on a rebuild (D-11).
+- Control plane `~/Desktop/Boppi-auto`: 02b6c3e (code in 7431a93). `npm run verify` 311, `verify:engine` 45, Chromium `drive.js builtin` 29 steps. Vendor pin is scanner 82c0095.
+- Website `~/Desktop/Boppi-website-positioning` at 0345934: untouched this session; claim inventory in `Boppi-auto/docs/requirements/extractions-2026-10-25/extract-D-website.md`.
+- Disposable stack `/tmp/boppi-beta-local.jTedw9` holds the synthetic push with built-in grants (collector "Synthetic developer laptop"); stopped with volumes kept. Docker Desktop left running.
 
-Overall: **NO-GO for public release**, unchanged. Founder, human, external-review and hosted gates are the only open items. Nothing was pushed, published, deployed or queried on a hosted project. No secret was read or set.
+## What this session changed (code)
 
-## B. Exact repository state
+1. Dashboard built-in residual parity: `lib/engine/builtin-residual.ts`, card on remediation and paths pages (RELEASE_BLOCKERS DASH-PLAN-01).
+2. Shared engine: built-in-held nodes never proposed as config edits; an MCP server entry removed as one whole with `removedNodeIds`; permission nodes carry `grantedBy`; adapter builds servers before permissions (DASH-PLAN-02).
+3. Scanner wording: one unreadable client reads "is missing".
 
-| Repository | Branch | Implementation commit this session | Final documentation commit | Unpushed before this session |
-| --- | --- | --- | --- | --- |
-| `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | `976f998` hook segment names unique; plan-fix test padding | see FINAL_STATE.json | 14 |
-| `~/Desktop/Boppi-auto` | codex/live-brand-alignment | `b65dfb2` backup RLS precheck, platform rehearsal, runbook, register, decision, packet | see FINAL_STATE.json | 15 |
-| `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | none | none | 3 (unchanged, untracked review doc still untracked) |
+## Read first
 
-Worktrees, the dirty `~/Desktop/Boppi` family, and `~/Desktop/boppi-scan-dev-5a` (5a(b), `3447992`, dirty) were not touched. The frozen candidates under `~/Boppi-release-completion-20261025T033847Z/` and `~/Boppi-beta-blocker-repairs-20261025/` were read only; the candidate directory's checksums still verify.
+`docs/requirements/CHECKPOINT_2026-10-25.md` (confirmed gaps, what already satisfies requirements, open questions), `docs/release/ROADMAP_TO_BUILD_2026-10-25.md` (phase by phase: implemented, verified, human-tested, published, missing), `docs/release/RELEASE_BLOCKERS.md`, `BOPPI_TASK_LEDGER.md` section "Built-in residual parity", `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md`.
 
-## C. What was done, with evidence
+## Next session, in order
 
-Evidence root: `/Users/melodymanzur/Boppi-release-continuation-20261025T050716Z` (`logs/`, `evidence/`, `scratch/`). Synthetic data only. The `scratch/` folder holds installed runtimes and a plaintext dump of the synthetic source database and may be deleted.
+1. Website claims (local only, no deploy): fix `ScanTerminal.tsx:62,66`, `Hero.tsx:36`, `Terms.tsx:69-70`, `Privacy.tsx:90-91` (remove the false Google Fonts sentence), `Platform.tsx:11` ("release" for an unpublished candidate), label "Sign in" and "Create a workspace" as beta/hosted-pending, add a Vercel deploy guard; run the Vite build.
+2. Cursor residual sentence and the agent-id remap fixture (ledger P1-14 leftovers).
+3. If the founder chooses a rebuild (D-11): `npm run release-candidate` from a clean scanner head, then the kit and `verify-versions`.
+4. Founder gates stay as listed in the decision packet; never mark a human or review gate done.
 
-| Task from the 04:27 handoff | Result | Evidence |
-| --- | --- | --- |
-| 1. Fresh reviewer retest of 2d65a09 | `run-review.sh`: 210 checksums OK, offline install, 34/29/31/22, all probes PASS, backup rehearsal PASS. Sha256 `85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc` confirmed | logs/fresh-review-*.log |
-| 2. Node 18 | Exact tarball suites 34/29/31/22 under Node 18.20.8 Linux, network disabled. Full source suite 34/36 before fixes (SCAN-SEGMENT-01 plus a brittle test), 36/36 after, with `--init`. Node 22 Linux reproduced and confirmed both fixes. One `verify-discover` grandchild-wait flake in 1 of 10 container runs, recorded, no code change | logs/node18-linux-*.log; logs/node22-linux-*.log; logs/linux-failure-debug.log |
-| 3. axe pass | Static: candidate report, demo, kit demo/report, six case pages, 1280 and 390 px: 0 violations, 0 overflow. Live app on a fresh disposable stack: nine routes, history, signup to welcome: 0 violations, consent unchecked, no token | logs/axe-static-html.log; logs/browser-*.log |
-| 4. Platform restore rehearsal | Two disposable stacks, image 17.6.1.095. Run 1 exposed OPS-RESTORE-02 and OPS-RESTORE-03. Final run: plain restore PASS, 12 tolerated platform statements, counts equal (15), grants equal (35 rows), 115 post-restore assertions PASS, garbage token refused 28000 | logs/platform-rehearsal.log; evidence/platform-rehearsal*/ |
-| 5. Decision packet and kit review | `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md` orders eight decisions; kit README updated with the axe evidence; consent/session sheets reviewed, no change needed | repo |
-| Also | Integrated journey on the fresh stack 27/27 with the frozen candidate; `npm audit` 0 vulnerabilities; security package section 9 statuses filled where locally verifiable; `test:backup:local` 5 checks | logs/integrated-journey-fresh-stack.log; evidence/npm-audit-*.json; logs/backup-local-regression-final.log |
+## Rules carried forward
 
-Commands worth re-running: `bash ~/Boppi-release-completion-20261025T033847Z/review/run-review.sh`; in the scanner `npm test`; in the control plane `npm run test:backup:local`, and with two disposable stacks `BOPPI_REHEARSAL_SOURCE_PORT=<db1> BOPPI_REHEARSAL_TARGET_PORT=<db2> bash scripts/backup/platform-rehearsal.sh <out>` (the target stack must be fresh; `supabase db reset --workdir <stack2>` resets it). The two stacks used here are stopped with volumes kept: `/tmp/boppi-beta-local.jTedw9` and `/tmp/boppi-beta-local.restore.fQBuCQ`. Docker Desktop was started by this session and left running.
-
-## D. New findings and their state
-
-- **OPS-RESTORE-02** (High, VERIFIED, corrected). Backup role without BYPASSRLS sees zero auth rows with no error. The script refuses before dumping; negative control in the regression. Hosted: confirm the production `postgres` role carries BYPASSRLS before the first real backup.
-- **OPS-RESTORE-03** (High, VERIFIED, corrected in script and runbook). Restore into a fresh project leaves anon/authenticated with ALL on every table unless default privileges are aligned first. `RESTORE.md` 3b now carries the rehearsed steps.
-- **SCAN-SEGMENT-01** (Low, VERIFIED in source, not in candidate). Same-millisecond segment names overwrote records uncounted. Needs more than 1 MiB of hook records per millisecond at production size. Founder chooses whether a new candidate is cut (packet item 1; recommended no).
-
-## E. Remaining blockers
-
-Unchanged set: rubric sign-off (D-01 to D-08), kit and consent and five human sessions (D-11, D-12; 0 of 5), external security review (D-28), staging suite and hosted inventory (D-31, D-30), hosted recovery and migrations (D-30), push and publication (D-14, D-13), policy rows (D-23, D-24, D-26, D-27). Windows and real Linux clients untested on real machines. All listed with recommendations in the decision packet.
-
-## F. Tomorrow's eligible tasks (no founder answer required)
-
-1. If the founder picks packet item 1(b), cut a new candidate from scanner head with `node scripts/release-candidate.js --out <new dir>`, rebuild the kit, and rerun the four artifact suites and the journey against it; otherwise nothing.
-2. Add the two-stack rehearsal to the control-plane runbook as a repeatable command block (it is a script now; a `docs/LOCAL_BETA_RUNBOOK.md` paragraph pointing at it is missing).
-3. Remove `scratch/` from the evidence root once a reviewer has what they need.
-4. Everything else is a founder gate.
-
-## G. Ready-to-paste continuation prompt
-
-Resume Boppi from `~/Desktop/Boppi-auto/BOPPI_NEXT_SESSION.md`. Read `docs/release/RELEASE_BLOCKERS.md`, the continuation section of `docs/release/RELEASE_DECISION_2026-10-25.md`, `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md` and `/Users/melodymanzur/Boppi-release-continuation-20261025T050716Z/FINAL_STATE.json`. Candidate 0.4.0-2d65a09 (sha256 85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc) is unchanged and retested by a second model; scanner source is one low-severity collector fix ahead of it. Do not push, publish, deploy, query hosted projects, change secrets, enable telemetry or pairing, or answer founder decisions. Preserve all worktrees and 5a(b). Only the items in section F are eligible without a founder answer.
+No push, publish, deploy, staging or production change, real scan, hook activation, or external account change without explicit authorization. Git identity for commits: `-c user.name="Melody Manzur" -c user.email="melodymanzur@Melodys-MacBook-Air.local"`.
