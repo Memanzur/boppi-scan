@@ -2,14 +2,15 @@
 'use strict';
 const path = require('path');
 const { claudeCodeSettingsFiles } = require('../builtinTools');
+const ccSettings = require('../claudeCodeSettings');
 
-function locate({ home, cwd }) {
+function locate({ home, cwd, platform, managedDir }) {
   return {
     clientKey: 'claude-code',
     label: 'Claude Code',
     source: 'claude-code',
     // Read for the built-in tool grades only; these files hold no mcpServers.
-    settingsFiles: claudeCodeSettingsFiles({ home, cwd }),
+    settingsFiles: claudeCodeSettingsFiles({ home, cwd, platform, managedDir }),
     files: [
       {
         path: path.join(home, '.claude.json'),
@@ -20,6 +21,8 @@ function locate({ home, cwd }) {
           ...(json.mcpServers && typeof json.mcpServers === 'object' ? json.mcpServers : {}),
           ...(json.projects && json.projects[cwd] && typeof json.projects[cwd].mcpServers === 'object' ? json.projects[cwd].mcpServers : {}),
         }),
+        // The documented per-project enablement lists for the current project; server names only.
+        policy: json => ccSettings.projectPolicy(json, cwd),
       },
       { path: path.join(cwd, '.mcp.json'), scope: 'project', extract: json => json.mcpServers || {} },
     ],

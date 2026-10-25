@@ -143,7 +143,7 @@ function runCli(args, home) {
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
   section('Export carries no raw filesystem paths');
-  ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/')) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
+  ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/') || (f.scope === 'managed' && f.path.startsWith('/Library/Application Support/ClaudeCode/'))) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
   ok('the Claude Desktop config is listed by its ~ path', exported.discovery.filesRead.includes('~/Library/Application Support/Claude/claude_desktop_config.json'));
   ok('the export never contains the scanned home directory', !serialized.includes(home));
   // Check exact JSON string values. A substring check falsely fails on CI

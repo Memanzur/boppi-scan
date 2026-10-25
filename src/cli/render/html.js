@@ -14,6 +14,7 @@ const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
+const claudeCodeSettings = require('../claudeCodeSettings');
 const terminal = require('./terminal');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
@@ -208,6 +209,7 @@ function renderHtml(report, options = {}) {
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
     : 'Complete for the supported configuration sources that were found.')
     + (report.traversal && !report.traversal.complete ? ` Search limit: ${terminal.traversalSentence(report.traversal)} Paths beyond the limit were not examined.` : '');
+  const settingsSentences = (report.discovery || []).map(client => claudeCodeSettings.coverageSentence(client.mcpPolicy)).filter(Boolean);
   const GATE_WORD = { unprompted: 'No prompt', prompted: 'Prompts', denied: 'Denied', unknown: 'Not checked' };
   const builtinRows = (report.discovery || []).filter(c => c.builtin && c.agentId).flatMap(client => {
     const name = agentName(client.agentId);
@@ -252,6 +254,7 @@ ${liveToken ? `<meta name="boppi-live" content="${esc(liveToken)}">` : ''}
   <div class="card">
     <div class="kv"><b>Established:</b> ${inventory.agents.length} agent${inventory.agents.length === 1 ? '' : 's'}, ${inventory.mcpServers.length} MCP server${inventory.mcpServers.length === 1 ? '' : 's'}, ${builtinCount} built-in tool grant${builtinCount === 1 ? '' : 's'}, and ${report.portableFilesRead.length} configuration file${report.portableFilesRead.length === 1 ? '' : 's'} examined.</div>
     <div class="kv"><b>Not established:</b> runtime behavior, activity absent from configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${esc(unknownSentence)}` : ''}</div>
+    ${settingsSentences.map(sentence => `<div class="kv"><b>Settings read:</b> ${esc(sentence)}</div>`).join('')}
     <div class="kv muted small">${esc(coverageNote)} A clean result is not proof that the environment is safe.</div>
   </div>
 

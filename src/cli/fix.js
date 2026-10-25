@@ -19,7 +19,7 @@ function descriptorsFor(options) {
       files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || {} }],
     }];
   }
-  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
+  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform, managedDir: options.managedDir || null }));
 }
 
 /** The scanned file and key path that hold a server for one client, or null. */

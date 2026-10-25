@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const models = require('../engine/models');
 const toolCategories = require('./toolCategories');
+const ccSettings = require('./claudeCodeSettings');
 
 // prompts: true means the tool asks before each use unless a rule or mode
 // says otherwise; false means it never asks (Read inside the working tree);
@@ -50,14 +51,15 @@ const WORKING_SCOPE_LABEL = Object.freeze({
 });
 
 /** Claude Code permission settings files, lowest precedence first. Managed (machine-wide) settings are not read. */
-function claudeCodeSettingsFiles({ home, cwd }) {
+/** Lowest precedence first; managed (machine-wide) locations come last and win. `managedDir` overrides the platform location for fixtures only. */
+function claudeCodeSettingsFiles({ home, cwd, platform = process.platform, managedDir = null }) {
   return [
-    { path: path.join(home, '.claude', 'settings.json'), scope: 'user' },
-    { path: path.join(cwd, '.claude', 'settings.json'), scope: 'project' },
-    { path: path.join(cwd, '.claude', 'settings.local.json'), scope: 'local' },
+    { path: path.join(home, '.claude', 'settings.json'), scope: 'user', kind: 'settings' },
+    { path: path.join(cwd, '.claude', 'settings.json'), scope: 'project', kind: 'settings' },
+    { path: path.join(cwd, '.claude', 'settings.local.json'), scope: 'local', kind: 'settings' },
+    ...ccSettings.managedLocations({ platform, managedDir }),
   ];
 }
-
 function stringList(value) { return Array.isArray(value) ? value.filter(v => typeof v === 'string') : []; }
 
 /** `Tool` or `Tool(specifier)`. */
@@ -86,11 +88,23 @@ function readPermissionSettings(files) {
   const seen = new Set();
   let merged = null;
   let unreadable = 0;
+  const policy = { unreadable: 0, enableAllProjectMcpServers: null, enabledMcpjsonServers: new Set(), disabledMcpjsonServers: new Set(), hooks: { handlers: 0, events: 0, byEvent: {}, boppiCollector: false, malformed: false, files: 0 }, managed: { checked: 0, found: false, locks: {}, mcpFile: null, mcpServerCount: 0, allowed: null, denied: null, disableBypassPermissionsMode: false } };
+  const managedOnly = { allow: [], deny: [], ask: [] };
   for (const file of files) {
     const resolved = path.resolve(file.path);
     if (seen.has(resolved)) continue; // user and project settings are the same file when the scan runs from home
     seen.add(resolved);
+    if (file.kind === 'managed-mcp') {
+      const entry = ccSettings.managedMcpEvidence(file);
+      policy.managed.checked += 1;
+      policy.managed.mcpFile = entry.status;
+      policy.managed.mcpServerCount = entry.serverCount;
+      if (entry.status === 'unreadable') { unreadable += 1; policy.unreadable += 1; }
+      entries.push(entry);
+      continue;
+    }
     const entry = { path: resolved, scope: file.scope, kind: 'settings', status: 'not_found', serverCount: 0 };
+    if (file.scope === 'managed') policy.managed.checked += 1;
     if (fs.existsSync(resolved)) {
       try {
         const json = JSON.parse(fs.readFileSync(resolved, 'utf8'));
@@ -106,29 +120,48 @@ function readPermissionSettings(files) {
         if (mode) { merged.mode = mode; merged.modeScope = file.scope; }
         entry.status = 'found';
         entry.rules = { allow: allow.length, deny: deny.length, ask: ask.length, mode };
+        const { stored, rules } = ccSettings.fileEvidence(json, file.scope);
+        Object.assign(entry, stored);
+        if (stored.mcp.enableAllProjectMcpServers !== null) policy.enableAllProjectMcpServers = stored.mcp.enableAllProjectMcpServers;
+        for (const name of stored.mcp.enabledMcpjsonServers) policy.enabledMcpjsonServers.add(name);
+        for (const name of stored.mcp.disabledMcpjsonServers) policy.disabledMcpjsonServers.add(name);
+        policy.hooks.handlers += stored.hooks.handlers;
+        policy.hooks.boppiCollector = policy.hooks.boppiCollector || stored.hooks.boppiCollector;
+        policy.hooks.malformed = policy.hooks.malformed || stored.hooks.malformed;
+        for (const [event, count] of Object.entries(stored.hooks.byEvent)) policy.hooks.byEvent[event] = (policy.hooks.byEvent[event] || 0) + count;
+        if (stored.hooks.handlers) policy.hooks.files += 1;
+        if (file.scope === 'managed') {
+          policy.managed.found = true;
+          managedOnly.allow.push(...allow); managedOnly.deny.push(...deny); managedOnly.ask.push(...ask);
+          for (const [lock, value] of Object.entries(stored.locks)) if (value === true) policy.managed.locks[lock] = true;
+          if (rules.allowed) policy.managed.allowed = rules.allowed;
+          if (rules.denied) policy.managed.denied = rules.denied;
+          policy.managed.disableBypassPermissionsMode = policy.managed.disableBypassPermissionsMode || stored.disableBypassPermissionsMode;
+        }
       } catch (error) {
         entry.status = 'unreadable';
         entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
           : error.code === 'EISDIR' ? 'this is a directory, not a settings file'
           : 'invalid JSON';
         unreadable += 1;
+        policy.unreadable += 1;
       }
     }
     entries.push(entry);
   }
+  policy.hooks.events = Object.keys(policy.hooks.byEvent).length;
+  if (merged && policy.managed.locks.allowManagedPermissionRulesOnly) {
+    // Documented lock: rules outside the managed file do not apply, so grading from them would understate exposure.
+    merged.allow = managedOnly.allow; merged.deny = managedOnly.deny; merged.ask = managedOnly.ask;
+    if (merged.mode && merged.modeScope !== 'managed') { merged.mode = null; merged.modeScope = null; }
+  }
+  if (merged && policy.managed.disableBypassPermissionsMode && merged.mode === 'bypassPermissions' && merged.modeScope !== 'managed') {
+    merged.mode = null; merged.modeScope = null; merged.modeNote = 'bypassPermissions is disabled by managed settings';
+  }
   // A file that could not be read may hold a deny or a mode; nothing graded from the others is complete.
   if (unreadable) merged = { ...(merged || { allow: [], deny: [], ask: [], mode: null, modeScope: null }), unreadable };
-  return { entries, merged };
+  return { entries, merged, policy };
 }
-
-/**
- * Grade one built-in tool. `settings` is the merged rules, null when no
- * settings file exists (the client's defaults apply), or undefined when the
- * scan did not read settings at all. A deny rule is checked before any
- * default, so an explicitly denied Read is denied even though Read never
- * prompts; a rule that names the tool with a specifier (a path or command
- * pattern) does not change the grade but is counted.
- */
 function gradeTool(spec, settings) {
   if (spec.prompts === null) return { gate: 'unknown', reason: UNREADABLE_SETTING };
   if (settings === undefined) return { gate: 'unknown', reason: 'prompting not checked (permission settings were not read in this scan)' };
@@ -202,14 +235,14 @@ function builtinGrants(clientKey, settings) {
  */
 function describeBuiltin(clientKey, settingsFiles, context = {}) {
   const read = Array.isArray(settingsFiles) && settingsFiles.length > 0;
-  const { entries, merged } = read ? readPermissionSettings(settingsFiles) : { entries: [], merged: null };
+  const { entries, merged, policy } = read ? readPermissionSettings(settingsFiles) : { entries: [], merged: null, policy: null };
+  const managedRead = !!(policy && policy.managed.found);
   const settings = read
-    ? { read: true, found: !!merged && !!(entries.some(e => e.status === 'found')), complete: !!merged ? !merged.unreadable : true, mode: merged ? merged.mode : null, modeScope: merged ? merged.modeScope : null, managedRead: false, files: entries }
-    : { read: false, found: false, complete: false, mode: null, modeScope: null, managedRead: false, files: [] };
+    ? { read: true, found: !!merged && !!(entries.some(e => e.status === 'found')), complete: !!merged ? !merged.unreadable : true, mode: merged ? merged.mode : null, modeScope: merged ? merged.modeScope : null, managedRead, managedChecked: policy ? policy.managed.checked : 0, files: entries }
+    : { read: false, found: false, complete: false, mode: null, modeScope: null, managedRead: false, managedChecked: 0, files: [] };
   const workingScope = context.cwd && hasBuiltinTools(clientKey) ? toolCategories.scopeOf(context.cwd, context.home) : null;
-  return { clientKey, ...builtinGrants(clientKey, read ? merged : undefined), settings, workingScope, workingScopeLabel: workingScope ? WORKING_SCOPE_LABEL[workingScope] : null };
+  return { clientKey, ...builtinGrants(clientKey, read ? merged : undefined), settings, policy, workingScope, workingScopeLabel: workingScope ? WORKING_SCOPE_LABEL[workingScope] : null };
 }
-
 function hasBuiltinTools(clientKey) { return (BUILTIN_TOOLS[clientKey] || []).length > 0; }
 
 /** One permission record per built-in grant, attached to the agent itself (no integration). */
@@ -239,7 +272,7 @@ function builtinPermissions(agent, builtin, observedAt) {
         gate: grant.gate,
         settingsRead: !!(builtin.settings && builtin.settings.read),
         settingsComplete: !!(builtin.settings && builtin.settings.complete),
-        managedSettingsRead: false,
+        managedSettingsRead: !!(builtin.settings && builtin.settings.managedRead),
         ...(grant.viaShell ? { scope: 'home', scopeLabel: 'any file the user can read, through the shell' } : grant.capability === 'filesystem_access' && builtin.workingScope ? { scope: builtin.workingScope, scopeLabel: builtin.workingScopeLabel } : {}),
       },
       createdAt: observedAt,
