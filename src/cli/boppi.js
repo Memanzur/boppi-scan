@@ -16,6 +16,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const evidenceIdentity = require('./evidenceIdentity');
+const { validateConfigShape } = require('./configFiles');
 
 const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
@@ -146,8 +147,8 @@ function usage() {
     '  --history-file <file>  local-only scan history file (default: <scan home>/.boppi/history.json)',
     '  --version, -v       print the version and exit',
     '',
-    'Privacy: runs 100% locally. Reads only MCP configuration metadata; secret values,',
-    'file contents, and raw path names are never collected. Every file read is listed.',
+    'Privacy: scan analysis runs locally. Reports redact recognized secrets and paths;',
+    'review exports before sharing. Every configuration file read is listed.',
   ].join('\n');
 }
 
@@ -449,6 +450,7 @@ function discover(options) {
         try {
           const json = JSON.parse(fs.readFileSync(resolved, 'utf8'));
           filesRead.add(resolved);
+          validateConfigShape(json, { source: descriptor.source, cwd: options.cwd });
           const servers = file.extract(json) || {};
           entry.status = 'found';
           entry.serverCount = Object.keys(servers).length;
@@ -463,7 +465,7 @@ function discover(options) {
           entry.status = 'unreadable';
           entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
             : error.code === 'EISDIR' ? 'this is a directory, not a config file'
-            : 'invalid JSON';
+            : error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
           filesRead.add(resolved);
         }
       }
@@ -477,7 +479,7 @@ function discover(options) {
         client.files.push(entry);
       }
     }
-    client.coverageIdentity = evidenceIdentity.digest('client-coverage', {
+    client.coverageIdentity = evidenceIdentity.digest('client-coverage-v2', {
       key: client.clientKey, source: client.source, platform: options.platform,
       home: path.resolve(options.home), cwd: path.resolve(options.cwd), explicit: !!options.config,
       files: client.files.map(f => ({ path: path.resolve(f.path), scope: f.scope, kind: f.kind || 'config' })).sort((a, b) => a.path.localeCompare(b.path)),
@@ -625,7 +627,7 @@ async function performScan(options) {
   const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, traversal, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
   // Include attempted locations, even absent files, and cwd (Claude Code stores project blocks in a user file).
   // File contents deliberately do not define coverage: a real edit must remain comparable.
-  scan.coverageIdentity = evidenceIdentity.digest('coverage', {
+  scan.coverageIdentity = evidenceIdentity.digest('coverage-v2', {
     scope: scan.scope, platform: options.platform, home: path.resolve(options.home), cwd: path.resolve(options.cwd),
     clients: discovery.clients.map(c => ({ key: c.clientKey, source: c.source,
       files: c.files.map(f => ({ path: path.resolve(f.path), scope: f.scope, kind: f.kind || 'config' })).sort((a, b) => a.path.localeCompare(b.path)),
