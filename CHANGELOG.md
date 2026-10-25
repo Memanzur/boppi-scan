@@ -4,6 +4,7 @@
 
 Local candidate (unpublished). Milestone 1, trustworthy checkup.
 
+- Root causes and the remediation plan (analysis engine 1.1.1) no longer propose a built-in grant, or a capability a built-in grant holds, as a config edit: removing an MCP server never removes the client's own tools, so such a step promised a reduction no edit could deliver (the dashboard showed "Remove or restrict Claude Code: run shell commands capability" with an MCP config file hint). The cluster reports the held nodes as `builtinHeldNodeIds`; the plan's `breaksAll` turns false and the built-in residual sentence names what stays open.
 - Hook collector: two rotations inside one millisecond named the same segment file, and the second rename overwrote the first. Records vanished without a `segment_cap` count. Reproduced on Linux (Node 18 and 22) with a 4,000-byte test segment; never seen on macOS in the same run. The segment name now advances until it is free. At the 1 MiB production segment size this needs over 1 MiB of hook records per millisecond, so the user-facing risk was low; the partial-window count is now exact under any rate. Not in candidate 2d65a09 (source fix only, 2026-10-25).
 - Structurally invalid configuration (including null server entries and invalid server maps) is incomplete evidence. It cannot confirm a removal, erase history or replace cloud inventory. Older parser coverage contracts require a fresh baseline.
 

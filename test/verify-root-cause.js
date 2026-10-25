@@ -131,6 +131,44 @@ function serverRemovalSet(inventory, serverName) {
   ok('the fetch server is not reported as a root cause', !rerouteCluster.causes.some(c => c.entityType === 'mcp_server' && c.label.includes('"fetch"')));
   ok('every reported cause names the exposure key it eliminates', rerouteCluster.causes.every(c => c.eliminatedExposureKeys.length === c.eliminatedCount && c.eliminatedExposureKeys.every(k => rerouteCluster.totalExposureKeys.includes(k))));
 
+  section('Built-in grants are never proposed as config edits');
+  // Claude Code with Bash and WebFetch allowed in settings (basis builtin) plus one server holding a credential.
+  // EP-B (credential + shell + api) needs the server; EP-E (untrusted content -> shell) survives every server removal.
+  const builtinAttrs = { basis: 'builtin', gate: 'unprompted', settingsRead: true };
+  function builtinPermission(agentId, category, raw, attributes) {
+    return models.createPermission({ agentId, rawPermission: raw, normalizedCategory: category, accessLevel: 'unprompted', riskWeight: 2, normalizationConfidence: 0.9, normalizationReason: 'test', source: SOURCE, attributes, createdAt: now, updatedAt: now });
+  }
+  function builtinFixture(attributes) {
+    const b = agent('builtin', 'Claude Code');
+    const gh = mcp(b.id, 'gh', ['credential_access', 'network_access']);
+    const inv = {
+      agents: [b],
+      mcpServers: [gh],
+      permissions: [
+        builtinPermission(b.id, 'run_shell_commands', 'Claude Code built-in shell access (Bash)', attributes),
+        builtinPermission(b.id, 'untrusted_external_content', 'Claude Code built-in web fetch (WebFetch)', attributes),
+        builtinPermission(b.id, 'call_external_api', 'Claude Code built-in web fetch (WebFetch)', attributes),
+      ],
+    };
+    return { inv, graph: buildFrom(inv) };
+  }
+  const builtin = builtinFixture(builtinAttrs);
+  const builtinPaths = pathsMod.findPaths(builtin.graph);
+  ok('fixture yields EP-E through built-in tools and EP-B through the server', builtinPaths.some(p => p.templateId === 'EP-E') && builtinPaths.some(p => p.templateId === 'EP-B'));
+  const builtinCluster = rc.clusterRootCauses(builtin.graph, builtinPaths);
+  ok('no built-in permission is proposed as a root cause', !builtinCluster.causes.some(c => c.entityType === 'permission' && /built-in/.test(c.label)));
+  ok('no capability a built-in grant holds is proposed (shell, untrusted content, external api)', !builtinCluster.causes.some(c => c.entityType === 'capability' && /(run shell commands|untrusted external content|call external api)/.test(c.label)));
+  ok('the server that holds the credential is still a root cause', builtinCluster.causes.some(c => c.entityType === 'mcp_server' && c.label.includes('"gh"')));
+  ok('the held nodes are reported so a renderer can say why they were not proposed', builtinCluster.builtinHeldNodeIds.length >= 3 && builtinCluster.builtinHeldNodeIds.every(id => builtin.graph.nodes.some(n => n.id === id)));
+  const builtinPlan = rc.recommendRemediationPlan(builtin.graph, builtinPaths, { severityFloor: 'high' });
+  ok('the plan admits it cannot break the built-in-held path', builtinPlan.breaksAll === false && builtinPlan.residualExposureKeys.some(k => k.startsWith('EP-E:')));
+  ok('the plan never steps on a built-in-held node', builtinPlan.steps.every(step => !builtinCluster.builtinHeldNodeIds.includes(step.nodeId)));
+  const configured = builtinFixture({ basis: 'configured' });
+  const configuredCluster = rc.clusterRootCauses(configured.graph, pathsMod.findPaths(configured.graph));
+  ok('the same grants with a configured basis stay proposable (the exclusion is basis-driven)', configuredCluster.builtinHeldNodeIds.length === 0 && configuredCluster.causes.some(c => c.entityType === 'capability' && /run shell commands/.test(c.label)));
+  const emptyCluster = rc.clusterRootCauses(exfilGraph, exfilPaths);
+  ok('a graph without built-in grants reports no held nodes', Array.isArray(emptyCluster.builtinHeldNodeIds) && emptyCluster.builtinHeldNodeIds.length === 0);
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 })();

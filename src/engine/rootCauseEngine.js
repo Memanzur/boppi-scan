@@ -103,6 +103,24 @@
   }
 
   /**
+   * Nodes no configuration edit can take away: a permission the client grants
+   * through its own built-in tools, and every node such a permission grants.
+   * Removing an MCP server never removes them, so proposing one as a root cause
+   * would promise a reduction a config edit cannot deliver. They stay in the
+   * graph and in every path; the built-in residual names them instead.
+   */
+  function builtinHeldNodes(graph, nodesById) {
+    const held = new Set();
+    for (const node of graph.nodes) if (node.entityType === 'permission' && node.metadata?.attributes?.basis === 'builtin') held.add(node.id);
+    for (const edge of graph.edges || []) {
+      if (!held.has(edge.fromEntityId)) continue;
+      const target = nodesById.get(edge.toEntityId);
+      if (target && REMEDIABLE.has(target.entityType)) held.add(target.id);
+    }
+    return held;
+  }
+
+  /**
    * Rank remediable graph elements by the exposure paths they actually
    * eliminate. Each candidate's eliminated set is verified by removing it and
    * re-running the path finder — not merely counting participation.
@@ -114,15 +132,19 @@
     if (!baseline.length) return { schemaVersion: SCHEMA_VERSION, totalPaths: 0, causes: [] };
 
     const baselineKeys = new Set(baseline.map(p => p.exposureKey));
+    const nodesById = new Map(graph.nodes.map(n => [n.id, n]));
+    const held = builtinHeldNodes(graph, nodesById);
     const agentNameForNode = new Map();
     const candidateIds = new Set();
+    const builtinHeldNodeIds = new Set();
     for (const path of baseline) {
       for (const node of path.nodes) {
         if (!agentNameForNode.has(node.id)) agentNameForNode.set(node.id, path.agentName);
-        if (REMEDIABLE.has(node.entityType)) candidateIds.add(node.id);
+        if (!REMEDIABLE.has(node.entityType)) continue;
+        if (held.has(node.id)) builtinHeldNodeIds.add(node.id);
+        else candidateIds.add(node.id);
       }
     }
-    const nodesById = new Map(graph.nodes.map(n => [n.id, n]));
 
     const grantorsByCapability = new Map();
     for (const edge of graph.edges) {
@@ -175,7 +197,7 @@
       a.nodeId.localeCompare(b.nodeId));
 
     const limit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : causes.length;
-    return { schemaVersion: SCHEMA_VERSION, totalPaths: baseline.length, totalExposureKeys: [...baselineKeys].sort(), totalPathIds: baseline.map(p => p.id).sort(), causes: causes.slice(0, limit) };
+    return { schemaVersion: SCHEMA_VERSION, totalPaths: baseline.length, totalExposureKeys: [...baselineKeys].sort(), totalPathIds: baseline.map(p => p.id).sort(), builtinHeldNodeIds: [...builtinHeldNodeIds].sort(), causes: causes.slice(0, limit) };
   }
 
   /**
