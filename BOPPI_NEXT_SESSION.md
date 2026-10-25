@@ -1,99 +1,55 @@
-# Boppi next-day handoff — 2026-10-25 04:27:12 UTC
+# Boppi next-day handoff, 2026-10-25 05:30 UTC
 
-Founder local date at this checkpoint: October 24, 2026 (America/Denver). Start with this file, the authoritative `docs/release/RELEASE_BLOCKERS.md`, then `docs/release/RELEASE_DECISION_2026-10-25.md`. Do not infer release status from older candidate labels or summaries. No accurate session-usage percentage was exposed; implementation stopped before handoff preparation. No new feature work should restart during this save.
+Founder local date at this checkpoint: October 24, 2026 (America/Denver). Start with this file, then `docs/release/RELEASE_BLOCKERS.md` (authoritative states), `docs/release/RELEASE_DECISION_2026-10-25.md` (now with a fresh-reviewer continuation section) and `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md` (what the founder decides, in order). Do not infer release status from older candidate labels or summaries.
 
 ## A. Executive summary
 
-The integrated Agent + optional Cloud journey is materially closer to release. The original scope/move/consent findings were reproduced and retested in isolated environments. A new malformed-configuration false confirmation was demonstrated and corrected, producing a NEW 0.4.0-2d65a09 artifact. A real backup verification defect was reproduced and fixed: unexpected restore errors now fail even if row counts match. The built app, exact installed candidate and disposable Supabase completed 27 checks including cloud lifecycle and invalid completeness. Signup/consent/erasure/rotation and mobile routes were exercised in a real browser. Website copy now distinguishes public/local capability and bounded privacy; its three existing lint errors are fixed. YC drafts are prepared with unknown commercial metrics explicit.
+A different model and session (Claude Fable 5.1) picked up the 04:27 UTC Codex handoff after Codex ran out of usage. It retested candidate 0.4.0-2d65a09 through the separate review package without touching the frozen artifact, then worked the five eligible tasks the handoff listed. Everything the earlier session claimed held up on the real tarball. Three new findings came out of the work the earlier session could not run: a Linux-only collector defect (low, fixed in scanner source), a backup role blind to RLS-protected auth rows (high, backup script now refuses), and a fresh-platform restore that silently widened privileges on every table (high, rehearsal script and runbook now align default privileges first and compare grants). Candidate 2d65a09 is unchanged and remains recommended for the human sessions.
 
-Overall: **NO-GO for public release** pending actual founder, human, external-review and hosted-operation gates. This is not a scanner-only business pivot. Visibility, Understanding and Control; Agent, Cloud and reviewed Intelligence; and future team/enterprise capabilities are preserved. No unrelated agent/integration expansion was undertaken.
+Overall: **NO-GO for public release**, unchanged. Founder, human, external-review and hosted gates are the only open items. Nothing was pushed, published, deployed or queried on a hosted project. No secret was read or set.
 
-## B. Exact repository state and ownership
+## B. Exact repository state
 
-| Repository | Active branch | Implementation checkpoints | GitHub backup checked |
-| --- | --- | --- | --- |
-| `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | `2d65a093b83ea72e09e74e16240c20a47045111f` (semantic validation; parent fcbe8d8) | Memanzur/boppi-scan: b30c65d946aa0808cfc8e4a64d308e4bb1c8f2b2 |
-| `~/Desktop/Boppi-auto` | codex/live-brand-alignment | `6d9eff3e7057e07ab1267b6e6cdc4b057cf1c110` (backup + exact-artifact lifecycle); `6069fcfa75d69aba4d19b6b2830920db99438652` (semantic invalidity reaches cloud history; vendor pin) | Memanzur/boppii: 35b28e9973ad41a208362d5b6b04e4a9d8b5dc10 |
-| `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | `4ba9b06a938e4fbac32504510e1e741b3bbdc324` (claims/privacy draft); `c9461d0` (lint) | Memanzur/boppi-website: ecbaf38e48b66df4ec2b646bd4411e0aebf9c869 |
+| Repository | Branch | Implementation commit this session | Final documentation commit | Unpushed before this session |
+| --- | --- | --- | --- | --- |
+| `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | `976f998` hook segment names unique; plan-fix test padding | see FINAL_STATE.json | 14 |
+| `~/Desktop/Boppi-auto` | codex/live-brand-alignment | `b65dfb2` backup RLS precheck, platform rehearsal, runbook, register, decision, packet | see FINAL_STATE.json | 15 |
+| `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | none | none | 3 (unchanged, untracked review doc still untracked) |
 
-The final documentation commits are later than these implementation checkpoints. Their full hashes and final statuses are recorded in `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/FINAL_STATE.json` and in the final user summary; use `git log -3` if needed. Before final documentation commits, unpushed counts were scanner 13, control 14, website 2; the documentation checkpoint adds one in each repository. No remote push, publication, merge of release branches, deployment, hosted migration or secret change occurred. Remotes remain the original GitHub URLs; the control repo also retains its historical boppi-legacy remote.
+Worktrees, the dirty `~/Desktop/Boppi` family, and `~/Desktop/boppi-scan-dev-5a` (5a(b), `3447992`, dirty) were not touched. The frozen candidates under `~/Boppi-release-completion-20261025T033847Z/` and `~/Boppi-beta-blocker-repairs-20261025/` were read only; the candidate directory's checksums still verify.
 
-Only the root agent was live at recovery. Three independent validation clones under `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/scanner`, `control`, `website` have separate Git directories and dependency installs, with their origin pointing locally to the primary checkouts. All implementation commits were fast-forward cherry-picked from those owned clones into the existing active branches; no interrupted agent branch was incorporated. Registered inventory is in `evidence/worktrees-before.json` (15 control, 10 scanner, 3 website worktrees). Do not reset or clean the old main Boppi, Boppi-phases, Boppi-rc or Boppi-release-prep dirty trees. Website-positioning's prior untracked `docs/HOMEPAGE_POSITIONING_REVIEW_2026-10-22.md` remains untracked and unchanged; the new website report is committed explicitly.
+## C. What was done, with evidence
 
-## C. Completed work with paths
+Evidence root: `/Users/melodymanzur/Boppi-release-continuation-20261025T050716Z` (`logs/`, `evidence/`, `scratch/`). Synthetic data only. The `scratch/` folder holds installed runtimes and a plaintext dump of the synthetic source database and may be deleted.
 
-- Scanner `src/cli/configFiles.js`: structurally validate supported config/server maps, entries and typed command/args/env before merging; selected Claude Code project blocks too. Unknown valid extensions remain supported. `src/cli/boppi.js`: invalid structures are unreadable/incomplete; coverage contract v2 invalidates older parser comparisons; privacy help avoids universal redaction claims. `test/verify-config-shapes.js` adds 34 positive/negative/partial/unknown checks and supports `BOPPI_TEST_PACKAGE_ROOT`.
-- Control `apps/control-plane/scripts/backup/backup-and-verify.sh`: unexpected restore errors or client failure cannot yield a successful recovery; counts include auth.identities. `scripts/backup/test-local-rehearsal.py` and `npm run test:backup:local` verify real encrypted fixture restore and negative controls, without hosted credentials.
-- Control `apps/control-plane/scripts/local-beta.mjs`: `BOPPI_BETA_CANDIDATE` selects and checksums the frozen artifact; corrupt candidates refuse before install/upload. The journey now exercises semantic invalidity, withdrawal, denied unconsented creation/rotation, erasure and renewed consent. All 27 cases passed on the actual new package.
-- Website `src/components/Platform.tsx`, `ScanTerminal.tsx`, `pages/Privacy.tsx`: accurate 0.4.0 local status, dry-run/consent and bounded privacy wording; draft not deployed. Two empty type interfaces and the Tailwind require import were corrected so lint exits 0.
-- Current register `docs/release/RELEASE_BLOCKERS.md`; release report and `PRODUCTION_READINESS_2026-10-25.md`; beta/readiness/runbook updates; founder-ready `docs/yc/W27/` package. Source engine remains canonical and its bytes unchanged; only the vendor SOURCE.json pin was synchronized using the established script.
-
-## D. Verification, exact commands and evidence
-
-Evidence root: `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z`. All configs/accounts/tokens/emails were synthetic. No source .env values, personal configs, private inboxes, real scan data or actual user secrets were copied into it.
-
-| Check | Result | Log |
+| Task from the 04:27 handoff | Result | Evidence |
 | --- | --- | --- |
-| `cd scanner && npm test` | 36/36 suites | logs/scanner-final.log |
-| `BOPPI_TEST_PACKAGE_ROOT=<candidate>/kit/runtime/node_modules/boppi node test/verify-config-shapes.js` | 34 | logs/artifact-verify-config-shapes.log |
-| Same with verify-beta-blockers.js | 29 | logs/artifact-verify-beta-blockers.log |
-| Same with verify-review-findings.js | 31/31 | logs/artifact-verify-review-findings.log |
-| Same with verify-no-network.js | 22/22 | logs/artifact-verify-no-network.log |
-| `node scripts/release-candidate.js --out /Users/melodymanzur/Boppi-release-completion-20261025T033847Z/candidate-0.4.0-2d65a09` | Fresh install journey 29/29, clean build source | logs/candidate-build.log |
-| `python3 scripts/candidate-kit/prepare-fixtures.py <candidate>` | Six synthetic cases | logs/kit-build.log |
-| `BOPPI_BETA_CANDIDATE=<candidate>/CANDIDATE.json BOPPI_SCAN_DIR=<isolated-scanner> node scripts/local-beta.mjs verify /private/tmp/boppi-beta-local.release-20261025T033847Z` | 27/27 through actual built route + PostgREST | logs/integrated-final-candidate.log |
-| Missing/empty/malformed/permission-denied/unknown/multiple configs on package | Six PASS | evidence/artifact-edge-matrix.json |
-| Actual Chrome local browser | Signup/onboarding; no silent token; consent withdrawal/erase/reconsent/rotate; nine routes; three dashboard pages + website at 390 px | evidence/browser.json; logs/ui-consent-roundtrip.log; evidence/*-mobile.png |
-| `BOPPI_SCAN_DIR=<scanner> npm run verify` in app | Exit 0; 311 refers only to remediation sub-suite | logs/control-final-pin-verify.log |
-| `BOPPI_LOCAL_PG_PORT=55521 BOPPI_LOCAL_DB_ADVISORS=1 npm run test:db:local` | 124 PASS; advisor no issues | logs/database-local.log |
-| `BOPPI_LOCAL_PG_PORT_ROLLBACK=55523 npm run test:db:rollback` | PASS: consent boundary, ten atomic refusal cases, partial/full consent tests | logs/database-rollback.log |
-| `npm run test:backup:local` | Valid encrypted restore passes; wrong key/target and missing role fail | logs/backup-before.log; logs/backup-final.log; evidence/backup-* |
-| `BOPPI_SURFACE_PORT=3458 npm run verify:surface` after isolated Next build | 24/24 | logs/control-surface.log |
-| Website `npm run build`, `npm run lint` | Both pass; 0 errors, seven refresh warnings | logs/website-build-final.log; logs/website-lint-final.log |
-| Cached `node:22-bookworm-slim`, network none, read-only source/candidate mounts | Node 22.23.3 Linux: 34/29/31/22 artifact suites pass | logs/node22-linux-artifact.log |
+| 1. Fresh reviewer retest of 2d65a09 | `run-review.sh`: 210 checksums OK, offline install, 34/29/31/22, all probes PASS, backup rehearsal PASS. Sha256 `85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc` confirmed | logs/fresh-review-*.log |
+| 2. Node 18 | Exact tarball suites 34/29/31/22 under Node 18.20.8 Linux, network disabled. Full source suite 34/36 before fixes (SCAN-SEGMENT-01 plus a brittle test), 36/36 after, with `--init`. Node 22 Linux reproduced and confirmed both fixes. One `verify-discover` grandchild-wait flake in 1 of 10 container runs, recorded, no code change | logs/node18-linux-*.log; logs/node22-linux-*.log; logs/linux-failure-debug.log |
+| 3. axe pass | Static: candidate report, demo, kit demo/report, six case pages, 1280 and 390 px: 0 violations, 0 overflow. Live app on a fresh disposable stack: nine routes, history, signup to welcome: 0 violations, consent unchecked, no token | logs/axe-static-html.log; logs/browser-*.log |
+| 4. Platform restore rehearsal | Two disposable stacks, image 17.6.1.095. Run 1 exposed OPS-RESTORE-02 and OPS-RESTORE-03. Final run: plain restore PASS, 12 tolerated platform statements, counts equal (15), grants equal (35 rows), 115 post-restore assertions PASS, garbage token refused 28000 | logs/platform-rehearsal.log; evidence/platform-rehearsal*/ |
+| 5. Decision packet and kit review | `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md` orders eight decisions; kit README updated with the axe evidence; consent/session sheets reviewed, no change needed | repo |
+| Also | Integrated journey on the fresh stack 27/27 with the frozen candidate; `npm audit` 0 vulnerabilities; security package section 9 statuses filled where locally verifiable; `test:backup:local` 5 checks | logs/integrated-journey-fresh-stack.log; evidence/npm-audit-*.json; logs/backup-local-regression-final.log |
 
-Toolchain: Node 25.8.0, npm 11.11.0, PostgreSQL tools 17.10, Supabase CLI 2.84.2, local Docker PostgreSQL 17.6.1.095, macOS. Actual Node 18 and Windows, a new browser axe audit, a hosted-platform backup restore, external audit and real humans are NOT RUN. Do not convert them into passes or call synthetic Linux fixtures real-client support. The original three findings are VERIFIED by isolated local retest, not a separately staffed professional audit; the same conversational agent authored earlier corrections.
+Commands worth re-running: `bash ~/Boppi-release-completion-20261025T033847Z/review/run-review.sh`; in the scanner `npm test`; in the control plane `npm run test:backup:local`, and with two disposable stacks `BOPPI_REHEARSAL_SOURCE_PORT=<db1> BOPPI_REHEARSAL_TARGET_PORT=<db2> bash scripts/backup/platform-rehearsal.sh <out>` (the target stack must be fresh; `supabase db reset --workdir <stack2>` resets it). The two stacks used here are stopped with volumes kept: `/tmp/boppi-beta-local.jTedw9` and `/tmp/boppi-beta-local.restore.fQBuCQ`. Docker Desktop was started by this session and left running.
 
-## E. Remaining blockers, limitations and future enhancements
+## D. New findings and their state
 
-The authoritative register holds current states. The known reproducible code defects are locally corrected/verified; the new F-05 and backup repair merit fresh review outside their author. Public release still requires: founder rubric/candidate/study decisions; five actual consented comprehension/install sessions (0/5 recorded); external remediation/security review and separately consented real-device work; restore-verified production backup and coordinated hosted app/migration parity; explicit push/publication/deployment authorization and unresolved retention/two-person/rollback/runtime/content/hashed-identifier decisions. No founder answer was inferred.
+- **OPS-RESTORE-02** (High, VERIFIED, corrected). Backup role without BYPASSRLS sees zero auth rows with no error. The script refuses before dumping; negative control in the regression. Hosted: confirm the production `postgres` role carries BYPASSRLS before the first real backup.
+- **OPS-RESTORE-03** (High, VERIFIED, corrected in script and runbook). Restore into a fresh project leaves anon/authenticated with ALL on every table unless default privileges are aligned first. `RESTORE.md` 3b now carries the rehearsed steps.
+- **SCAN-SEGMENT-01** (Low, VERIFIED in source, not in candidate). Same-millisecond segment names overwrote records uncounted. Needs more than 1 MiB of hook records per millisecond at production size. Founder chooses whether a new candidate is cut (packet item 1; recommended no).
 
-Documented coverage limits: three supported clients only, configurations not runtime proof, partial/unknown evidence never means safe, empty cloud scans may retain prior inventory until erasure, rollback can refuse conflicting changes. No new limitation was marked ACCEPTED WITH APPROVAL. New integrations, notifications, background installation, JIT and production Intelligence are future work rather than first-release blockers.
+## E. Remaining blockers
 
-## F. Production constraints
+Unchanged set: rubric sign-off (D-01 to D-08), kit and consent and five human sessions (D-11, D-12; 0 of 5), external security review (D-28), staging suite and hosted inventory (D-31, D-30), hosted recovery and migrations (D-30), push and publication (D-14, D-13), policy rows (D-23, D-24, D-26, D-27). Windows and real Linux clients untested on real machines. All listed with recommendations in the decision packet.
 
-No hosted state was queried. The older claim of eight applied migrations is historical and must be checked only with separate authorization. Fourteen source migrations exist; no new forward migration was added this session. The existing `migrate-production.sh --apply` pushes ALL pending files and cannot stop at file 4. Coordinate consent migration/file 5, snapshot context/file 6 and the compatible app in one approved window after a real restore rehearsal. File 5 deliberately defaults existing collectors to unconsented.
+## F. Tomorrow's eligible tasks (no founder answer required)
 
-Consent rollback/file 5 and older down files refuse once consent is present. Only file-6 rollback retaining consent or forward repair is supported. An old app/backup must not remove consent or revive revoked tokens. Source backup error handling now fails closed, but its fixture proof is not production recovery evidence. Read PRODUCTION_READINESS_2026-10-25.md for names-only environment inventory, migration order, recovery triggers, postchecks and unconfigured monitoring/alerts. No secret values were read/set, no telemetry enabled, and no hosted migration/deploy run.
+1. If the founder picks packet item 1(b), cut a new candidate from scanner head with `node scripts/release-candidate.js --out <new dir>`, rebuild the kit, and rerun the four artifact suites and the journey against it; otherwise nothing.
+2. Add the two-stack rehearsal to the control-plane runbook as a repeatable command block (it is a script now; a `docs/LOCAL_BETA_RUNBOOK.md` paragraph pointing at it is missing).
+3. Remove `scratch/` from the evidence root once a reviewer has what they need.
+4. Everything else is a founder gate.
 
-## G. Candidate state
+## G. Ready-to-paste continuation prompt
 
-Current candidate: `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/candidate-0.4.0-2d65a09`.
-
-Tarball SHA-256: `85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc`.
-
-The build manifest records clean scanner source 2d65a09, package 0.4.0/engine 1.1.0/rubric 1.0.3, 29 journey checks, 0 human sessions and unpublished status. The final candidate/review copies are read-only, with checksum inventories and integrity verification. The new review package contains source, patches, probes, affected artifacts and final logs; see `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/review/REVIEW.md`. Overall selection is still founder-gated.
-
-Prior candidate 3fde321 (sha256 2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747) and its 09f755b predecessor (sha256 3049d825a484abdd65191f6b87756c42804caa58fb428b58368249dad4013119) were not edited or rebuilt. Do not hand out either as the final candidate; F-05 was reproduced on 3fde321. No release branch or tag was merged or moved.
-
-## H. Interrupted / preserved work and services
-
-`~/Desktop/boppi-scan-dev-5a`, dev/claude-code-settings-5a at `3447992`, still has 18 modified tracked files and six untracked files including two duplicate ` 2.js` files. It is excluded and untouched. Its tracked diff hash matches the recovery snapshot (`evidence/5ab-before.sha256`). Do not commit, discard or merge it based on an old summary. Recover by inventorying both tracked/untracked diffs and reviewing its actual acceptance criteria only when integration work becomes eligible.
-
-The owned local app and website preview processes were stopped. The owned Supabase stack was stopped with `supabase stop --workdir ...` preserving its Docker volume; no --all or --no-backup. Browser tabs were finalized and temporary viewport overrides reset. No implementation/background agent should run beyond handoff. `logs/stack-stop.log` is the stop evidence. Scratch evidence/independent clones remain available.
-
-## I. Tomorrow's five highest-impact eligible tasks
-
-1. Fresh reviewer retest of 2d65a09, F-05 malformed/partial/unknown cases and strict backup recovery, using the new separate review package. Validate the exact checksum and preserve the frozen originals. Do not repeat already VERIFIED findings without new evidence.
-2. Exercise the claimed minimum Node 18 runtime using an isolated official runtime and synthetic configs; Windows/macOS real-client validation needs an authorized environment/consent. Node 22 Linux is already done; do not duplicate it for activity.
-3. Complete a current real-browser axe/keyboard accessibility pass on the new package report/demo and built collectors/history/welcome using the established browser-validation workflow and session browser rules. Current mobile overflow/DOM evidence is already saved.
-4. Rehearse recovery against a fresh disposable Supabase platform of the intended hosted version, including roles/grants/auth identities and post-restore consent behavior. The plain PostgreSQL fixture rehearsal is complete; do not access a production backup or secret without authorization.
-5. Finish facilitator review of the current five-person kit and assemble the precise founder decision packet (rubric, candidate/consent/recruitment, external reviewer, hosted recovery/publication). Prepare only; no outreach, human session, real-device operation or deployment is implicitly approved. Preserve enterprise/Intelligence roadmap work without expanding initial release.
-
-## J. Ready-to-paste continuation prompt
-
-Resume Boppi release completion from `~/Desktop/Boppi-auto/BOPPI_NEXT_SESSION.md` and `docs/handoffs/BOPPI_HANDOFF_2026-10-25T042712Z.md`. Read the product vision, current master plan, single `docs/release/RELEASE_BLOCKERS.md`, release decision and `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/FINAL_STATE.json` before changing code. Recover actual git/worktree state and preserve all dirty trees, especially 5a(b) at 3447992. Current candidate is 0.4.0-2d65a09, sha256 85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc; old candidates are frozen. Source scanner 2d65a09 and control 6069fcf fix semantic malformed-config completeness and strict backup verification; 36 scanner suites, packaged 34/29/31/22, journey 29, integrated app/cloud 27, DB 124 and surface 24 pass. Original three scope/move/consent issues were reproduced/retested locally; this is not an external audit. Human sessions remain 0/5, rubric unapproved, hosted state unqueried. Follow tomorrow's five eligible validation tasks, avoid new integrations/features, and do not push, merge release branches, publish, deploy, apply hosted migrations, change secrets, enable telemetry/pairing or submit YC without separate authorization. Checkpoint coherent work and stop implementation early enough to commit a complete handoff. The Agent + Cloud + reviewed Intelligence architecture remains the product.
-
-## K. YC readiness
-
-`docs/yc/W27/` contains README/product facts, application drafts, METRICS.md, a three-minute synthetic Agent + Cloud demo, and a practical validation plan. It uses only repository evidence and primary MCP/Snyk/Zenity/YC sources. The official YC Apply page checked this session lists W27's on-time deadline November 2, 2026 at 8 p.m. Pacific; recheck before submission. Users, installations, revenue, retention, partnerships, founder biography/legal/team facts and meaningful feedback are unknown unless the founder supplies evidence. The only study count established here is 0/5 recorded human sessions. No application, outreach or video was submitted or fabricated. Founder review of every draft answer and real user learning remain necessary.
+Resume Boppi from `~/Desktop/Boppi-auto/BOPPI_NEXT_SESSION.md`. Read `docs/release/RELEASE_BLOCKERS.md`, the continuation section of `docs/release/RELEASE_DECISION_2026-10-25.md`, `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md` and `/Users/melodymanzur/Boppi-release-continuation-20261025T050716Z/FINAL_STATE.json`. Candidate 0.4.0-2d65a09 (sha256 85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc) is unchanged and retested by a second model; scanner source is one low-severity collector fix ahead of it. Do not push, publish, deploy, query hosted projects, change secrets, enable telemetry or pairing, or answer founder decisions. Preserve all worktrees and 5a(b). Only the items in section F are eligible without a founder answer.
