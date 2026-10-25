@@ -344,6 +344,8 @@ If a server entry contains something that looks like a secret in a place the sca
 | Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory; permission settings from `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory (counts and mode only) |
 | Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
 
+A server entry that carries a `disabled` or `enabled: false` key inside one of these files is still graded as configured. The documented Claude Desktop and Cursor formats have no such key, so Boppi cannot tell whether the client honors it; it says what the file would allow. (Claude Code's documented enable and disable settings are read on a development branch and are not in this release.)
+
 Windsurf and VS Code are not discovered yet. Pull requests welcome. Each client is one file under `src/cli/discovery/`.
 
 ## Support

@@ -75,7 +75,7 @@ function resolvePrediction(prediction, byAgent, options = {}) {
   // Predictions made before rubric versions were recorded predate 1.0.2's lowered-priority semantics, so a missing version counts as changed.
   if (prediction.rubricVersion !== riskRubric.RUBRIC_VERSION) flags.push('rubric_changed');
   const predictedLowered = loweredOf(prediction);
-  const base = { predictionId: prediction.predictionId, agentId: prediction.agentId, client: prediction.client, edit: prediction.edit, predicted: { eliminated: prediction.predictedEliminated, surviving: prediction.predictedSurviving, lowered: predictedLowered }, flags };
+  const base = { predictionId: prediction.predictionId, agentId: prediction.agentId, client: prediction.client, edit: prediction.edit, target: prediction.target ? { key: prediction.target.key, label: prediction.target.label } : undefined, predicted: { eliminated: prediction.predictedEliminated, surviving: prediction.predictedSurviving, lowered: predictedLowered }, flags };
   const located = locateAgent(prediction, byAgent, options);
   flags.push(...located.flags);
   if (!located.state) return { ...base, status: STATUS.UNRESOLVED, reason: 'agent_not_scanned', observed: null };
@@ -175,7 +175,7 @@ function disputedNextStep(status, resolutions) {
     ? 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.'
     : 'The fix did less than predicted. A contradiction fixture was written; attach it to an issue so the engine can be corrected.';
 }
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : /(?:x|s|ch|sh)$/.test(word) ? 'es' : 's'}`;
 
 /** What the confirmed resolutions actually closed and what still stands, counted from the rescan, never from the prediction. */
 function confirmedOutcome(resolutions) {
@@ -217,6 +217,12 @@ function nextStep(summary, resolutions = []) {
   return null;
 }
 
+/** One row label per prediction kind, so a removal and the moves predicted for the same server are not all called "remove". */
+function editLabel(r) {
+  if (r.edit && r.edit.action === 'move_server') return `move ${r.edit.server} to ${(r.target && r.target.label) || r.edit.toClient}`;
+  return `remove ${r.edit.server}`;
+}
+
 function renderTable(result, useColor) {
   const color = (code, text) => (useColor ? `\u001b[${code}m${text}\u001b[39m` : text);
   const tint = { CONFIRMED: 32, PARTIAL: 33, CONTRADICTED: 31, UNRESOLVED: 2 };
@@ -226,7 +232,7 @@ function renderTable(result, useColor) {
     const lowered = (r.predicted.lowered || []).length;
     const loweredText = count => (lowered ? `, ${count} lowered` : '');
     const observed = r.reason === 'evidence_incomplete' ? `${r.observed.eliminated.length} absent, not graded` : r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed${loweredText((r.observed.lowered || []).length)}` : 'n/a';
-    return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} closed${loweredText(lowered)} / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
+    return { status: r.status, agent: r.client.label, edit: editLabel(r), outcome: `${r.predicted.eliminated.length} of ${total} closed${loweredText(lowered)} / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;
   const widths = { status: width('status'), agent: width('agent'), edit: width('edit'), outcome: Math.max('predicted vs observed'.length, ...rows.map(row => row.outcome.length)) + 2 };
