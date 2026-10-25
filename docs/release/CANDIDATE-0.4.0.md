@@ -55,6 +55,10 @@ Remove: `npm uninstall -g --prefix ~/boppi-beta boppi`, then delete `~/boppi-bet
 - The AGENTS band is the worst open finding or path on the agent; the score is the engine's points within that band.
 - Likelihood of exploitation is never estimated.
 
+## Builds
+
+- 2026-10-24 (current): commit `cd44081`, sha256 `95c6a425d4ef6a1538db6f84ad62bc7b64798f662cf85c3533a44d55e3d8da42`, journey 29/29, kit rebuilt from this tarball. Change since the previous build: scrollable tables in the HTML report and demo are keyboard-focusable named regions (axe clean at 1280 and 390 px in Chromium). Previous build preserved as `~/Desktop/Boppi-candidate-0.4.0-superseded-20261025T003103Z-pre-a11y`.
+
 ## Reporting a problem
 
 Email boppii.ioo@gmail.com or open an issue at https://github.com/Memanzur/boppi-scan/issues. Send the terminal output or a screenshot, the `boppi --version` line, and the one thing you expected. Never send tokens, passwords, config file contents, or the JSON export from a work machine. If any Boppi output shows a secret value or a raw path from your machine, send the field name only; that is a bug we fix first.

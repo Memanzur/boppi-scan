@@ -1,5 +1,17 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## October 24, 2026 (third session): release-readiness pass; nothing pushed
+
+Under Melody's directive to prepare a safe, testable release candidate. All work local on `codex/live-brand-alignment` in `~/Desktop/Boppi-auto` and `~/Desktop/boppi-scan-auto`. Nothing pushed, merged, published, deployed, migrated, paired or monitored. GitHub still holds only the 2026-10-23 backup.
+
+Verdict and report: control plane `docs/release/RELEASE_READINESS_2026-10-24.md`. Not ready for a public or real-device beta; every automated check passed on the exact artifact; what remains is human sessions, the independent review, founder sign-offs and hosted operations (ordered queue in section 5). Ledger rows R-1 to R-8.
+
+Ran and recorded: scanner 33/33; control plane verify exit 0 (four times); `test:db:local` 122 PASS; new `test:db:rollback` OK (six tested down files under `supabase/rollback/`); `release-candidate` 29/29 on the exact tarball; `local-beta.mjs verify` 18/18 against a disposable Supabase stack; `verify:surface` 24; `test:auth-callback` 14; Chromium passes over every dashboard route, the history page with an adversarial seed, the consent lifecycle (withdraw, refused push, erase, re-consent, rotate, accepted push), fresh signup to the welcome page, onboarding errors, and the scanner report and demo (harness `apps/control-plane/scripts/browser-validation/`).
+
+Fixed locally: keyboard-unreachable scrollable tables (dashboard and scanner report), color-only link, "Closed" column wording, onboarding duplicate-slug and invalid-input messages, invalid slug `pattern`, `next` 16.4.3 and `zod` 4.6.7 (`npm audit` 0). Scanner commit `cd44081`; candidate rebuilt from it (sha256 `95c6a425…`, 29/29, kit rebuilt), previous build preserved as `Boppi-candidate-0.4.0-superseded-20261025T003103Z-pre-a11y`.
+
+Open and unchanged: rubric 1.0.3 sign-off; human sessions 0 of 5 (both kinds); independent security review (package section 14 refreshed); adjudication row 90; hosted migrations (six pending; file 5 breaks existing tokens until consent); backup and restore rehearsal; publication; merge and deployment (which would also ship the dependency upgrades); retention, two-person, rollback-window and consent policies. The disposable stack was stopped and Docker quit at the end of the session.
+
 ## October 24, 2026 (second session): milestone preparation; nothing pushed
 
 Remote check first: GitHub holds the authorized backup only (boppi-scan b30c65d, boppii 35b28e9). Local work since then is ahead (control plane and scanner commits listed in `git log`); no push, merge, publish, deploy, hosted migration, telemetry, or background monitoring. Working trees clean at commit time.
