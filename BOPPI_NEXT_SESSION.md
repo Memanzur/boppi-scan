@@ -1,5 +1,15 @@
 # Boppi: next session (updated October 24, 2026)
 
+## October 24, 2026 (fourth session): candidate preserved, 5a(a) on a development branch, founder review; nothing pushed
+
+Under Melody's parallel-development directive. The rebuilt 0.4.0 candidate (`~/Desktop/Boppi-candidate-0.4.0`, source `cd44081`, tarball sha256 `95c6a425…`) is the proposed Phase 0 human-testing candidate pending independent confirmation. It is read-only, with checksums, manifests, logs and browser evidence in `~/Desktop/Boppi-candidate-0.4.0-evidence-2026-10-24/`, and release branches `release/candidate-0.4.0` in both repos (scanner tag `candidate-0.4.0-cd44081`, control plane tag `candidate-0.4.0-control-plane`). Local only.
+
+Development continued in a separate worktree, `~/Desktop/boppi-scan-dev-5a` on scanner branch `dev/claude-code-settings-5a` (from 0be6de8, commit 663e9a9): master plan 5a(a). The scan now reads the documented Claude Code MCP enablement keys, counts hooks per event without keeping any command text, and reads the managed settings location for the platform (`managed-settings.json`, `managed-settings.d/`, `managed-mcp.json`), reporting each server as enabled, awaiting approval, disabled or unknown. Nothing is executed. Grades change only when a managed file exists (highest precedence, documented locks). `test/verify-claude-code-settings.js` adds 57 checks; `npm test` 34/34; base and dev agree on a home without managed settings. Not merged.
+
+Founder review for Melody: control plane `docs/validation/FOUNDER_REVIEW_2026-10-24.md` (rubric 1.0.3 questions in plain language with options and recommendations, the new question about disabled servers, and the ordered approval queue). Nothing was approved on her behalf.
+
+Ledger rows D-1 to D-4 (mirrored). Next safe local item: master plan 5a(b) (Codex CLI `config.toml` and Cursor hooks as inspect surfaces). Everything else open is a founder or human gate; see the approval queue.
+
 ## October 24, 2026 (third session): release-readiness pass; nothing pushed
 
 Under Melody's directive to prepare a safe, testable release candidate. All work local on `codex/live-brand-alignment` in `~/Desktop/Boppi-auto` and `~/Desktop/boppi-scan-auto`. Nothing pushed, merged, published, deployed, migrated, paired or monitored. GitHub still holds only the 2026-10-23 backup.
