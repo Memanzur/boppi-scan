@@ -121,6 +121,32 @@
   }
 
   /**
+   * The config edit that removes an MCP server entry takes the server node
+   * and every permission the server granted (the scanner's remove_server
+   * prediction removes the same set). A permission granted by a server is
+   * never proposed on its own: Boppi removes whole entries, not one grant of
+   * an entry, and a path routed through such a permission survives the loss
+   * of the server node alone. Returns candidate id -> Set of node ids.
+   */
+  function removalSets(graph, nodesById, held) {
+    const serverIds = new Set(graph.nodes.filter(n => n.entityType === 'mcp_server').map(n => n.id));
+    const grantedByServer = new Map();
+    for (const node of graph.nodes) {
+      const grantor = node.entityType === 'permission' ? node.metadata?.grantedBy : null;
+      if (grantor && serverIds.has(grantor)) grantedByServer.set(node.id, grantor);
+    }
+    const serverDerived = new Set(grantedByServer.keys());
+    for (const edge of graph.edges || []) {
+      if (!serverDerived.has(edge.fromEntityId)) continue;
+      const target = nodesById.get(edge.toEntityId);
+      if (target && REMEDIABLE.has(target.entityType) && target.entityType !== 'mcp_server') serverDerived.add(target.id);
+    }
+    const sets = new Map();
+    for (const id of serverIds) sets.set(id, new Set([id, ...[...grantedByServer].filter(([, server]) => server === id).map(([permission]) => permission)]));
+    return { sets, serverFor: grantedByServer, serverDerived, held };
+  }
+
+  /**
    * Rank remediable graph elements by the exposure paths they actually
    * eliminate. Each candidate's eliminated set is verified by removing it and
    * re-running the path finder — not merely counting participation.
@@ -134,6 +160,7 @@
     const baselineKeys = new Set(baseline.map(p => p.exposureKey));
     const nodesById = new Map(graph.nodes.map(n => [n.id, n]));
     const held = builtinHeldNodes(graph, nodesById);
+    const removal = removalSets(graph, nodesById, held);
     const agentNameForNode = new Map();
     const candidateIds = new Set();
     const builtinHeldNodeIds = new Set();
@@ -141,8 +168,10 @@
       for (const node of path.nodes) {
         if (!agentNameForNode.has(node.id)) agentNameForNode.set(node.id, path.agentName);
         if (!REMEDIABLE.has(node.entityType)) continue;
-        if (held.has(node.id)) builtinHeldNodeIds.add(node.id);
-        else candidateIds.add(node.id);
+        if (held.has(node.id)) { builtinHeldNodeIds.add(node.id); continue; }
+        if (removal.serverFor.has(node.id)) { candidateIds.add(removal.serverFor.get(node.id)); agentNameForNode.set(removal.serverFor.get(node.id), path.agentName); continue; }
+        if (removal.serverDerived.has(node.id)) continue;
+        candidateIds.add(node.id);
       }
     }
 
@@ -159,7 +188,8 @@
     for (const nodeId of candidateIds) {
       const node = nodesById.get(nodeId);
       if (!node) continue;
-      const reduced = simulateNodeRemoval(graph, new Set([nodeId]));
+      const removedNodeIds = [...(removal.sets.get(nodeId) || new Set([nodeId]))].sort();
+      const reduced = simulateNodeRemoval(graph, new Set(removedNodeIds));
       const survivingKeys = new Set(exposurePaths.findPaths(reduced).map(p => p.exposureKey));
       const eliminated = baseline.filter(p => !survivingKeys.has(p.exposureKey));
       if (!eliminated.length) continue;
@@ -168,6 +198,7 @@
       const { label, remediation } = labelAndRemediation(node, agentName, grantors);
       causes.push({
         nodeId,
+        removedNodeIds,
         entityType: node.entityType,
         recordId: node.recordId || null,
         recordKind: node.recordKind || null,
@@ -231,7 +262,7 @@
       if (!best || bestGain === 0) break; // no candidate reduces the remaining set further
       const newlyBroken = [...remaining].filter(key => best.eliminatedSet.has(key)).sort();
       for (const key of newlyBroken) remaining.delete(key);
-      steps.push({ nodeId: best.nodeId, entityType: best.entityType, label: best.label, remediation: best.remediation, agentName: best.agentName || null, grantingServers: best.grantingServers || [], breaksTargetedCount: newlyBroken.length, breaksTargetedExposureKeys: newlyBroken, breaksTargetedPathIds: newlyBroken.map(key => pathIdByKey.get(key)).sort() });
+      steps.push({ nodeId: best.nodeId, removedNodeIds: best.removedNodeIds, entityType: best.entityType, label: best.label, remediation: best.remediation, agentName: best.agentName || null, grantingServers: best.grantingServers || [], breaksTargetedCount: newlyBroken.length, breaksTargetedExposureKeys: newlyBroken, breaksTargetedPathIds: newlyBroken.map(key => pathIdByKey.get(key)).sort() });
     }
     const residual = [...remaining].sort();
     return {

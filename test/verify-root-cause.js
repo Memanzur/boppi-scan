@@ -166,6 +166,27 @@ function serverRemovalSet(inventory, serverName) {
   const configured = builtinFixture({ basis: 'configured' });
   const configuredCluster = rc.clusterRootCauses(configured.graph, pathsMod.findPaths(configured.graph));
   ok('the same grants with a configured basis stay proposable (the exclusion is basis-driven)', configuredCluster.builtinHeldNodeIds.length === 0 && configuredCluster.causes.some(c => c.entityType === 'capability' && /run shell commands/.test(c.label)));
+  section('A server entry is removed as a whole, never one of its grants');
+  const serverPermissionGraph = (() => {
+    const c = agent('serverperm', 'Cursor');
+    const srv = mcp(c.id, 'gh', []);
+    const granted = (category, raw) => models.createPermission({ agentId: c.id, integrationId: srv.id, rawPermission: raw, normalizedCategory: category, accessLevel: 'broad', riskWeight: 2, normalizationConfidence: 0.9, normalizationReason: 'test', source: SOURCE, createdAt: now, updatedAt: now });
+    const inv = { agents: [c], mcpServers: [srv], permissions: [granted('access_credentials', 'gh (credential_access)'), granted('run_shell_commands', 'gh (shell)'), granted('call_external_api', 'gh (network_access)')] };
+    return { inv, srv, graph: buildFrom(inv), paths: pathsMod.findPaths(buildFrom(inv)) };
+  })();
+  ok('server-granted permissions alone yield a credential-exposure path that bypasses the server node', serverPermissionGraph.paths.some(p => p.templateId === 'EP-B') && !serverPermissionGraph.paths.some(p => p.nodes.some(n => n.entityType === 'mcp_server')));
+  const serverCluster = rc.clusterRootCauses(serverPermissionGraph.graph, serverPermissionGraph.paths);
+  const serverCause = serverCluster.causes.find(c => c.entityType === 'mcp_server');
+  ok('the server entry is a root cause even though no path visits its node', serverCause !== undefined && serverCause.label === 'MCP server "gh"');
+  ok('its removal set is the server plus every permission it granted', serverCause !== undefined && JSON.stringify(serverCause.removedNodeIds) === JSON.stringify([...serverRemovalSet(serverPermissionGraph.inv, 'gh')].sort()));
+  ok('removing that set is what eliminates the path (verified by re-simulation)', serverCause !== undefined && pathsMod.findPaths(rc.simulateNodeRemoval(serverPermissionGraph.graph, serverCause.removedNodeIds)).length === serverPermissionGraph.paths.length - serverCause.eliminatedCount && serverCause.eliminatedCount >= 1);
+  ok('no single server-granted permission or capability is proposed on its own', !serverCluster.causes.some(c => c.entityType === 'permission' || c.entityType === 'capability'));
+  const serverPlan = rc.recommendRemediationPlan(serverPermissionGraph.graph, serverPermissionGraph.paths, { severityFloor: 'high' });
+  ok('the plan steps on the server entry and breaks every high path', serverPlan.breaksAll && serverPlan.steps.length === 1 && serverPlan.steps[0].entityType === 'mcp_server' && Array.isArray(serverPlan.steps[0].removedNodeIds));
+  ok('a standalone permission (no granting server) is still proposed on its own', cluster.causes.some(c => c.entityType === 'permission' || c.entityType === 'capability'));
+  const builtinServerCause = builtinCluster.causes.find(c => c.entityType === 'mcp_server');
+  ok('with built-in grants beside it, removing the server still breaks the credential path and nothing built-in', builtinServerCause !== undefined && builtinServerCause.eliminatedExposureKeys.every(k => k.startsWith('EP-B:')));
+
   const emptyCluster = rc.clusterRootCauses(exfilGraph, exfilPaths);
   ok('a graph without built-in grants reports no held nodes', Array.isArray(emptyCluster.builtinHeldNodeIds) && emptyCluster.builtinHeldNodeIds.length === 0);
 

@@ -899,7 +899,7 @@ async function runPush(options) {
   const records = push.toRecords(inventory, recognition);
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
-  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from this push.\n`);
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and ${incomplete.length === 1 ? 'is' : 'are'} missing from this push.\n`);
 
   const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   if (options.dryRun) {
@@ -966,7 +966,7 @@ async function run(argv) {
     return scan.exitCode || 3;
   }
   const { discovery, inventory, paths, incomplete } = scan;
-  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from the results.\n`);
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and ${incomplete.length === 1 ? 'is' : 'are'} missing from the results.\n`);
 
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,

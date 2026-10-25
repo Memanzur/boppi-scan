@@ -266,7 +266,7 @@
         evidenceClass: evidenceClassOf(permission),
         confidence: confidenceOf(permission),
         stale: !!permission.stale,
-        metadata: { category: permission.normalizedCategory, accessLevel: permission.accessLevel, riskWeight: permission.riskWeight || 0, attributes: { ...(permission.attributes || {}) } },
+        metadata: { category: permission.normalizedCategory, accessLevel: permission.accessLevel, riskWeight: permission.riskWeight || 0, attributes: { ...(permission.attributes || {}) }, grantedBy: permission.integrationId || null },
       });
       const grantor = permission.integrationId && integrationNodes.get(permission.integrationId);
       if (grantor) builder.addEdge(grantor, permissionNode, 'integration_grants_permission', permission);
