@@ -28,7 +28,7 @@ This snapshot includes the later opt-in discovery, foreground watch and hook/evi
 | Platform | Status | Config locations read |
 | --- | --- | --- |
 | macOS (Node 18 or newer) | verified by the candidate journey on the build machine | Claude Desktop, Claude Code (`~/.claude.json`, `.mcp.json`, settings files), Cursor |
-| Linux | experimental; locations are looked up, not verified on a real machine | same clients, XDG paths |
+| Linux | experimental; locations are looked up, not verified on a real machine. Exact 2d65a09 tarball suites (34/29/31/22) pass under Node 18.20.8 and 22.23.3 in network-disabled containers (2026-10-25); the full source suite exposed one Linux-only collector defect, fixed in source after the candidate | same clients, XDG paths |
 | Windows | experimental; locations are looked up, not verified on a real machine | same clients, `%APPDATA%` paths |
 
 Clients: Claude Desktop, Claude Code, Cursor. Other clients are not discovered; `--config <file> --source <client>` scans one file explicitly.

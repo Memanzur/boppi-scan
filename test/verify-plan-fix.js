@@ -59,7 +59,8 @@ function runCli(args, home, extra = {}) {
     const run = args => spawnSync(process.execPath, [CLI, ...args, '--only', 'cursor', '--home', home2, '--cwd', project, '--no-color', '--history-file', path.join(home2, 'history.json')], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' } });
     const scan = run(['scan']);
     const planOut = run(['plan']);
-    ok('both Cursor files are discovered', scan.status === 0 && scan.stdout.includes(`${userFile}  1 server`) && scan.stdout.includes(`${projectFile}  1 server`));
+    const listed = file => new RegExp(`${file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+1 server`).test(scan.stdout);
+    ok('both Cursor files are discovered', scan.status === 0 && listed(userFile) && listed(projectFile));
     ok('the plan targets the kubernetes edit at the user file only', planOut.stdout.includes(`in ${userFile}: delete the key mcpServers."kubernetes"`) && !planOut.stdout.includes(`in ${projectFile}: delete the key mcpServers."kubernetes"`));
     ok('the plan targets the repo edit at the project file only', planOut.stdout.includes(`in ${projectFile}: delete the key mcpServers."repo"`) && !planOut.stdout.includes(`in ${userFile}: delete the key mcpServers."repo"`));
     ok('root cause edit lines never name a file without that server', scan.stdout.includes(`remove the "kubernetes" entry from ${userFile}`) && !scan.stdout.includes(`remove the "kubernetes" entry from ${projectFile}`) && !scan.stdout.includes(`remove the "repo" entry from ${userFile}`));

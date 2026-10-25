@@ -4,6 +4,7 @@
 
 Local candidate (unpublished). Milestone 1, trustworthy checkup.
 
+- Hook collector: two rotations inside one millisecond named the same segment file, and the second rename overwrote the first. Records vanished without a `segment_cap` count. Reproduced on Linux (Node 18 and 22) with a 4,000-byte test segment; never seen on macOS in the same run. The segment name now advances until it is free. At the 1 MiB production segment size this needs over 1 MiB of hook records per millisecond, so the user-facing risk was low; the partial-window count is now exact under any rate. Not in candidate 2d65a09 (source fix only, 2026-10-25).
 - Structurally invalid configuration (including null server entries and invalid server maps) is incomplete evidence. It cannot confirm a removal, erase history or replace cloud inventory. Older parser coverage contracts require a fresh baseline.
 
 - Independent-review beta blockers: history and verification now bind comparisons to the inspected client, file, project and analysis coverage. Unknown or changed coverage is withheld. Moves require complete evidence at both endpoints, an identical moved server entry (compared using a local keyed HMAC), and matching destination exposures. Removing a server alone never confirms a move. Older predictions without this evidence require a new baseline. No raw configuration or secret is added to exports.

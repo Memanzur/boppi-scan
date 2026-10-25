@@ -165,6 +165,20 @@ function firstLineAt(file) {
  * that opened the old inode keeps appending to the segment, so nothing is
  * lost; the timeline reads segments and the active file alike.
  */
+/**
+ * Two rotations inside one millisecond would name the same segment and the
+ * second rename would overwrite the first, losing records that no health
+ * counter saw. Advance the stamp until the name is free; order is preserved.
+ */
+function freeSegmentName(home, ms) {
+  for (;;) {
+    const stamp = new Date(ms).toISOString().replace(/[-:.]/g, '');
+    const target = path.join(dir(home), `events.${stamp}.${process.pid}.jsonl`);
+    if (!fs.existsSync(target)) return target;
+    ms += 1;
+  }
+}
+
 function rotate(home, retentionDays) {
   const file = eventsFile(home);
   const cutoff = Date.now() - retentionDays * 86400000;
@@ -175,8 +189,7 @@ function rotate(home, retentionDays) {
   if (!due) return;
   withLock(home, () => {
     try { if (fs.statSync(file).size === 0) return; } catch { return; }
-    const stamp = new Date().toISOString().replace(/[-:.]/g, '');
-    fs.renameSync(file, path.join(dir(home), `events.${stamp}.${process.pid}.jsonl`));
+    fs.renameSync(file, freeSegmentName(home, Date.now()));
     const segments = segmentFiles(home);
     for (const segment of segments) { const newest = lastLineAt(segment); if (newest !== null && newest < cutoff) { try { fs.unlinkSync(segment); } catch { /* gone */ } } }
     const remaining = segmentFiles(home);
