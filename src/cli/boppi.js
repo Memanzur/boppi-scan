@@ -17,6 +17,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const models = require('../engine/models');
+const riskRubric = require('../engine/riskRubric');
 const scanner = require('../engine/localMcpScanner');
 const Storage = require('../engine/agentSecurityStorage');
 const Registry = require('../engine/providerRegistry');
@@ -253,6 +254,19 @@ function parseArgs(argv) {
   return options;
 }
 
+/** A scan whose every discovered file was read and whose path search finished; only such scans can show that a path closed. */
+function scanComplete(scan) { return !(scan.incomplete || []).length && !(scan.traversal && scan.traversal.complete === false); }
+
+/** Why two history entries cannot be compared for closed paths, or null when they can. */
+function incomparable(previous, current) {
+  if (typeof previous.complete !== 'boolean') return 'the earlier scan predates completeness records';
+  if (!previous.complete) return 'the earlier scan was incomplete';
+  if (!current.complete) return 'this scan is incomplete (a file could not be read or the path search hit its limit)';
+  if (previous.scope !== current.scope) return `the scans cover different scopes (${previous.scope} vs ${current.scope})`;
+  if (previous.engineVersion !== current.engineVersion || previous.rubricVersion !== current.rubricVersion) return 'the engine or risk rubric changed between the scans';
+  return null;
+}
+
 function historyEntry(scan, changes = null) {
   const counts = scan.inventory;
   const severityCounts = Object.fromEntries(Object.keys(SEVERITY_ORDER).map(severity => [severity, scan.paths.filter(pathItem => pathItem.severity === severity).length]));
@@ -271,6 +285,9 @@ function historyEntry(scan, changes = null) {
     durationMs: scan.durationMs,
     scannerVersion: VERSION,
     engineVersion: models.ENGINE_VERSION,
+    rubricVersion: riskRubric.RUBRIC_VERSION,
+    scope: scan.scope,
+    complete: scanComplete(scan),
     agents: counts.agents.length,
     mcpServers: counts.mcpServers.length,
     findings: counts.findings.filter(finding => !['resolved', 'accepted_risk', 'false_positive'].includes(finding.status)).length,
@@ -297,16 +314,20 @@ function writeHistory(scan, file) {
     if (Array.isArray(existing)) entries = existing;
   } catch (_) { /* first run or an unreadable local history file */ }
   const previous = entries.filter(e => e.kind !== 'verification').at(-1) || null;
+  const entry = historyEntry(scan);
   const currentPathIds = new Set(scan.paths.map(pathItem => pathItem.id));
   const previousPathIds = new Set(previous?.pathIds || []);
-  const changes = previous ? {
+  const withheld = previous ? incomparable(previous, entry) : null;
+  // A path missing from an incomplete, differently scoped, or differently graded scan is unknown, not resolved.
+  const changes = previous ? (withheld ? { comparedAt: previous.scannedAt, withheld } : {
     comparedAt: previous.scannedAt,
     newPaths: [...currentPathIds].filter(id => !previousPathIds.has(id)).length,
     resolvedPaths: [...previousPathIds].filter(id => !currentPathIds.has(id)).length,
     agentDelta: scan.inventory.agents.length - (previous.agents || 0),
     serverDelta: scan.inventory.mcpServers.length - (previous.mcpServers || 0),
-  } : null;
-  entries.push(historyEntry(scan, changes));
+  }) : null;
+  entry.changes = changes;
+  entries.push(entry);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
   return changes;
@@ -326,6 +347,9 @@ function recordVerification(file, scan, result) {
     verifiedAt: scan.startedAt,
     scannerVersion: VERSION,
     engineVersion: models.ENGINE_VERSION,
+    rubricVersion: riskRubric.RUBRIC_VERSION,
+    scope: scan.scope,
+    complete: scanComplete(scan),
     summary: result.summary,
     confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
     exposureKeys: scan.paths.map(pathItem => pathItem.exposureKey).sort(),
@@ -341,10 +365,13 @@ function verifiedReduction(entries) {
   const verifications = entries.filter(e => e.kind === 'verification');
   const scans = entries.filter(e => e.kind !== 'verification');
   const latest = scans.at(-1) || verifications.at(-1) || null;
-  const confirmed = new Set(verifications.flatMap(v => v.confirmedEliminatedKeys || []));
+  // Only verifications made under the latest scan's rules and scope say anything about its paths, and only a complete latest scan can show a path still absent.
+  const comparable = latest ? verifications.filter(v => !incomparable(v, latest)) : [];
+  const withheld = !latest ? null : latest.complete !== true ? 'the latest scan is incomplete or predates completeness records' : verifications.length && !comparable.length ? 'no verification matches the latest scan\'s scope and rubric' : null;
+  const confirmed = new Set(comparable.flatMap(v => v.confirmedEliminatedKeys || []));
   const present = new Set(latest ? latest.exposureKeys || [] : []);
   const stillClosed = [...confirmed].filter(key => !present.has(key));
-  return { verifications: verifications.length, confirmed: confirmed.size, stillClosed: stillClosed.length, reopened: confirmed.size - stillClosed.length, latestHasKeys: !!(latest && latest.exposureKeys) };
+  return { verifications: verifications.length, confirmed: confirmed.size, stillClosed: stillClosed.length, reopened: confirmed.size - stillClosed.length, latestHasKeys: !!(latest && latest.exposureKeys), withheld };
 }
 
 function renderHistory(file) {
@@ -353,7 +380,10 @@ function renderHistory(file) {
   if (!Array.isArray(entries) || !entries.length) return `No local scan history yet. Run \`boppi scan\` to save the first summary.\nHistory file: ${file}`;
   const lines = [`BOPPI · LOCAL SCAN HISTORY`, `History file: ${file}`, ''];
   const reduction = verifiedReduction(entries);
-  if (reduction.verifications) {
+  if (reduction.verifications && reduction.withheld) {
+    lines.push(`VERIFIED EXPOSURE REDUCTION  withheld: ${reduction.withheld}. ${reduction.verifications} verification${reduction.verifications === 1 ? '' : 's'} recorded; run a complete boppi scan to compare.`);
+    lines.push('');
+  } else if (reduction.verifications) {
     lines.push(`VERIFIED EXPOSURE REDUCTION  ${reduction.confirmed} exposure path${reduction.confirmed === 1 ? '' : 's'} confirmed eliminated across ${reduction.verifications} verification${reduction.verifications === 1 ? '' : 's'}; ${reduction.stillClosed} still absent in the latest scan${reduction.reopened ? `, ${reduction.reopened} reappeared` : ''}.`);
     lines.push('');
   }
@@ -365,7 +395,8 @@ function renderHistory(file) {
     const severity = Object.entries(entry.severityCounts || {}).filter(([, count]) => count).map(([name, count]) => `${count} ${name}`).join(', ') || 'no exposure paths';
     const incomplete = entry.incomplete?.length ? ` · incomplete: ${entry.incomplete.join(', ')}` : '';
     lines.push(`${entry.scannedAt} · ${entry.agents} agents · ${entry.mcpServers} MCP servers · ${entry.exposurePaths} paths (${severity})${incomplete}`);
-    if (entry.changes) lines.push(`  changes: ${entry.changes.newPaths} new · ${entry.changes.resolvedPaths} resolved · ${entry.changes.agentDelta >= 0 ? '+' : ''}${entry.changes.agentDelta} agents · ${entry.changes.serverDelta >= 0 ? '+' : ''}${entry.changes.serverDelta} MCP servers`);
+    if (entry.changes && entry.changes.withheld) lines.push(`  changes: comparison withheld (${entry.changes.withheld})`);
+    else if (entry.changes) lines.push(`  changes: ${entry.changes.newPaths} new · ${entry.changes.resolvedPaths} resolved · ${entry.changes.agentDelta >= 0 ? '+' : ''}${entry.changes.agentDelta} agents · ${entry.changes.serverDelta >= 0 ? '+' : ''}${entry.changes.serverDelta} MCP servers`);
     if (entry.recommendedEdit) lines.push(`  recommended: remove "${entry.recommendedEdit.server}" from ${entry.recommendedEdit.client} (${entry.recommendedEdit.eliminated} paths modeled eliminated${entry.recommendedEdit.lowered ? `, ${entry.recommendedEdit.lowered} lowered` : ''})`);
   }
   lines.push('', 'History contains sanitized summaries only. Raw config values and file contents are never stored.');

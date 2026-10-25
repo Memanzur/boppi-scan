@@ -302,7 +302,8 @@ function renderReport(report, options = {}) {
   if (command === 'scan' && report.historyChanges) {
     if (!report.paths.length) out('');
     out(s.bold('CHANGES SINCE LAST SCAN'), s.dim(`  compared with ${report.historyChanges.comparedAt}`));
-    out('  ', `${report.historyChanges.newPaths} new exposure path${report.historyChanges.newPaths === 1 ? '' : 's'} · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers`);
+    if (report.historyChanges.withheld) out('  ', s.yellow('comparison withheld: '), `${report.historyChanges.withheld}. A path missing from such a comparison is unknown, not resolved.`);
+    else out('  ', `${report.historyChanges.newPaths} new exposure path${report.historyChanges.newPaths === 1 ? '' : 's'} · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers`);
   } else if (command === 'scan') {
     if (!report.paths.length) out('');
     out(s.bold('CHANGES SINCE LAST SCAN'));

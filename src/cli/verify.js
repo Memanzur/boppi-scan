@@ -10,12 +10,25 @@ const { loweredOf } = require('./predict');
 
 const STATUS = Object.freeze({ CONFIRMED: 'CONFIRMED', PARTIAL: 'PARTIAL', CONTRADICTED: 'CONTRADICTED', UNRESOLVED: 'UNRESOLVED' });
 
-/** Per-agent view of the fresh scan: which servers the config still has and which exposures exist. */
+/**
+ * Whether the fresh scan saw everything it needed to grade a disappearance for
+ * this client. A path that is absent because a file could not be read, or
+ * because the path search hit its cap, is unknown, not closed.
+ */
+function coverageOf(scan, client) {
+  const reasons = [];
+  if (client.scanError) reasons.push('client_failed');
+  if ((client.files || []).some(file => file.status === 'unreadable')) reasons.push('config_unreadable');
+  if (scan.traversal && scan.traversal.complete === false) reasons.push('traversal_incomplete');
+  return { complete: reasons.length === 0, reasons };
+}
+
+/** Per-agent view of the fresh scan: which servers the config still has, which exposures exist, and whether the evidence is complete. */
 function currentState(scan) {
   const byAgent = new Map();
   for (const client of scan.discovery.clients) {
     if (!client.agentId || client.scanError) continue;
-    byAgent.set(client.agentId, { agentId: client.agentId, client: { key: client.clientKey, label: client.label }, serverNames: new Set(), exposureKeys: [], priorities: {} });
+    byAgent.set(client.agentId, { agentId: client.agentId, client: { key: client.clientKey, label: client.label }, serverNames: new Set(), exposureKeys: [], priorities: {}, coverage: coverageOf(scan, client) });
   }
   for (const server of scan.inventory.mcpServers) byAgent.get(server.agentId)?.serverNames.add(server.name);
   for (const path of scan.paths) {
@@ -49,7 +62,12 @@ function locateAgent(prediction, byAgent, options) {
  *    or a predicted survivor gone): PARTIAL
  * 5. every predicted change missing: CONTRADICTED
  * 6. keys in neither list are reported as appeared and do not change status
- * 7. a different engine version is flagged engine_changed, status still computed
+ * 7. incomplete evidence (an unreadable file for this client, or a capped path
+ *    search) is UNRESOLVED evidence_incomplete: an uninspected path is unknown,
+ *    never closed; the observed keys are still reported
+ * 8. a different engine or rubric version is UNRESOLVED rules_changed (flagged
+ *    engine_changed / rubric_changed): the difference may be the model, so
+ *    nothing is confirmed or contradicted
  */
 function resolvePrediction(prediction, byAgent, options = {}) {
   const flags = [];
@@ -78,6 +96,9 @@ function resolvePrediction(prediction, byAgent, options = {}) {
   const lowered = predictedLowered.filter(step => !stillAt(step)).map(step => ({ ...step, observed: present.has(step.exposureKey) ? priorityNow(step.exposureKey) : null }));
   const observed = { exposureKeys: state.exposureKeys, eliminated: prediction.predictedEliminated.filter(key => !present.has(key)), survivors, vanished, lowered, notLowered, appeared };
 
+  if (!state.coverage.complete) return { ...base, status: STATUS.UNRESOLVED, reason: 'evidence_incomplete', coverage: state.coverage.reasons, observed };
+  if (flags.includes('engine_changed') || flags.includes('rubric_changed')) return { ...base, status: STATUS.UNRESOLVED, reason: 'rules_changed', observed };
+
   // A prediction that named nothing to eliminate or lower can only confirm that nothing changed; it is never a fix that worked.
   const expected = prediction.predictedEliminated.length + predictedLowered.length;
   if (!survivors.length && !vanished.length && !notLowered.length) return { ...base, status: STATUS.CONFIRMED, reason: expected ? null : 'no_change_predicted', observed };
@@ -90,7 +111,7 @@ function resolveAll(previous, scan, options = {}) {
   const resolutions = previous.predictions.map(prediction => resolvePrediction(prediction, byAgent, options));
   const summary = { confirmed: 0, partial: 0, contradicted: 0, unresolved: 0 };
   for (const r of resolutions) summary[r.status.toLowerCase()] += 1;
-  return { resolutions, summary, engineChanged: resolutions.some(r => r.flags.includes('engine_changed')) };
+  return { resolutions, summary, engineChanged: resolutions.some(r => r.flags.includes('engine_changed')), incomplete: resolutions.some(r => r.reason === 'evidence_incomplete') };
 }
 
 function inventoryFor(inventory, agentId) {
@@ -124,6 +145,8 @@ const REASON_TEXT = Object.freeze({
   some_predicted_eliminated_present: 'some paths predicted to vanish are still present',
   predicted_surviving_absent: 'paths predicted to survive are gone too',
   predicted_lowered_not_observed: 'paths predicted to drop in priority are still at their old priority',
+  evidence_incomplete: 'a configuration file for this agent could not be read or the path search hit its limit, so an absent path is unknown, not closed',
+  rules_changed: 'not graded: the engine or risk rubric changed since the prediction',
   engine_changed: 'engine version changed since the prediction',
   rubric_changed: 'risk rubric changed since the prediction',
   agent_matched_by_client: 'agent matched by client, its id changed',
@@ -132,6 +155,8 @@ const describeReason = code => (REASON_TEXT[code] ? `${REASON_TEXT[code]} (${cod
 
 const NEXT_STEP = Object.freeze({
   UNRESOLVED: 'Nothing could be graded yet. Apply the recommended edit (remove the named server entry), then run boppi verify again.',
+  INCOMPLETE: 'Nothing was graded: a configuration file for this agent could not be read (or the path search hit its limit), so Boppi cannot tell a closed path from an uninspected one. Repair or restore the file (boppi rollback lists backups), then run boppi verify again.',
+  RULES_CHANGED: 'Nothing was graded: the engine or risk rubric changed since this prediction was made, so the difference could be the model rather than the fix. Run boppi scan --json for a fresh prediction and verify against that.',
 });
 
 /**
@@ -185,6 +210,8 @@ function nextStep(summary, resolutions = []) {
       : `${plural(summary.confirmed, 'fix')} confirmed as predicted (${changeSummary(outcome)}, ${outcome.remaining} remaining)`;
     return `${graded}; ${plural(summary.unresolved, 'other prediction')} not graded because that edit was not applied. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
   }
+  if (summary.unresolved && resolutions.some(r => r.reason === 'evidence_incomplete')) return NEXT_STEP.INCOMPLETE;
+  if (summary.unresolved && resolutions.some(r => r.reason === 'rules_changed')) return NEXT_STEP.RULES_CHANGED;
   if (summary.unresolved) return NEXT_STEP.UNRESOLVED;
   if (summary.confirmed) return confirmedSentence(confirmedOutcome(resolutions));
   return null;
@@ -198,7 +225,7 @@ function renderTable(result, useColor) {
     const total = r.predicted.eliminated.length + r.predicted.surviving.length;
     const lowered = (r.predicted.lowered || []).length;
     const loweredText = count => (lowered ? `, ${count} lowered` : '');
-    const observed = r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed${loweredText((r.observed.lowered || []).length)}` : 'n/a';
+    const observed = r.reason === 'evidence_incomplete' ? `${r.observed.eliminated.length} absent, not graded` : r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed${loweredText((r.observed.lowered || []).length)}` : 'n/a';
     return { status: r.status, agent: r.client.label, edit: `remove ${r.edit.server}`, outcome: `${r.predicted.eliminated.length} of ${total} closed${loweredText(lowered)} / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;
@@ -211,10 +238,11 @@ function renderTable(result, useColor) {
   const s = result.summary;
   lines.push('');
   lines.push(`${s.confirmed} confirmed · ${s.partial} partial · ${s.contradicted} contradicted · ${s.unresolved} unresolved`);
-  if (result.engineChanged) lines.push(`engine version changed since the predictions were made (now ${models.ENGINE_VERSION}); statuses are still computed`);
+  if (result.engineChanged) lines.push(`engine version changed since the predictions were made (now ${models.ENGINE_VERSION}); those predictions are not graded`);
+  if (result.incomplete) lines.push('evidence incomplete: an absent path was not counted as closed');
   const next = nextStep(s, result.resolutions);
   if (next) lines.push('', `Next: ${next}`);
   return lines.join('\n');
 }
 
-module.exports = { STATUS, currentState, resolvePrediction, resolveAll, contradictionBundle, renderTable, nextStep, confirmedOutcome };
+module.exports = { STATUS, coverageOf, currentState, resolvePrediction, resolveAll, contradictionBundle, renderTable, nextStep, confirmedOutcome };

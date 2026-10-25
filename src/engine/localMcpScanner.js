@@ -61,13 +61,25 @@
   // next argument, so the caller redacts both.
   const SENSITIVE_FLAG = /^(?:--?|\/)?[A-Za-z0-9_.-]*(?:key|token|secret|pass(?:word|wd|phrase)?|auth|cred(?:ential)?s?|cookie|session|signature|private)[A-Za-z0-9_.-]*(?:=|$)/i;
   function isSensitiveFlag(raw) { return SENSITIVE_FLAG.test(raw) || /^-p$/i.test(raw); }
+  // A path or URL does not have to start the argument: --data-dir=/srv/x, root:~/notes,
+  // "C:\\Users\\me", \\\\share\\dir, file:///tmp, $HOME/x. Package specs such as @scope/name
+  // keep their slash because it follows a word character.
+  const EMBEDDED_URL = /[a-z][a-z0-9+.-]*:\/\/[^\s"'`,;]+/gi;
+  const EMBEDDED_PATH = /(?<![A-Za-z0-9@._\-\\/])(?:~\/|\/|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?\/|[A-Za-z]:[\\/]|\\\\)[^\s"'`,;]*[^\s"'`,;:=]/g;
+  function fingerprintEmbedded(raw) {
+    // Origins are held out of the path pass so "https://host" is not re-read as the path "//host".
+    const origins = [];
+    const held = raw.replace(EMBEDDED_URL, match => { origins.push(sanitizeEndpoint(match) || '[redacted-endpoint]'); return `\u0000${origins.length - 1}\u0000`; });
+    return held.replace(EMBEDDED_PATH, match => pathFingerprint(match)).replace(/\u0000(\d+)\u0000/g, (_, i) => origins[Number(i)]);
+  }
   function sanitizeArgument(value) {
     const raw = text(value, 'argument', 500);
     if (SENSITIVE_NAME.test(raw) || SENSITIVE_VALUE.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
     if (isSensitiveFlag(raw)) return raw.includes('=') ? `${raw.slice(0, raw.indexOf('='))}=[redacted-sensitive-argument]` : raw;
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw)) return pathFingerprint(raw);
-    return raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
+    const clean = fingerprintEmbedded(raw);
+    return clean.length > 160 ? `${clean.slice(0, 160)}…` : clean;
   }
   /** Sanitize an argument list; the value after a bare credential flag is redacted whatever it looks like. */
   function sanitizeArguments(list) {

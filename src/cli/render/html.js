@@ -278,7 +278,7 @@ ${builtinRows ? `
     <tbody>${builtinRows}</tbody>
   </table></div>` : ''}
 
-  ${report.historyChanges ? `<h2>Changes since last scan</h2><div class="card"><div class="kv">${report.historyChanges.newPaths} new exposure paths · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers.</div></div>` : '<h2>Changes since last scan</h2><div class="card muted">First local scan. Run Boppi again after changing the environment to compare results.</div>'}
+  ${report.historyChanges && report.historyChanges.withheld ? `<h2>Changes since last scan</h2><div class="card muted"><div class="kv">Comparison withheld: ${esc(report.historyChanges.withheld)}. A path missing from such a comparison is unknown, not resolved.</div></div>` : report.historyChanges ? `<h2>Changes since last scan</h2><div class="card"><div class="kv">${report.historyChanges.newPaths} new exposure paths · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers.</div></div>` : '<h2>Changes since last scan</h2><div class="card muted">First local scan. Run Boppi again after changing the environment to compare results.</div>'}
 
   ${ranked.length ? `
   <h2>Root cause: the single config edit that ${ranked[0].prediction.predictedEliminated.length ? 'breaks the most exposures' : 'lowers the most exposures (none closes one)'}</h2>
