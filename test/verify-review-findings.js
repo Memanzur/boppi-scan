@@ -13,12 +13,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const verify = require('../src/cli/verify');
-const models = require('../src/engine/models');
-const riskRubric = require('../src/engine/riskRubric');
-const scanner = require('../src/engine/localMcpScanner');
+const verify = require((process.env.BOPPI_TEST_PACKAGE_ROOT || path.join(__dirname, '..')) + '/src/cli/verify');
+const models = require((process.env.BOPPI_TEST_PACKAGE_ROOT || path.join(__dirname, '..')) + '/src/engine/models');
+const riskRubric = require((process.env.BOPPI_TEST_PACKAGE_ROOT || path.join(__dirname, '..')) + '/src/engine/riskRubric');
+const scanner = require((process.env.BOPPI_TEST_PACKAGE_ROOT || path.join(__dirname, '..')) + '/src/engine/localMcpScanner');
 
-const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
+const PACKAGE_ROOT = process.env.BOPPI_TEST_PACKAGE_ROOT || path.join(__dirname, '..');
+const CLI = path.join(PACKAGE_ROOT, 'bin', 'boppi.js');
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
 function section(name) { console.log(`\n── ${name} ──`); }
@@ -76,7 +77,8 @@ const FETCH = { command: 'uvx', args: ['mcp-server-fetch'] };
   section('F-01: unit rules for the traversal cap and legacy history');
   const complete = { discovery: { clients: [{ clientKey: 'cursor', label: 'Cursor', agentId: 'a1', files: [{ status: 'found' }] }] }, inventory: { mcpServers: [] }, paths: [], traversal: { complete: true } };
   const capped = { ...complete, traversal: { complete: false, reason: 'cap' } };
-  const prediction = { predictionId: 'p', agentId: 'a1', client: { key: 'cursor', label: 'Cursor' }, edit: { action: 'remove_server', server: 'fetch' }, predictedEliminated: ['EP-A:a1:x'], predictedSurviving: [], engineVersion: models.ENGINE_VERSION, rubricVersion: riskRubric.RUBRIC_VERSION };
+  complete.discovery.clients[0].coverageIdentity = 'synthetic-complete-coverage';
+  const prediction = { coverageIdentity: 'synthetic-complete-coverage', evidenceComplete: true, predictionId: 'p', agentId: 'a1', client: { key: 'cursor', label: 'Cursor' }, edit: { action: 'remove_server', server: 'fetch' }, predictedEliminated: ['EP-A:a1:x'], predictedSurviving: [], engineVersion: models.ENGINE_VERSION, rubricVersion: riskRubric.RUBRIC_VERSION };
   ok('a complete rescan with the server gone confirms', verify.resolvePrediction(prediction, verify.currentState(complete)).status === 'CONFIRMED');
   const cappedResult = verify.resolvePrediction(prediction, verify.currentState(capped));
   ok('a capped path search is UNRESOLVED evidence_incomplete with the cap named', cappedResult.status === 'UNRESOLVED' && cappedResult.reason === 'evidence_incomplete' && cappedResult.coverage.join() === 'traversal_incomplete');

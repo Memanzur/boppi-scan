@@ -11,6 +11,7 @@ const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const { SEVERITY_RANK, clientInventory, simulateConfigEdit, simulateMoveServer, capabilitiesLost } = require('./simulate');
 const { builtinHoldings } = require('./builtinTools');
+const evidenceIdentity = require('./evidenceIdentity');
 
 const SCHEMA_VERSION = 1;
 
@@ -61,6 +62,8 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
     client: { key: client.clientKey, label: client.label },
     agentId: client.agentId,
     configFingerprint,
+    coverageIdentity: client.coverageIdentity,
+    evidenceComplete: Array.isArray(client.files) && client.files.length > 0 && !client.scanError && client.files.every(f => ['found', 'not_found'].includes(f.status)),
     edit,
     serverId: server.id,
     before: { exposureKeys: sim.before.exposureKeys, priorities: sim.before.priorities },
@@ -77,7 +80,11 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
       if (Object.prototype.hasOwnProperty.call(target.mergedServers, server.name)) continue;
       const move = { action: 'move_server', server: server.name, toClient: target.clientKey };
       const sim = simulateMoveServer({ rawConfig: { mcpServers: client.mergedServers }, agentContext, targetRawConfig: { mcpServers: target.mergedServers }, targetAgentContext: contextFor(target), edit: move });
-      out.push({ ...base(server, move, sim), target: { key: target.clientKey, label: target.label, agentId: target.agentId, predictedAppeared: sim.appeared } });
+      out.push({ ...base(server, move, sim), target: { key: target.clientKey, label: target.label, agentId: target.agentId,
+        coverageIdentity: target.coverageIdentity,
+        evidenceComplete: Array.isArray(target.files) && target.files.length > 0 && target.files.every(f => ['found', 'not_found'].includes(f.status)),
+        serverIdentity: evidenceIdentity.digest('moved-server', client.mergedServers[server.name]),
+        predictedState: sim.targetAfter, predictedAppeared: sim.appeared } });
     }
     return out;
   });

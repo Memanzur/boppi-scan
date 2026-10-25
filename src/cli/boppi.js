@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const evidenceIdentity = require('./evidenceIdentity');
 
 const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
@@ -263,6 +264,8 @@ function incomparable(previous, current) {
   if (!previous.complete) return 'the earlier scan was incomplete';
   if (!current.complete) return 'this scan is incomplete (a file could not be read or the path search hit its limit)';
   if (previous.scope !== current.scope) return `the scans cover different scopes (${previous.scope} vs ${current.scope})`;
+  if (!previous.coverageIdentity || !current.coverageIdentity) return 'the scan coverage identity is unknown (older history)';
+  if (previous.coverageIdentity !== current.coverageIdentity) return 'the selected clients, configuration files, project, platform or analysis inputs changed';
   if (previous.engineVersion !== current.engineVersion || previous.rubricVersion !== current.rubricVersion) return 'the engine or risk rubric changed between the scans';
   return null;
 }
@@ -287,6 +290,7 @@ function historyEntry(scan, changes = null) {
     engineVersion: models.ENGINE_VERSION,
     rubricVersion: riskRubric.RUBRIC_VERSION,
     scope: scan.scope,
+    coverageIdentity: scan.coverageIdentity,
     complete: scanComplete(scan),
     agents: counts.agents.length,
     mcpServers: counts.mcpServers.length,
@@ -349,6 +353,7 @@ function recordVerification(file, scan, result) {
     engineVersion: models.ENGINE_VERSION,
     rubricVersion: riskRubric.RUBRIC_VERSION,
     scope: scan.scope,
+    coverageIdentity: scan.coverageIdentity,
     complete: scanComplete(scan),
     summary: result.summary,
     confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
@@ -472,6 +477,11 @@ function discover(options) {
         client.files.push(entry);
       }
     }
+    client.coverageIdentity = evidenceIdentity.digest('client-coverage', {
+      key: client.clientKey, source: client.source, platform: options.platform,
+      home: path.resolve(options.home), cwd: path.resolve(options.cwd), explicit: !!options.config,
+      files: client.files.map(f => ({ path: path.resolve(f.path), scope: f.scope, kind: f.kind || 'config' })).sort((a, b) => a.path.localeCompare(b.path)),
+    });
     clients.push(client);
   }
   return { clients, filesRead: [...filesRead] };
@@ -529,7 +539,9 @@ function alignFindings(inventory, paths) {
 
 /** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
 async function performScan(options) {
-  scanner.setFingerprintKey(loadFingerprintKey(options.home));
+  const fingerprintKey = loadFingerprintKey(options.home);
+  scanner.setFingerprintKey(fingerprintKey);
+  evidenceIdentity.setKey(fingerprintKey);
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
 
@@ -541,6 +553,10 @@ async function performScan(options) {
     }
     discovery.filesRead.push(overlay.file);
   }
+  for (const client of discovery.clients) client.coverageIdentity = evidenceIdentity.digest('client-analysis', {
+    coverage: client.coverageIdentity,
+    overlay: overlay ? crypto.createHash('sha256').update(fs.readFileSync(overlay.file)).digest('hex') : null,
+  });
   const shadow = [];
   const applied = [];
   const providers = [];
@@ -593,6 +609,7 @@ async function performScan(options) {
   const predictions = discovery.clients
     .filter(c => c.agentId && !c.scanError)
     .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION, otherClients: discovery.clients }));
+  for (const prediction of predictions) prediction.evidenceComplete = prediction.evidenceComplete && traversal.complete === true;
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
   const builtinResidual = discovery.clients
     .filter(c => c.agentId && !c.scanError)
@@ -606,6 +623,15 @@ async function performScan(options) {
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
   const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, traversal, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
+  // Include attempted locations, even absent files, and cwd (Claude Code stores project blocks in a user file).
+  // File contents deliberately do not define coverage: a real edit must remain comparable.
+  scan.coverageIdentity = evidenceIdentity.digest('coverage', {
+    scope: scan.scope, platform: options.platform, home: path.resolve(options.home), cwd: path.resolve(options.cwd),
+    clients: discovery.clients.map(c => ({ key: c.clientKey, source: c.source,
+      files: c.files.map(f => ({ path: path.resolve(f.path), scope: f.scope, kind: f.kind || 'config' })).sort((a, b) => a.path.localeCompare(b.path)),
+    })).sort((a, b) => a.key.localeCompare(b.key)),
+    overlay: overlay ? crypto.createHash('sha256').update(fs.readFileSync(overlay.file)).digest('hex') : null,
+  });
   // The observed layer reads only this machine's hook events (a local file); a home with none stored says so.
   const storedEvents = options.config ? null : (hook.storedFiles(options.home).length ? eventsCommand.readEvents(options.home, { sinceDays: 30 }) : null);
   scan.evidenceLayers = evidence.layersFor(scan, { events: storedEvents ? { ...storedEvents, calls: eventsCommand.timeline(storedEvents.records).calls } : null, sinceDays: 30 });

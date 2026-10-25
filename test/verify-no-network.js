@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
+const CLI = path.join(process.env.BOPPI_TEST_PACKAGE_ROOT || path.join(__dirname, '..'), 'bin', 'boppi.js');
 let passed = 0, failed = 0;
 function ok(name, condition) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}`); } }
 

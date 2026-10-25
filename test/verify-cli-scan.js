@@ -205,9 +205,9 @@ function runCli(args, home) {
   const secondHistoryScan = runCli(['scan', '--history-file', historyFile, '--quiet'], changedHome);
   ok('second scan reports successfully', secondHistoryScan.code === 0);
   const historyAfterSecond = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
-  ok('history records new and resolved exposure counts', historyAfterSecond.length === 2 && historyAfterSecond[1].changes && historyAfterSecond[1].changes.resolvedPaths > 0);
+  ok('history withholds resolved counts across different homes', historyAfterSecond.length === 2 && historyAfterSecond[1].changes.withheld && historyAfterSecond[1].changes.resolvedPaths === undefined);
   const historyView = runCli(['history', '--history-file', historyFile], changedHome);
-  ok('history subcommand shows return value without rescanning', historyView.code === 0 && historyView.stdout.includes('LOCAL SCAN HISTORY') && historyView.stdout.includes('resolved'));
+  ok('history subcommand shows return value without rescanning', historyView.code === 0 && historyView.stdout.includes('LOCAL SCAN HISTORY') && historyView.stdout.includes('comparison withheld'));
 
   section('Clean result remains informative');
   const cleanHome = path.join(root, 'clean-home');

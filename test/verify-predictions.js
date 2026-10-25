@@ -97,10 +97,16 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   const replay = runCli(['verify', rerouteBefore, '--config', editedCopy, '--source', 'claude-desktop'], home);
   ok('every server on or beside the reroute path gets a prediction, including the unused slack route', JSON.parse(fs.readFileSync(rerouteBefore, 'utf8')).predictions.map(p => p.edit.server).sort().join() === 'fetch,filesystem,slack');
   ok('the single explicit client is matched by client key and flagged', replay.code === 0 && rowOf(replay, 'fetch').includes('agent_matched_by_client'));
-  ok('removing fetch from the reroute fixture is CONFIRMED to eliminate nothing, and says so', statusOf(replay, 'fetch') === 'CONFIRMED' && rowOf(replay, 'fetch').includes('0 of 1 closed / 0 of 1 closed') && rowOf(replay, 'fetch').includes('no_change_predicted'));
-  ok('a zero-benefit edit never reads as a fix that worked', !replay.stdout.includes('worked as predicted') && /0 paths closed, 1 remaining/.test(replay.stdout) && /not a risk-reducing fix/.test(replay.stdout));
+  ok('a different explicit file cannot confirm the earlier configuration', statusOf(replay, 'fetch') === 'UNRESOLVED' && rowOf(replay, 'fetch').includes('coverage_changed'));
+  ok('a scope mismatch never reads as a verified fix', !replay.stdout.includes('fix confirmed') && replay.stdout.includes('absent, not graded'));
   ok('the edits not applied in the copy stay UNRESOLVED', ['filesystem', 'slack'].every(s => statusOf(replay, s) === 'UNRESOLVED'));
   const zeroCopy = path.join(root, 'reroute-copy.json');
+  fs.writeFileSync(zeroCopy, JSON.stringify(reroute));
+  const zeroBaseline = path.join(root, 'zero-baseline.json');
+  runCli(['scan', '--config', zeroCopy, '--source', 'claude-desktop', '--json', zeroBaseline], home);
+  fs.writeFileSync(zeroCopy, JSON.stringify({ mcpServers: without(reroute.mcpServers, 'fetch') }));
+  const sameFile = runCli(['verify', zeroBaseline, '--config', zeroCopy, '--source', 'claude-desktop'], home);
+  ok('same-file zero-benefit edit confirms no change and never claims risk reduction', statusOf(sameFile, 'fetch') === 'CONFIRMED' && sameFile.stdout.includes('no_change_predicted') && sameFile.stdout.includes('not a risk-reducing fix'));
   fs.writeFileSync(zeroCopy, JSON.stringify(reroute));
   const zeroFix = runCli(['fix', '--server', 'fetch', '--config', zeroCopy, '--source', 'claude-desktop', '--yes'], home);
   ok('fix warns before applying an edit predicted to close no path', zeroFix.stdout.includes('note:    this edit is not predicted to close or lower any exposure path') && zeroFix.stdout.includes('no_change_predicted') && !zeroFix.stdout.includes('worked as predicted'));

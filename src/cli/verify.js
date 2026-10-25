@@ -7,6 +7,7 @@ const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
 const { SEVERITY_RANK } = require('./simulate');
 const { loweredOf } = require('./predict');
+const evidenceIdentity = require('./evidenceIdentity');
 
 const STATUS = Object.freeze({ CONFIRMED: 'CONFIRMED', PARTIAL: 'PARTIAL', CONTRADICTED: 'CONTRADICTED', UNRESOLVED: 'UNRESOLVED' });
 
@@ -17,9 +18,12 @@ const STATUS = Object.freeze({ CONFIRMED: 'CONFIRMED', PARTIAL: 'PARTIAL', CONTR
  */
 function coverageOf(scan, client) {
   const reasons = [];
+  if (!Array.isArray(client.files) || !client.files.length) reasons.push('coverage_unknown');
+  if ((client.files || []).some(file => !['found', 'not_found', 'unreadable'].includes(file.status))) reasons.push('coverage_unknown');
   if (client.scanError) reasons.push('client_failed');
   if ((client.files || []).some(file => file.status === 'unreadable')) reasons.push('config_unreadable');
   if (scan.traversal && scan.traversal.complete === false) reasons.push('traversal_incomplete');
+  if (!scan.traversal || typeof scan.traversal.complete !== 'boolean') reasons.push('traversal_unknown');
   return { complete: reasons.length === 0, reasons };
 }
 
@@ -28,7 +32,9 @@ function currentState(scan) {
   const byAgent = new Map();
   for (const client of scan.discovery.clients) {
     if (!client.agentId || client.scanError) continue;
-    byAgent.set(client.agentId, { agentId: client.agentId, client: { key: client.clientKey, label: client.label }, serverNames: new Set(), exposureKeys: [], priorities: {}, coverage: coverageOf(scan, client) });
+    byAgent.set(client.agentId, { agentId: client.agentId, client: { key: client.clientKey, label: client.label }, coverageIdentity: client.coverageIdentity, serverNames: new Set(),
+      serverIdentities: Object.fromEntries(Object.entries(client.mergedServers || {}).map(([name, entry]) => [name, evidenceIdentity.digest('moved-server', entry)])),
+      exposureKeys: [], priorities: {}, coverage: coverageOf(scan, client) });
   }
   for (const server of scan.inventory.mcpServers) byAgent.get(server.agentId)?.serverNames.add(server.name);
   for (const path of scan.paths) {
@@ -98,6 +104,29 @@ function resolvePrediction(prediction, byAgent, options = {}) {
 
   if (!state.coverage.complete) return { ...base, status: STATUS.UNRESOLVED, reason: 'evidence_incomplete', coverage: state.coverage.reasons, observed };
   if (flags.includes('engine_changed') || flags.includes('rubric_changed')) return { ...base, status: STATUS.UNRESOLVED, reason: 'rules_changed', observed };
+  if (prediction.evidenceComplete !== true || !prediction.coverageIdentity || !state.coverageIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'baseline_evidence_unknown', observed };
+  if (prediction.coverageIdentity !== state.coverageIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'coverage_changed', observed };
+
+  if (!['remove_server', 'move_server'].includes(prediction.edit.action)) return { ...base, status: STATUS.UNRESOLVED, reason: 'unsupported_edit', observed };
+  if (prediction.edit.action === 'move_server') {
+    const target = prediction.target;
+    if (!target || target.key !== prediction.edit.toClient || target.evidenceComplete !== true || !target.coverageIdentity || !target.serverIdentity || !target.predictedState
+      || !Array.isArray(target.predictedState.exposureKeys) || !target.predictedState.priorities) {
+      return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_evidence_unknown', observed };
+    }
+    const destination = byAgent.get(target.agentId);
+    if (!destination || destination.client.key !== target.key || destination.agentId === state.agentId) return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_not_scanned', observed };
+    if (!destination.coverage.complete) return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_incomplete', observed };
+    if (!destination.coverageIdentity || destination.coverageIdentity !== target.coverageIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_evidence_unknown', observed };
+    if (!destination.serverNames.has(prediction.edit.server)) return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_server_absent', observed };
+    if (!destination.serverIdentities?.[prediction.edit.server]) return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_evidence_unknown', observed };
+    if (destination.serverIdentities[prediction.edit.server] !== target.serverIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'destination_server_changed', observed };
+    const expectedTarget = target.predictedState;
+    const actual = destination.exposureKeys;
+    if (actual.length !== expectedTarget.exposureKeys.length || actual.some(k => !expectedTarget.exposureKeys.includes(k) || destination.priorities[k] !== expectedTarget.priorities[k])) {
+      return { ...base, status: STATUS.PARTIAL, reason: 'destination_exposures_changed', observed };
+    }
+  }
 
   // A prediction that named nothing to eliminate or lower can only confirm that nothing changed; it is never a fix that worked.
   const expected = prediction.predictedEliminated.length + predictedLowered.length;
@@ -150,11 +179,20 @@ const REASON_TEXT = Object.freeze({
   engine_changed: 'engine version changed since the prediction',
   rubric_changed: 'risk rubric changed since the prediction',
   agent_matched_by_client: 'agent matched by client, its id changed',
+  destination_evidence_unknown: 'the prediction or rescan lacks destination evidence; create a new baseline',
+  destination_not_scanned: 'the predicted destination configuration was not inspected',
+  destination_incomplete: 'the destination evidence is incomplete; the move is not verified',
+  destination_server_absent: 'the server is absent from the destination; removal alone does not verify a move',
+  destination_server_changed: 'the destination server differs from the entry predicted to move',
+  destination_exposures_changed: 'destination exposures differ from the predicted configuration',
+  unsupported_edit: 'this edit has no supported verification rule',
+  baseline_evidence_unknown: 'the original evidence is incomplete or predates coverage records; create a new baseline',
+  coverage_changed: 'the configuration or project scope changed; the earlier scope was not verified',
 });
 const describeReason = code => (REASON_TEXT[code] ? `${REASON_TEXT[code]} (${code})` : code);
 
 const NEXT_STEP = Object.freeze({
-  UNRESOLVED: 'Nothing could be graded yet. Apply the recommended edit (remove the named server entry), then run boppi verify again.',
+  UNRESOLVED: 'Nothing could be graded yet. Check the named source and destination configurations, apply the intended edit, then run boppi verify again with the same scan scope.',
   INCOMPLETE: 'Nothing was graded: a configuration file for this agent could not be read (or the path search hit its limit), so Boppi cannot tell a closed path from an uninspected one. Repair or restore the file (boppi rollback lists backups), then run boppi verify again.',
   RULES_CHANGED: 'Nothing was graded: the engine or risk rubric changed since this prediction was made, so the difference could be the model rather than the fix. Run boppi scan --json for a fresh prediction and verify against that.',
 });
@@ -208,7 +246,9 @@ function nextStep(summary, resolutions = []) {
     const graded = outcome.zeroBenefit
       ? `${plural(summary.confirmed, 'edit')} applied and changed nothing about exposure, as predicted (0 paths closed, ${outcome.remaining} remaining); this was not a risk-reducing fix`
       : `${plural(summary.confirmed, 'fix')} confirmed as predicted (${changeSummary(outcome)}, ${outcome.remaining} remaining)`;
-    return `${graded}; ${plural(summary.unresolved, 'other prediction')} not graded because that edit was not applied. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
+    const why = resolutions.filter(r => r.status === STATUS.UNRESOLVED).every(r => r.reason === 'edit_not_applied')
+      ? 'because that edit was not applied' : 'because evidence is missing, incomplete or incompatible, or the edit was not applied (see each row)';
+    return `${graded}; ${plural(summary.unresolved, 'other prediction')} not graded ${why}. Run boppi scan --json again to record the new baseline, or apply another recommended edit and verify again.`;
   }
   if (summary.unresolved && resolutions.some(r => r.reason === 'evidence_incomplete')) return NEXT_STEP.INCOMPLETE;
   if (summary.unresolved && resolutions.some(r => r.reason === 'rules_changed')) return NEXT_STEP.RULES_CHANGED;
@@ -231,7 +271,7 @@ function renderTable(result, useColor) {
     const total = r.predicted.eliminated.length + r.predicted.surviving.length;
     const lowered = (r.predicted.lowered || []).length;
     const loweredText = count => (lowered ? `, ${count} lowered` : '');
-    const observed = r.reason === 'evidence_incomplete' ? `${r.observed.eliminated.length} absent, not graded` : r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed${loweredText((r.observed.lowered || []).length)}` : 'n/a';
+    const observed = r.status === STATUS.UNRESOLVED && r.observed?.eliminated ? `${r.observed.eliminated.length} absent, not graded` : r.observed && r.observed.eliminated ? `${r.observed.eliminated.length} of ${total} closed${loweredText((r.observed.lowered || []).length)}` : 'n/a';
     return { status: r.status, agent: r.client.label, edit: editLabel(r), outcome: `${r.predicted.eliminated.length} of ${total} closed${loweredText(lowered)} / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;

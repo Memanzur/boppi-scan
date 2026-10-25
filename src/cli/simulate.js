@@ -105,11 +105,9 @@ function simulateMoveServer({ rawConfig, agentContext, targetRawConfig, targetAg
   const sourceBefore = exposureStateOf(clientInventory({ ...agentContext, mergedServers: servers }));
   const sourceAfter = exposureStateOf(clientInventory({ ...agentContext, mergedServers: rest }));
   const source = diffKeys(sourceBefore.exposureKeys, sourceAfter.exposureKeys);
-  const target = diffKeys(
-    exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: targetServers })),
-    exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: { ...targetServers, [edit.server]: moved } })),
-  );
-  return { eliminated: source.eliminated, survived: source.survived, appeared: target.appeared, lowered: loweredBetween(sourceBefore, sourceAfter), before: sourceBefore };
+  const targetAfter = exposureStateOf(clientInventory({ ...targetAgentContext, mergedServers: { ...targetServers, [edit.server]: moved } }));
+  const target = diffKeys(exposureKeysOf(clientInventory({ ...targetAgentContext, mergedServers: targetServers })), targetAfter.exposureKeys);
+  return { eliminated: source.eliminated, survived: source.survived, appeared: target.appeared, targetAfter, lowered: loweredBetween(sourceBefore, sourceAfter), before: sourceBefore };
 }
 
 /**
