@@ -1,5 +1,9 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## Release completion checkpoint — 2026-10-25
+
+Scanner 2d65a09, control 6069fcf, website c9461d0; new exact-artifact candidate SHA-256 85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc. Full evidence and A–K continuation: `docs/handoffs/BOPPI_HANDOFF_2026-10-25T042712Z.md`. Current issue states only in control `docs/release/RELEASE_BLOCKERS.md`; overall public NO-GO, founder/human/external/hosted gates preserved. Human sessions 0/5; no remote mutation or publication. 5a(b) unchanged.
+
 ## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
 
 Scanner source `3fde321`, control-plane implementation `ce2b2aa`. Full scanner 35/35; source and packaged blocker regressions 29; exact-package privacy 31 and no-network 22; fresh-install journey 29; control verify exit 0; DB 124 with no security-advisor issues; recovery barrier and all consent suites pass. Candidate `~/Boppi-beta-blocker-repairs-20261025/candidate-0.4.0-3fde321`, sha256 `2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747`.

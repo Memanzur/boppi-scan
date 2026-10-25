@@ -1,5 +1,7 @@
 # Release candidate: boppi 0.4.0 (local, unpublished)
 
+**Current candidate (2026-10-25):** `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/candidate-0.4.0-2d65a09`, source `2d65a09`, sha256 `85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc`. It supersedes the older builds for selection after malformed-structure false confirmation was reproduced and corrected. Scanner 36/36, packaged shape 34 + blockers 29 + privacy 31 + network 22, install journey 29 and integrated Cloud journey 27 pass. Human sessions 0/5; rubric/external/hosted/founder gates remain. Current report: control `docs/release/RELEASE_DECISION_2026-10-25.md`; complete handoff: `docs/handoffs/BOPPI_HANDOFF_2026-10-25T042712Z.md`. Older sections below are history; do not select an old candidate from them.
+
 ## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
 
 Scanner source `3fde321`, control-plane implementation `ce2b2aa`. Full scanner 35/35; source and packaged blocker regressions 29; exact-package privacy 31 and no-network 22; fresh-install journey 29; control verify exit 0; DB 124 with no security-advisor issues; recovery barrier and all consent suites pass. Candidate `~/Boppi-beta-blocker-repairs-20261025/candidate-0.4.0-3fde321`, sha256 `2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747`.

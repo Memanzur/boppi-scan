@@ -155,11 +155,8 @@ Melody explicitly requested saving all current work to GitHub before credits run
 - Every unit ends with: tests run and recorded, security and privacy check, local commit, a `DECISIONS.tsv` row, this ledger, and the handoff files.
 - When a task is blocked by a founder decision, record it here and move to the next open item.
 
-## Verified beta blocker repairs (2026-10-25)
+## Release completion (2026-10-25)
 
-| ID | Work | State | Evidence | Remaining gate |
-| --- | --- | --- | --- | --- |
-| V-1 | Bind selected/explicit history and verification to actual coverage | fixed locally | scanner 3fde321; 29 source and package blocker checks; scope-switch reproduction now withheld | independent Codex confirmation |
-| V-2 | Verify moved server at both endpoints, identity and destination exposures | fixed locally | scanner 3fde321; removal-only unresolved, real moves confirmed, modified/partial/unknown evidence not confirmed | independent Codex confirmation |
-| V-3 | Retain informed consent throughout supported recovery | fixed locally | control ce2b2aa; file-5 and older downs refuse after consent; full/partial consent suites, 10 atomic refusal attempts; DB 124 | independent review; hosted recovery plan and restore rehearsal |
-| V-4 | Freeze new exact-artifact candidate and prepare review package | prepared, HOLD | candidate 0.4.0-3fde321; sha256 2e78a28cdc326c7ec14779578b7d119d9669d8831d2155b9e7d7482bcee4c747; journey 29, privacy 31, network guard 22; ~/Boppi-beta-blocker-repairs-20261025 | human sessions 0/5; rubric/founder/external security gates open |
+Current issue states live only in control-plane `docs/release/RELEASE_BLOCKERS.md`. Historical V-1 maps to F-01-SCOPE, V-2 to F-04-MOVE, V-3 to F-03-RECOVERY; new reproduced defects are F-05-CONFIG-SHAPE and OPS-RESTORE-01. Website claim/build work maps to WEB-CLAIMS-01. Do not create parallel status rows for those issues.
+
+Evidence checkpoint: scanner implementation 2d65a09; control 6069fcf (backup fix 6d9eff3); website c9461d0 (claims 4ba9b06). Scanner 36/36; packaged shape 34, scope/move 29, privacy 31, no-network 22; fresh install 29; integrated built-app/exact-artifact journey 27; local DB 124; recovery/restore/surface checks pass. Recorded human sessions remain 0/5 and rubric/security/hosted/publication gates remain open. Node 22.23.3 Linux artifact checks passed without networking, not a real-client coverage claim. Follow the release decision and next-session handoff before new work.
