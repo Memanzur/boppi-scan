@@ -105,9 +105,8 @@ function hunks(ops, context = CONTEXT_LINES) {
   return lines;
 }
 
-/** Everything fix shows before asking, bound to the bytes it was computed from. Reads the file, writes nothing. */
-function previewRemoval({ located, serverName, cwd, recordsByName }) {
-  const bytes = fs.readFileSync(located.file);
+/** Everything fix shows before asking, bound to the bytes it was computed from. Reads the file unless bytes are given, writes nothing. */
+function previewRemoval({ located, serverName, cwd, recordsByName, bytes = fs.readFileSync(located.file) }) {
   const json = JSON.parse(bytes.toString('utf8'));
   const keyPaths = fix.serverBlocks(json, cwd).filter(block => hasOwn(block.servers, serverName)).map(block => `${block.keyPath}.${JSON.stringify(serverName)}`);
   const before = JSON.stringify(projection(json, cwd, recordsByName), null, 2);

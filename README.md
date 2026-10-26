@@ -38,7 +38,7 @@ Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), gener
 npx boppi push
 ```
 
-It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` is the only command that uses the network, and it sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)).
+It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` and `connect` are the only commands that use the network; push sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)), and connect is described under [Dashboard-requested fixes](#dashboard-requested-fixes-connector).
 
 ## What you see
 
@@ -197,6 +197,7 @@ boppi fix --server <name>      remove one server entry from its config file (bac
 boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
 boppi history                  recent local scan summaries, what changed, and verified exposure reduction
 boppi push                     scan, then send the sanitized inventory to your Boppi workspace
+boppi connect <subcommand>     pair this machine for dashboard-requested fixes; run pulls proposals and applies one only after you confirm here
 
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
@@ -242,7 +243,24 @@ Every row is a rescan of the configuration with that one edit applied. `breaks` 
 
 `boppi fix --server fetch` removes that entry from the file that holds it. It prints the file, the modeled effect, and the backup location, asks for confirmation (or takes `--yes`), copies the file to `~/.boppi/backups/` with mode 600, deletes the key, saves the predictions it used as `boppi-fix-<time>.json`, rescans, and grades the prediction. Exit 0 means CONFIRMED. Only removals are applied; a move is two edits you make by hand. `boppi verify` requires the source entry to be absent, the same entry to be present at the predicted destination, complete coverage at both ends, and the predicted destination exposures to match. Missing, incomplete, changed or older evidence remains unresolved. Verification of a different explicit file or project cannot confirm the original configuration. Local history also withholds comparisons when selected clients, files, projects, platforms or analysis inputs differ; older history without coverage identities requires a new baseline. Server identity uses a keyed HMAC stored as a digest; raw config values and the key never leave the machine. Malformed JSON structures, such as a null server entry or a non-object server map, count as incomplete coverage. They cannot confirm removal or replace complete cloud inventory. Coverage identities from the earlier parser require a fresh baseline.
 
-`boppi plan --diff` shows a sanitized configuration diff. `boppi rollback` lists recorded backups; `boppi rollback --id <id>` asks before restoring one. Rollback verifies the backup hash and refuses if the configuration changed since that fix. Backups contain the complete original configuration, including any original secrets; they stay locally in an owner-only directory and are never uploaded. Review older backups manually if their manifests lack integrity hashes.
+`boppi plan --diff` shows a sanitized configuration diff. `boppi rollback` lists recorded backups (fixes applied through `boppi connect` appear there too); `boppi rollback --id <id>` asks before restoring one. Rollback verifies the backup hash and refuses if the configuration changed since that fix. Backups contain the complete original configuration, including any original secrets; they stay locally in an owner-only directory and are never uploaded. Review older backups manually if their manifests lack integrity hashes.
+
+### Dashboard-requested fixes (connector)
+
+`boppi connect` lets a teammate in your Boppi workspace propose one of the removals `boppi plan` already offers, and lets you apply it here with the same preview, backup and rescan as `boppi fix`. The cloud never fixes anything without local approval, and the connector only pulls: it opens no port, accepts no command string, and talks to one workspace URL that must be `https` (plain `http` only to localhost).
+
+```
+boppi connect pair --url https://app.boppi.io --code <pair-code> [--name <device name>]
+boppi connect status
+boppi connect run [--once] [--interval <s>] [--yes]
+boppi connect unpair
+```
+
+Pairing starts on the Collectors page, which shows a one-time code. `pair` stores the workspace URL and a device credential in `~/.boppi/connector.json` (owner-only; the credential is remediation-only and cannot push inventory). `status` prints the pairing without the credential and sends nothing. `unpair` deletes the file; revoke the device on the Collectors page too.
+
+What `run` sends, every poll: one offer per removal the local plan predicts to close at least one exposure path, made of the client key, two keyed fingerprints (the project folder and the config file, from the same per-machine key as every other fingerprint), the server name, the sha256 of the config file, the sha256 of the sanitized preview you would see, the exposure key names it is expected to close, the capability names the agent would lose, the scanner, engine and rubric versions, and a timestamp. No path, no file contents, no preview text, no backup, no secret value. For a proposal built from an offer it reports the same hashes again (preview), the hash it saw at the write boundary with the new hash and the local manifest id (applied), and the exposure key names the rescan still shows on that agent (rescan). Failures are reported as one fixed code (`hash_changed`, `not_regular_file`, `permission_denied`, `file_missing`, `lock_busy`, `validation_failed`, `backup_failed`, `other`), never as error text.
+
+What `run` does with an approved proposal: it prints the exact sanitized preview in your terminal and asks for confirmation (`--yes` skips the question and the output says so; without a terminal and without `--yes` the proposal waits). Only then does it claim the proposal, lock the file, reopen it without following symlinks, compare the hash with the one the approver saw, copy the original to `~/.boppi/backups/` (mode 600), write the edit atomically, validate that only that entry changed, and record a manifest entry that `boppi rollback --id <id>` can restore. The workspace's acknowledgement is never printed as a fix: the output reads "reported, awaiting the workspace's rescan grade" until the rescan is graded, and a proposal becomes verified only when the rescan from this machine no longer carries the expected exposure keys. A proposal whose file changed, is a symlink, or was already applied here is refused without writing. A claim interrupted by a crash is reported on the next run from the local manifest, so the workspace never counts an edit this machine did not make.
 
 ### Ask about a saved scan (local, read-only)
 
@@ -316,13 +334,13 @@ Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action 
 
 ## What leaves the machine
 
-Nothing, unless you run `boppi push`.
+Nothing, unless you run `boppi push` or `boppi connect`.
 
 The scanner reads configuration metadata only. It does not export secret values, environment variable values, file contents, or recognized raw filesystem paths, including paths embedded inside option values such as `--data-dir=/srv/data` (the flag name is kept, the path becomes a fingerprint, and a URL is reduced to its origin). Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Redaction is tested against known shapes; it is not a guarantee that arbitrary configuration text never contains private information, so review an export before sharing it. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
-This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push` is allowed to reach the network, and the same check confirms that it does.
+This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push`, a `boppi connect run`, and a consented `boppi discover` (a local process, no network) are allowed past those hooks, and the same check confirms that push and connect do reach them.
 
-Hook events, event ids, and the evidence layers built from them never leave the machine; `boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi push --dry-run` prints the exact payload without sending it. No other command makes a network request.
+Hook events, event ids, and the evidence layers built from them never leave the machine; `boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi push --dry-run` prints the exact payload without sending it. `boppi connect run` sends hashes, fingerprints, key names, counts and versions to the paired workspace (see [Dashboard-requested fixes](#dashboard-requested-fixes-connector)). No other command makes a network request.
 
 Push also reports the producing scanner's version and platform, discovery scope, and each checked client's status and server count. Errors use fixed descriptions. A complete discovery scan replaces that collector's inventory; selected, explicit-file, unreadable, or legacy scans merge without deleting earlier evidence. Run a full scan after a supported fix to update the complete workspace inventory. A machine with no discoverable configuration currently sends nothing, so an earlier cloud inventory can remain. Revocation stops later pushes but does not erase stored evidence. Old exports without version provenance are not labeled with the uploading scanner's version.
 

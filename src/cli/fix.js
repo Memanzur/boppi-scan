@@ -69,12 +69,19 @@ function backupPath(home, file, now) {
   return path.join(backupDir(home), `${path.basename(file)}.${sha256(path.resolve(file)).slice(0, 12)}.${stamp}.bak`);
 }
 
-/** Copy the file to its backup location with owner-only permissions. Returns the backup path. */
-function writeBackup({ file, home, now }) {
+/** Copy the file to its backup location with owner-only permissions. Returns the backup path. bytes, when given, are the bytes already read from the file. */
+function writeBackup({ file, home, now, bytes }) {
   const backup = backupPath(home, file, now);
   fs.mkdirSync(path.dirname(backup), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(backup, fs.readFileSync(file), { mode: 0o600, flag: 'wx' });
+  fs.writeFileSync(backup, bytes || fs.readFileSync(file), { mode: 0o600, flag: 'wx' });
   return backup;
+}
+
+/** Replace a file's contents through a temp file in the same directory and a rename, so a crash leaves either the old or the new bytes. */
+function writeAtomic(file, data, mode = 0o600) {
+  const temp = `${file}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
+  fs.writeFileSync(temp, data, { mode, flag: 'wx' });
+  try { fs.renameSync(temp, file); } catch (error) { fs.rmSync(temp, { force: true }); throw error; }
 }
 
 function manifestPath(home) { return path.join(backupDir(home), 'index.json'); }
@@ -109,4 +116,4 @@ function confirm(question) {
   });
 }
 
-module.exports = { CLIENTS, descriptorsFor, locateServer, deleteServer, serverBlocks, sha256, fileHash, backupDir, backupPath, writeBackup, manifestPath, readManifest, appendManifestEntry, confirm };
+module.exports = { CLIENTS, descriptorsFor, locateServer, deleteServer, serverBlocks, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };
