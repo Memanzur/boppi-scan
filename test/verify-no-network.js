@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Every command except a real push must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
+/** Every command except a real push, a connect run, and a consented discover must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -90,6 +90,14 @@ function makeHome(root) {
   ok('supported rollback uses no network', restored.code === 0 && restored.attempts.length === 0);
 
   const real = run(['push', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1']);
+  const connectStatus = run(['connect', 'status']);
+  ok('connect status reads the local pairing file only', connectStatus.code === 0 && connectStatus.attempts.length === 0);
+  fs.mkdirSync(path.join(home, '.boppi'), { recursive: true });
+  fs.writeFileSync(path.join(home, '.boppi', 'connector.json'), JSON.stringify({ schemaVersion: 1, url: 'http://127.0.0.1:1', deviceId: 'dev-test', organizationId: 'org-test', credential: 'bpd_test_credential_value', workspaceName: 'test' }));
+  const connectRun = run(['connect', 'run', '--once']);
+  ok('connect run reaches only fetch, toward the stored workspace, after the local scan (positive control)', connectRun.code !== 0 && connectRun.attempts.length > 0 && connectRun.attempts.every(a => a === 'fetch') && connectRun.stderr.includes('poll'));
+  const connectUnpair = run(['connect', 'unpair']);
+  ok('connect unpair deletes the pairing without network access', connectUnpair.code === 0 && connectUnpair.attempts.length === 0 && !fs.existsSync(path.join(home, '.boppi', 'connector.json')));
   const watchOnce = run(['watch', '--once', '--only', 'claude-code']);
   ok('watch --once starts no process and touches no network', watchOnce.code === 0 && watchOnce.attempts.length === 0 && watchOnce.stdout.includes('BOPPI · WATCH'));
   const forgetAll = run(['discover', '--forget', '--all']);
@@ -101,7 +109,7 @@ function makeHome(root) {
   ok('a consented discover is the only command whose process start reaches the spawn hook (positive control)', consented.code === 3 && consented.attempts.join() === 'child_process.spawn' && consented.stdout.includes('could not be started'));
   fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ mcpServers: {} }));
   ok('a real push does reach the network hook, so the hooks are live (positive control)', real.attempts.length > 0 && real.attempts.every(a => a === 'fetch'));
-  ok('a real push is the only command that attempted the network', real.code !== 0);
+  ok('a real push and a connect run are the only commands that attempted the network', real.code !== 0);
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
