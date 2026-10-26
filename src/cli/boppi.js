@@ -53,16 +53,17 @@ const remediate = require('./remediate');
 const rollback = require('./rollback');
 const hook = require('./hook');
 const settingsModule = require('./settings');
+const connect = require('./connect');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch|events|ask] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch|events|ask|connect] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -81,8 +82,9 @@ function usage() {
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
     '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
+    '  boppi connect pair|status|unpair|run  pair this machine with your workspace for dashboard-requested fixes; run pulls proposals, shows the exact sanitized preview here, and applies one only after you confirm',
     '',
-    'Push options (the only command that uses the network):',
+    'Push options (push and connect are the only commands that use the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
     '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN; or omit it and paste when prompted',
     '  --file <scan.json>  push an earlier --json export instead of scanning now',
@@ -96,6 +98,14 @@ function usage() {
     '',
     'plan options:',
     '  --diff              print the sanitized diff preview for every candidate removal',
+    '',
+    'connect options:',
+    '  --url <workspace>   (pair) workspace origin, https unless localhost; stored in ~/.boppi/connector.json with the device credential (owner-only)',
+    '  --code <pair-code>  (pair) one-time code from the Collectors page',
+    '  --name <name>       (pair) device name the workspace shows (default: this machine\'s hostname)',
+    '  --once              (run) one poll cycle, then exit',
+    '  --interval <s>      (run) seconds between polls (default 60, minimum 5)',
+    '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used',
     '',
     'rollback options:',
     '  --id <id>           the manifest entry to restore (from boppi rollback with no --id)',
@@ -159,12 +169,12 @@ function parseArgs(argv) {
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
-    url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false,
+    url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false, code: null, name: null, subcommand: null,
     install: false, printConfig: false, set: [], record: null, forget: false, all: false, interval: 60, duration: 0, once: false, log: null, since: 30, disable: false, enable: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
   let askRequested = false;
-  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set']);
+  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) { options.command = arg; if (arg === 'ask') askRequested = true; }
@@ -198,6 +208,8 @@ function parseArgs(argv) {
       else if (arg === '--client') options.client = value;
       else if (arg === '--id') options.id = value;
       else if (arg === '--set') options.set.push(value);
+      else if (arg === '--code') options.code = value;
+      else if (arg === '--name') options.name = value;
       else if (arg === '--record') options.record = value;
       else if (arg === '--interval') options.interval = Number(value);
       else if (arg === '--since') options.since = Number(value);
@@ -216,6 +228,7 @@ function parseArgs(argv) {
     else if (arg === '--enable') options.enable = true;
     else if (arg === '--all') options.all = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
+    else if (options.command === 'connect' && !options.subcommand && connect.SUBCOMMANDS.includes(arg)) options.subcommand = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (askRequested && options.command !== 'ask') throw new Error('ask does not accept a second command');
@@ -237,6 +250,13 @@ function parseArgs(argv) {
     if (options.all && !options.forget) throw new Error('--all is only accepted with --forget; discovery starts one server per run');
     if (options.yes && !options.server) throw new Error('--yes is only accepted together with --server');
     if (process.env.BOPPI_DISCOVER_TIMEOUTS) { try { options.discoveryTimeouts = JSON.parse(process.env.BOPPI_DISCOVER_TIMEOUTS); } catch { throw new Error('BOPPI_DISCOVER_TIMEOUTS must be JSON'); } }
+  }
+  if (options.command === 'connect' && !options.help && !options.version) {
+    if (!options.subcommand) throw new Error(`connect requires one of: ${connect.SUBCOMMANDS.join(', ')}`);
+    if (options.subcommand === 'pair' && (!options.url || !options.code)) throw new Error('connect pair requires --url <workspace> and --code <pair-code>');
+    if (options.subcommand === 'run' && (!Number.isFinite(options.interval) || options.interval < 5)) throw new Error('--interval must be a number of seconds, at least 5');
+    if (options.yes && options.subcommand !== 'run') throw new Error('--yes is only accepted with connect run');
+    if (options.config) throw new Error('connect follows discovered client files; --config is not supported');
   }
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
   if (options.command === 'push' && !options.help && !options.version) {
@@ -958,6 +978,7 @@ async function run(argv) {
   if (options.command === 'watch') return watchCommand.runWatch({ ...options, only: options.only ? options.only.map(v => ONLY_ALIASES[v] || v) : null }, { performScan, writeHistory });
   if (options.command === 'discover') return discoverCommand.runDiscover({ ...options, clientKey: options.client ? ONLY_ALIASES[options.client] : null }, { discover, confirm: fix.confirm, version: VERSION });
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
+  if (options.command === 'connect') return connect.runConnect(options, { performScan, confirm: fix.confirm, version: VERSION });
   if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
 
   const scan = await performScan(options);
