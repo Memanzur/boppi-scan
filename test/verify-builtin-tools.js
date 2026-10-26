@@ -171,6 +171,15 @@ const builtinOf = (exported, capability) => exported.inventory.real.permissions.
   writeJson(path.join(cursorHome, '.cursor', 'mcp.json'), { mcpServers: { fetch: FETCH } });
   const cursor = exportOf(['scan', '--only', 'cursor'], cursorHome);
   ok('Cursor gets built-in shell and file grants with an unknown prompting state', ['shell_access', 'filesystem_access'].every(c => builtinOf(cursor.exported, c) && builtinOf(cursor.exported, c).accessLevel === 'unknown') && pathsOf(cursor.exported).includes('EP-E:Cursor'));
+  const bareCursorHome = path.join(root, 'cursor-bare');
+  writeJson(path.join(bareCursorHome, '.cursor', 'mcp.json'), { mcpServers: {} });
+  const bareCursor = exportOf(['scan', '--only', 'cursor'], bareCursorHome);
+  ok('a Cursor with no MCP server keeps its built-in grants but forms no path, so its residual is empty', bareCursor.exported.exposurePaths.length === 0 && ['shell_access', 'filesystem_access'].every(c => builtinOf(bareCursor.exported, c)) && bareCursor.exported.builtinResidual.length === 0);
+  const cursorPlan = runCli(['plan', '--only', 'cursor'], cursorHome);
+  ok('removing fetch from Cursor closes every path, so the plan prints no residual sentence', cursor.exported.builtinResidual.length === 0 && cursorPlan.stdout.includes('remove "fetch" from Cursor') && !cursorPlan.stdout.includes('would stay open'));
+  const cursorHolding = { agentId: 'agent_cursor', clientKey: 'cursor', client: 'Cursor', tools: ['terminal'], exposureKeys: ['EP-E:agent_cursor'], priorities: { 'EP-E:agent_cursor': 'medium' }, settingsRead: false, settingsHint: null };
+  const [cursorSentence] = builtinTools.builtinResidualSentences([cursorHolding], ['EP-E:agent_cursor']);
+  ok('a Cursor residual sentence counts the path, says the settings cannot be read, and never promises a deny rule or a rescan effect', typeof cursorSentence === 'string' && cursorSentence.startsWith('1 path would stay open on Cursor') && cursorSentence.includes('(terminal): EP-E at medium') && cursorSentence.includes("Boppi cannot read Cursor's permission settings, so this stays an unknown.") && !cursorSentence.includes('deny rule') && !cursorSentence.includes('did not read'));
 
   section('Stable identity');
   const again = exportOf(['scan', '--only', 'claude-code'], allowHome);

@@ -121,7 +121,7 @@ PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left t
   - ~/Library/Application Support/Claude/claude_desktop_config.json
   - ~/.claude.json
   - ~/.cursor/mcp.json
-  Secret values, file contents, and raw path names are never collected. Paths become fingerprints.
+  Known secret shapes are redacted, environment variable values are not read, and recognized paths become fingerprints. Review an export before sharing it.
 
 JSON export written to boppi-scan.json
 ```
@@ -318,7 +318,7 @@ Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action 
 
 Nothing, unless you run `boppi push`.
 
-The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths, including paths embedded inside option values such as `--data-dir=/srv/data` (the flag name is kept, the path becomes a fingerprint, and a URL is reduced to its origin). Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Every file that was read is listed at the end of the run so you can check the claim yourself.
+The scanner reads configuration metadata only. It does not export secret values, environment variable values, file contents, or recognized raw filesystem paths, including paths embedded inside option values such as `--data-dir=/srv/data` (the flag name is kept, the path becomes a fingerprint, and a URL is reduced to its origin). Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Redaction is tested against known shapes; it is not a guarantee that arbitrary configuration text never contains private information, so review an export before sharing it. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
 This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push` is allowed to reach the network, and the same check confirms that it does.
 

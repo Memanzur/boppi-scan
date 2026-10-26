@@ -333,7 +333,7 @@ ${graphSection(view)}
   <div class="privacy">
     <b>Privacy.</b> This report was generated entirely on this machine. Files read (metadata only, sanitized in memory):
     ${report.portableFilesRead.length ? `<br>${report.portableFilesRead.map(f => `<code>${esc(f)}</code>`).join('<br>')}` : ' none.'}
-    <br>Secret values, file contents, and raw path names are never collected; paths become fingerprints. Capabilities marked as inferred come from the server's evidenced identity (package names, directory arguments, environment variable names).
+    <br>Known secret shapes are redacted, environment variable values are not read, and recognized paths become fingerprints; review an export before sharing it. Capabilities marked as inferred come from the server's evidenced identity (package names, directory arguments, environment variable names).
     ${liveToken ? '<br>Live mode: this page is served by <code>boppi ui</code> on 127.0.0.1 only. Fixes run on this machine after an explicit confirmation and a backup.' : '<br>The interactive graph runs from the data embedded in this file and makes no network requests.'}
   </div>
 </main>

@@ -377,7 +377,7 @@ function renderReport(report, options = {}) {
   out(s.bold('PRIVACY'), s.dim('  Files read this run (metadata only, sanitized in memory, nothing left this machine):'));
   for (const file of report.filesRead) out(s.dim(`  - ${file}`));
   if (!report.filesRead.length) out(s.dim('  - none (no configuration files were found)'));
-  out(s.dim('  Secret values, file contents, and raw path names are never collected. Paths become fingerprints.'));
+  out(s.dim('  Known secret shapes are redacted, environment variable values are not read, and recognized paths become fingerprints. Review an export before sharing it.'));
 
   return lines.join('\n');
 }

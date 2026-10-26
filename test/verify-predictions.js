@@ -111,6 +111,21 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   const zeroFix = runCli(['fix', '--server', 'fetch', '--config', zeroCopy, '--source', 'claude-desktop', '--yes'], home);
   ok('fix warns before applying an edit predicted to close no path', zeroFix.stdout.includes('note:    this edit is not predicted to close or lower any exposure path') && zeroFix.stdout.includes('no_change_predicted') && !zeroFix.stdout.includes('worked as predicted'));
 
+  section('A lowered prediction graded across an agent id remap');
+  {
+    const verify = require('../src/cli/verify');
+    const models = require('../src/engine/models');
+    const { RUBRIC_VERSION } = require('../src/engine/riskRubric');
+    const stateAt = priority => new Map([['agent_after', { agentId: 'agent_after', client: { key: 'claude-code', label: 'Claude Code' }, coverageIdentity: 'coverage-1', serverNames: new Set(['fs']), serverIdentities: {}, exposureKeys: ['EP-A:agent_after'], priorities: { 'EP-A:agent_after': priority }, coverage: { complete: true, reasons: [] } }]]);
+    const lowered = { predictionId: 'prediction_lowered', agentId: 'agent_before', client: { key: 'claude-code', label: 'Claude Code' }, edit: { action: 'remove_server', server: 'fetch' }, predictedEliminated: [], predictedSurviving: ['EP-A:agent_before'], predictedLowered: [{ exposureKey: 'EP-A:agent_before', from: 'critical', to: 'high' }], evidenceComplete: true, coverageIdentity: 'coverage-1', engineVersion: models.ENGINE_VERSION, rubricVersion: RUBRIC_VERSION };
+    const confirmed = verify.resolvePrediction(lowered, stateAt('high'), { explicitConfig: true });
+    ok('a lowered path is CONFIRMED in the prediction\'s own id space when the client-matched agent carries a new id', confirmed.status === 'CONFIRMED' && confirmed.reason === null && confirmed.flags.includes('agent_matched_by_client') && confirmed.observed.lowered.length === 1 && confirmed.observed.lowered[0].observed === 'high' && confirmed.observed.notLowered.length === 0 && confirmed.observed.survivors.length === 0 && confirmed.observed.vanished.length === 0 && confirmed.observed.appeared.length === 0);
+    const contradicted = verify.resolvePrediction(lowered, stateAt('critical'), { explicitConfig: true });
+    ok('the same path still at its old priority under the new id is CONTRADICTED, never read as a vanished or new path', contradicted.status === 'CONTRADICTED' && contradicted.reason === 'predicted_lowered_not_observed' && contradicted.observed.notLowered.length === 1 && contradicted.observed.vanished.length === 0 && contradicted.observed.appeared.length === 0);
+    const unmatched = verify.resolvePrediction(lowered, stateAt('high'), { explicitConfig: false });
+    ok('without an explicit --config a renamed agent is never matched by client', unmatched.status === 'UNRESOLVED' && unmatched.reason === 'agent_not_scanned');
+  }
+
   section('Unusable input');
   ok('a missing file exits 2', runCli(['verify', path.join(root, 'nope.json')], home).code === 2);
   const noPredictions = path.join(root, 'no-predictions.json');
