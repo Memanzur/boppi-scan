@@ -79,6 +79,7 @@ function usage() {
     '  boppi hook                    record one sanitized Claude Code hook event locally; best effort, live delivery unverified',
     '  boppi ask --file <export.json> --question <question>  answer supported access questions locally; use --server/--client for removal predictions, --json - for JSON stdout',
     '  boppi events                  local timeline of recorded hook events: calls per server and tool, outcomes, and every gap',
+    '  boppi events push             send those metadata-only records to a workspace that allowed activity sync for this collector; --dry-run prints them',
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
     '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
@@ -120,6 +121,7 @@ function usage() {
     '  --since <days>      window to read (default 30)',
     '  --json <file>       write the machine-readable timeline to a file',
     '  --install           rejected; installation always requires your explicit manual action',
+    '  push                send the records in the window to the workspace (--url, --token or BOPPI_TOKEN as for push; --dry-run prints the payload and sends nothing)',
     '',
     'settings options:',
     '  --set key=value     set telemetry=false, cloudSync=false, or retentionDays=1..3650',
@@ -177,7 +179,8 @@ function parseArgs(argv) {
   const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (COMMANDS.has(arg)) { options.command = arg; if (arg === 'ask') askRequested = true; }
+    if (options.command === 'events' && !options.subcommand && arg === 'push') options.subcommand = 'push';
+    else if (COMMANDS.has(arg)) { options.command = arg; if (arg === 'ask') askRequested = true; }
     else if (arg === '--quiet') options.quiet = true;
     else if (arg === '--verbose') options.verbose = true;
     else if (arg === '--no-color') options.color = false;
@@ -262,6 +265,10 @@ function parseArgs(argv) {
   if (options.command === 'push' && !options.help && !options.version) {
     if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error('push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
     options.ingestUrl = push.resolveIngestUrl(options.url);
+  }
+  if (options.command === 'events' && options.subcommand === 'push' && !options.help && !options.version) {
+    if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error('events push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
+    options.eventsUrl = eventsCommand.eventsUrl(options.url);
   }
   if (!SUPPORTED_PLATFORMS.has(options.platform)) throw new Error(`--platform must be one of: ${[...SUPPORTED_PLATFORMS].join(', ')}`);
   if (options.only) {
@@ -976,7 +983,7 @@ async function run(argv) {
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
-  if (options.command === 'events') return eventsCommand.runEvents(options);
+  if (options.command === 'events') return options.subcommand === 'push' ? eventsCommand.runEventsPush(options, { promptForToken }) : eventsCommand.runEvents(options);
   if (options.command === 'watch') return watchCommand.runWatch({ ...options, only: options.only ? options.only.map(v => ONLY_ALIASES[v] || v) : null }, { performScan, writeHistory });
   if (options.command === 'discover') return discoverCommand.runDiscover({ ...options, clientKey: options.client ? ONLY_ALIASES[options.client] : null }, { discover, confirm: fix.confirm, version: VERSION });
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });

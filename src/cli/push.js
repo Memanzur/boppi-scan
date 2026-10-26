@@ -9,6 +9,7 @@
 'use strict';
 
 const DEFAULT_WORKSPACE_URL = 'https://app.boppi.io';
+const EVENTS_PATH = '/api/events';
 const INGEST_PATH = '/api/ingest';
 const SNAPSHOT_MAX = 5000;
 const MERGE_BATCH = 1000;
@@ -260,6 +261,7 @@ const FAILURE_HINT = Object.freeze({
 
 /** Hints keyed by the ingest contract's error code; the code, not the message text, identifies the case. */
 const CODE_HINT = Object.freeze({
+  events_consent_required: () => 'The workspace has not allowed activity sync for this collector. A workspace owner or security admin can allow it under the collector on the Collectors page; inventory sync consent does not cover activity.',
   stale_snapshot: body => `The workspace already holds a snapshot from this machine taken at ${body.serverSnapshotAt || 'an unknown time'}. Run boppi push without --file to send a fresh scan.`,
   rate_limited: (body, result) => {
     const seconds = Number.isFinite(body.retryAfterSeconds) ? body.retryAfterSeconds : result.retryAfter;
@@ -276,4 +278,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };

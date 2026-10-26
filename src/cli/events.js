@@ -11,6 +11,12 @@
 'use strict';
 const fs = require('fs');
 const hook = require('./hook');
+const push = require('./push');
+
+/** What `boppi events push` sends per record: the stored metadata keys and nothing else. */
+const PUSH_KEYS = Object.freeze(['id', 'at', 'event', 'kind', 'server', 'source', 'tool', 'session', 'invocation', 'cwd', 'outcome', 'durationMs']);
+const PUSH_BATCH = 2000;
+const DIGEST = /^[0-9a-f]{16,64}$/;
 
 const OUTCOMES = Object.freeze(['ok', 'error', 'failed', 'interrupted', 'denied', 'unknown']);
 const FINAL = new Set(['ok', 'error', 'failed', 'interrupted', 'denied']);
@@ -130,4 +136,74 @@ function runEvents(options) {
   return 0;
 }
 
-module.exports = { OUTCOMES, readEvents, timeline, summarize, render, runEvents };
+/** The workspace's events endpoint next to the ingest endpoint; the same origin rules apply. */
+function eventsUrl(input) {
+  const ingest = push.resolveIngestUrl(input);
+  return new URL(push.EVENTS_PATH, push.workspaceUrl(ingest));
+}
+
+/**
+ * Whitelist each stored record down to PUSH_KEYS. A record without a
+ * well-formed id or time is skipped and counted, never sent. Keys the
+ * server does not know (a future schema) are dropped here so an older
+ * workspace still accepts the push.
+ */
+function toPayload(records) {
+  const events = [];
+  let skipped = 0;
+  for (const record of records) {
+    if (!record || typeof record !== 'object' || !DIGEST.test(String(record.id)) || Number.isNaN(Date.parse(record.at))) { skipped++; continue; }
+    const entry = {};
+    for (const key of PUSH_KEYS) if (record[key] !== undefined) entry[key] = record[key];
+    events.push(entry);
+  }
+  return { events, skipped };
+}
+
+/** Send in PUSH_BATCH-sized requests; resolve to { ok, accepted, received } or the first failed batch as push.describeFailure expects. */
+async function pushEvents({ eventsUrl: url, token, events, fetchImpl = globalThis.fetch }) {
+  if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
+  let accepted = 0;
+  let received = 0;
+  for (let start = 0; start < events.length; start += PUSH_BATCH) {
+    const batch = events.slice(start, start + PUSH_BATCH);
+    let response;
+    try {
+      response = await fetchImpl(url.toString(), { method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' }, body: JSON.stringify({ events: batch }) });
+    } catch (error) {
+      return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return { ok: false, status: response.status, body };
+    accepted += Number.isFinite(body.accepted) ? body.accepted : 0;
+    received += Number.isFinite(body.received) ? body.received : batch.length;
+  }
+  return { ok: true, accepted, received };
+}
+
+/** boppi events push: send the local hook records (metadata only) to a workspace that allowed activity sync for this collector. */
+async function runEventsPush(options, { promptForToken, fetchImpl } = {}) {
+  const sinceDays = options.since || 30;
+  const stored = readEvents(options.home, { sinceDays });
+  const { events, skipped } = toPayload(stored.records);
+  const url = options.eventsUrl;
+  if (options.dryRun) {
+    process.stdout.write(JSON.stringify({ url: url.toString(), events, skipped, sinceDays }, null, 2) + '\n');
+    process.stderr.write(`events push --dry-run: ${events.length} events from the last ${sinceDays} days would go to ${url.host}; ${skipped} unreadable records skipped; nothing was sent\n`);
+    return 0;
+  }
+  if (events.length === 0) {
+    process.stdout.write(`events push: no hook events recorded in the last ${sinceDays} days; nothing to send (boppi hook --print-config shows how recording is set up)\n`);
+    return 0;
+  }
+  if (!options.token) {
+    options.token = await promptForToken();
+    if (!options.token) { process.stderr.write('events push: no token entered\n'); return 2; }
+  }
+  const result = await pushEvents({ eventsUrl: url, token: options.token, events, fetchImpl });
+  if (!result.ok) { process.stderr.write(`${push.describeFailure(result)}\n`); return 1; }
+  process.stdout.write(`events push: sent ${result.received} events from the last ${sinceDays} days to ${url.host}; ${result.accepted} new, ${result.received - result.accepted} already there${skipped ? `; ${skipped} unreadable records skipped` : ''}. Metadata only: event, server, tool, outcome, duration and keyed digests. Review it on the workspace's Activity page.\n`);
+  return 0;
+}
+
+module.exports = { OUTCOMES, PUSH_KEYS, PUSH_BATCH, readEvents, timeline, summarize, render, runEvents, eventsUrl, toPayload, pushEvents, runEventsPush };

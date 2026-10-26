@@ -23,6 +23,7 @@ const SUITES = [
   'verify-agent-security-event-integrity.js',
   'verify-overlay.js',
   'verify-push.js',
+  'verify-events-push.js',
   'verify-connector.js',
   'verify-no-network.js',
   'verify-plan-fix.js',

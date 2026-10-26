@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Every command except a real push, a connect run, and a consented discover must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
+/** Every command except a real push, a real events push, a connect run, and a consented discover must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -77,6 +77,10 @@ function makeHome(root) {
 
   const dry = run(['push', '--dry-run', '--url', 'http://127.0.0.1:1']);
   ok('push --dry-run prints the payload and makes no network attempt', dry.code === 0 && dry.stdout.includes('"records"') && dry.attempts.length === 0);
+  const dryEvents = run(['events', 'push', '--dry-run', '--url', 'http://127.0.0.1:1']);
+  ok('events push --dry-run prints the payload and makes no network attempt', dryEvents.code === 0 && dryEvents.stdout.includes('"events"') && dryEvents.attempts.length === 0);
+  const eventsOnly = run(['events']);
+  ok('events (the local timeline) makes no network attempt', eventsOnly.code === 0 && eventsOnly.attempts.length === 0);
   for (const args of [['plan', '--diff'], ['demo', '--html', path.join(root, 'demo.html')], ['settings'], ['hook', '--print-config']]) {
     const result = run(args);
     ok(`${args[0]} runs without network access`, result.code === 0 && result.attempts.length === 0);
