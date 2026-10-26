@@ -860,6 +860,7 @@ async function runPush(options) {
   let snapshotAt;
   let collector;
   let coverage;
+  let builtinResidual = null;
   let incomplete = [];
   let recognition = [];
   if (options.file) {
@@ -871,7 +872,7 @@ async function runPush(options) {
     inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
     recognition = Array.isArray(payload.recognition) ? payload.recognition : [];
     snapshotAt = typeof payload.exportedAt === 'string' ? payload.exportedAt : undefined;
-    try { ({ collector, coverage } = push.envelopeFromExport(payload)); } catch (error) {
+    try { ({ collector, coverage, builtinResidual } = push.envelopeFromExport(payload)); } catch (error) {
       process.stderr.write(`push: ${error.message}\n`);
       return 2;
     }
@@ -890,6 +891,7 @@ async function runPush(options) {
     snapshotAt = payload.exportedAt;
     collector = payload.collector;
     coverage = payload.coverage;
+    builtinResidual = push.builtinResidualFromExport(payload);
     incomplete = scan.incomplete;
     recognition = scan.recognition;
   }
@@ -903,7 +905,7 @@ async function runPush(options) {
 
   const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   if (options.dryRun) {
-    process.stdout.write(JSON.stringify({ records, ...(snapshot ? { snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : {}), ...(collector ? { collector } : {}), ...(coverage ? { coverage } : {}) }, null, 2) + '\n');
+    process.stdout.write(JSON.stringify(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }), null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
     return 0;
   }
@@ -917,7 +919,7 @@ async function runPush(options) {
   process.stdout.write('Only sanitized inventory metadata is sent: no secret values, file contents, or raw paths.\n');
   if (!options.merge && !snapshot) process.stderr.write('Partial, incomplete, legacy, or oversized scan: merging evidence without removing earlier records. Run a complete discovery scan to replace the full inventory.\n');
 
-  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt, collector, coverage });
+  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt, collector, coverage, builtinResidual });
   if (!result.ok) {
     process.stderr.write(`${push.describeFailure(result)}\n`);
     return 5;

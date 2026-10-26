@@ -95,6 +95,20 @@ function startWorkspace() {
   const dirtyEnvelope = push.envelopeFromExport({ ...exported, collector: { ...exported.collector, token: 'PRIVATE_TOKEN' }, coverage: { ...exported.coverage, path: '/private/config' } });
   ok('export envelope is projected to safe keys before upload', !JSON.stringify(dirtyEnvelope).includes('PRIVATE_TOKEN') && !JSON.stringify(dirtyEnvelope).includes('/private/config'));
 
+  section('Built-in residual envelope');
+  const residualPayload = { builtinResidual: [{ agentId: 'agent_abc', clientKey: 'claude-code', client: 'Claude Code', tools: ['Bash', 'WebFetch'], exposureKeys: ['EP-A:agent_abc', 'EP-E:agent_abc'], priorities: { 'EP-A:agent_abc': 'high', 'EP-E:agent_abc': 'medium', 'EP-Z:other': 'critical' }, settingsRead: true, settingsHint: 'permissions.deny in /Users/private/.claude/settings.json', configPath: '/Users/private/.claude.json' }] };
+  const residual = push.builtinResidualFromExport(residualPayload);
+  ok('the residual envelope carries agent id, client, tools, exposure keys, priorities and the settings flag only', residual.length === 1 && residual[0].agentExternalId === 'agent_abc' && residual[0].tools.join() === 'Bash,WebFetch' && residual[0].exposureKeys.length === 2 && Object.keys(residual[0].priorities).join() === 'EP-A:agent_abc,EP-E:agent_abc' && residual[0].settingsRead === true && Object.keys(residual[0]).sort().join() === 'agentExternalId,client,clientKey,exposureKeys,priorities,settingsRead,tools');
+  ok('the residual envelope never carries a settings hint or a path', !JSON.stringify(residual).includes('/Users/private') && !JSON.stringify(residual).includes('settingsHint'));
+  ok('an export without a residual sends no residual field', push.builtinResidualFromExport({}) === null && !('builtin_residual' in push.ingestBody({ records: [], builtinResidual: null })));
+  ok('a malformed residual entry is dropped, not sent', push.builtinResidualFromExport({ builtinResidual: [{ agentId: 7 }, null] }) === null);
+  const oversized = push.builtinResidualFromExport({ builtinResidual: Array.from({ length: 20 }, (_, i) => ({ agentId: `a${i}`, clientKey: 'cursor', exposureKeys: Array.from({ length: 70 }, (_, k) => `EP-A:k${k}`), priorities: {} })) });
+  ok('the residual envelope is bounded to 16 agents and 64 keys each', oversized.length === 16 && oversized.every(entry => entry.exposureKeys.length === 64));
+  const residualFile = path.join(root, 'residual-export.json');
+  fs.writeFileSync(residualFile, JSON.stringify({ ...exported, ...residualPayload }));
+  const residualDry = runCli(['push', '--file', residualFile, '--dry-run'], home);
+  ok('a dry run of an export with a residual shows the builtin_residual field the workspace will receive', residualDry.code === 0 && JSON.parse(residualDry.stdout.slice(0, residualDry.stdout.lastIndexOf('}') + 1)).builtin_residual[0].agentExternalId === 'agent_abc');
+
   section('URL rules');
   ok('origin resolves to the ingest endpoint', push.resolveIngestUrl('https://app.boppi.io').toString() === 'https://app.boppi.io/api/ingest');
   ok('trailing slash and full ingest URL both resolve', push.resolveIngestUrl('https://app.boppi.io/').pathname === '/api/ingest' && push.resolveIngestUrl('https://app.boppi.io/api/ingest/').pathname === '/api/ingest');

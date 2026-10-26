@@ -54,6 +54,36 @@ function collectorEnvelope(discovery, version, platform = process.platform, scop
   };
 }
 
+const RESIDUAL_MAX = { entries: 16, tools: 16, keys: 64, key: 160, label: 64 };
+const SEVERITIES = new Set(['critical', 'high', 'medium', 'low']);
+
+/**
+ * The scan's built-in residual (what stays open with every MCP server removed)
+ * as a bounded envelope the workspace can set beside its own computation. Only
+ * agent ids, client labels, tool names, exposure keys, priorities and the
+ * settings-read flag travel; the settings hint is a fixed sentence the
+ * workspace reconstructs, so it is not sent.
+ */
+function builtinResidualFromExport(payload) {
+  const entries = Array.isArray(payload.builtinResidual) ? payload.builtinResidual : [];
+  const out = entries.slice(0, RESIDUAL_MAX.entries).map(entry => {
+    if (!entry || typeof entry.agentId !== 'string' || !Array.isArray(entry.exposureKeys)) return null;
+    const keys = entry.exposureKeys.filter(key => typeof key === 'string').slice(0, RESIDUAL_MAX.keys).map(key => clip(key, RESIDUAL_MAX.key));
+    const priorities = {};
+    for (const key of keys) if (SEVERITIES.has(entry.priorities?.[key])) priorities[key] = entry.priorities[key];
+    return {
+      agentExternalId: clip(entry.agentId),
+      client: clip(entry.client || CLIENT_LABELS[entry.clientKey] || entry.clientKey || 'unknown', RESIDUAL_MAX.label),
+      clientKey: clip(entry.clientKey || 'unknown', 32),
+      tools: (Array.isArray(entry.tools) ? entry.tools : []).filter(tool => typeof tool === 'string').slice(0, RESIDUAL_MAX.tools).map(tool => clip(tool, 32)),
+      exposureKeys: keys,
+      priorities,
+      ...(typeof entry.settingsRead === 'boolean' ? { settingsRead: entry.settingsRead } : {}),
+    };
+  }).filter(Boolean);
+  return out.length ? out : null;
+}
+
 function completeCoverage(coverage) {
   return coverage?.scope === 'full' && coverage.clients.length > 0
     && coverage.clients.every(client => ['found', 'not_found'].includes(client.status));
@@ -78,6 +108,7 @@ function envelopeFromExport(payload) {
     });
     envelope.coverage = { clients, runtime: 'not_observed', scope: ['full', 'selected', 'explicit'].includes(input.scope) ? input.scope : 'unknown' };
   } else envelope.coverage = coverageFromDiscovery(payload.discovery);
+  envelope.builtinResidual = builtinResidualFromExport(payload);
   return envelope;
 }
 
@@ -177,14 +208,19 @@ function counts(inventory) {
   };
 }
 
-async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, fetchImpl }) {
+/** The exact request body: only the present envelope parts travel. The residual rides with the snapshot or the first merge batch. */
+function ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }) {
+  return { records, ...(snapshot ? { snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : {}), ...(collector ? { collector } : {}), ...(coverage ? { coverage } : {}), ...(builtinResidual ? { builtin_residual: builtinResidual } : {}) };
+}
+
+async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl }) {
   let response;
   try {
     response = await fetchImpl(ingestUrl.toString(), {
       method: 'POST',
       redirect: 'error',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' },
-      body: JSON.stringify({ records, ...(snapshot ? { snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : {}), ...(collector ? { collector } : {}), ...(coverage ? { coverage } : {}) }),
+      body: JSON.stringify(ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual })),
     });
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
@@ -202,13 +238,13 @@ async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, coll
  * requests. Resolves to { ok, ingested } or the first failed batch:
  * { ok: false, status, body, retryAfter? } or { ok: false, networkError }.
  */
-async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, fetchImpl = globalThis.fetch }) {
+async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl = globalThis.fetch }) {
   if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
   const batches = snapshot ? [records] : [];
   if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
   let ingested = 0;
   for (const batch of batches) {
-    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, snapshotAt, collector, coverage, fetchImpl });
+    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl });
     if (!result.ok) return result;
     ingested += Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : batch.length;
   }
@@ -240,4 +276,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
