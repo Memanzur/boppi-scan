@@ -9,6 +9,8 @@
  * confirmation. The workspace never pushes a command; every write goes
  * through the fix.js primitives with a backup and a manifest entry, and the
  * workspace grades the result from a rescan, not from the acknowledgement.
+ * An applied proposal the workspace has not graded yet comes back on every
+ * poll until a rescan from this machine's current scan grades it.
  *
  * Local state, all under <home>/.boppi, owner-only:
  *   connector.json         { url, deviceId, organizationId, credential, credentialExpiresAt, workspaceName, deviceName, pairedAt }
@@ -429,15 +431,34 @@ class Cycle {
     if (!applied.ok || reported.body.state !== 'applied') return;
 
     const after = await this.deps.performScan(this.options);
-    if (after.failed) { this.err(`    rescan failed: ${after.failed}; the edit stays applied and the workspace still waits for a rescan`); return; }
-    const report = rescanReport(after, b, this.options);
-    const graded = await this.post('rescan', { proposalId: proposal.id, ...report, versions: this.versions, scannedAt: after.startedAt });
-    if (!graded.ok) { this.err(`    rescan: ${describeFailure('rescan', graded)}`); return; }
+    if (after.failed) { this.err(`    rescan failed: ${after.failed}; the edit stays applied and the workspace still waits for a rescan, sent on the next run`); return; }
+    await this.gradeRescan(proposal, after);
+  }
+
+  /** Report one scan for an applied proposal and print the workspace's grade. */
+  async gradeRescan(proposal, scan) {
+    const b = proposal.binding;
+    const report = rescanReport(scan, b, this.options);
+    const graded = await this.post('rescan', { proposalId: proposal.id, ...report, versions: this.versions, scannedAt: scan.startedAt });
+    if (!graded.ok) { this.err(`    rescan: ${describeFailure('rescan', graded)}${graded.networkError ? '; the workspace still waits for a rescan, sent on the next run' : ''}`); return; }
     const remaining = Array.isArray(graded.body.remainingKeys) ? graded.body.remainingKeys : [];
     if (graded.body.state === 'verified') this.out(b.action === 'rollback'
       ? `    rescan graded verified: the configuration hash matches the restored backup; ${report.exposureKeys.length} potential exposure path${report.exposureKeys.length === 1 ? '' : 's'} reported on this agent`
       : `    rescan graded verified: the server entry was observed absent from the scanned configuration and the expected paths no longer appear (${report.exposureKeys.length} exposure path${report.exposureKeys.length === 1 ? '' : 's'} remain on this agent)`);
     else this.out(`    rescan graded ${graded.body.state || graded.status}${remaining.length ? `: ${remaining.length} expected exposure key${remaining.length === 1 ? '' : 's'} still present (${remaining.join(', ')})` : ''}`);
+  }
+
+  /**
+   * A proposal the workspace holds as applied without a graded rescan: an
+   * earlier run died, its scan failed or its report never arrived. This
+   * cycle's scan grades it, but only when this machine's manifest names the
+   * proposal; another device's edit is never graded from here.
+   */
+  async gradeApplied(proposal, scan) {
+    const entry = manifestEntryFor(this.options.home, proposal.id);
+    if (!entry) { this.out(`  ${proposal.id}  applied, awaiting a rescan, but this machine holds no manifest entry for it; no rescan sent`); return; }
+    this.out(`  ${proposal.id}  applied as manifest ${entry.id} in an earlier run; the workspace still waits for a rescan`);
+    await this.gradeRescan(proposal, scan);
   }
 
   async run() {
@@ -452,6 +473,7 @@ class Cycle {
     this.out(`BOPPI · CONNECT  ${scan.startedAt}  ${offers.length - rollbacks} removal offer(s), ${rollbacks} rollback offer(s) sent (hashes, fingerprints, key names, counts, versions; no paths or contents), ${proposals.length} proposal${proposals.length === 1 ? '' : 's'} returned`);
     for (const proposal of proposals.filter(p => p.state === 'proposed')) await this.reportPreview(proposal, scan);
     for (const proposal of proposals.filter(p => p.state === 'approved')) await this.execute(proposal, scan);
+    for (const proposal of proposals.filter(p => p.state === 'applied')) await this.gradeApplied(proposal, scan);
     return this.problems ? 5 : 0;
   }
 }

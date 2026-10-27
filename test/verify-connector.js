@@ -98,7 +98,7 @@ function startWorkspace() {
         case '/api/connector/poll': {
           if (!Array.isArray(body.offers) || body.offers.length > 64) return reply(res, 400, { error: 'validation' });
           ws.previews = new Map(body.offers.map(o => [offerKey(o), o]));
-          return reply(res, 200, { proposals: [...ws.proposals.values()].filter(p => ['proposed', 'approved'].includes(p.state)).map(p => ({ id: p.id, state: p.state, binding: p.binding, approvedAt: p.approvedAt })) });
+          return reply(res, 200, { proposals: [...ws.proposals.values()].filter(p => ['proposed', 'approved', 'applied'].includes(p.state)).map(p => ({ id: p.id, state: p.state, binding: p.binding, approvedAt: p.approvedAt })) });
         }
         case '/api/connector/preview': {
           if (!proposal || proposal.state !== 'proposed') return reply(res, 409, { error: 'wrong_state' });
@@ -129,6 +129,7 @@ function startWorkspace() {
           return reply(res, 200, { state: proposal.state });
         }
         case '/api/connector/rescan': {
+          if (ws.dropRescanOnce) { ws.dropRescanOnce = false; req.socket.destroy(); return; }
           if (!proposal || proposal.state !== 'applied') return reply(res, 409, { error: 'wrong_state' });
           const remainingKeys = proposal.binding.action === 'rollback' ? [] : proposal.binding.expectedExposureKeys.filter(key => (body.exposureKeys || []).includes(key));
           proposal.state = body.configHash === proposal.appliedHash && sameVersions(body.versions) && !remainingKeys.length ? 'verified' : 'verification_failed';
@@ -359,7 +360,27 @@ function startWorkspace() {
     fs.writeFileSync(connect.claimsFile(home), JSON.stringify({ ...savedClaims, pending: { [rollbackProposal]: { nonce: restoreNonce, targetFile: rollbackOffer.targetFile, client: rollbackOffer.client, server: rollbackOffer.server, claimedAt: new Date().toISOString() } } }));
     const recoveredRestore = await runCli(['connect', 'run', '--once'], home);
     const restoreRecovery = ws.byRoute('applied').at(-1).body;
-    ok('the completed rollback is reported from its manifest without writing again', recoveredRestore.code === 0 && restoreRecovery.proposalId === rollbackProposal && restoreRecovery.backupManifestId === restoreEntry.id && restoreRecovery.hashAtWrite === restoreEntry.backupHash && restoreRecovery.appliedHash === restoreEntry.appliedHash && ws.proposals.get(rollbackProposal).state === 'applied' && manifestEntries().length === 2 && fs.readFileSync(desktopConfig).equals(original));
+    ok('the completed rollback is reported from its manifest without writing again', recoveredRestore.code === 0 && restoreRecovery.proposalId === rollbackProposal && restoreRecovery.backupManifestId === restoreEntry.id && restoreRecovery.hashAtWrite === restoreEntry.backupHash && restoreRecovery.appliedHash === restoreEntry.appliedHash && manifestEntries().length === 2 && fs.readFileSync(desktopConfig).equals(original));
+    ok('the same cycle then grades the reported rollback from its scan', recoveredRestore.stdout.includes('applied as manifest') && recoveredRestore.stdout.includes('rescan graded verified') && ws.proposals.get(rollbackProposal).state === 'verified' && ws.byRoute('rescan').at(-1).body.proposalId === rollbackProposal);
+
+    section('a rescan lost after the apply');
+    ws.locks.clear();
+    fs.writeFileSync(desktopConfig, original);
+    await runCli(['connect', 'run', '--once'], home);
+    const lostProposal = ws.propose(fetchKey);
+    await runCli(['connect', 'run', '--once'], home);
+    ws.approve(lostProposal);
+    ws.dropRescanOnce = true;
+    const lost = await runCli(['connect', 'run', '--once', '--yes'], home);
+    ok('the edit is applied and reported, and the dropped rescan leaves the proposal applied with a problem exit', lost.code === 5 && lost.stdout.includes('applied locally') && lost.stderr.includes('could not reach the workspace for rescan') && lost.stderr.includes('sent on the next run') && !ws.dropRescanOnce && ws.proposals.get(lostProposal).state === 'applied' && manifestEntries().length === 3);
+    const reportsBeforeGrade = ws.byRoute('applied').length;
+    const graded = await runCli(['connect', 'run', '--once'], home);
+    ok('the next run grades the applied proposal from its own scan without writing or reporting again', graded.code === 0 && graded.stdout.includes(`${lostProposal}  applied as manifest ${manifestEntries()[2].id}`) && graded.stdout.includes('rescan graded verified') && ws.proposals.get(lostProposal).state === 'verified' && ws.byRoute('applied').length === reportsBeforeGrade && ws.byRoute('rescan').filter(r => r.body.proposalId === lostProposal).length === 2 && ws.byRoute('rescan').at(-1).body.proposalId === lostProposal && manifestEntries().length === 3);
+    const foreign = { id: crypto.randomUUID(), state: 'applied', approvedAt: null, binding: { ...ws.proposals.get(lostProposal).binding }, nonce: crypto.randomBytes(16).toString('hex'), appliedHash: ws.proposals.get(lostProposal).appliedHash };
+    ws.proposals.set(foreign.id, foreign);
+    const foreignRun = await runCli(['connect', 'run', '--once'], home);
+    ok('an applied proposal this machine never wrote is named but never graded from here', foreignRun.code === 0 && foreignRun.stdout.includes(`${foreign.id}  applied, awaiting a rescan, but this machine holds no manifest entry`) && ws.proposals.get(foreign.id).state === 'applied' && !ws.byRoute('rescan').some(r => r.body.proposalId === foreign.id));
+    ws.proposals.delete(foreign.id);
 
     section('workspace URL rule at run time');
     const requestsBefore = ws.requests.length;
