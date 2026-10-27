@@ -1,5 +1,9 @@
 # Boppi scanner progress: end-of-day checkpoint
 
+## Connector rollback complete, 2026-10-27
+
+Scanner implementation 9954750, control-plane implementation 6c5730f. Dashboard-requested rollback now has intact-backup offers, sanitized preview, separate approval/local confirmation, locked hash rechecks, atomic byte-exact restoration, manifest replay/recovery and rescan grading; the original fix ends `rolled_back`. Scanner 38/38; final connector 61; full control verify passes; routes 63; source and installed-tarball connector journeys 29 each. Chromium 59 steps, zero axe violations at 1280/390 and no console errors. New candidate `~/Desktop/Boppi-candidate-0.4.0-9954750`, sha256 890d3f9f458f5f5df30505a172e58b512bdb679b3874193271b0aff2aa6ee8de: packaging 29/29, exact-tarball beta 27, six-case kit and matching versions. Old candidates preserved. Details in control-plane `docs/validation/CONNECTOR_ROLLBACK_2026-10-27.md`. Local services stopped after verification, volume retained. No push, publication, deployment, hosted change or real-device operation. All founder/human/external/hosted gates unchanged; D-11 remains open.
+
 ## Release completion checkpoint — 2026-10-25
 
 Scanner 2d65a09, control 6069fcf, website c9461d0; new exact-artifact candidate SHA-256 85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc. Full evidence and A–K continuation: `docs/handoffs/BOPPI_HANDOFF_2026-10-25T042712Z.md`. Current issue states only in control `docs/release/RELEASE_BLOCKERS.md`; overall public NO-GO, founder/human/external/hosted gates preserved. Human sessions 0/5; no remote mutation or publication. 5a(b) unchanged.

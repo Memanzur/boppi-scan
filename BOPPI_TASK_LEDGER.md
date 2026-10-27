@@ -195,3 +195,9 @@ Resumed after the seventh session's usage-limit stop and a Mac reboot. Nothing p
 | R-12 | Candidate against the built app | done | `local-beta.mjs verify` 27 checks on stack 8AQeHU | |
 | R-13 | Dashboard remediation screens in Chromium | done | `remediation.js` full pass, zero axe at 1280/390, no console errors | Needs an inventory on the stack first |
 | R-14 | Rollback through the connector (device offers, dashboard proposes, device restores) | done, verified locally | scanner `verify-connector.js` 61 (integrity, symlinks, concurrent edits, local confirmation, exact restore, replay, interrupted report); full scanner 38/38; real CLI journey 29; routes 63; full control-plane verify; Chromium removal and rollback at 1280/390, zero axe violations and console errors | Synthetic local evidence only; candidate rebuilt separately, founder and release gates unchanged |
+
+## Connector rollback candidate (2026-10-27)
+
+| Id | Task | State | Evidence | Blocker or next |
+| --- | --- | --- | --- | --- |
+| R-15 | Fourth candidate after connector rollback | done, frozen locally | scanner 9954750, control implementation 6c5730f; `~/Desktop/Boppi-candidate-0.4.0-9954750`, sha256 890d3f9f…; packaging 29/29, versions agree, six-case KIT.json, exact-tarball beta journey 27, installed connector rollback journey 29 | D-11 founder selection and all human/external/hosted gates remain open; prior candidates preserved |
