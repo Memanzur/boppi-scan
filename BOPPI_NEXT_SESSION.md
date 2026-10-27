@@ -1,28 +1,39 @@
-# Intelligence evaluation COMPLETED locally — 2026-10-27 (Claude)
+# Claude session 2026-10-27: Intelligence evaluation completed, connector rescan recovery landed, fifth candidate frozen
 
-Claude resumed the paused slice below. The keyboard-focus defect is fixed, the complete browser journey passes, app verify passes, and the work is committed locally. Nothing pushed, published, deployed or run against a hosted target.
+Claude resumed the paused Intelligence slice, finished it, then built the next roadmap slice (interrupted connector rescan recovery) and froze a new candidate. Everything is local. Nothing pushed, published, deployed or run against a hosted target. Human, independent-review, consent, real-device and hosted gates are unchanged.
 
-## What changed this session
+## Commits this session (all local, branch `codex/live-brand-alignment`)
 
-- `apps/control-plane/app/dashboard/intelligence/evaluate/[id]/page.tsx`: both scrolling `<pre className="evaluation-json">` evidence blocks are now `tabIndex={0}` regions with accessible names (frozen corpus; per-evaluation evidence). `app/globals.css` gives the region a visible focus ring.
-- `scripts/browser-validation/intelligence-evaluation.js`: two new checks prove Tab from the disclosure summary lands on the named region at 1280 and 390.
-- The old scratch stack directory `/tmp/boppi-beta-local.8AQeHU` no longer existed on disk (containers and volume remain in Docker), so a fresh disposable stack `/tmp/boppi-beta-local.Y5YejS` was created with `supabase init/start` and `local-beta.mjs prepare`. All 24 repository migrations applied cleanly, so the scratch `evaluate_correction_rule` matches the committed migration file. No hosted target.
+| Repo | Commit | What |
+| --- | --- | --- |
+| Control | 2a5a809 | Inactive rule evaluation slice (Codex's uncommitted work plus the keyboard-focus fix on both evidence regions) |
+| Control | 7a51630 | Ledger/map/handoff for the evaluation slice |
+| Scanner | 420ce9d | Mirrored checkpoint |
+| Scanner | 104147d | `boppi connect run` grades an applied proposal whose rescan was lost; README paragraph |
+| Control | ef4cfe5 | `device_poll` returns applied proposals; applied-state dashboard copy; real-route journey with a severed rescan |
+| both | (this save) | Ledger rows H-10/H-11, roadmap map row 9, kit README pointer, this handoff |
 
-## Evidence
+## Slice 1: Intelligence inactive evaluation (H-9, done)
 
-`~/Desktop/Boppi-hybrid-2026-10-27-evidence/intelligence-evaluation/` (README inside).
+Fix: both scrolling `<pre className="evaluation-json">` blocks are `tabIndex={0}` regions with accessible names and a focus ring. Harness gained two keyboard checks. Fresh disposable stack `/tmp/boppi-beta-local.Y5YejS` (the 8AQeHU directory no longer existed on disk; its containers and volume remain in Docker). Build exit 0, app verify exit 0 (311 remediation checks), browser journey 25/25 with zero axe/overflow/errors at 1280 and 390. Evidence `~/Desktop/Boppi-hybrid-2026-10-27-evidence/intelligence-evaluation/`.
 
-| Check | Result |
-| --- | --- |
-| `next build` with the fix | exit 0 |
-| `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` | exit 0, 311 remediation state checks |
-| Real scanner → intake → review → inactive evaluation → download browser journey | 25/25 (first pass 23/23 before the keyboard checks were added); zero axe violations, zero overflow, zero console errors at 1280 and 390 |
+## Slice 2: interrupted connector rescan recovery (H-10, done)
 
-The in-progress bundle `intelligence-evaluation-in-progress/` is preserved unchanged.
+Gap: after a successful applied report, a failed scan, a dropped rescan POST or a killed process left the workspace proposal `applied` forever; `device_poll` only returned proposed/approved/executing and `boppi connect run` only acted on proposed/approved.
+
+Design (server-driven, idempotent, no new local state): `device_poll` also returns the device's `applied` proposals (migration 20261027041727, CREATE OR REPLACE; `device_report_rescan` gates are unchanged, so a replay after verification is refused `wrong_state`). Each `connect run` cycle, after proposed/approved handling, grades every applied proposal whose id this machine's backup manifest names, from the scan the cycle already took; a proposal with no manifest entry is named and never graded. The same cycle that reconciles an unanswered claim now also grades it.
+
+Evidence `~/Desktop/Boppi-hybrid-2026-10-27-evidence/connector-rescan-recovery/`: scanner connector suite 65/65 (severed rescan, next-run grade, foreign applied proposal), `npm test` 38/38; SQL suite 25 migrations/368 PASS; real-CLI real-route journey 31/31 where a loopback proxy severs the first rescan, the workspace holds `applied`, and the next run grades `verified` without writing or reporting again; app verify exit 0.
+
+## Candidate (H-11)
+
+`~/Desktop/Boppi-candidate-0.4.0-104147d` (read-only): scanner 104147d, 0.4.0 / engine 1.1.1 / rubric 1.0.3, tarball sha256 `1de37969ccb1ae094c69b48800b5d27303308ead12dca7e73fb8d938da2c16d0`, packaging 29/29, six-case kit (KIT.json matches), exact-tarball beta journey 27, installed-artifact connector journey 31, control pointer ef4cfe5, supersedes d154b2f (preserved). Kit README points at it. Evidence `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-104147d/`.
+
+Not done: website `public/boppi-demo.json` and Cloud `public/guest-demo.json` still carry d154b2f provenance. The demo command is unchanged between the two candidates; regenerate and re-verify the website guest journey when the website is next touched.
 
 ## Services
 
-App 3097 and the `Y5YejS` stack were stopped at the end of the session; the volume is kept. Restart:
+App 3097 and the `Y5YejS` stack are STOPPED; the volume is kept; Docker Desktop left running. The `.next` build includes every change above. Restart:
 
 ```sh
 cd ~/Desktop/Boppi-auto/apps/control-plane
@@ -30,9 +41,11 @@ supabase start --workdir /tmp/boppi-beta-local.Y5YejS --exclude realtime,storage
 node scripts/local-beta.mjs serve /tmp/boppi-beta-local.Y5YejS
 ```
 
+Known dirty file: control `apps/control-plane/supabase/.temp/cli-latest` (CLI side effect, leave it).
+
 ## Exact next operation
 
-The next independent roadmap slice is **interrupted connector rescan recovery** (roadmap map row 9). See the section at the end of this file for the design notes written this session. Candidate rebuild is still unnecessary for Cloud-only edits.
+Remaining authorized local roadmap work, pick one: explicit-consent transient prompt-investigation implementation with a frozen evaluation corpus (map row 7); advertised/effective scope agreement; collection-gap transport; further observation-mode policy workflows; the two-person/rollback-window policy design for row 9. Regenerating the demo assets from candidate 104147d is small and independent. Do not push without Melody's explicit backup authorization; the GitHub backup proposal in `docs/release/GITHUB_BACKUP_PROPOSAL_2026-10-27.md` predates these commits.
 
 ---
 
