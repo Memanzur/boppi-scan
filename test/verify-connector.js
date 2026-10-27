@@ -47,7 +47,7 @@ function makeHome(root) {
 function runCli(args, home, env = {}, preload = null) {
   const nodeArgs = preload ? ['--require', preload] : [];
   return new Promise(resolve => {
-    const child = spawn(process.execPath, [...nodeArgs, CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin', ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [...nodeArgs, CLI, ...args, '--home', home, '--cwd', env.BOPPI_TEST_CWD || home, '--no-color', '--history-file', path.join(home, 'history.json')], { env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin', ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '', stderr = '';
     child.stdout.on('data', d => { stdout += d; });
     child.stderr.on('data', d => { stderr += d; });
@@ -56,7 +56,7 @@ function runCli(args, home, env = {}, preload = null) {
   });
 }
 
-const offerKey = o => [o.client, o.project, o.targetFile, o.server].join('|');
+const offerKey = o => [o.action || 'remove_server', o.client, o.project, o.targetFile, o.server].join('|');
 const VERSIONS = { scanner: require('../package.json').version, engine: models.ENGINE_VERSION, rubric: riskRubric.RUBRIC_VERSION };
 const sameVersions = v => v && v.scanner === VERSIONS.scanner && v.engine === VERSIONS.engine && v.rubric === VERSIONS.rubric;
 
@@ -65,12 +65,19 @@ function startWorkspace() {
   const ws = { requests: [], device: null, previews: new Map(), proposals: new Map(), locks: new Map(), issued: new Map(), consumed: new Set(), onClaim: null, replayNonce: null };
   const byRoute = route => ws.requests.filter(r => r.url === `/api/connector/${route}`);
   ws.byRoute = byRoute;
-  ws.propose = key => {
+  ws.propose = (key, rollbackOf = null) => {
     const offer = ws.previews.get(key);
     if (!offer) throw new Error(`no offer ${key}`);
     const id = crypto.randomUUID();
-    ws.proposals.set(id, { id, state: 'proposed', approvedAt: null, binding: { organizationId: 'org-1', deviceId: ws.device.id, client: offer.client, project: offer.project, targetFile: offer.targetFile, server: offer.server, action: 'remove_server', configHash: offer.configHash, previewHash: offer.previewHash, versions: offer.versions, expectedExposureKeys: offer.expectedExposureKeys, capabilityLoss: offer.capabilityLoss, expiresAt: new Date(Date.now() + 86400000).toISOString() }, nonce: crypto.randomBytes(16).toString('hex') });
+    const nonce = crypto.randomBytes(16).toString('hex');
+    ws.proposals.set(id, { id, state: 'proposed', approvedAt: null, rollbackOf, binding: { organizationId: 'org-1', deviceId: ws.device.id, client: offer.client, project: offer.project, targetFile: offer.targetFile, server: offer.server, action: offer.action || 'remove_server', configHash: offer.configHash, previewHash: offer.previewHash, versions: offer.versions, expectedExposureKeys: offer.expectedExposureKeys, capabilityLoss: offer.capabilityLoss, expiresAt: new Date(Date.now() + 86400000).toISOString(), nonce, ...(rollbackOf ? { backupManifestId: offer.backupManifestId, appliedHash: offer.configHash } : {}) }, nonce });
     return id;
+  };
+  ws.proposeRollback = fixId => {
+    const applied = ws.proposals.get(fixId);
+    const offer = [...ws.previews.values()].find(o => o.action === 'rollback' && o.backupManifestId === applied.backupManifestId && o.project === applied.binding.project && o.configHash === applied.appliedHash);
+    if (!offer) throw new Error('rollback_blocked');
+    return ws.propose(offerKey(offer), fixId);
   };
   ws.approve = id => { const p = ws.proposals.get(id); p.state = 'approved'; p.approvedAt = new Date().toISOString(); };
   const reply = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
@@ -123,8 +130,9 @@ function startWorkspace() {
         }
         case '/api/connector/rescan': {
           if (!proposal || proposal.state !== 'applied') return reply(res, 409, { error: 'wrong_state' });
-          const remainingKeys = proposal.binding.expectedExposureKeys.filter(key => (body.exposureKeys || []).includes(key));
+          const remainingKeys = proposal.binding.action === 'rollback' ? [] : proposal.binding.expectedExposureKeys.filter(key => (body.exposureKeys || []).includes(key));
           proposal.state = body.configHash === proposal.appliedHash && sameVersions(body.versions) && !remainingKeys.length ? 'verified' : 'verification_failed';
+          if (proposal.state === 'verified' && proposal.rollbackOf) ws.proposals.get(proposal.rollbackOf).state = 'rolled_back';
           return reply(res, 200, { state: proposal.state, remainingKeys });
         }
         default: return reply(res, 404, { error: 'not_found' });
@@ -250,6 +258,79 @@ function startWorkspace() {
     ws.proposals.get(applyProposal).state = 'verified';
     ok('an approved proposal this machine already applied is refused locally', replayedApproval.stdout.includes('already applied on this machine') && ws.byRoute('applied').length === appliedBefore + 1 && ws.byRoute('claim').filter(r => r.body.proposalId === applyProposal).length === 1);
 
+    section('rollback from the dashboard');
+    const rollbackOffers = () => ws.byRoute('poll').at(-1).body.offers.filter(o => o.action === 'rollback');
+    const rollbackOffer = rollbackOffers()[0];
+    const backupFile = entries[0].backup;
+    const removedBytes = fs.readFileSync(desktopConfig);
+    ok('the unchanged removal offers a rollback bound to the manifest and project', rollbackOffers().length === 1 && rollbackOffer.backupManifestId === entries[0].id && rollbackOffer.project === offers[0].project && rollbackOffer.configHash === report.body.appliedHash && HEX64.test(rollbackOffer.previewHash) && rollbackOffer.expectedExposureKeys.length === 0 && rollbackOffer.capabilityLoss.length === 0);
+    ok('rollback offers send no backup path, contents or env values', !JSON.stringify(rollbackOffer).includes(home) && !JSON.stringify(rollbackOffer).includes('SUPERSECRETVALUE') && !JSON.stringify(rollbackOffer).includes('/'));
+    fs.writeFileSync(backupFile, 'tampered backup');
+    await runCli(['connect', 'run', '--once'], home);
+    ok('a tampered backup is never offered', rollbackOffers().length === 0 && fs.readFileSync(desktopConfig).equals(removedBytes));
+    fs.unlinkSync(backupFile);
+    await runCli(['connect', 'run', '--once'], home);
+    ok('a missing backup is never offered', rollbackOffers().length === 0);
+    fs.writeFileSync(aside, original);
+    fs.symlinkSync(aside, backupFile);
+    await runCli(['connect', 'run', '--once'], home);
+    ok('a symlinked backup is never offered', rollbackOffers().length === 0);
+    fs.unlinkSync(backupFile);
+    fs.unlinkSync(aside);
+    fs.writeFileSync(backupFile, original, { mode: 0o600 });
+    fs.renameSync(desktopConfig, aside);
+    fs.symlinkSync(aside, desktopConfig);
+    await runCli(['connect', 'run', '--once'], home);
+    ok('a symlinked config is never offered for rollback', rollbackOffers().length === 0);
+    fs.unlinkSync(desktopConfig);
+    fs.renameSync(aside, desktopConfig);
+    fs.appendFileSync(desktopConfig, '\n');
+    await runCli(['connect', 'run', '--once'], home);
+    ok('a newer config is never offered for rollback', rollbackOffers().length === 0);
+    fs.writeFileSync(desktopConfig, removedBytes);
+    const otherProject = await runCli(['connect', 'run', '--once'], home, { BOPPI_TEST_CWD: root });
+    ok('a different project cannot offer this connector removal', otherProject.code === 0 && rollbackOffers().length === 0);
+    await runCli(['connect', 'run', '--once'], home);
+    const corruptRollback = ws.proposeRollback(applyProposal);
+    await runCli(['connect', 'run', '--once'], home);
+    ws.approve(corruptRollback);
+    ws.onClaim = () => fs.writeFileSync(backupFile, 'changed after claim');
+    const refusedRollback = await runCli(['connect', 'run', '--once', '--yes'], home);
+    ws.onClaim = null;
+    ok('backup integrity is rechecked after claim and no write occurs on corruption', refusedRollback.code === 0 && refusedRollback.stdout.includes('not written (backup_failed)') && ws.proposals.get(corruptRollback).state === 'conflicted' && manifestEntries().length === 1 && fs.readFileSync(desktopConfig).equals(removedBytes));
+    fs.writeFileSync(backupFile, original);
+    await runCli(['connect', 'run', '--once'], home);
+    const changedRollback = ws.proposeRollback(applyProposal);
+    await runCli(['connect', 'run', '--once'], home);
+    ws.approve(changedRollback);
+    ws.onClaim = () => fs.appendFileSync(desktopConfig, '\n');
+    const refusedNewer = await runCli(['connect', 'run', '--once', '--yes'], home);
+    ws.onClaim = null;
+    ok('the config hash is rechecked after claim and preserves a concurrent edit', refusedNewer.code === 0 && refusedNewer.stdout.includes('not written (hash_changed)') && manifestEntries().length === 1 && fs.readFileSync(desktopConfig).equals(Buffer.concat([removedBytes, Buffer.from('\n')])));
+    fs.writeFileSync(desktopConfig, removedBytes);
+    await runCli(['connect', 'run', '--once'], home);
+    const rollbackProposal = ws.proposeRollback(applyProposal);
+    const rollbackPreview = await runCli(['connect', 'run', '--once'], home);
+    ok('a rollback preview matches without writing', rollbackPreview.code === 0 && ws.proposals.get(rollbackProposal).state === 'previewed' && fs.readFileSync(desktopConfig).equals(removedBytes));
+    ws.approve(rollbackProposal);
+    const restoreWaiting = await runCli(['connect', 'run', '--once'], home);
+    ok('rollback waits for local confirmation and renders a sanitized restore diff', restoreWaiting.code === 0 && restoreWaiting.stdout.includes('restore "fetch" to claude-desktop') && restoreWaiting.stdout.includes('restore "fetch" from the verified local backup') && /\+\s+"fetch"/.test(restoreWaiting.stdout) && !restoreWaiting.stdout.includes('SUPERSECRETVALUE') && ws.proposals.get(rollbackProposal).state === 'approved' && fs.readFileSync(desktopConfig).equals(removedBytes));
+    const restored = await runCli(['connect', 'run', '--once', '--yes'], home);
+    const rollbackReport = ws.byRoute('applied').at(-1).body;
+    const restoreEntry = manifestEntries().at(-1);
+    ok('approved rollback restores the exact original bytes with file mode preserved', restored.code === 0 && fs.readFileSync(desktopConfig).equals(original) && (fs.statSync(desktopConfig).mode & 0o777) === 0o644);
+    ok('rollback records its proposal and restoredFrom, hashes, backup and new manifest id', manifestEntries().length === 2 && restoreEntry.action === 'rollback' && restoreEntry.restoredFrom === entries[0].id && restoreEntry.proposalId === rollbackProposal && restoreEntry.backup === backupFile && restoreEntry.backupHash === report.body.appliedHash && restoreEntry.appliedHash === entries[0].backupHash && rollbackReport.backupManifestId === restoreEntry.id && rollbackReport.appliedHash === entries[0].backupHash);
+    ok('rescan verifies restoration even when original exposure keys return', ws.proposals.get(rollbackProposal).state === 'verified' && ws.proposals.get(applyProposal).state === 'rolled_back' && ws.byRoute('rescan').at(-1).body.exposureKeys.some(key => ws.proposals.get(applyProposal).binding.expectedExposureKeys.includes(key)) && restored.stdout.includes('configuration hash matches the restored backup') && !restored.stdout.includes('server entry was observed absent') && !restored.stdout.includes('undo with boppi rollback --id rollback-'));
+    const listed = await runCli(['rollback'], home);
+    ok('boppi rollback lists the connector fix as rolled back', listed.code === 0 && listed.stdout.includes('(rolled back)'));
+    const reportsAfterRollback = ws.byRoute('applied').length;
+    await runCli(['connect', 'run', '--once', '--yes'], home);
+    ok('a restored manifest entry is no longer offered', rollbackOffers().length === 0 && ws.byRoute('applied').length === reportsAfterRollback);
+    ws.proposals.get(rollbackProposal).state = 'approved';
+    const restoreReplay = await runCli(['connect', 'run', '--once', '--yes'], home);
+    ws.proposals.get(rollbackProposal).state = 'verified';
+    ok('a rollback approval already in the manifest is refused locally', restoreReplay.stdout.includes('already applied on this machine') && ws.byRoute('applied').length === reportsAfterRollback && manifestEntries().length === 2);
+
     section('a replayed nonce');
     fs.writeFileSync(desktopConfig, original);
     await runCli(['connect', 'run', '--once'], home);
@@ -259,7 +340,7 @@ function startWorkspace() {
     ws.replayNonce = report.body.nonce;
     const replayed = await runCli(['connect', 'run', '--once', '--yes'], home);
     ws.replayNonce = null;
-    ok('a nonce this device already answered is refused before anything is written', replayed.stdout.includes('already answered') && ws.byRoute('applied').length === appliedBefore + 1 && fs.readFileSync(desktopConfig).equals(original) && manifestEntries().length === 1);
+    ok('a nonce this device already answered is refused before anything is written', replayed.stdout.includes('already answered') && ws.byRoute('applied').length === reportsAfterRollback && fs.readFileSync(desktopConfig).equals(original) && manifestEntries().length === 2);
 
     section('an unanswered claim from a crashed run');
     const crashed = { id: crypto.randomUUID(), state: 'executing', approvedAt: null, binding: { ...ws.proposals.get(applyProposal).binding }, nonce: crypto.randomBytes(16).toString('hex') };
@@ -269,6 +350,16 @@ function startWorkspace() {
     const recovered = await runCli(['connect', 'run', '--once'], home);
     const crashReport = ws.byRoute('applied').find(r => r.body.proposalId === crashed.id);
     ok('the proposal is reported as other and the claim is cleared', recovered.code === 0 && crashReport && crashReport.body.failureCode === 'other' && crashReport.body.nonce === crashed.nonce && ws.proposals.get(crashed.id).state === 'conflicted' && Object.keys(JSON.parse(fs.readFileSync(connect.claimsFile(home), 'utf8')).pending).length === 0);
+
+    section('an unanswered rollback claim with a completed manifest');
+    const restoreNonce = crypto.randomBytes(16).toString('hex');
+    ws.proposals.get(rollbackProposal).state = 'executing';
+    ws.issued.set(rollbackProposal, restoreNonce);
+    const savedClaims = JSON.parse(fs.readFileSync(connect.claimsFile(home), 'utf8'));
+    fs.writeFileSync(connect.claimsFile(home), JSON.stringify({ ...savedClaims, pending: { [rollbackProposal]: { nonce: restoreNonce, targetFile: rollbackOffer.targetFile, client: rollbackOffer.client, server: rollbackOffer.server, claimedAt: new Date().toISOString() } } }));
+    const recoveredRestore = await runCli(['connect', 'run', '--once'], home);
+    const restoreRecovery = ws.byRoute('applied').at(-1).body;
+    ok('the completed rollback is reported from its manifest without writing again', recoveredRestore.code === 0 && restoreRecovery.proposalId === rollbackProposal && restoreRecovery.backupManifestId === restoreEntry.id && restoreRecovery.hashAtWrite === restoreEntry.backupHash && restoreRecovery.appliedHash === restoreEntry.appliedHash && ws.proposals.get(rollbackProposal).state === 'applied' && manifestEntries().length === 2 && fs.readFileSync(desktopConfig).equals(original));
 
     section('workspace URL rule at run time');
     const requestsBefore = ws.requests.length;
