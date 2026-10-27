@@ -1,3 +1,114 @@
+# Intelligence evaluation COMPLETED locally — 2026-10-27 (Claude)
+
+Claude resumed the paused slice below. The keyboard-focus defect is fixed, the complete browser journey passes, app verify passes, and the work is committed locally. Nothing pushed, published, deployed or run against a hosted target.
+
+## What changed this session
+
+- `apps/control-plane/app/dashboard/intelligence/evaluate/[id]/page.tsx`: both scrolling `<pre className="evaluation-json">` evidence blocks are now `tabIndex={0}` regions with accessible names (frozen corpus; per-evaluation evidence). `app/globals.css` gives the region a visible focus ring.
+- `scripts/browser-validation/intelligence-evaluation.js`: two new checks prove Tab from the disclosure summary lands on the named region at 1280 and 390.
+- The old scratch stack directory `/tmp/boppi-beta-local.8AQeHU` no longer existed on disk (containers and volume remain in Docker), so a fresh disposable stack `/tmp/boppi-beta-local.Y5YejS` was created with `supabase init/start` and `local-beta.mjs prepare`. All 24 repository migrations applied cleanly, so the scratch `evaluate_correction_rule` matches the committed migration file. No hosted target.
+
+## Evidence
+
+`~/Desktop/Boppi-hybrid-2026-10-27-evidence/intelligence-evaluation/` (README inside).
+
+| Check | Result |
+| --- | --- |
+| `next build` with the fix | exit 0 |
+| `BOPPI_SCAN_DIR=~/Desktop/boppi-scan-auto npm run verify` | exit 0, 311 remediation state checks |
+| Real scanner → intake → review → inactive evaluation → download browser journey | 25/25 (first pass 23/23 before the keyboard checks were added); zero axe violations, zero overflow, zero console errors at 1280 and 390 |
+
+The in-progress bundle `intelligence-evaluation-in-progress/` is preserved unchanged.
+
+## Services
+
+App 3097 and the `Y5YejS` stack were stopped at the end of the session; the volume is kept. Restart:
+
+```sh
+cd ~/Desktop/Boppi-auto/apps/control-plane
+supabase start --workdir /tmp/boppi-beta-local.Y5YejS --exclude realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+node scripts/local-beta.mjs serve /tmp/boppi-beta-local.Y5YejS
+```
+
+## Exact next operation
+
+The next independent roadmap slice is **interrupted connector rescan recovery** (roadmap map row 9). See the section at the end of this file for the design notes written this session. Candidate rebuild is still unnecessary for Cloud-only edits.
+
+---
+
+# Paused for Claude — 2026-10-27, Intelligence evaluation (historical, resolved above)
+
+Melody explicitly requested a stop before the usage limit. Implementation is stopped. No tests or audits were started after that request. All source changes remain **uncommitted** for review; no new commits, pushes, deployments, resets or deletions this run. The previous handoff is preserved below.
+
+## Exact next operation for Claude
+
+1. Read applicable AGENTS.md/app CLAUDE.md and this checkpoint. Do not call the Intelligence slice complete.
+2. Fix the confirmed accessibility failure in `apps/control-plane/app/dashboard/intelligence/evaluate/[id]/page.tsx`: both scrollable `<pre className="evaluation-json">` evidence blocks need keyboard focus (`tabIndex={0}`) and accessible region names. This fix was **not made** before stopping.
+3. Align the disposable scratch RPC with the current migration before browser verification: the initial migration draft was applied to `/tmp/boppi-beta-local.8AQeHU`; later source tightened record UUID/array validation and made thresholds reference the frozen policy. Fresh PostgreSQL tests used the final file. On a verified loopback target, replace only `evaluate_correction_rule` from the current migration using CREATE OR REPLACE (do not rerun the CREATE TABLE migration over existing tables), or use a new disposable stack. No hosted target.
+4. With Melody's resumed implementation authorization, rebuild the app (server stopped first) and rerun `BOPPI_BETA_STACK=/tmp/boppi-beta-local.8AQeHU node scripts/browser-validation/intelligence-evaluation.js`. The latest full journey stopped at the expanded-evidence axe assertion, before its phone/withdrawal/legacy/download-isolation checks. Run app verify after the source fix. Preserve failures.
+5. Only after the complete journey passes, record limitations, make a scoped local commit, and update the existing ledger/map. Candidate rebuild is unnecessary for these Cloud-only edits. The next independent roadmap slice is interrupted connector rescan recovery; **not started** this run (only read `src/cli/connect.js` and existing tests).
+
+## Changes made, all uncommitted
+
+- Added inactive workspace rule-evaluation UI, authenticated minimized result download, strict typed forms/results, and a migration containing frozen synthetic development/held-out examples, a bounded exact/prefix matcher, immutable evaluation records, metrics/denominators/corpus checksum, role/RLS/same-org guards and minimized audit.
+- Database checks current accepted review revision and provenance under the same correction lock as review/withdrawal. Explicit human mapping is required. Both passing and failed experiments are saved; nothing activates a rule or changes findings.
+- Added rubric provenance for NEW corrections, using the actual analysis engine/rubric instead of the workspace's latest unrelated snapshot. Existing incomplete provenance is never backfilled.
+- Real browser work discovered and fixed an existing unknown-server labeling break: graph IDs were sent where the intake action requires stored security-record UUIDs. The adapter now retains the UUID and the form uses it; missing identities are visible and cannot submit a guessed target.
+- Added real SQL negative/concurrency tests and a real scanner → intake → review → inactive evaluation → download browser harness. This is a synthetic mechanism experiment only, not actual detection quality, effective access, independent review, a contribution channel or a production update service.
+
+Modified control-plane paths (relative to `apps/control-plane/`):
+```
+app/dashboard/intelligence/actions.ts
+app/dashboard/intelligence/page.tsx
+app/globals.css
+lib/domain.ts
+lib/engine/inventory.ts
+lib/intelligence.ts
+lib/supabase/database.types.ts
+scripts/verify-engine-port.ts
+scripts/verify-intelligence.ts
+supabase/tests/local/run.sh
+```
+New untracked implementation files:
+```
+app/api/intelligence/evaluations/[id]/route.ts
+app/dashboard/intelligence/evaluate/[id]/actions.ts
+app/dashboard/intelligence/evaluate/[id]/page.tsx
+lib/intelligence-evaluation.ts
+scripts/browser-validation/intelligence-evaluation.js
+supabase/migrations/20261027033802_inactive_intelligence_evaluation.sql
+supabase/tests/local/intelligence-evaluation.sql
+supabase/tests/local/intelligence-evaluation-concurrency.py
+```
+Also dirty: mirrored BOPPI_NEXT_SESSION.md and BOPPI_TASK_LEDGER.md checkpoint saves in scanner/control; pre-existing control `apps/control-plane/supabase/.temp/cli-latest` and website untracked `docs/HOMEPAGE_POSITIONING_REVIEW_2026-10-22.md` remain preserved. No website/runtime scanner implementation changes this run.
+
+## Passed, failed and evidence
+
+Evidence: `~/Desktop/Boppi-hybrid-2026-10-27-evidence/intelligence-evaluation-in-progress/`. Source, logs and synthetic scratch files are preserved; no private credentials copied into the evidence bundle.
+
+- Final app `npm run verify`: **exit 0**, including typecheck/lint/engine/typed forms and 311 remediation state checks. Next production build: **exit 0**.
+- Current migration on fresh PostgreSQL: **24 migrations, 364 PASS lines**, including 32 new evaluation assertions and four real review/withdrawal race cases. Security advisor: **No issues found**. An initial SQL harness grant failure for the anonymous negative case was corrected; final DB suite passed.
+- Latest browser run: **13 checks passed, then exit 1** on axe `scrollable-region-focusable`, target `details[open] > pre`. The expanded frozen-corpus panel scrolls but cannot receive keyboard focus. This is the remaining known application defect; full browser validation did **not** pass.
+- Before that failure the real scanner/synthetic push, unknown-server intake, provenance, accepted review packet, keyboard evaluation, persisted passing record/download, stale-form refusal, failed-result preservation and unchanged inventory/findings all passed. Expanded evidence had no desktop page overflow. The latest run did not reach phone and remaining negative browser checks.
+- Earlier browser failures: login button selector omitted its arrow; a generic details selector hit the hidden mobile workspace switcher; both harness selectors corrected. Actual graph-ID intake bug described above was fixed and its real UI path now passes.
+- A separate diagnostic **Node command exit 1** was caused by using Playwright `browser.newPage()` with AxeBuilder, which requires an explicit `browser.newContext()`. Corrected diagnosis exited 0 and identified the focusability violation. No evidence of a Node installation failure. The latest journey's exit 1 is the accessibility assertion, not this diagnostic error.
+
+## Git, candidate and services
+
+| Repo | Branch | HEAD | Ahead of stored origin |
+| --- | --- | --- | --- |
+| Scanner | codex/live-brand-alignment | 219d20e77a9c2ff7a26e1c2e09ca2be446981e97 | 36 |
+| Cloud | codex/live-brand-alignment | 5bd014805794164e9c3fdc1fbaa8f1348d588b18 | 47 |
+| Website | codex/homepage-positioning | f67f264af5a1def6ad0fb848c125efc929177871 | 7 |
+
+No remote fetch or push. Existing backup proposal remains accurate for committed refs; it would NOT back up these uncommitted changes.
+
+Frozen candidate unchanged: `~/Desktop/Boppi-candidate-0.4.0-d154b2f`, scanner source d154b2f82ba06886c757efbbd38d6fc5d3525f5b, package 0.4.0/engine 1.1.1/rubric 1.0.3, SHA256 `5554dbaa0f3700e86a8429df8b27667bd46177bd516f67d31c93f73aae2d8d9a`. Cloud pointer 37fd3d9. It does **not** include this uncommitted Intelligence work. OBS-001–004 builder status and all human/external gates remain as below; no new independent retest.
+
+Owned app and five source-stack containers were stopped for this pause. Containers, database volumes, synthetic fixtures and evidence were retained; Docker Desktop remains open. No website, Agent/watch/connector loop or browser test remains running. Restart the exact existing source stack using the instructions below, then rebuild before serve. No real device or hook was activated.
+
+---
+
 # Boppi Claude handoff — 2026-10-27
 
 Melody asked to save the work and prepare this handoff as the session approached its limit. Feature work has stopped. The full Agent + Cloud + Intelligence objective remains active for the next implementation session; this is not a claim that the product or all authorized work is complete. No push, merge, package publication, deployment, hosted operation, personal scan, real-device remediation or persistent hook activation occurred.
