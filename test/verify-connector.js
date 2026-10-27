@@ -207,6 +207,7 @@ function startWorkspace() {
     const changedProposal = ws.propose(fetchKey);
     const previewed = await runCli(['connect', 'run', '--once'], home);
     ok('a proposed proposal is previewed and the hashes match', previewed.code === 0 && ws.proposals.get(changedProposal).state === 'previewed' && previewed.stdout.includes('preview matches the proposal'));
+    ok('the preview report carries the binding nonce the workspace delivered', ws.byRoute('preview').at(-1).body.nonce === ws.proposals.get(changedProposal).binding.nonce);
     ws.approve(changedProposal);
     ws.onClaim = () => fs.appendFileSync(desktopConfig, '\n');
     const raced = await runCli(['connect', 'run', '--once', '--yes'], home);

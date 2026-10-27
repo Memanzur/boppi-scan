@@ -302,7 +302,7 @@ class Cycle {
 
   async reportPreview(proposal, scan) {
     const target = targetForBinding(this.options, scan, proposal.binding);
-    const result = await this.post('preview', { proposalId: proposal.id, configHash: target.configHash, previewHash: target.previewHash, regularFile: target.regularFile, versions: this.versions });
+    const result = await this.post('preview', { proposalId: proposal.id, nonce: proposal.binding.nonce, configHash: target.configHash, previewHash: target.previewHash, regularFile: target.regularFile, versions: this.versions });
     if (!result.ok) { this.err(`  ${proposal.id}  preview: ${describeFailure('preview', result)}`); return; }
     const local = target.regularFile ? (target.configHash === proposal.binding.configHash && target.previewHash === proposal.binding.previewHash ? 'preview matches the proposal' : 'the file or its preview changed since the proposal') : `the target is not a regular file (${target.failureCode})`;
     this.out(`  ${proposal.id}  preview reported for "${proposal.binding.server}" on ${proposal.binding.client}: ${local}; workspace state ${result.body.state || result.status}`);
