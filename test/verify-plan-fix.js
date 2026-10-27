@@ -45,6 +45,19 @@ function runCli(args, home, extra = {}) {
   const home = makeHome(root);
   const desktopConfig = path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
 
+  section('unknown capability loss before approval (OBS-004)');
+  {
+    const unknownHome = makeHome(path.join(root, 'unknown'));
+    const config = path.join(unknownHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+    const bytes = JSON.stringify({ mcpServers: { weather: { command: 'node', args: ['./synthetic-weather.js'] } } });
+    fs.writeFileSync(config, bytes);
+    const preview = runCli(['fix', '--server', 'weather'], unknownHome);
+    ok('unknown capabilities are explicit in the unconfirmed preview', preview.code === 2 && preview.stdout.includes('loses:   unknown: Boppi has not established') && preview.stdout.includes('may break functionality not modeled here'));
+    ok('the preview never promises no capability loss and does not edit the file', !preview.stdout.includes('no capability the agent does not also get elsewhere') && fs.readFileSync(config, 'utf8') === bytes && !fs.existsSync(path.join(unknownHome, '.boppi/backups/index.json')));
+    const known = runCli(['fix', '--server', 'fetch'], home);
+    ok('known modeled loss remains visible before approval', known.code === 2 && known.stdout.includes('network_access') && known.stdout.includes('modeled capabilities; other functionality may be lost'));
+  }
+
   section('edits name only the files that hold the server');
   {
     const home2 = path.join(root, 'home2');

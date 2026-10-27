@@ -823,7 +823,7 @@ async function runFix(options) {
   else process.stdout.write('  breaks:  nothing modeled; this server takes part in no exposure path\n');
   if (lowered.length) process.stdout.write(`  lowers:  ${lowered.map(step => `${step.exposureKey.split(':')[0]} ${step.from} to ${step.to}`).join(', ')} (the path stays open through what remains)\n`);
   if (prediction && !prediction.predictedEliminated.length && !lowered.length) process.stdout.write('  note:    this edit is not predicted to close or lower any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
-  process.stdout.write(`  loses:   ${lost.length ? lost.join(', ') : 'no capability the agent does not also get elsewhere'}\n`);
+  process.stdout.write(`  loses:   ${remediate.capabilityLossText(lost, server)}\n`);
   process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
   process.stdout.write(remediate.renderPreview(preview) + '\n');
 

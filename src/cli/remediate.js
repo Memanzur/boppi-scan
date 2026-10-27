@@ -17,6 +17,13 @@ const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
 const stamp = () => new Date().toISOString();
 
+/** Empty modeled capabilities do not establish that removing a server is harmless. */
+function capabilityLossText(lost, server) {
+  if (!server || !Array.isArray(server.capabilities) || !server.capabilities.length) return 'unknown: Boppi has not established this server\'s capabilities; removing it may break functionality not modeled here';
+  return lost.length ? `${lost.join(', ')} (modeled capabilities; other functionality may be lost)`
+    : 'no known unique capability identified; unmodeled functionality may still be lost';
+}
+
 /** A server entry as boppi records it: sanitized command, arguments and endpoint, env names with their values hidden. */
 function sanitizedEntry(raw, record) {
   if (!isObject(raw)) return HIDDEN;
@@ -275,4 +282,4 @@ function renderResult(result, indent = '  ') {
   return lines.join('\n');
 }
 
-module.exports = { previewRemoval, renderPreview, validateEdited, lineDiff, hunks, projection, sanitizedEntry, outcome, runRemediation, renderStage, renderResult };
+module.exports = { capabilityLossText, previewRemoval, renderPreview, validateEdited, lineDiff, hunks, projection, sanitizedEntry, outcome, runRemediation, renderStage, renderResult };

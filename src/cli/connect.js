@@ -136,7 +136,7 @@ function describeTarget({ options, scan, client, file, scope, server }) {
     preview = remediate.previewRemoval({ located: { file, scope }, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes });
   } catch (_) { return { ...base, regularFile: false, failureCode: 'other', configHash: EMPTY_HASH, previewHash: EMPTY_HASH }; }
   const previewText = remediate.renderPreview(preview);
-  return { ...base, preview, previewText, configHash: fix.sha256(opened.bytes), previewHash: previewHashOf(previewText) };
+  return { ...base, serverRecord: scan.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === server), preview, previewText, configHash: fix.sha256(opened.bytes), previewHash: previewHashOf(previewText) };
 }
 
 /** Every remove_server candidate the local plan predicts to close at least one path, with its file. */
@@ -383,7 +383,7 @@ class Cycle {
     if (b.action === 'rollback') this.out('    restores the entire backed-up configuration; its capabilities and potential exposure paths may return');
     else {
       this.out(`    expected to close ${b.expectedExposureKeys.length} exposure path${b.expectedExposureKeys.length === 1 ? '' : 's'}: ${b.expectedExposureKeys.join(', ')}`);
-      this.out(`    the agent loses: ${b.capabilityLoss.length ? b.capabilityLoss.join(', ') : 'no capability it does not also get elsewhere'}`);
+      this.out(`    the agent loses: ${remediate.capabilityLossText(b.capabilityLoss, target.serverRecord)}`);
     }
     this.out(`    file:    ${target.file}`);
     this.out(target.previewText);
