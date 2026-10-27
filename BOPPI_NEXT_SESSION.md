@@ -1,8 +1,10 @@
-# Boppi Codex handoff — 2026-10-27
+# Boppi Claude handoff — 2026-10-27
 
 Melody asked to save the work and prepare this handoff as the session approached its limit. Feature work has stopped. The full Agent + Cloud + Intelligence objective remains active for the next implementation session; this is not a claim that the product or all authorized work is complete. No push, merge, package publication, deployment, hosted operation, personal scan, real-device remediation or persistent hook activation occurred.
 
 ## Start here
+
+Recipient: **Claude**. Resume the existing hybrid-product implementation from the next step below.
 
 Read AGENTS.md, this file, BOPPI_MASTER_PLAN.md, BOPPI_TASK_LEDGER.md and control-plane `docs/release/ROADMAP_TO_BUILD_2026-10-25.md`. The current directive authorizes continued reversible LOCAL implementation across all roadmap phases. Earlier scanner-release-only freezes are superseded. Preserve human, independent-review, consent, real-device and hosted gates. Do not restart a broad extraction or requirements audit.
 

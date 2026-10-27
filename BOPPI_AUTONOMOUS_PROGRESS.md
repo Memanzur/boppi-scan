@@ -1,6 +1,6 @@
 # Boppi scanner progress: end-of-day checkpoint
 
-## Hybrid implementation saved for Codex — 2026-10-27
+## Hybrid implementation saved for Claude — 2026-10-27
 
 Melody requested the handoff at the session limit. Scanner implementation d154b2f, control 37fd3d9, website f67f264. Completed guest/demo entry, three approved observer fixes, consented runtime investigations, Intelligence correction review/inactive export, observation-only expiring finding exceptions, and local helper search-path hardening. Scanner 38/38; control verify passes; 23 migrations/328 SQL PASS; runtime 26, Intelligence 24, governance 18, website 32+36, Cloud guest 16, connector routes 63. Candidate d154b2f sha256 5554dbaa0f3700e86a8429df8b27667bd46177bd516f67d31c93f73aae2d8d9a; package 29, exact beta 27, installed connector 29, six-case kit. No public/hosted/real-device action; human sessions 0/5. All owned services stopped, volumes kept. Full state, remaining local work and exact next Intelligence evaluation step are in BOPPI_NEXT_SESSION.md.
 
