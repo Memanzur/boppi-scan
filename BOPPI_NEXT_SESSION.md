@@ -1,3 +1,63 @@
+# SAVED AND STOPPED — Boppi local release consolidation, 2026-10-27
+
+Melody requested a complete local save and stop. This supersedes older feature-development instructions below. Resume only after the next user instruction. No push, merge, deploy, publish, production operation, Gate B/C, Soccer App access, or DNS/credential/account/billing/project change is authorized.
+
+## Saved repositories and exact commits
+
+- Scanner: ~/Desktop/boppi-scan-auto, codex/live-brand-alignment. Release-input HEAD c6d507d8440017f6381a3245ed562bf4c97bbf63; implementation 104147d48e43b5af21c8cb498a038fd9ac6e1f6b. This save adds only a handoff commit; runtime is unchanged.
+- Control: ~/Desktop/Boppi-auto, codex/live-brand-alignment. Verified release-consolidation payload 0aa8bfce85d17ca00a60d66f60cc7c4ecf281995; preceding input HEAD ca68c02736a79e6d3db7e4117e01af45ad710bc4; implementation ef4cfe5e3e24cd67665fb72a37a39106bde01d02; guest sync 63213f38d1060e29464f312dfabc474ce4713300.
+- Website: ~/Desktop/Boppi-website-positioning, codex/homepage-positioning. Final saved HEAD 67aa3ee88d455f46f7b98bda13e0c556ae3af682 preserves the pre-existing October 22 positioning review unchanged. Runtime/demo remains dbb8f0d5f712c2edf708609c9061d8899147b93c, base f67f264af5a1def6ad0fb848c125efc929177871.
+- Pre-existing control CLI cache v2.122.0 saved separately in b99d979bfef5080f18b125741e6acf3578c04b55. This is a local metadata save, not a Supabase project or credential change.
+
+The final handoff commits follow these payload hashes. Exact final checkout heads, commit subjects and clean statuses are saved in:
+/Users/melodymanzur/Desktop/Boppi-hybrid-2026-10-27-evidence/release-revalidation-20261027T230332Z/save-checkpoint-20261027T231040Z/FINAL_REPOSITORY_REFS.json
+To identify the commit containing this handoff: git log -1 --format='%H %s' -- BOPPI_NEXT_SESSION.md. This file pins payload commits; the external final-ref record identifies the subsequent handoff commits without a self-referencing hash.
+
+## Work and completed verification
+
+Retained the existing candidate and both already-correct demo refreshes. Updated the existing release manifest, launch checklist and blocker checkpoint in docs/release; added scripts/verify-release-manifest.mjs; mirrored this handoff. No second candidate or manifest was created. The verifier pins release inputs, permits later documentation/local-bookkeeping saves, and refuses runtime drift.
+
+Candidate: ~/Desktop/Boppi-candidate-0.4.0-104147d. Package 0.4.0 / engine 1.1.1 / rubric 1.0.3. Frozen package/boppi-0.4.0.tgz SHA-256:
+1de37969ccb1ae094c69b48800b5d27303308ead12dca7e73fb8d938da2c16d0
+Candidate manifests/tarball content and permissions were preserved. Both demos match this checksum and each other.
+
+Fresh completed checks: scanner 38/38 suites (connector 65); control verify/build exit 0 (311 remediation); disposable loopback PostgreSQL 25 migrations/368 PASS; website build/lint exit 0 (7 existing warnings), guest 32/32, claims 36/36; Cloud anonymous guest 16/16. Fresh offline exact-tarball regressions passed beta-blockers 29, config-shapes 34, review-findings 31 and no-network 27. Initial release verifier 25 checks; save-aware verifier 28 plus bad-checksum/runtime-drift/demo-hash negative controls. Syntax, diff, version and mirrored-handoff checks passed; post-commit results are in the save checkpoint.
+
+No functionality loss detected from d154b2f to 104147d: same 69-file set, only README/connect.js differ, identical CLI help, six fresh scan exports equal with a fixed clock except duration. Runtime delta adds interrupted-rescan recovery. Control prior-pointer diff has no deleted tracked files; evaluation and recovery are retained. These are local synthetic results, not universal real-client/production proof.
+
+Earlier completed evidence retained, not rerun: packaging 29, exact-tarball Cloud journey 27, installed connector journey 31 including severed rescan recovery, authenticated Intelligence evaluation browser 25. The initial parity-harness timestamp failure and corrected fixed-clock result are both preserved.
+
+Evidence root: ~/Desktop/Boppi-hybrid-2026-10-27-evidence/release-revalidation-20261027T230332Z/
+Final save directory: /Users/melodymanzur/Desktop/Boppi-hybrid-2026-10-27-evidence/release-revalidation-20261027T230332Z/save-checkpoint-20261027T231040Z/
+It contains before/after refs, original patches/pre-existing artifacts, latest manifest copy, test logs/results and checksums. Evidence is local outside Git; no remote backup occurred. All existing branches, worktrees, candidates and earlier evidence remain preserved.
+
+## Remaining blockers and resume instructions
+
+Public beta remains HOLD. D-11 must select candidate 104147d; D-12 must name facilitator/participants and fill consent Notes accessible to / Notes deleted on. Human sessions remain 0/5. Rubric 1.0.3 sign-off, independent security/recovery review, applicable real-device/client consent and operational-policy decisions remain open. Hosted inventory/security, backup restore, migration parity, production auth/email/consent/withdrawal/erasure/tenant isolation, alerts, deployment, publication and live guest checks remain separately gated. Production was not queried; older live observations below are historical. Real Windows/Linux clients and live hooks remain unverified.
+
+Sequence: local save (done) → candidate/consent/rubric and five sessions → independent review/approved pilots → authorized hosted inventory/recovery plan → separately approved Gate B → separately approved Gate C → approved Cloud deploy/live verification/operations → approved scanner publication → approved website/live checks → announcement go/no-go.
+
+All verification runs finished. Owned loopback servers on 3097/4178 stopped; the disposable plain-Postgres suite cleaned up its cluster. Existing Docker stacks/containers/volumes were not changed. No watch/connector/hook loop was activated. All three active worktrees are checked clean at this stop checkpoint; historical worktrees remain preserved.
+
+The cached .next build uses loopback placeholder Supabase settings (http://127.0.0.1:9) for anonymous guest verification. Rebuild with the verified disposable-stack environment before a later authorized authenticated journey; this cached build is not production configuration.
+
+On the next user-directed session, read this checkpoint, docs/release/RELEASE_MANIFEST_0.4.0-104147d.json, LAUNCH_CHECKLIST_2026-10-27.md and FINAL_REPOSITORY_REFS.json. Check active Git statuses; run node scripts/verify-release-manifest.mjs from ~/Desktop/Boppi-auto. Do not restart completed repairs or rebuild the frozen candidate. The next substantive release dependency is D-11/D-12 and five human sessions. Work is stopped pending Melody's next instruction.
+
+---
+
+
+# Release consolidation revalidated locally — 2026-10-27 (Codex)
+
+Current committed heads: scanner c6d507d (implementation 104147d), control ca68c02 (implementation ef4cfe5 + guest sync 63213f3), website dbb8f0d. The earlier completed consolidation was retained: both guest demos already carry SHA-256 `1de37969ccb1ae094c69b48800b5d27303308ead12dca7e73fb8d938da2c16d0`. No asset rewrite, candidate rebuild, or duplicate manifest was needed.
+
+Updated the existing control-plane release manifest/checklist/blocker checkpoint and added `scripts/verify-release-manifest.mjs`; those edits and this mirrored handoff are uncommitted. Pre-existing CLI temp and website review files remain untouched. Fresh scanner 38/38 (connector 65), control verify/build exit 0 (311 remediation), disposable DB 25 migrations/368 PASS, website build/lint exit 0 (7 existing warnings), website guest 32, claims 36, Cloud guest 16. Exact-artifact offline regression suites pass (29/34/31/27). Release identity verifier 25 checks plus three negative controls. d154b2f → 104147d: 69 files each, only README/connect.js differ, help identical, six fresh fixture exports equal with a fixed clock except duration. No functionality loss detected; no real-device or production proof implied.
+
+Evidence: `~/Desktop/Boppi-hybrid-2026-10-27-evidence/release-revalidation-20261027T230332Z/`. Earlier packaging 29, exact-tarball Cloud 27, installed connector 31 and Intelligence evaluation browser 25 evidence retained, not rerun. No live requests, Gate B/C, push/merge/deploy/publish, production/DNS/account/credential/billing changes, project deletion, or Soccer App operation. Owned loopback web servers stopped; Docker stacks/volumes untouched.
+
+Next: complete D-11/D-12 candidate 104147d selection and consent note recipients/deletion date, then five human sessions. Rubric sign-off, independent review, real-client consent and hosted/live release checks remain gates. See `docs/release/LAUNCH_CHECKLIST_2026-10-27.md`; the user's current scope is release consolidation, not the older feature-development instructions below.
+
+---
+
 # Release consolidation 2026-10-27 (Claude, after the session below)
 
 Melody asked to consolidate the latest candidate for the free public beta. Done locally, nothing pushed or deployed:
