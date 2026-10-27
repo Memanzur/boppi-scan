@@ -1,31 +1,50 @@
-# Boppi handoff, 2026-10-26T012259Z
+# Boppi handoff, 2026-10-27T02:20Z
 
-Written by Claude Fable 5.1 after the website claims pass and the P1-14 residual fixtures. Nothing was pushed, published, deployed, merged, or applied to a real machine.
+Written by Claude Fable 5.1 after recovering the seventh session's interruption. Nothing was pushed, published, deployed, merged, or applied to a real machine. The founder asked for the work to be saved so Codex can continue.
 
 ## Where things stand
 
-- Scanner `~/Desktop/boppi-scan-auto`: 0769f76. Engine unchanged at 1.1.1 (82c0095); this session touched CLI render text, the README and two test suites. `npm test` 36 of 36 on macOS. Candidate 0.4.0-2d65a09 is untouched and still carries engine 1.1.0 (D-11).
-- Control plane `~/Desktop/Boppi-auto`: docs only this session (RELEASE_BLOCKERS, ledger, this handoff). Vendor pin stays at scanner 82c0095 because no engine file changed.
-- Website `~/Desktop/Boppi-website-positioning`: 06a1c25 on `codex/homepage-positioning`. Build and lint pass; Chromium pass at 1280 and 390 px recorded under `docs/release/evidence-2026-10-25-claims/`. Not deployed. `vercel.json` has `git.deploymentEnabled: false`.
-- Disposable stack `/tmp/boppi-beta-local.jTedw9`: unchanged, stopped, volumes kept.
+- Scanner `~/Desktop/boppi-scan-auto` at 363a725 on `codex/live-brand-alignment`, clean. Engine 1.1.1, rubric 1.0.3, package 0.4.0. `npm test` 38 of 38 on macOS at this commit.
+- Control plane `~/Desktop/Boppi-auto` at the commit that carries this file, same branch. `supabase/.temp/cli-latest` is a Supabase CLI side effect and stays uncommitted.
+- Website `~/Desktop/Boppi-website-positioning` at 655ee09 on `codex/homepage-positioning`: bounded claims and zero axe violations, not deployed, `vercel.json` disables Git deploys.
+- Third candidate `~/Desktop/Boppi-candidate-0.4.0-363a725` (read-only): scanner 363a725, engine 1.1.1, tarball sha256 `75f3f72ff0239031baaa24afd1dea62f20a42fff2d0db0ff86e046f9dd98290c`, 29 of 29 journey checks, `verify-versions` agrees, `kit/` prepared with six synthetic cases (KIT.json). It supersedes 2d65a09. It is the artifact for D-11 if the founder picks (b).
+- Disposable stack `/tmp/boppi-beta-local.8AQeHU`: stopped, Docker volume kept, app server stopped. The reboot erased the older `/tmp` stacks; their volumes remain. Docker Desktop is running.
 
-## What this session changed
+## What this session did
 
-1. Website claims (RELEASE_BLOCKERS WEB-CLAIMS-02): Hero proof line, sample terminal redaction line, Platform card ("unpublished 0.4.0 candidate"), Nav "Sign in · beta", two "Create a beta workspace" buttons, the false Google Fonts sentence removed, Terms section 4 and date. The sample terminal keeps "nothing left this machine" because it is the tested, run-scoped output of the published scanner.
-2. Scanner redaction sentence (SCAN-PRIV-01): the scan footer, HTML report and README state what the tests cover instead of "never collected". The website sample prints the same sentence.
-3. P1-14 leftovers: Cursor residual and agent-id remap fixtures (ledger S-2). Only `builtinResidual` in the push payload remains from that review.
+1. Recovery: committed the two interrupted fixes after verifying them (scanner 363a725 nonce in the preview report, `verify-connector` 42; control plane 3edc2da keyed-fingerprint rule, `typecheck`, `verify:remediation` 311, `verify:remediation:routes` 63).
+2. Connector journey with the real CLI against the real routes and database: `npm run verify:connector-journey -- <stack>` passes 22 checks (pair, offers without paths, propose, preview without a write, approve against the previewed hash, claim, apply to the synthetic fixture, backup and manifest, rescan graded verified, replay applies nothing, audit rows without path or credential, `boppi rollback` restores the bytes, unpair, revoke). Negative cases are proven by the routes suite on the same stack and the scanner connector suite.
+3. Candidate rebuilt from 363a725 (above). The tarball was checked to carry engine 1.1.1 with `builtinHeldNodeIds`, the nonce fix, `builtinResidual` in push, `connect.js`, and the bounded redaction sentence; the only remaining "never collected" wording is about environment variable values, which the scanner really does not read.
+4. The candidate tarball verified against the stack through the built app: `local-beta.mjs verify` 27 checks (install, push, ingest guards, fix, verify, rollback, consent withdrawal, erasure, reconsent).
+5. Chromium `remediation.js` on the stack: pairing, propose, preview, approve, executing, applied, verified, decline, revoke; zero axe violations at 1280 and 390 px, no console errors. It needs an inventory first (`local-beta.mjs verify` provides one).
 
-## Read first
+## Next slice, designed and not started: rollback through the connector
 
-`BOPPI_TASK_LEDGER.md` section "Website claims and residual fixtures", `docs/release/RELEASE_BLOCKERS.md` rows WEB-CLAIMS-02 and SCAN-PRIV-01 (control plane), the website `docs/release/LOCAL_RELEASE_REVIEW_2026-10-25.md` second section, then the fifth session's reading list (`docs/requirements/CHECKPOINT_2026-10-25.md`, `docs/release/ROADMAP_TO_BUILD_2026-10-25.md`, `docs/validation/FOUNDER_DECISION_PACKET_2026-10-25.md`).
+The dashboard offers "Propose rollback" and the twin, routes and SQL already handle a `rollback` proposal (routes suite proves it with a fake device), but `boppi connect` never offers a rollback, so the button can never activate on a real device. Build it in the scanner, then prove it in the journey:
 
-## Next session, in order
+- Offer: for each manifest entry with `action: 'remove_server'` and a `proposalId`, not yet restored (no entry with `restoredFrom` equal to its id), whose backup exists with sha256 equal to `backupHash`, and whose original file is a regular file whose current hash equals `appliedHash`: post `{ action: 'rollback', client, project: fingerprint(cwd), targetFile: fingerprint(original), server, configHash: current hash, previewHash: sha256(rollback preview text), expectedExposureKeys: [], capabilityLoss: [], versions, computedAt, backupManifestId: entry.id }`. `project` must equal the fix proposal's binding project (same cwd), or `propose_rollback` refuses with `rollback_blocked`.
+- Preview text: reuse `remediate.previewRemoval` on the backup bytes and render the hunks with `+` and `-` swapped, under a "restore" header. Never print env values.
+- `targetForBinding` and `execute` branch on `binding.action === 'rollback'`: the local confirmation says "restore", the write copies the backup bytes atomically after re-checking that the file hash equals `binding.configHash` and the backup hash equals `backupHash`, then appends a manifest entry `{ action: 'rollback', restoredFrom, backup, original, clientKey, server, proposalId, backupHash: hash at write, appliedHash: backup hash }` so `boppi rollback` lists the fix as rolled back. The applied report sends `appliedHash` (the original file's hash) and the new entry id; the rescan report is unchanged (the SQL ignores expected keys for a rollback and checks the hash).
+- `manifestEntryFor` must match any action by `proposalId`.
+- Tests: a "rollback from the dashboard" section in `test/verify-connector.js` after "--once twice is idempotent" (the mock workspace needs `proposeRollback` and a rescan rule for rollback; later sections' manifest counts change from 1 to 2); the journey script replaces its CLI rollback step with `propose_rollback` through the real RPC and asserts the fix ends `rolled_back`; `remediation.js` can post a rollback offer from the fake device and click the button.
+- After it lands: `npm test`, rebuild the candidate from the new head, rerun `verify-versions`, update KIT.json.
 
-1. Website: the six pre-existing axe violations (footer contrast, copy button `aria-label`, missing `<main>`, hero outside a landmark, unnamed GitHub link at 390 px). Local only, no deploy.
-2. `builtinResidual` in the `boppi push` payload, or a recorded decision that it stays export-only.
-3. Extract-D priority 9: verify the hosted-beta team and security statements against the deployed 938e9d1 before any website deploy.
-4. If the founder chooses a rebuild (D-11): `npm run release-candidate` from a clean scanner head, then the kit and `verify-versions`.
-5. Founder gates stay as listed in the decision packet; never mark a human or review gate done. The "Release draft" wording on Privacy and Terms is one of them.
+## Founder gates (unchanged, never marked by an agent)
+
+D-11 artifact choice (recommend the 363a725 candidate), D-12 consent blanks and participants, rubric 1.0.3 sign-off, external reviewer, staging suite and hosted inventory, hosted recovery and migrations, push and publication, two-person rule, website deploy and the "Release draft" wording.
+
+## Consent blanks (docs/beta/usability-kit-0.4.0/CONSENT.md)
+
+"Notes accessible to" and "Notes deleted on" are blank until the founder decides. Suggested surrounding language, blanks kept: "Session notes and the scoring sheet are stored on the facilitator's machine only and are shared with ________ (the founder alone, or the founder and the named reviewer). They are deleted on ________ (a date no later than 90 days after the last session). No recording is made, no personal configuration is scanned, and nothing is uploaded."
+
+## How to restart the stack
+
+```
+cd ~/Desktop/Boppi-auto/apps/control-plane
+supabase start --workdir /tmp/boppi-beta-local.8AQeHU --exclude realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+node scripts/local-beta.mjs serve /tmp/boppi-beta-local.8AQeHU
+```
+If `/tmp` was cleared again, follow `docs/LOCAL_BETA_RUNBOOK.md` from `mktemp`. If Docker auto-restarts an orphaned `supabase_*_boppi-beta-local.*` set on ports 54321/54322, `docker stop` those containers (volumes stay).
 
 ## Rules carried forward
 
