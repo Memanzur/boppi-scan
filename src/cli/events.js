@@ -201,7 +201,7 @@ async function runEventsPush(options, { promptForToken, fetchImpl } = {}) {
     if (!options.token) { process.stderr.write('events push: no token entered\n'); return 2; }
   }
   const result = await pushEvents({ eventsUrl: url, token: options.token, events, fetchImpl });
-  if (!result.ok) { process.stderr.write(`${push.describeFailure(result)}\n`); return 1; }
+  if (!result.ok) { process.stderr.write(`${push.describeFailure(result)}\n`); return 5; }
   process.stdout.write(`events push: sent ${result.received} events from the last ${sinceDays} days to ${url.host}; ${result.accepted} new, ${result.received - result.accepted} already there${skipped ? `; ${skipped} unreadable records skipped` : ''}. Metadata only: event, server, tool, outcome, duration and keyed digests. Review it on the workspace's Activity page.\n`);
   return 0;
 }

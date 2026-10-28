@@ -12,7 +12,7 @@ Node 18 or newer. Tested on macOS. Linux and Windows config locations are looked
 
 ## Free beta
 
-The work on `claude/autonomous-platform` is a local, unpublished beta candidate. To try this exact checkout, use `node bin/boppi.js` from its repository directory. Registry commands may run an older release.
+The work on `codex/live-brand-alignment` is a local, unpublished 0.4.0 beta candidate. To try this exact checkout, use `node bin/boppi.js` from its repository directory. Registry commands may run an older release.
 
 ```sh
 # Synthetic browser demo; only bundled examples are read.
@@ -38,11 +38,11 @@ Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), gener
 npx boppi push
 ```
 
-It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` and `connect` are the only commands that use the network; push sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)), and connect is described under [Dashboard-requested fixes](#dashboard-requested-fixes-connector).
+It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push`, `events push` and `connect` are the only commands that use the network, each only when you run it; push sends only the sanitized inventory of one scan, events push sends activity metadata recorded by the hook collector (see [What leaves the machine](#what-leaves-the-machine)), and connect is described under [Dashboard-requested fixes](#dashboard-requested-fixes-connector).
 
 ## What you see
 
-A machine with a filesystem server, a fetch server, a shell server, and a 1Password server configured in Claude Desktop, plus a browser server in Cursor:
+A machine with a filesystem server, a fetch server, a shell server, and a 1Password server configured in Claude Desktop, plus a browser server in Cursor (sample output from 0.2.0; current output has more sections but the same shape):
 
 ```
 BOPPI · AI Agent Security scan · v0.2.0
@@ -310,7 +310,7 @@ A `boppi.policy.json` in the working directory (or `--policy <file>`) turns conf
 
 Arguments in a server entry are redacted before they leave: anything that looks like a credential, anything after a flag whose name says credential (`--api-key x`, `--token x`, `-p x`), and the value side of `--key=...` or `NAME_PASSWORD=...`.
 
-Exit codes: 0 clean, 1 threshold hit under `--fail-on` or a policy violation (`scan` and `plan`), 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push.
+Exit codes: 0 clean, 1 threshold hit under `--fail-on` or a policy violation (`scan` and `plan`), 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push, events push or connect request.
 
 ### Use it in CI
 
@@ -323,7 +323,7 @@ Fails the job when a path or finding at or above the threshold exists in that fi
 As a GitHub Action, with the SARIF uploaded to code scanning:
 
 ```yaml
-- uses: Memanzur/boppi-scan@v0.3.0
+- uses: Memanzur/boppi-scan@v0.3.0   # the published release; the 0.4.0 features above need the unpublished candidate
   with:
     config: .mcp.json
     source: claude-code

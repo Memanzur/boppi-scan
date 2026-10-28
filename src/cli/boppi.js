@@ -84,7 +84,7 @@ function usage() {
     '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
     '  boppi connect pair|status|unpair|run  pair this machine with your workspace for dashboard-requested fixes; run pulls proposals, shows the exact sanitized preview here, and applies one only after you confirm',
     '',
-    'Push options (push and connect are the only commands that use the network):',
+    'Push options (push, events push and connect are the only commands that use the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
     '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN; or omit it and paste when prompted',
     '  --file <scan.json>  push an earlier --json export instead of scanning now',

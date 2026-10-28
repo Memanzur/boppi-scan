@@ -1,7 +1,8 @@
 /**
  * boppi push: send one scan's sanitized inventory to a Boppi workspace.
  *
- * This is the only command in the package that uses the network. It maps the
+ * One of the three commands that use the network (with events push and
+ * connect), only when run. It maps the
  * scanner's inventory onto the control plane's public ingest contract
  * (one record per agent, integration, permission, and MCP server) and POSTs
  * the batch as a snapshot with a collector bearer token.

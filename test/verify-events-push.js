@@ -65,10 +65,10 @@ async function main() {
 
   mode = 'unconsented';
   const refused = await run(['events', 'push', '--url', url, '--token', 'bpc_test_token']);
-  ok('a 403 without consent exits 1 and explains who can allow activity sync', refused.status === 1 && refused.stderr.includes('HTTP 403') && refused.stderr.includes('Collectors page') && refused.stderr.includes('inventory sync consent does not cover activity'));
+  ok('a 403 without consent exits 5 and explains who can allow activity sync', refused.status === 5 && refused.stderr.includes('HTTP 403') && refused.stderr.includes('Collectors page') && refused.stderr.includes('inventory sync consent does not cover activity'));
   mode = 'bad';
   const rejected = await run(['events', 'push', '--url', url, '--token', 'bpc_test_token']);
-  ok('a rejected token exits 1 with the token hint', rejected.status === 1 && rejected.stderr.includes('HTTP 401') && rejected.stderr.includes('Collectors page'));
+  ok('a rejected token exits 5 with the token hint', rejected.status === 5 && rejected.stderr.includes('HTTP 401') && rejected.stderr.includes('Collectors page'));
 
   const noToken = await run(['events', 'push', '--url', url]);
   ok('without a terminal or token the command refuses before any network', noToken.status === 2 && noToken.stderr.includes('events push needs a collector token'));

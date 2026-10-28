@@ -1,6 +1,6 @@
 # Release candidate: boppi 0.4.0 (local, unpublished)
 
-**Current candidate (2026-10-25):** `/Users/melodymanzur/Boppi-release-completion-20261025T033847Z/candidate-0.4.0-2d65a09`, source `2d65a09`, sha256 `85f8065f7bcbcc97b0cdca11fc7b5c337148d257109b18fbc332b8bf52b9b6fc`. It supersedes the older builds for selection after malformed-structure false confirmation was reproduced and corrected. Scanner 36/36, packaged shape 34 + blockers 29 + privacy 31 + network 22, install journey 29 and integrated Cloud journey 27 pass. Human sessions 0/5; rubric/external/hosted/founder gates remain. Current report: control `docs/release/RELEASE_DECISION_2026-10-25.md`; complete handoff: `docs/handoffs/BOPPI_HANDOFF_2026-10-25T042712Z.md`. Older sections below are history; do not select an old candidate from them.
+**Current frozen candidate (2026-10-27):** `~/Desktop/Boppi-candidate-0.4.0-104147d`, source `104147d`, sha256 `1de37969ccb1ae094c69b48800b5d27303308ead12dca7e73fb8d938da2c16d0`; cross-component manifest in control `docs/release/RELEASE_MANIFEST_0.4.0-104147d.json`. Source has moved on since (Milestone A safety fixes, see `BOPPI_NEXT_SESSION.md`), so a newer candidate will supersede it; until then 104147d is the one to select. The 2026-10-25 candidate `2d65a09` and everything below are history.
 
 ## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
 
