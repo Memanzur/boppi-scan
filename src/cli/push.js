@@ -27,7 +27,14 @@ const clip = (value, max = RECORD_FIELD_MAX) => String(value).slice(0, max);
 const confidenceOf = item => (Number.isFinite(item.confidence) ? item.confidence : item.normalizationConfidence);
 const present = (key, value) => (value === undefined || value === null || value === '' || (Array.isArray(value) && !value.length) ? {} : { [key]: value });
 
-/** Convert discovery outcomes into the bounded, honest coverage envelope. */
+// A client's coverage identity: a keyed digest of the home, project, platform and files a scan read (boppi.js). Opaque off this machine.
+const COVERAGE_IDENTITY = /^evidence-v1:[0-9a-f]{64}$/;
+
+/**
+ * Convert discovery outcomes into the bounded, honest coverage envelope. Each
+ * client carries its coverage identity so the workspace replaces inventory and
+ * verifies findings only between scans of the same scope (QA-007).
+ */
 function coverageFromDiscovery(discovery, scope = 'unknown') {
   const clients = Array.isArray(discovery?.clients) ? discovery.clients : [];
   return {
@@ -42,6 +49,7 @@ function coverageFromDiscovery(discovery, scope = 'unknown') {
           ? unreadable.reason : 'configuration could not be analyzed') : null;
       return {
         key: clip(client.clientKey, 32), label: clip(client.label, 64), status,
+        ...(COVERAGE_IDENTITY.test(client.coverageIdentity || '') ? { identity: client.coverageIdentity } : {}),
         ...(found.length ? { serverCount: found.reduce((sum, file) => sum + (Number.isInteger(file.serverCount) ? file.serverCount : 0), 0) } : {}),
         ...(reason ? { reason: clip(reason, 200) } : {}),
       };
@@ -107,6 +115,7 @@ function envelopeFromExport(payload) {
     const clients = input.clients.map(client => {
       if (!Object.hasOwn(CLIENT_LABELS, client.key) || !['found', 'not_found', 'unreadable', 'failed'].includes(client.status)) throw new Error('export has an unsupported discovery source');
       return { key: client.key, label: CLIENT_LABELS[client.key], status: client.status,
+        ...(COVERAGE_IDENTITY.test(client.identity || '') ? { identity: client.identity } : {}),
         ...(Number.isSafeInteger(client.serverCount) && client.serverCount >= 0 ? { serverCount: client.serverCount } : {}),
         ...(client.reason ? { reason: COVERAGE_REASONS.has(client.reason) ? client.reason : 'configuration could not be analyzed' } : {}) };
     });
