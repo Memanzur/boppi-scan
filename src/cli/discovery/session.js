@@ -12,10 +12,10 @@ const projection = require('./projection');
 const { createRecorder } = require('./recorder');
 
 const TIMEOUTS = Object.freeze({ initializeMs: 10000, pageMs: 10000, sessionMs: 60000, closeMs: 2000, termMs: 2000, killMs: 1000 });
-const PACKAGE_LAUNCHERS = /^(npx|uvx|pipx|bunx|docker|podman)(\.exe|\.cmd)?$/i;
+const PACKAGE_LAUNCHERS = /^(npx|uvx|pipx|bunx|docker|podman)(\.exe|\.cmd|\.bat)?$/i;
 /** Launchers that fetch when given a subcommand: `npm exec`, `npm x`, `bun x`, `pnpm dlx`, `yarn dlx`, `uv tool run`, `uv tool uvx`, `pipx run`, `deno run npm:…`. */
 function fetchingSubcommand(command, args) {
-  const base = path.basename(command).replace(/\.(exe|cmd)$/i, '').toLowerCase();
+  const base = path.basename(command).replace(/\.(exe|cmd|bat)$/i, '').toLowerCase();
   const list = Array.isArray(args) ? args.filter(a => typeof a === 'string') : [];
   const first = (list[0] || '').toLowerCase(), second = (list[1] || '').toLowerCase();
   if (base === 'npm' && (first === 'exec' || first === 'x')) return `${base} ${first}`;
@@ -30,13 +30,36 @@ function fetchingSubcommand(command, args) {
 const INHERITED_ENV = Object.freeze(['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'SystemRoot', 'USERPROFILE']);
 const PROTOCOL_VERSION = '2025-11-25';
 
-function resolveProgram(command, cwd) {
+const WINDOWS_PATHEXT = '.COM;.EXE;.BAT;.CMD';
+
+/** A file in `dir` named `name` regardless of case, as Windows matches it; null when absent. */
+function caseInsensitive(dir, name) {
+  try { return fs.readdirSync(dir).find(entry => entry.toLowerCase() === name.toLowerCase()) || null; } catch { return null; }
+}
+
+/**
+ * The installed program a config entry names, or null. On win32 a bare name
+ * is tried with each PATHEXT extension, PATH splits on ';', names match
+ * without regard to case, and there is no execute bit to check.
+ */
+function resolveProgram(command, cwd, { platform = process.platform, env = process.env } = {}) {
   if (typeof command !== 'string' || !command.trim()) return null;
-  const candidates = [];
-  if (path.isAbsolute(command) || command.includes(path.sep) || command.startsWith('.')) candidates.push(path.resolve(cwd, command));
-  else for (const dir of (process.env.PATH || '').split(path.delimiter).filter(Boolean)) candidates.push(path.join(dir, command));
-  for (const candidate of candidates) {
-    try { fs.accessSync(candidate, fs.constants.X_OK); if (fs.statSync(candidate).isFile()) return candidate; } catch { /* next */ }
+  const windows = platform === 'win32';
+  const explicit = path.isAbsolute(command) || command.includes('/') || command.includes('\\') || command.startsWith('.');
+  const dirs = explicit ? [path.dirname(path.resolve(cwd, command))] : (env.PATH || env.Path || '').split(windows ? ';' : path.delimiter).filter(Boolean);
+  const base = explicit ? path.basename(command) : command;
+  const names = windows && !path.extname(base) ? (env.PATHEXT || WINDOWS_PATHEXT).split(';').filter(Boolean).map(ext => base + ext) : [base];
+  for (const dir of dirs) {
+    for (const name of names) {
+      const found = windows ? caseInsensitive(dir, name) : name;
+      if (!found) continue;
+      const candidate = path.join(dir, found);
+      try {
+        if (!fs.statSync(candidate).isFile()) continue;
+        if (!windows) fs.accessSync(candidate, fs.constants.X_OK);
+        return candidate;
+      } catch { /* next */ }
+    }
   }
   return null;
 }
@@ -46,15 +69,17 @@ function resolveProgram(command, cwd) {
  * endpoints (not in this slice), package-fetching launchers, and programs
  * that are not already installed. Never consults the network.
  */
-function launchPlan(entry, { cwd }) {
+function launchPlan(entry, { cwd, platform = process.platform, env: environment = process.env }) {
   if (!entry || typeof entry !== 'object') return { refused: 'the configuration entry is not an object' };
   if (!entry.command && (entry.url || entry.endpoint)) return { refused: 'a remote endpoint (Streamable HTTP) is not supported by discovery in this release; only stdio servers are' };
   if (typeof entry.command !== 'string' || !entry.command.trim()) return { refused: 'the entry has no command to launch' };
   if (PACKAGE_LAUNCHERS.test(path.basename(entry.command))) return { refused: `"${path.basename(entry.command)}" fetches a package at start; Boppi never installs or fetches on your behalf. Install the server as a local program (or pin and pre-install it) and point the entry at it.` };
   const fetching = fetchingSubcommand(entry.command, entry.args);
   if (fetching) return { refused: `"${fetching}" fetches a package at start; Boppi never installs or fetches on your behalf. Install the server as a local program (or pin and pre-install it) and point the entry at it.` };
-  const program = resolveProgram(entry.command, cwd);
+  const program = resolveProgram(entry.command, cwd, { platform, env: environment });
   if (!program) return { refused: `the program "${entry.command}" is not installed where Boppi can find it (not an executable file on PATH or at that path)` };
+  // A .cmd or .bat file runs only through cmd.exe, and Boppi never starts a server through a shell.
+  if (/\.(cmd|bat)$/i.test(program)) return { refused: `"${path.basename(program)}" is a .cmd or .bat launcher, which needs a shell to run; Boppi never starts servers through a shell. Point the entry at the program itself (for example node.exe and the script it runs) and rescan.` };
   const args = Array.isArray(entry.args) ? entry.args.filter(a => typeof a === 'string') : [];
   const env = {};
   for (const key of INHERITED_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];

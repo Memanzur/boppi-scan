@@ -29,3 +29,16 @@ jobs:
             if (files.some(p => p.startsWith('test/'))) throw new Error('test/ leaked into the tarball');
             console.log('tarball OK: ' + files.length + ' files');
           "
+
+  # Experimental: Windows path rules (PATHEXT lookup, .cmd/.bat refusal,
+  # APPDATA honoring --home) on a real Windows runner. Never run locally;
+  # failures here do not block the build until the job has a track record.
+  windows-paths:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node test/verify-windows-paths.js
