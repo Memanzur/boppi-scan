@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:40 MDT
+# Current checkpoint (read first) — updated 2026-10-28 00:05 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -36,8 +36,8 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-5 CLI fix/rollback use the connector's safe write path | done | scanner a233b19 | `npm test` 40/40, new verify-safe-writes 18 |
 | T-6 approval origin decided server-side | done (scoped, see D-38) | control 4398c0f | test:db:local 390 PASS, verify exit 0. New migration 20261027130000 + down file, so the hosted set is now 26 (Gate C plan must include it). The routes and connector-journey scripts need a local Supabase stack: not rerun |
 | T-7 login CSRF, signup enumeration, CSV injection | done (enumeration deferred, D-39) | control 5ac116b | test:auth-callback 16 (real route handler, forged + same-origin posts), verify exit 0 |
-| T-10 push --file re-sanitize; fix manifest location | next | | |
-| T-8 rollback harness + down files for five newest migrations | todo | | |
+| T-10 push --file re-sanitize; fix predictions file out of the project | done | scanner 2621c8b, control resync 1fe2912 | `npm test` 40/40 (push 61 with planted-canary test), control verify exit 0 |
+| T-8 rollback harness + down files for the newest migrations | next | | |
 | T-9 documentation truth pass, then rebuild the candidate | todo | | |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -48,12 +48,14 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Nothing uncommitted. Next: T-10.
+Nothing uncommitted. Next: T-8.
 
 ## Exact next steps
 
-1. T-10 (scanner): `boppi push --file <export>` must re-sanitize the export before sending (a planted canary in an edited export never reaches the request body); `boppi fix` writes its predictions export (`boppi-fix-<time>.json`, now in the project folder, `src/cli/boppi.js` ~line 814) under `~/.boppi` instead. Tests: push mock canary, fix leaves the cwd clean.
-2. Then T-8, T-9.
+1. T-8 (control `apps/control-plane/supabase/tests/local/rollback.sh`): make the harness derive the migration list from `supabase/migrations` instead of a hand-written list (it lists 15 of 26), add down files in `supabase/rollback/` for every migration that lacks one, and get `npm run test:db:rollback` green. It uses a disposable Postgres like test:db:local; safe to rerun.
+2. Then T-9 (documentation truth pass), then rebuild the candidate.
+
+Known pre-existing failures, not caused by this session (they fail the same on 4398c0f): legacy `node scripts/verify-exposure-paths.js` ("EP-C must fire") and `node scripts/verify-cli-scan.js` ("minimal remediation plan is shown") in Boppi-auto. They exercise the legacy extension copy and are not in `npm run verify`. Triage later.
 3. Owed when Docker and a disposable Supabase stack are up: rerun `verify-remediation-routes.ts` and `verify-connector-journey.mjs` (real CLI to real routes) to cover T-4 and T-6 end to end. Commit each one with its tests and update the table above.
 3. After Milestone A, rebuild the candidate from the fixed scanner (new folder, never overwrite the 104147d candidate) and move the D-11 choice to it.
 
