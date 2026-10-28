@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:20 MDT
+# Current checkpoint (read first) — updated 2026-10-27 22:58 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -17,8 +17,8 @@ An externally testable beta: a stranger signs up on hosted Boppi Cloud, installs
 
 | Repo | Branch | Head at this checkpoint |
 | --- | --- | --- |
-| Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | 6bf3b43 (handoff mirror commit follows) |
-| Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | ad8ba18 + this handoff commit |
+| Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | b61416c (T-9) + mirror ff7fa9b |
+| Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | 31aaab6 (routes probe fix) + this handoff commit |
 | Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 89fd4e6 (demo refresh only) |
 
 The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders regrouped 2026-10-27 21:09; see `~/Desktop/Boppi Workspace/START HERE.md`). Keep the links.
@@ -39,9 +39,9 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-10 push --file re-sanitize; fix predictions file out of the project | done | scanner 2621c8b, control resync 1fe2912 | `npm test` 40/40 (push 61 with planted-canary test), control verify exit 0 |
 | T-8 rollback harness + down files for the newest migrations | done | control 1f1171e | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
 | T-9 documentation truth pass | done (website copy moved to B-4/B-5) | scanner b61416c, control dd00843 | scanner 40/40 (events push now exits 5 as documented), control verify exit 0 |
-| B-1 specific dashboard error messages | done | control 67b53f3 | verify:flash 6 (in npm run verify), verify exit 0; signed-in browser check owed (needs stack) |
-| B-2 applied-age display (D-27a, display only) | done | control 2d7e01c | verify:remediation 316 |
-| Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker journeys not rerun |
+| B-1 specific dashboard error messages | done | control 67b53f3 | verify:flash 6 (in npm run verify), verify exit 0; signed-in Chromium on stack n89Sdo: specific texts shown, a crafted free-text error shows only the generic sentence, 0 console errors |
+| B-2 applied-age display (D-27a, display only) | done | control 2d7e01c | verify:remediation 316; Chromium on stack n89Sdo shows "Applied 30 hours ago and not verified since. Run boppi connect run..." for a synthetic proposal aged by SQL |
+| Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker stack n89Sdo (22:30-22:57): exact-tarball beta journey 27, remediation routes 63, real-CLI connector journey 31, browser remediation drive 59 steps. Logs in `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-32a9667/` |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
 
@@ -51,20 +51,19 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Running the Docker-backed journeys on a NEW disposable stack (`/tmp/boppi-beta-local.*`, created by `docs/LOCAL_BETA_RUNBOOK.md`): local-beta prepare/build/serve, then `verify` with BOPPI_BETA_CANDIDATE = the 32a9667 CANDIDATE.json, `verify:remediation:routes`, and `verify-connector-journey.mjs`. Recovery: if interrupted, `supabase stop --workdir <that dir>` (no `--all`, no `--no-backup`), kill anything on 3097/3098, and start again with a fresh mktemp dir; `prepare` refuses a stack that already has beta-state.json, so never reuse one. Older stopped stacks (8AQeHU, XtHzu1, ...) are left alone.
+Nothing. Stack `/tmp/boppi-beta-local.n89Sdo` is stopped (volume kept) and port 3097 is free. The routes run found a test bug from T-6: the "removed origin flag" probe sent a valid approval. Fixed in 31aaab6 (63/63 after the fix). Do not reuse n89Sdo for `prepare`; make a fresh mktemp stack next time.
 
 ## Exact next steps (next five tasks)
 
-3. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`lib/domain.ts:62` lacks shell/code/network/read/write).
-4. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
+1. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`apps/control-plane/lib/domain.ts:62` lacks shell/code/network/read/write).
+2. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
+3. B-8: local `delete_my_account` SQL test across remediation, governance and intelligence rows (disposable DB).
+4. B-7: in-app privacy link.
+5. B-9: deterministic demo build.
 
-5. B-8: local `delete_my_account` SQL test across remediation, governance and intelligence rows (disposable DB).
-
-D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667.json`); 104147d stays as the fallback. Then B-7 in-app privacy link, B-8 local delete_my_account SQL test, B-9 deterministic demo build, Milestone C (signed overlay bundles), D (coverage), E (operations). Owed when Docker is running: `verify-remediation-routes.ts` and `verify-connector-journey.mjs` on a disposable stack.
+After that: Milestone C (signed overlay bundles), D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667.json`); 104147d stays as the fallback.
 
 Known pre-existing failures, not caused by this session (they fail the same on 4398c0f): legacy `node scripts/verify-exposure-paths.js` ("EP-C must fire") and `node scripts/verify-cli-scan.js` ("minimal remediation plan is shown") in Boppi-auto. They exercise the legacy extension copy and are not in `npm run verify`. Triage later.
-3. Owed when Docker and a disposable Supabase stack are up: rerun `verify-remediation-routes.ts` and `verify-connector-journey.mjs` (real CLI to real routes) to cover T-4 and T-6 end to end. Commit each one with its tests and update the table above.
-3. After Milestone A, rebuild the candidate from the fixed scanner (new folder, never overwrite the 104147d candidate) and move the D-11 choice to it.
 
 ---
 
