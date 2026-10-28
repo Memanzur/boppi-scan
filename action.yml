@@ -21,8 +21,8 @@ inputs:
     description: Where to write the SARIF report. Upload it with github/codeql-action/upload-sarif.
     default: boppi.sarif
   version:
-    description: boppi package version to run.
-    default: latest
+    description: Exact boppi package version to run (for example 0.4.0). The default is the version this action was released with; ranges and tags such as latest are refused so a run never picks up an unreviewed release.
+    default: 0.4.0
 outputs:
   sarif:
     description: Path of the SARIF file that was written.
@@ -31,10 +31,23 @@ runs:
   using: composite
   steps:
     - shell: bash
+      # Inputs reach the script only as environment variables, never as
+      # ${{ }} text inside it, so an input value cannot become shell code.
+      env:
+        BOPPI_CONFIG: ${{ inputs.config }}
+        BOPPI_SOURCE: ${{ inputs.source }}
+        BOPPI_FAIL_ON: ${{ inputs['fail-on'] }}
+        BOPPI_POLICY: ${{ inputs.policy }}
+        BOPPI_SARIF: ${{ inputs.sarif }}
+        BOPPI_VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
-        args=(scan --no-color --sarif "${{ inputs.sarif }}" --json boppi-scan.json)
-        if [ -n "${{ inputs.config }}" ]; then args+=(--config "${{ inputs.config }}" --source "${{ inputs.source }}"); fi
-        if [ -n "${{ inputs['fail-on'] }}" ]; then args+=(--fail-on "${{ inputs['fail-on'] }}"); fi
-        if [ -n "${{ inputs.policy }}" ]; then args+=(--policy "${{ inputs.policy }}"); fi
-        npx --yes "boppi@${{ inputs.version }}" "${args[@]}"
+        if ! [[ "$BOPPI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+          echo "boppi action: version must be an exact version such as 0.4.0, not \"$BOPPI_VERSION\"" >&2
+          exit 2
+        fi
+        args=(scan --no-color --sarif "$BOPPI_SARIF" --json boppi-scan.json)
+        if [ -n "$BOPPI_CONFIG" ]; then args+=(--config "$BOPPI_CONFIG" --source "$BOPPI_SOURCE"); fi
+        if [ -n "$BOPPI_FAIL_ON" ]; then args+=(--fail-on "$BOPPI_FAIL_ON"); fi
+        if [ -n "$BOPPI_POLICY" ]; then args+=(--policy "$BOPPI_POLICY"); fi
+        npx --yes "boppi@$BOPPI_VERSION" "${args[@]}"

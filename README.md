@@ -342,7 +342,7 @@ As a GitHub Action, with the SARIF uploaded to code scanning:
     sarif_file: boppi.sarif
 ```
 
-Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx boppi@<version>`; pin `version` for reproducible runs.
+Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx boppi@<version>`. From 0.4.0, `version` defaults to the version the action was released with and must be an exact version: `latest` or a range such as `^0.4.0` is refused, so a new npm release never reaches your CI until you change the tag. (The v0.3.0 action still defaults to `latest`; set `version: 0.3.0` with it.) Inputs reach the step only as environment variables, so a value cannot run as shell code.
 
 ## What leaves the machine
 
