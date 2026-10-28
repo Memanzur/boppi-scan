@@ -32,7 +32,7 @@ npx boppi verify boppi-scan.json
 npx boppi history
 ```
 
-Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), generate a collector token on the Collectors page, and push scans from every machine:
+Teams can try the free workspace at [app.boppi.io](https://app.boppi.io) (in beta): generate a collector token on the Collectors page and push scans from each machine:
 
 ```sh
 npx boppi push
@@ -352,7 +352,7 @@ Boppi never checks npm for updates. Your workspace's answers to `push`, `events 
 
 ## What leaves the machine
 
-Nothing, unless you run `boppi push` or `boppi connect`.
+Nothing, unless you run `boppi push`, `boppi events push` or `boppi connect`.
 
 The scanner reads configuration metadata only. It does not export secret values, environment variable values, file contents, or recognized raw filesystem paths, including paths embedded inside option values such as `--data-dir=/srv/data` (the flag name is kept, the path becomes a fingerprint, and a URL is reduced to its origin). Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Redaction is tested against known shapes; it is not a guarantee that arbitrary configuration text never contains private information, so review an export before sharing it. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
@@ -407,7 +407,7 @@ The suites under `test/` are executable checks, not unit tests. `npm test` runs 
 
 ## Part of Boppi
 
-This scanner is the local collector for [Boppi](https://boppi.io), an AI-agent exposure platform that runs the same engine across an organization. The scanner is complete on its own and stays free.
+This scanner is the local collector for [Boppi](https://boppi.io), whose team workspace (in beta) runs the same engine on the inventories you choose to push. The scanner is complete on its own and stays free.
 
 ## License
 
