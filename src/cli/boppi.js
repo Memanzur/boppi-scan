@@ -115,6 +115,7 @@ function usage() {
     '  --once              (run) one poll cycle, then exit',
     '  --interval <s>      (run) seconds between polls (default 60, minimum 5)',
     '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used',
+    '  --yes               (pair) replace an existing pairing on this machine (the old device stays live in its workspace until revoked; unpair first to revoke it)',
     '',
     'rollback options:',
     '  --id <id>           the manifest entry to restore (from boppi rollback with no --id)',
@@ -284,7 +285,7 @@ function parseArgs(argv) {
     if (!options.subcommand) throw new Error(`connect requires one of: ${connect.SUBCOMMANDS.join(', ')}`);
     if (options.subcommand === 'pair' && (!options.url || !options.code)) throw new Error('connect pair requires --url <workspace> and --code <pair-code>');
     if (options.subcommand === 'run' && (!Number.isFinite(options.interval) || options.interval < 5)) throw new Error('--interval must be a number of seconds, at least 5');
-    if (options.yes && options.subcommand !== 'run') throw new Error('--yes is only accepted with connect run');
+    if (options.yes && !['run', 'pair'].includes(options.subcommand)) throw new Error('--yes is only accepted with connect run and connect pair');
     if (options.config) throw new Error('connect follows discovered client files; --config is not supported');
   }
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);

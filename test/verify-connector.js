@@ -458,6 +458,19 @@ function startWorkspace() {
     const auto = await runCli(['connect', 'run', '--once'], home);
     ok('run rotates with 7 days or less left, then polls with the new credential', auto.code === 0 && auto.stdout.includes('Credential rotated') && ws.byRoute('rotate').length === rotateRequests + 1 && ws.device.credential === readPairing().credential && ws.device.next === null, auto.stderr);
 
+    section('recovery: refused credential, re-pair, wrong code (R-6)');
+    const pairsBefore = ws.byRoute('pair').length;
+    const repair = await runCli(['connect', 'pair', '--url', workspace.url, '--code', PAIR_CODE], home);
+    ok('pairing again while paired is refused before the code is sent (exit 2)', repair.code === 2 && repair.stderr.includes('already paired') && repair.stderr.includes('boppi connect unpair') && ws.byRoute('pair').length === pairsBefore);
+    ws.device.revoked = true;
+    const looping = await Promise.race([
+      runCli(['connect', 'run', '--interval', '5'], home),
+      new Promise(resolve => setTimeout(() => resolve({ code: 'still polling after 20 s', stdout: '', stderr: '' }), 20000)),
+    ]);
+    ok('run stops instead of polling forever once the workspace refuses the device (exit 5)', looping.code === 5 && looping.stderr.includes('polling again cannot succeed'), String(looping.code));
+    ok('the refusal says the device was revoked, unpaired or expired and how to pair again', looping.stderr.includes('no longer accepts this device') && looping.stderr.includes('boppi connect pair --url'));
+    ws.device.revoked = false;
+
     section('unpair');
     ws.dropUnpairOnce = true;
     const unreachable = await runCli(['connect', 'unpair'], home);
@@ -471,6 +484,13 @@ function startWorkspace() {
     ok('a credential the workspace already refuses is deleted locally with that explanation', already.code === 0 && already.stdout.includes('no longer accepts') && !fs.existsSync(pairingFile));
     const nothing = await runCli(['connect', 'unpair'], home);
     ok('unpair with no pairing sends nothing', nothing.code === 0 && nothing.stdout.includes('Nothing to unpair.'));
+    const wrong = await runCli(['connect', 'pair', '--url', workspace.url, '--code', 'pair-wrongwrongwron'], home);
+    ok('a wrong or expired pairing code explains itself (exit 5)', wrong.code === 5 && wrong.stderr.includes('older than ten minutes') && wrong.stderr.includes('Collectors page'));
+    fs.writeFileSync(pairingFile, JSON.stringify(stale), { mode: 0o600 });
+    fs.writeFileSync(connect.claimsFile(home), JSON.stringify({ pending: [], consumed: ['old-nonce'] }), { mode: 0o600 });
+    ws.device = null;
+    const replaced = await runCli(['connect', 'pair', '--url', workspace.url, '--code', PAIR_CODE, '--yes'], home);
+    ok('--yes replaces an existing pairing and drops the old device\'s claims', replaced.code === 0 && readPairing().deviceId === ws.device.id && readPairing().deviceId !== stale.deviceId && !fs.existsSync(connect.claimsFile(home)), replaced.stderr);
   } finally {
     workspace.server.close();
   }

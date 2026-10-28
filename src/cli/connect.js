@@ -110,6 +110,8 @@ function describeFailure(route, result) {
   const code = result.body && result.body.error ? result.body.error : 'unknown error';
   const wait = Number(result.body && result.body.retryAfterSeconds);
   if (result.status === 429) return `the workspace refused ${route} (HTTP 429: ${code}): this device made too many calls; retry in ${Number.isInteger(wait) && wait > 0 ? `${wait} seconds` : 'a few minutes'}. boppi does not retry on its own`;
+  if (result.status === 401 && route === 'pair') return `the workspace refused the pairing code (HTTP 401: ${code}): it is wrong, already used, or older than ten minutes. Create a new code on the Collectors page and run boppi connect pair again`;
+  if (result.status === 401) return `the workspace no longer accepts this device (HTTP 401: ${code}): it was revoked or unpaired there, or its credential expired. Pair again: create a code on the Collectors page, then boppi connect pair --url <workspace> --code <code>`;
   return `the workspace refused ${route} (HTTP ${result.status}: ${code})`;
 }
 
@@ -353,6 +355,7 @@ class Cycle {
   async post(route, body) {
     const result = await request({ url: this.pairing.url, credential: this.pairing.credential, route, body, fetchImpl: this.deps.fetchImpl });
     if (!result.ok) this.problems += 1;
+    if (result.status === 401) this.credentialRefused = true;
     return result;
   }
 
@@ -490,6 +493,12 @@ class Cycle {
 async function runPair(options, deps, out, err) {
   let url;
   try { url = resolveWorkspaceUrl(options.url); } catch (error) { err(`connect pair: ${error.message}`); return 2; }
+  // Checked before the code is sent, so a refusal never burns it.
+  const existing = loadPairing(options.home);
+  if (existing && !options.yes) {
+    err(`connect pair: this machine is already paired with ${existing.workspaceName || existing.url} as "${existing.deviceName || existing.deviceId}". Run boppi connect unpair first (it revokes that device there), or add --yes to replace it here only (the old device stays listed and usable in that workspace until someone revokes it).`);
+    return 2;
+  }
   const deviceName = clip(options.name || os.hostname() || 'this machine', 64);
   const device = { name: deviceName, platform: clip(options.platform, 16), versions: versionsOf(deps.version) };
   const result = await request({ url, route: 'pair', body: { code: options.code, device }, fetchImpl: deps.fetchImpl });
@@ -498,6 +507,8 @@ async function runPair(options, deps, out, err) {
   if (typeof b.credential !== 'string' || typeof b.deviceId !== 'string') { err('connect pair: the workspace answered without a device credential'); return 5; }
   const pairing = { schemaVersion: SCHEMA_VERSION, url, deviceId: b.deviceId, organizationId: b.organizationId, credential: b.credential, credentialExpiresAt: b.credentialExpiresAt, workspaceName: b.workspaceName, deviceName, pairedAt: stamp() };
   writeOwnerOnly(pairingFile(options.home), pairing);
+  // Claims and consumed nonces belong to the old device; carrying them over would mis-grade or refuse its proposals.
+  if (existing) fs.rmSync(claimsFile(options.home), { force: true });
   out(`Paired with ${pairing.workspaceName || url} as "${deviceName}". Stored in ${pairingFile(options.home)} (owner-only): url, device id, organization id, credential (expires ${pairing.credentialExpiresAt || 'unknown'}).`);
   out(`The workspace now knows: device name, platform ${device.platform}, scanner ${device.versions.scanner}, engine ${device.versions.engine}, rubric ${device.versions.rubric}. No path was sent.`);
   out('boppi connect run pulls fix proposals from the workspace; nothing is applied without local confirmation on this machine.');
@@ -580,8 +591,10 @@ async function runConnect(options, deps) {
   let current = pairing;
   for (;;) {
     if (rotationDue(current)) current = (await rotateCredential(options, current, deps, out, err)) || current;
-    const code = await new Cycle({ options, pairing: current, deps, out, err }).run();
+    const cycle = new Cycle({ options, pairing: current, deps, out, err });
+    const code = await cycle.run();
     if (options.once) return code;
+    if (code === 5 && cycle.credentialRefused) { err('  stopping: the workspace refuses this device, so polling again cannot succeed.'); return 5; }
     updateNotice.announce(options.home, deps.version, err);
     out(`  next poll in ${options.interval} s (Ctrl-C stops; nothing is applied without confirmation here)`);
     await sleep(options.interval * 1000);
