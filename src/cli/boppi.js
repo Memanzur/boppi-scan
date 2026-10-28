@@ -35,6 +35,7 @@ const recognitionModule = require('./recognition');
 const predict = require('./predict');
 const verify = require('./verify');
 const overlayModule = require('./overlay');
+const overlayBundle = require('./overlayBundle');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
@@ -56,7 +57,8 @@ const connect = require('./connect');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect', 'overlay']);
+const OVERLAY_SUBCOMMANDS = ['verify', 'status', 'rollback', 'reset'];
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
@@ -71,6 +73,8 @@ function usage() {
     '  boppi fix --server <name>      preview the exact edit, then remove one server entry from its config file (backup first), rescan, and grade the prediction',
     '  boppi rollback [--id <id>]     list the backups fix recorded, or restore one to its file and rescan',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
+    '  boppi overlay verify <bundle.json> --trust <keys.json>   check a signed claims bundle without changing anything',
+    '  boppi overlay status|reset|rollback --receipt <r.json> --trust <keys.json>   show, reset or roll back the accepted bundle',
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
     '  boppi demo                     scan a synthetic risky config copied to ~/.boppi/demo/ (never your real configs); --reset restores it',
@@ -150,7 +154,9 @@ function usage() {
     '  --config <path>     scan one explicit config file (skip discovery)',
     '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
     '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity, 4 if a client could not be analyzed (CI usage)',
-    '  --overlay <file>    apply a capability claims file; validated claims add inferred permissions, experimental ones are only reported',
+    '  --overlay <file>    apply an unsigned capability claims file; validated claims add inferred permissions, experimental ones are only reported',
+    '  --overlay-bundle <file> --trust <keys.json>',
+    '                      report a signed, reviewed claims bundle in shadow only (never changes results); the trust root is yours',
     '  --quiet             one summary line only',
     '  --verbose           all paths, per-server capability provenance',
     '  --no-color          plain-text output (NO_COLOR env is also respected)',
@@ -166,7 +172,7 @@ function usage() {
 function parseArgs(argv) {
   const options = {
     command: 'scan', json: null, html: null, only: null, config: null, source: 'claude-desktop',
-    failOn: null, overlay: null, quiet: false, verbose: false,
+    failOn: null, overlay: null, overlayBundle: null, trust: null, receipt: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
     input: null, contradictionsDir: null, historyFile: null,
@@ -175,10 +181,11 @@ function parseArgs(argv) {
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
   };
   let askRequested = false;
-  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
+  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--overlay-bundle', '--trust', '--receipt', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (options.command === 'events' && !options.subcommand && arg === 'push') options.subcommand = 'push';
+    else if (options.command === 'overlay' && !options.subcommand && OVERLAY_SUBCOMMANDS.includes(arg)) options.subcommand = arg;
     else if (COMMANDS.has(arg)) { options.command = arg; if (arg === 'ask') askRequested = true; }
     else if (arg === '--quiet') options.quiet = true;
     else if (arg === '--verbose') options.verbose = true;
@@ -196,6 +203,9 @@ function parseArgs(argv) {
       else if (arg === '--source') options.source = value;
       else if (arg === '--fail-on') options.failOn = value;
       else if (arg === '--overlay') options.overlay = value;
+      else if (arg === '--overlay-bundle') options.overlayBundle = value;
+      else if (arg === '--trust') options.trust = value;
+      else if (arg === '--receipt') options.receipt = value;
       else if (arg === '--home') options.home = value;
       else if (arg === '--cwd') options.cwd = value;
       else if (arg === '--contradictions-dir') options.contradictionsDir = value;
@@ -230,6 +240,7 @@ function parseArgs(argv) {
     else if (arg === '--enable') options.enable = true;
     else if (arg === '--all') options.all = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
+    else if (options.command === 'overlay' && options.subcommand === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else if (options.command === 'connect' && !options.subcommand && connect.SUBCOMMANDS.includes(arg)) options.subcommand = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -240,6 +251,13 @@ function parseArgs(argv) {
     if (options.config || options.overlay || options.policy || options.html || options.sarif || options.yes || options.install) throw new Error('ask reads an export only; scan, fix and installation options are not supported');
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
+  if (options.overlayBundle && !options.trust) throw new Error('--overlay-bundle requires --trust <public-keys.json>; no key ships with boppi');
+  if (options.overlayBundle && options.overlay) throw new Error('use --overlay-bundle or --overlay, not both');
+  if (options.command === 'overlay' && !options.help && !options.version) {
+    if (!options.subcommand) throw new Error(`overlay requires one of: ${OVERLAY_SUBCOMMANDS.join(', ')}`);
+    if (options.subcommand === 'verify' && (!options.input || !options.trust)) throw new Error('overlay verify requires <bundle.json> and --trust <public-keys.json>');
+    if (options.subcommand === 'rollback' && (!options.receipt || !options.trust)) throw new Error('overlay rollback requires --receipt <receipt.json> and --trust <public-keys.json>');
+  }
   if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
   if (options.command === 'events' && !options.help && !options.version && (!Number.isFinite(options.since) || options.since < 1 || options.since > 3650)) throw new Error('--since must be a number of days from 1 to 3650');
   if (options.command === 'watch' && !options.help && !options.version) {
@@ -555,6 +573,16 @@ async function performScan(options) {
     try { overlay = overlayModule.loadOverlay(options.overlay); } catch (error) {
       return { failed: `Could not load overlay ${options.overlay}: ${error.message}`, exitCode: 2 };
     }
+    overlay.unsigned = true;
+    process.stderr.write('boppi: unsigned overlay: its claims are self-asserted, including any it marks validated. Use --overlay-bundle with --trust for a verified one.\n');
+    discovery.filesRead.push(overlay.file);
+  } else if (options.overlayBundle) {
+    try {
+      const { verified } = overlayBundle.accept(options.home, fs.readFileSync(options.overlayBundle, 'utf8'), overlayBundle.loadTrust(options.trust));
+      overlay = overlayBundle.toOverlay(options.overlayBundle, verified);
+    } catch (error) {
+      return { failed: `Overlay bundle ${options.overlayBundle} ${error instanceof overlayBundle.BundleRefusal ? error.message : `could not be read: ${error.message}`}`, exitCode: 2 };
+    }
     discovery.filesRead.push(overlay.file);
   }
   for (const client of discovery.clients) client.coverageIdentity = evidenceIdentity.digest('client-analysis', {
@@ -622,7 +650,7 @@ async function performScan(options) {
   const storageExport = await controller.getExport();
 
   const diagnostics = overlay
-    ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected }, shadow, applied }
+    ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected, ...(overlay.unsigned ? { unsigned: true } : {}), ...(overlay.signed ? { signed: overlay.signed } : {}) }, shadow, applied }
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
@@ -959,6 +987,7 @@ async function run(argv) {
   }
   if (options.command === 'hook') return hook.runHook(options, { fingerprint: value => crypto.createHmac('sha256', loadFingerprintKey(options.home)).update(value).digest('hex').slice(0, 16), keyedDigest: value => crypto.createHmac('sha256', loadFingerprintKey(options.home)).update(`id|${value}`).digest('hex').slice(0, 32), settings: options.install || options.printConfig ? settingsModule.defaults() : settingsModule.load(options.home) });
   if (options.command === 'verify') return runVerify(options);
+  if (options.command === 'overlay') return overlayBundle.runOverlay(options);
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
   if (options.command === 'events') return options.subcommand === 'push' ? eventsCommand.runEventsPush(options, { promptForToken }) : eventsCommand.runEvents(options);

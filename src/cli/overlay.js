@@ -101,6 +101,8 @@ function matchClaims(overlay, serverName, server) {
   const result = { package: pkg, validated: [], experimental: [] };
   for (const claim of overlay.bySubject.get(`${pkg.kind}:${pkg.name}`) || []) {
     // A claim pinned to another major version of the package is not about this server.
+    // A verified bundle pins exact versions: a server that does not pin the same version is not covered.
+    if (overlay.exactVersion && pkg.version !== claim.subjectVersion) continue;
     if (pkg.version && claim.subjectVersion && majorOf(pkg.version) !== majorOf(claim.subjectVersion)) continue;
     result[claim.status].push(claim);
   }

@@ -148,7 +148,7 @@ Exposure path templates, with the worst-case impact of each:
 | EP-A | Data exfiltration: readable data reaches an external destination | critical |
 | EP-B | Credential exposure: credential access reaches execution and the network | critical |
 | EP-C | Software supply chain: source modification reaches production | critical |
-| EP-D | Supply-chain exposure: sensitive data sits behind an unverified server | high |
+| EP-D | Supply-chain exposure: a server explicitly marked `"trustStatus": "unverified"` in its config entry sits beside sensitive data. No client writes that key today, and servers Boppi does not recognize do not trigger it | high |
 | EP-E | Privilege: untrusted content reaches shell, code, or destructive file tools | high |
 | EP-F | Impersonation: untrusted content reaches email or messaging | high |
 
@@ -285,6 +285,14 @@ A scan reads configuration and never starts a server. `boppi discover --server <
 ### Watch (foreground, experimental)
 
 `boppi watch` stays in the foreground, prints a baseline, and rescans when a configuration or permission-settings file it would read changes (500 ms debounce) and every 60 s regardless (`--interval <s>`, minimum 1). It watches only the parent folders of those files, never a project tree, installs nothing, starts no server, and sends nothing anywhere; Ctrl-C, `SIGTERM`, or `--duration <s>` stops it, and `--once` prints the baseline and exits. Each rescan whose evidence changed prints the files whose bytes changed with a cause (`changed outside Boppi`, `changed by boppi fix <id>`, `restored by boppi rollback`, `file created`, `file deleted`), servers added or removed, and exposure paths opened, closed, raised, or lowered; a file rewritten with the same evidence says so. A path reported closed is an observation, not a verified fix: only `boppi verify` grades a prediction. A file that goes missing or unreadable is held for one 2 s grace rescan before it is retired (deleted) or labelled stale (unreadable, last readable state kept, no closure reported); a client whose scan failed is held as not analyzed; `--only` never mentions an unwatched client. `--log <file>` appends one JSON line per baseline, change, hold, and stop to an owner-only file, and evidence changes also go to `boppi history`. Rules and limits: `docs/phase4/WATCH_DESIGN.md`.
+
+### Verified claims bundles (shadow only)
+
+`boppi scan --overlay-bundle <bundle.json> --trust <keys.json>` reads a signed, reviewed set of capability claims and reports matching servers under `diagnostics.shadow`. It is shadow only: it never adds a permission, changes a path or a severity, or marks a claim validated, and a bundle that claims `validated` is refused. There is no hosted channel; Boppi never downloads a bundle, and no key ships with it. The trust root is yours: `keys.json` holds the publisher and reviewer Ed25519 public keys (PEM), which must differ.
+
+A bundle is refused, with exit 2 and a named reason, when either signature fails, the review does not cover its exact content, its mode is not `inactive`, it is over 256 KiB, it has unknown fields, a claim has expired, it needs a newer engine or another rubric, or its version is not newer than the highest one accepted on this machine. Claims match only a server that pins the same exact package version.
+
+Accepted state lives in `~/.boppi/intelligence/state.json` (mode 600). `boppi overlay verify <bundle.json> --trust <keys.json>` checks a bundle and changes nothing; `boppi overlay status` shows the selected bundle; `boppi overlay rollback --receipt <r.json> --trust <keys.json>` returns to an earlier accepted bundle on a reviewer-signed, single-use receipt. If the state file is deleted or corrupted, every bundle is refused until `boppi overlay reset`, which keeps no high-water mark and says so. `--overlay <file>` still loads an unsigned claims file and now warns that its claims are self-asserted.
 
 ### Policy guard
 
