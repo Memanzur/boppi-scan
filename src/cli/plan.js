@@ -76,10 +76,12 @@ function renderPlan(report, options = {}) {
     const files = editFiles(row.prediction, report.discovery);
     const server = report.inventory.mcpServers.find(s => s.id === row.prediction.serverId);
     out(`  ${row.edit}`);
-    for (const file of files.from) out(`    in ${file}: delete the key mcpServers.${JSON.stringify(row.prediction.edit.server)}`);
-    for (const file of files.to) out(`    in ${file}: add the same entry under mcpServers`);
+    const isToml = file => /\.toml$/i.test(file);
+    for (const file of files.from) out(isToml(file) ? `    in ${file}: delete the table [mcp_servers.${JSON.stringify(row.prediction.edit.server)}]` : `    in ${file}: delete the key mcpServers.${JSON.stringify(row.prediction.edit.server)}`);
+    for (const file of files.to) out(isToml(file) ? `    in ${file}: add the same entry as a [mcp_servers.<name>] table` : `    in ${file}: add the same entry under mcpServers`);
     if (server) out(`    entry (sanitized): ${server.command || server.endpoint || '?'}${server.arguments.length ? ' ' + server.arguments.join(' ') : ''}`);
-    out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
+    if (files.from.some(isToml)) out('    then: edit the TOML file by hand (boppi fix does not edit TOML files yet), rescan, and boppi verify grades the prediction');
+    else out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
   }
   if (rows.length > shown.length) out(`  ${rows.length - shown.length} more candidate${rows.length - shown.length === 1 ? '' : 's'} not shown; --json keeps every prediction.`);
   out('');

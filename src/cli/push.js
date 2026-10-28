@@ -20,7 +20,7 @@ const RECORD_FIELD_MAX = 512;
 
 const EVIDENCE_CLASS = Object.freeze({ observed: 'observed', imported: 'imported', inferred: 'inferred', fixture: 'inferred' });
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-const CLIENT_LABELS = Object.freeze({ 'claude-desktop': 'Claude Desktop', 'claude-code': 'Claude Code', cursor: 'Cursor' });
+const CLIENT_LABELS = Object.freeze({ 'claude-desktop': 'Claude Desktop', 'claude-code': 'Claude Code', cursor: 'Cursor', codex: 'Codex CLI' });
 const COVERAGE_REASONS = new Set(['permission denied', 'invalid JSON', 'this is a directory, not a config file', 'client analysis failed', 'configuration could not be analyzed']);
 
 const clip = (value, max = RECORD_FIELD_MAX) => String(value).slice(0, max);

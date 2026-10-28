@@ -5,6 +5,8 @@ const { builtinCapabilities, builtinResidualSentences } = require('../builtinToo
 const path = require('path');
 const recognition = require('../recognition');
 const claudeCodeSettings = require('../claudeCodeSettings');
+const codexDiscovery = require('../discovery/codex');
+const hooksDiscovery = require('../discovery/hooks');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
@@ -115,6 +117,21 @@ function settingsStatus(file) {
   return `${file.scope === 'managed' ? 'managed ' : ''}permission settings (${parts.length ? parts.join(' · ') : 'no permission rules'})`;
 }
 
+/** DISCOVERY status for a found file of any kind: settings, managed policy, hooks, or a configuration file with its server count and recorded values. */
+function fileStatus(file) {
+  if (file.kind === 'settings' || file.kind === 'managed-mcp') return settingsStatus(file);
+  if (file.kind === 'hooks') return hooksDiscovery.statusText(file);
+  if (file.kind === 'managed') return codexDiscovery.managedStatus(file);
+  const servers = `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`;
+  const extra = file.format === 'toml' ? codexDiscovery.configStatus(file) : '';
+  return extra ? `${servers} · ${extra}` : servers;
+}
+
+/** The COVERAGE "Settings read" sentence for one client: its mcpPolicy when it has one, else its hook counts when a hooks file exists. */
+function settingsSentence(client) {
+  return claudeCodeSettings.coverageSentence(client.mcpPolicy, client.label) || hooksDiscovery.coverageSentence(client.hooks, client.label);
+}
+
 function editSentence(step) {
   if (step.edit.action === 'move_server') return `Move the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration to ${step.target ? step.target.label : step.edit.toClient}. Rescan afterward to verify the change landed.`;
   return `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration. Rescan afterward to verify the change landed.`;
@@ -193,8 +210,7 @@ function renderReport(report, options = {}) {
         continue;
       }
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
-      const status = file.status === 'found'
-        ? (file.kind === 'settings' || file.kind === 'managed-mcp' ? settingsStatus(file) : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
+      const status = file.status === 'found' ? fileStatus(file)
         : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
       out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
@@ -287,7 +303,7 @@ function renderReport(report, options = {}) {
     const hints = report.graph ? securityGraph.productionHints(report.graph) : [];
     out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}${hints.length ? ` ${plural(hints.length, 'permission')} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''}`);
     for (const client of report.discovery) {
-      const sentence = claudeCodeSettings.coverageSentence(client.mcpPolicy);
+      const sentence = settingsSentence(client);
       if (sentence) out('  ', s.dim('Settings read: '), sentence);
     }
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
@@ -408,4 +424,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('Optional cloud history: boppi push --dry-run shows what would be sent. Nothing leaves this machine without a workspace token and your consent. (https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, traversalSentence, safeText, PATH_RULE_FOR_TEMPLATE };
+module.exports = { settingsSentence, renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, traversalSentence, safeText, PATH_RULE_FOR_TEMPLATE };

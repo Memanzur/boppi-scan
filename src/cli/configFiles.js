@@ -6,7 +6,8 @@
 'use strict';
 
 function filesHolding(client, server) {
-  const found = (client ? client.files || [] : []).filter(f => f.status === 'found' && f.kind !== 'settings');
+  // Only configuration files hold servers; settings, hooks, and managed policy entries carry a `kind`.
+  const found = (client ? client.files || [] : []).filter(f => f.status === 'found' && !f.kind);
   if (found.some(f => !Array.isArray(f.servers))) return found.map(f => f.path);
   return found.filter(f => f.servers.includes(server)).map(f => f.path);
 }

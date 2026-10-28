@@ -32,6 +32,8 @@ const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const builtinTools = require('./builtinTools');
 const claudeCodeSettings = require('./claudeCodeSettings');
+const codexDiscovery = require('./discovery/codex');
+const hooksDiscovery = require('./discovery/hooks');
 const recognitionModule = require('./recognition');
 const predict = require('./predict');
 const verify = require('./verify');
@@ -98,7 +100,7 @@ function usage() {
     '',
     'fix options:',
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
-    '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor',
+    '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor | codex (Codex CLI entries are reported but not edited; its config is TOML)',
     '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
     '',
     'plan options:',
@@ -151,9 +153,9 @@ function usage() {
     '  --html <file>       write a self-contained HTML report',
     '  --sarif <file>      write a SARIF 2.1.0 report (paths, findings, policy violations) for code scanning',
     '  --policy <file>     evaluate a boppi.policy.json guard; ./boppi.policy.json is used automatically when present',
-    '  --only <clients>    limit discovery, e.g. --only claude-desktop,cursor',
+    '  --only <clients>    limit discovery, e.g. --only claude-desktop,cursor (keys: claude-desktop, claude-code, cursor, codex)',
     '  --config <path>     scan one explicit config file (skip discovery)',
-    '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
+    '  --source <id>       client type for --config: claude-desktop | claude-code | cursor | codex (a .toml file)',
     '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity, 4 if a client could not be analyzed (CI usage)',
     '  --overlay <file>    apply an unsigned capability claims file; validated claims add inferred permissions, experimental ones are only reported',
     '  --overlay-bundle <file> --trust <keys.json>',
@@ -182,6 +184,9 @@ function parseArgs(argv) {
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
     // Fixtures only: where to look for managed-settings.json instead of the platform location.
     managedDir: process.env.BOPPI_MANAGED_SETTINGS_DIR || null,
+    // Fixtures only: the Codex CLI managed requirements directory and the Cursor enterprise hooks directory.
+    codexManagedDir: process.env.BOPPI_CODEX_MANAGED_DIR || null,
+    cursorEnterpriseDir: process.env.BOPPI_CURSOR_ENTERPRISE_DIR || null,
   };
   let askRequested = false;
   const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--overlay-bundle', '--trust', '--receipt', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
@@ -459,6 +464,7 @@ function renderHistory(file) {
 const ONLY_ALIASES = Object.freeze({
   claude: 'claude-desktop', 'claude-desktop': 'claude-desktop', desktop: 'claude-desktop',
   'claude-code': 'claude-code', code: 'claude-code', cursor: 'cursor',
+  codex: 'codex', 'codex-cli': 'codex',
 });
 
 /** Per-machine secret that keys every path fingerprint. Created once, mode 600, never leaves the machine. */
@@ -499,6 +505,16 @@ function discover(options) {
       const json = file.policy && read.documents.get(path.resolve(file.path));
       if (json) client.projectPolicy = file.policy(json);
     }
+    if (descriptor.inspect && client.primaryPath) {
+      // Hook files and managed policy, counts only; read only when discovery found this client, like Claude Code's settings.
+      const extra = descriptor.inspect(client);
+      for (const entry of extra.files || []) {
+        if (entry.status !== 'not_found') filesRead.add(entry.path);
+        client.files.push(entry);
+      }
+      if (extra.mcpPolicy) client.mcpPolicy = extra.mcpPolicy;
+      if (extra.hooks) client.hooks = extra.hooks;
+    }
     if (builtinTools.hasBuiltinTools(client.clientKey)) {
       // Permission settings are read only when discovery found this client, and never in explicit --config mode.
       client.builtin = builtinTools.describeBuiltin(client.clientKey, client.primaryPath ? descriptor.settingsFiles || null : null, { home: options.home, cwd: options.cwd });
@@ -524,7 +540,7 @@ function discover(options) {
 function mcpPolicyFor(client) {
   const policy = client.builtin.policy;
   const scopeOf = new Map();
-  for (const file of client.files) if (file.kind !== 'settings' && file.kind !== 'managed-mcp') for (const key of file.servers || []) scopeOf.set(key, file.scope);
+  for (const file of client.files) if (!file.kind) for (const key of file.servers || []) scopeOf.set(key, file.scope);
   const servers = Object.entries(client.mergedServers).map(([name, server]) => ({ name, scope: scopeOf.get(name) || 'user', server }));
   const { servers: graded, counts } = claudeCodeSettings.enablement({ servers, policy, project: client.projectPolicy || null });
   return {
@@ -703,9 +719,11 @@ function portablePath(file, home) {
   if (file === root || file.startsWith(root + path.sep)) return '~' + file.slice(root.length).split(path.sep).join('/');
   return scanner.pathFingerprint(file);
 }
-/** A managed settings file at its documented machine-wide location names nothing personal, so it keeps its literal path; anywhere else it is fingerprinted like any other path outside the home. */
+/** The documented machine-wide policy directories: Claude Code managed settings, Codex CLI requirements, Cursor enterprise hooks. */
+const MACHINE_WIDE_DIRS = Object.freeze([...Object.values(claudeCodeSettings.MANAGED_DIR), ...Object.values(codexDiscovery.MANAGED_DIR), ...Object.values(hooksDiscovery.CURSOR_ENTERPRISE_DIR)]);
+/** A policy file at its documented machine-wide location names nothing personal, so it keeps its literal path; anywhere else it is fingerprinted like any other path outside the home. */
 function portableSettingsPath(file, home) {
-  if (file.scope === 'managed' && Object.values(claudeCodeSettings.MANAGED_DIR).some(dir => file.path.startsWith(dir))) return file.path;
+  if ((file.scope === 'managed' || file.scope === 'enterprise') && MACHINE_WIDE_DIRS.some(dir => file.path.startsWith(dir))) return file.path;
   return portablePath(file.path, home);
 }
 function portableDiscovery(discovery, home) {
@@ -758,7 +776,11 @@ function renderPlanDiffs(scan, options) {
     const client = scan.discovery.clients.find(c => c.clientKey === p.client.key);
     const preview = client ? previewFor(scan, options, client, p.edit.server) : null;
     lines.push('', `  remove "${p.edit.server}" from ${p.client.label}`);
-    if (!preview) { lines.push('    no readable file holds this entry'); continue; }
+    if (!preview) {
+      const manual = client ? fix.manualEdit(client, fix.descriptorsFor(options).find(d => d.clientKey === client.clientKey), p.edit.server) : null;
+      lines.push(manual ? `    file:    ${manual.file} (edit by hand: ${manual.reason})` : '    no readable file holds this entry');
+      continue;
+    }
     lines.push(`    file:    ${preview.file} (${preview.scope} scope)`, remediate.renderPreview(preview, '    '));
   }
   return lines.join('\n');
@@ -844,7 +866,9 @@ async function runFix(options) {
   const client = candidates[0];
   const preview = previewFor(before, options, client, options.server);
   if (!preview) {
-    process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
+    const manual = fix.manualEdit(client, fix.descriptorsFor(options).find(d => d.clientKey === client.clientKey), options.server);
+    if (manual) process.stderr.write(`fix: "${options.server}" is configured in ${manual.file}. ${manual.reason}\n`);
+    else process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
     return 2;
   }
   const prediction = before.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === options.server && p.client.key === client.clientKey);

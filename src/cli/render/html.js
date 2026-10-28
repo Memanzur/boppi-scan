@@ -14,7 +14,6 @@ const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
-const claudeCodeSettings = require('../claudeCodeSettings');
 const terminal = require('./terminal');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
@@ -209,7 +208,7 @@ function renderHtml(report, options = {}) {
     ? `Incomplete sources: ${report.incomplete.join(', ')}.`
     : 'Complete for the supported configuration sources that were found.')
     + (report.traversal && !report.traversal.complete ? ` Search limit: ${terminal.traversalSentence(report.traversal)} Paths beyond the limit were not examined.` : '');
-  const settingsSentences = (report.discovery || []).map(client => claudeCodeSettings.coverageSentence(client.mcpPolicy)).filter(Boolean);
+  const settingsSentences = (report.discovery || []).map(client => terminal.settingsSentence(client)).filter(Boolean);
   const GATE_WORD = { unprompted: 'No prompt', prompted: 'Prompts', denied: 'Denied', unknown: 'Not checked' };
   const builtinRows = (report.discovery || []).filter(c => c.builtin && c.agentId).flatMap(client => {
     const name = agentName(client.agentId);

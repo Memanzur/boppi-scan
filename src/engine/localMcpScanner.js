@@ -11,6 +11,7 @@
     'claude-desktop': Object.freeze({ id:'local-mcp-claude-desktop', name:'Claude Desktop MCP configuration', vendor:'Anthropic', type:'ai_assistant', agentName:'Claude Desktop' }),
     'claude-code': Object.freeze({ id:'local-mcp-claude-code', name:'Claude Code MCP configuration', vendor:'Anthropic', type:'coding_agent', agentName:'Claude Code' }),
     'cursor': Object.freeze({ id:'local-mcp-cursor', name:'Cursor MCP configuration', vendor:'Anysphere', type:'coding_agent', agentName:'Cursor' }),
+    'codex': Object.freeze({ id:'local-mcp-codex', name:'Codex CLI MCP configuration', vendor:'OpenAI', type:'coding_agent', agentName:'Codex CLI' }),
   });
   const SENSITIVE_NAME = /(token|secret|password|private[_-]?key|api[_-]?key|authorization|cookie|credential)/i;
   // Positional arguments have no field name to key off. Keep this deliberately

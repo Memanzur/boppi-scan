@@ -2,7 +2,7 @@
 
 See what your local AI agents can reach.
 
-`boppi scan` reads the MCP server configs for Claude Desktop, Claude Code, and Cursor on your machine, builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
+`boppi scan` reads the MCP server configs for Claude Desktop, Claude Code, Cursor, and Codex CLI on your machine, builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
 
 ```sh
 npx boppi scan
@@ -178,6 +178,14 @@ For Claude Code, the scan reads `~/.claude/settings.json`, `.claude/settings.jso
 
 The same settings files also say which MCP servers Claude Code will use. The scan reads the documented keys (`enableAllProjectMcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers`; `enabledMcpServers` and `disabledMcpServers` for the project in `~/.claude.json`; managed `allowedMcpServers`, `deniedMcpServers`, `allowManagedMcpServersOnly`) and reports each server as enabled, awaiting approval, disabled, or unknown in the COVERAGE section and the export (`discovery.clients[].mcpPolicy`). This is inspect-only evidence: a disabled server is still graded until the rubric decides otherwise (rubric 1.0.3 open question), a wildcard URL rule is reported as unknown rather than evaluated, and the servers inside `managed-mcp.json` are counted but not added to the inventory. Hook blocks are counted per event (handlers, and whether the Boppi collector is among them); no hook is run and no command text, matcher, or prompt is recorded. Cursor keeps its auto-run setting outside readable configuration, so its built-in tools are reported with prompting `not checked`. Explicit `--config` scans model the built-in tools but do not read settings.
 
+### Codex CLI and Cursor hooks (inspect-only)
+
+Codex CLI keeps its configuration in TOML: `~/.codex/config.toml` and, for a trusted project, `.codex/config.toml` in the working directory. The scan reads both with a small fail-closed TOML reader (`src/cli/discovery/toml.js`): a file it cannot parse is recorded as unreadable, the scan exits 4 as for any unreadable config, and `boppi verify` withholds closures that depend on it. Each `[mcp_servers.<name>]` table is mapped onto the same shape as every other client's entries (command, args, env names, url; `bearer_token_env_var` counts as a credential reference by name), so a Codex server is graded exactly like a Cursor one. `enabled = false` is reported as a disabled state in `discovery.clients[].mcpPolicy`, and a disabled server is still graded (the same rubric 1.0.3 open question as Claude Code). `approval_policy` and `sandbox_mode` are recorded as values only, in the COVERAGE line and the export, and marked "recorded, not graded": no rubric row reads them, and whether `approval_policy = "never"` or `sandbox_mode = "danger-full-access"` should change a grade is a founder decision that has not been made. Hooks are counted from `~/.codex/hooks.json`, `.codex/hooks.json` in the working directory, and an inline `[hooks]` table (handlers per event, files); no hook is run and no command text is kept. The managed requirements file (`/etc/codex/requirements.toml`; `~/.codex/managed_config.toml` on Windows) is reported as present or absent with its allow lists (`allowed_approval_policies`, `allowed_sandbox_modes`, the `mcp_servers` allowlist, `allow_managed_hooks_only`); a server the allowlist does not name is reported disabled. Requirements delivered by MDM or cloud-managed policy are not read, and the report says so. Codex's own shell and file tools are not modeled as built-in grants yet (Cursor's are, with prompting `not checked`); that is a second open founder question.
+
+Limitation: `boppi fix` and `boppi rollback` do not edit TOML files yet. For a Codex server they stop with "Boppi does not edit TOML files yet; remove the [mcp_servers.<name>] table by hand and rerun boppi verify", `boppi plan` phrases the edit as a table deletion, and nothing is written.
+
+Cursor hooks (`~/.cursor/hooks.json`, `.cursor/hooks.json` in the working directory, and the enterprise file at `/Library/Application Support/Cursor/hooks.json` on macOS, `/etc/cursor/hooks.json` on Linux, `C:\ProgramData\Cursor\hooks.json` on Windows) are read as counts only: handlers per event, number of files, whether any entry was malformed. They appear as `hooks` entries in the DISCOVERY list and one `Settings read:` line in COVERAGE when a hooks file exists. Cursor's built-in tools stay `not checked`: a hook is configuration evidence of what may run around a call, not evidence of what the agent did, and Boppi never claims to observe live agent behavior from it. Only Claude Code's own `boppi hook` collector produces observed evidence.
+
 ### Per-tool reach and file scope
 
 A capability id is server-wide and stops at one category, so a GitHub server that can push commits used to look the same as one that only reads issues, and a filesystem server pointed at `~/` looked the same as one pointed at a photos folder. The scanner now maps the tool names the catalog and the config already list to the engine's finer categories (`push_files` is modify source code, `kubectl_apply` is access to a production system, `slack_post_message` is an external message, a Gmail server reads and sends email) and attaches one extra permission per category to the server. The terminal report prints them as `reach through tools:` under each MCP SERVERS line, the HTML report shows them under capabilities, the graph carries them as `Reach:` evidence on the server node, and the JSON export records them with source id `tool-reach:<server>:<category>`. Catalog-derived reach is `inferred`; reach from a configured directory is `observed`.
@@ -191,7 +199,7 @@ Every path is potential. The scanner sees configuration, not behavior. It cannot
 ## Commands and flags
 
 ```
-boppi scan                     discover configs, scan, print the full report
+boppi scan                     discover configs, scan, print the full report (--only claude-desktop,claude-code,cursor,codex)
 boppi agents                   inventory table only
 boppi paths                    exposure paths only
 boppi plan                     compare every candidate fix side by side and print the exact edits; changes nothing
@@ -374,7 +382,8 @@ If a server entry contains something that looks like a secret in a place the sca
 |--------|-------|
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows, `~/.config/Claude/claude_desktop_config.json` on Linux |
 | Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory; settings from `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json` in the working directory, and the managed location for the platform (permission counts and mode, server enablement names, hook counts, managed locks; never rule or command text) |
-| Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
+| Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory; hooks counts from `~/.cursor/hooks.json`, `.cursor/hooks.json` in the working directory, and the enterprise location for the platform (never command text) |
+| Codex CLI | `~/.codex/config.toml`, plus `.codex/config.toml` in the working directory (`mcp_servers` tables, `enabled`, `approval_policy` and `sandbox_mode` values); hooks counts from `~/.codex/hooks.json`, `.codex/hooks.json` in the working directory, and an inline `[hooks]` table; presence and allow lists of `/etc/codex/requirements.toml` (`~/.codex/managed_config.toml` on Windows). Reported and graded, not edited: `boppi fix` does not write TOML |
 
 A server entry that carries a `disabled` or `enabled: false` key inside one of these files is still graded as configured. The documented Claude Desktop and Cursor formats have no such key, so Boppi cannot tell whether the client honors it; it says what the file would allow. (Claude Code's documented enable and disable settings are read on a development branch and are not in this release.)
 

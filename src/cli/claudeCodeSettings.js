@@ -201,8 +201,13 @@ function enablement({ servers, policy, project }) {
   return { servers: out, counts };
 }
 
-/** One sentence for COVERAGE, or '' when there is nothing to say. */
-function coverageSentence(mcpPolicy) {
+/**
+ * One sentence for COVERAGE, or '' when there is nothing to say. The same
+ * shape serves every client that records an mcpPolicy (Claude Code, Codex
+ * CLI): server states, hook counts, managed policy, and any values that are
+ * recorded without being graded.
+ */
+function coverageSentence(mcpPolicy, label = 'Claude Code') {
   if (!mcpPolicy) return '';
   const parts = [];
   const c = mcpPolicy.counts || {};
@@ -213,12 +218,22 @@ function coverageSentence(mcpPolicy) {
     if (c.needs_approval) bits.push(`${c.needs_approval} awaiting approval`);
     if (c.disabled) bits.push(`${c.disabled} disabled by settings`);
     if (c.unknown) bits.push(`${c.unknown} unknown`);
-    parts.push(`Claude Code MCP servers by settings: ${bits.join(', ')}${c.disabled || c.needs_approval || c.unknown ? '; every configured server is still graded (rubric 1.0.3 open question)' : ''}.`);
+    parts.push(`${label} MCP servers by settings: ${bits.join(', ')}${c.disabled || c.needs_approval || c.unknown ? '; every configured server is still graded (rubric 1.0.3 open question)' : ''}.`);
   }
   const hooks = mcpPolicy.hooks;
-  if (hooks) parts.push(hooks.handlers ? `Hooks: ${hooks.handlers} handler${hooks.handlers === 1 ? '' : 's'} across ${hooks.events} event${hooks.events === 1 ? '' : 's'}${hooks.boppiCollector ? ', including the Boppi collector' : ''}; none were run.` : 'Hooks: none configured.');
+  if (hooks) {
+    const where = hooks.inline ? ` (${hooks.inline} inline in config.toml)` : '';
+    parts.push(hooks.handlers ? `Hooks: ${hooks.handlers} handler${hooks.handlers === 1 ? '' : 's'} across ${hooks.events} event${hooks.events === 1 ? '' : 's'}${where}${hooks.boppiCollector ? ', including the Boppi collector' : ''}; none were run.` : 'Hooks: none configured.');
+    if (hooks.unreadable) parts.push(`${hooks.unreadable} hooks file${hooks.unreadable === 1 ? '' : 's'} could not be read, so the hook count is incomplete.`);
+  }
   const managed = mcpPolicy.managed;
-  if (managed) parts.push(managed.found ? `Managed settings: present (${managed.locks.join(', ') || 'no locks'}). ${NOT_READ}` : `Managed settings: no file at ${managed.checked} checked location${managed.checked === 1 ? '' : 's'}. ${NOT_READ}`);
+  const notRead = managed && managed.notRead ? managed.notRead : NOT_READ;
+  if (managed) parts.push(managed.found ? `Managed settings: present (${managed.locks.join(', ') || 'no locks'}). ${notRead}` : `Managed settings: no file at ${managed.checked} checked location${managed.checked === 1 ? '' : 's'}. ${notRead}`);
+  const policy = mcpPolicy.policy;
+  if (policy && (policy.approvalPolicy || policy.sandboxMode)) {
+    const values = [policy.approvalPolicy ? `approval_policy ${policy.approvalPolicy}` : '', policy.sandboxMode ? `sandbox_mode ${policy.sandboxMode}` : ''].filter(Boolean).join(', ');
+    parts.push(`Policy values: ${values} (recorded, not graded; configuration evidence, not observed behavior).`);
+  }
   return parts.join(' ');
 }
 

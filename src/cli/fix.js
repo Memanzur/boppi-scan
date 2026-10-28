@@ -9,18 +9,25 @@ const path = require('path');
 const crypto = require('crypto');
 const { validateConfigShape } = require('./configFiles');
 
-const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
+const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor'), require('./discovery/codex')];
+const codex = require('./discovery/codex');
+const toml = require('./discovery/toml');
 const MANIFEST_VERSION = 1;
 
 /** The client descriptors a scan with these options reads: one explicit file, or every known client location. */
 function descriptorsFor(options) {
   if (options.config) {
+    // A Codex CLI file is TOML; every other explicit file is JSON.
+    const isToml = options.source === 'codex' && /\.toml$/i.test(options.config);
     return [{
       clientKey: options.source, label: `Explicit config (${options.source})`, source: options.source,
-      files: [{ path: path.resolve(options.config), scope: 'explicit', blocks: [{ keyPath: ['mcpServers'], scope: 'explicit' }] }],
+      ...(isToml ? { manualEdit: codex.MANUAL_EDIT } : {}),
+      files: [isToml
+        ? { path: path.resolve(options.config), scope: 'explicit', format: 'toml', blocks: [{ keyPath: ['mcp_servers'], scope: 'explicit' }], map: codex.serverShape, evidence: codex.fileEvidence }
+        : { path: path.resolve(options.config), scope: 'explicit', blocks: [{ keyPath: ['mcpServers'], scope: 'explicit' }] }],
     }];
   }
-  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform, managedDir: options.managedDir || null }));
+  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform, managedDir: options.managedDir || null, codexManagedDir: options.codexManagedDir || null, cursorEnterpriseDir: options.cursorEnterpriseDir || null }));
 }
 
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -36,11 +43,15 @@ function objectAt(json, keyPath) {
   return isObject(node) ? node : null;
 }
 
-function unreadableReason(error) {
+function unreadableReason(error, format) {
   if (error.code === 'EACCES' || error.code === 'EPERM') return 'permission denied';
   if (error.code === 'EISDIR') return 'this is a directory, not a config file';
+  if (format === 'toml') return 'invalid TOML';
   return error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
 }
+
+/** Parse a discovered file by its declared format; JSON unless the locator says TOML. */
+function parseConfig(file, text) { return file.format === 'toml' ? toml.parse(text) : JSON.parse(text); }
 
 /**
  * Read every file one client descriptor names, in order, and list each
@@ -50,6 +61,8 @@ function unreadableReason(error) {
  * every write path go through here, so a label resolves to the entry it was
  * given to. overrides maps a resolved path to parsed contents to read in
  * place of that file, so a rollback can label the entries of a backup.
+ * A TOML file (Codex CLI) is read the same way: `map` turns each table into
+ * the common server shape and `evidence` adds recorded values to its entry.
  */
 function readClient(descriptor, cwd, overrides = new Map()) {
   const files = [], servers = [], documents = new Map(), taken = new Set(), seen = new Set();
@@ -57,28 +70,32 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     const resolved = path.resolve(file.path);
     if (seen.has(resolved)) continue; // user and project config can be the same file
     seen.add(resolved);
-    const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [] };
+    const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [], ...(file.format ? { format: file.format } : {}) };
     files.push(entry);
     if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;
     let json;
     try {
-      json = overrides.has(resolved) ? overrides.get(resolved) : JSON.parse(fs.readFileSync(resolved, 'utf8'));
-      validateConfigShape(json, { source: descriptor.source, cwd });
+      json = overrides.has(resolved) ? overrides.get(resolved) : parseConfig(file, fs.readFileSync(resolved, 'utf8'));
+      if (file.format !== 'toml') validateConfigShape(json, { source: descriptor.source, cwd });
     } catch (error) {
       entry.status = 'unreadable';
-      entry.reason = unreadableReason(error);
+      entry.reason = unreadableReason(error, file.format);
       continue;
     }
     entry.status = 'found';
     documents.set(resolved, json);
+    // Values the locator records beyond the server entries (policy values, counts); never command or secret text.
+    if (file.evidence) Object.assign(entry, file.evidence(json));
     for (const block of file.blocks) {
-      for (const [name, server] of Object.entries(objectAt(json, block.keyPath) || {})) {
+      for (const [name, raw] of Object.entries(objectAt(json, block.keyPath) || {})) {
+        const server = file.map ? file.map(raw) : raw;
+        if (server === null) continue;
         let label = name;
         for (let n = 2; taken.has(label); n++) label = n === 2 ? `${name} (${block.scope})` : `${name} (${block.scope} ${n})`;
         taken.add(label);
         entry.servers.push(label);
         if (label !== name) (entry.renamed = entry.renamed || []).push({ from: name, to: label });
-        servers.push({ label, name, file: resolved, scope: file.scope, keyPath: [...block.keyPath, name], server });
+        servers.push({ label, name, file: resolved, scope: file.scope, keyPath: [...block.keyPath, name], server, ...(file.format ? { format: file.format } : {}) });
       }
     }
     entry.serverCount = entry.servers.length;
@@ -95,9 +112,20 @@ function readClient(descriptor, cwd, overrides = new Map()) {
 function locateServer(descriptor, label, cwd, overrides) {
   const { servers, documents } = readClient(descriptor, cwd, overrides);
   const found = servers.find(s => s.label === label);
-  if (!found) return null;
+  // Boppi edits only JSON. A server in a TOML file is never located, so no write path can touch it; manualEdit explains why.
+  if (!found || found.format === 'toml') return null;
   const labels = new Map(servers.filter(s => s.file === found.file).map(s => [JSON.stringify(s.keyPath), s.label]));
   return { file: found.file, scope: found.scope, json: documents.get(found.file), name: found.name, keyPath: found.keyPath, labels };
+}
+
+/**
+ * Why a server cannot be removed by boppi fix: it lives in a file Boppi does
+ * not edit (TOML). Returns { file, reason } or null when fix can proceed.
+ */
+function manualEdit(client, descriptor, serverName) {
+  const holder = (client.files || []).find(f => f.status === 'found' && f.format === 'toml' && (f.servers || []).includes(serverName));
+  if (!holder) return null;
+  return { file: holder.path, reason: (descriptor && descriptor.manualEdit) || codex.MANUAL_EDIT };
 }
 
 /** Delete the one entry at keyPath. Returns whether it was there. */
@@ -208,4 +236,4 @@ function confirm(question) {
   });
 }
 
-module.exports = { CLIENTS, openRegular, lockPath, acquireLock, descriptorsFor, readClient, locateServer, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };
+module.exports = { CLIENTS, openRegular, lockPath, acquireLock, descriptorsFor, parseConfig, readClient, locateServer, manualEdit, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };

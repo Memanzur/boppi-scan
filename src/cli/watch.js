@@ -24,6 +24,7 @@ function targets(options) {
     if (wanted && !wanted.has(descriptor.clientKey)) continue;
     for (const file of descriptor.files) files.push({ path: path.resolve(file.path), clientKey: descriptor.clientKey, kind: 'config' });
     for (const file of descriptor.settingsFiles || []) files.push({ path: path.resolve(file.path), clientKey: descriptor.clientKey, kind: 'settings' });
+    for (const file of descriptor.inspectFiles || []) files.push({ path: path.resolve(file.path), clientKey: descriptor.clientKey, kind: 'settings' });
   }
   const unique = [...new Map(files.map(f => [f.path, f])).values()];
   const directories = [...new Set(unique.map(f => path.dirname(f.path)))].filter(dir => { try { return fs.statSync(dir).isDirectory(); } catch { return false; } });

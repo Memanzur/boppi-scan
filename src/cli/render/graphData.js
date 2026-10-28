@@ -140,7 +140,7 @@ function buildGraphView(report) {
         Object.assign(detail, { vendor: agent.vendor || null, type: agent.type || null, riskScore: agent.riskScore ?? null, riskLevel: agent.riskLevel || null });
         evidence.push({ title: 'Risk', detail: `${agent.riskScore ?? 0}/100 ${agent.riskLevel || 'low'}` });
         const client = discovery.find(c => c.agentId === agent.id);
-        if (client) evidence.push({ title: 'Configuration files', detail: client.files.filter(f => f.status === 'found' && f.kind !== 'settings').map(f => f.path).join(', ') || 'none found' });
+        if (client) evidence.push({ title: 'Configuration files', detail: client.files.filter(f => f.status === 'found' && !f.kind).map(f => f.path).join(', ') || 'none found' });
         if (client && client.builtin) {
           for (const grant of client.builtin.grants) evidence.push({ title: `Built-in ${grant.label}`, detail: `${grant.tools.map(t => t.tool).join(', ')} · ${grant.summary}` });
           const settings = client.builtin.settings;

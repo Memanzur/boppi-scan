@@ -6,6 +6,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+// Documented machine-wide policy locations keep their literal path; they name nothing personal.
+const MACHINE_WIDE_DIRS = [...Object.values(require('../src/cli/claudeCodeSettings').MANAGED_DIR), ...Object.values(require('../src/cli/discovery/codex').MANAGED_DIR), ...Object.values(require('../src/cli/discovery/hooks').CURSOR_ENTERPRISE_DIR)];
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
 let passed = 0, failed = 0;
@@ -143,7 +145,7 @@ function runCli(args, home) {
   ok('raw filesystem paths are fingerprinted in MCP records', !JSON.stringify(exported.inventory.real.mcpServers).includes(path.join(home, 'docs')));
 
   section('Export carries no raw filesystem paths');
-  ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/') || (f.scope === 'managed' && f.path.startsWith('/Library/Application Support/ClaudeCode/'))) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
+  ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/') || ((f.scope === 'managed' || f.scope === 'enterprise') && MACHINE_WIDE_DIRS.some(dir => f.path.startsWith(dir)))) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
   ok('the Claude Desktop config is listed by its ~ path', exported.discovery.filesRead.includes('~/Library/Application Support/Claude/claude_desktop_config.json'));
   ok('the export never contains the scanned home directory', !serialized.includes(home));
   // Check exact JSON string values. A substring check falsely fails on CI

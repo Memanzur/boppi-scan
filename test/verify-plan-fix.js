@@ -79,7 +79,8 @@ function runCli(args, home, extra = {}) {
     ok('root cause edit lines never name a file without that server', scan.stdout.includes(`remove the "kubernetes" entry from ${userFile}`) && !scan.stdout.includes(`remove the "kubernetes" entry from ${projectFile}`) && !scan.stdout.includes(`remove the "repo" entry from ${userFile}`));
     const exported = JSON.parse(run(['scan', '--json', path.join(root, 'home2.json'), '--quiet']).stdout ? fs.readFileSync(path.join(root, 'home2.json'), 'utf8') : '{}');
     const cursor = (exported.discovery && exported.discovery.clients || []).find(c => c.clientKey === 'cursor');
-    ok('the export records which servers each file holds, by name only', !!cursor && cursor.files.every(f => Array.isArray(f.servers)) && cursor.files.map(f => f.servers.join()).sort().join('|') === 'kubernetes|repo');
+    const configEntries = cursor ? cursor.files.filter(f => !f.kind) : [];
+    ok('the export records which servers each file holds, by name only', !!cursor && configEntries.every(f => Array.isArray(f.servers)) && configEntries.map(f => f.servers.join()).sort().join('|') === 'kubernetes|repo');
     const legacy = require('../src/cli/configFiles').filesHolding({ files: [{ path: 'a', status: 'found' }, { path: 'b', status: 'found' }] }, 'x');
     ok('an older export without per-file servers falls back to every found file', legacy.join() === 'a,b');
   }
