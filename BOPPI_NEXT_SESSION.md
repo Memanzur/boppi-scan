@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 22:55 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:00 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -19,7 +19,7 @@ An externally testable beta: a stranger signs up on hosted Boppi Cloud, installs
 | --- | --- | --- |
 | Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | 6bf3b43 (handoff mirror commit follows) |
 | Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | ad8ba18 + this handoff commit |
-| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 67aa3ee, untouched |
+| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 89fd4e6 (demo refresh only) |
 
 The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders regrouped 2026-10-27 21:09; see `~/Desktop/Boppi Workspace/START HERE.md`). Keep the links.
 
@@ -39,7 +39,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-10 push --file re-sanitize; fix predictions file out of the project | done | scanner 2621c8b, control resync 1fe2912 | `npm test` 40/40 (push 61 with planted-canary test), control verify exit 0 |
 | T-8 rollback harness + down files for the newest migrations | done | control 1f1171e | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
 | T-9 documentation truth pass | done (website copy moved to B-4/B-5) | scanner b61416c, control dd00843 | scanner 40/40 (events push now exits 5 as documented), control verify exit 0 |
-| Candidate rebuild from b61416c | in progress | | |
+| Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker journeys not rerun |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
 
@@ -49,17 +49,18 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Building candidate 0.4.0-b61416c with `node scripts/release-candidate.js --out "$HOME/Desktop/Boppi Workspace/Builds/Candidates/Boppi-candidate-0.4.0-b61416c"` in the scanner. Recovery if interrupted: if that folder exists without `CANDIDATE.json`, the build died; move the folder aside (rename with `-interrupted`, never delete) and rerun. If `CANDIDATE.json` exists, the build finished; read its checks. The 104147d candidate is never touched.
+Nothing uncommitted. Next: B-1.
 
 ## Exact next steps (next five tasks)
 
-1. Finish the candidate build above, add a Desktop link to it, then regenerate website `public/boppi-demo.{html,json}` and Cloud `public/guest-demo.{html,json}` from it and write `docs/release/RELEASE_MANIFEST_0.4.0-b61416c.json` (keep the 104147d manifest). D-11 then chooses between candidates.
-2. B-1: specific error and notice messages in the dashboard (`apps/control-plane/lib/navigation.ts`) instead of one generic sentence.
-3. B-2: D-27 option (a) as presentation only: show "applied, not verified" with its age on the remediation screen.
-4. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`lib/domain.ts:62` lacks shell/code/network/read/write).
-5. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
+1. B-1: specific error and notice messages in the dashboard (`apps/control-plane/lib/navigation.ts`) instead of one generic sentence.
+2. B-2: D-27 option (a) as presentation only: show "applied, not verified" with its age on the remediation screen.
+3. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`lib/domain.ts:62` lacks shell/code/network/read/write).
+4. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
 
-Then B-7 in-app privacy link, B-8 local delete_my_account SQL test, B-9 deterministic demo build, Milestone C (signed overlay bundles), D (coverage), E (operations). Owed when Docker is running: `verify-remediation-routes.ts` and `verify-connector-journey.mjs` on a disposable stack.
+5. B-8: local `delete_my_account` SQL test across remediation, governance and intelligence rows (disposable DB).
+
+D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667.json`); 104147d stays as the fallback. Then B-7 in-app privacy link, B-8 local delete_my_account SQL test, B-9 deterministic demo build, Milestone C (signed overlay bundles), D (coverage), E (operations). Owed when Docker is running: `verify-remediation-routes.ts` and `verify-connector-journey.mjs` on a disposable stack.
 
 Known pre-existing failures, not caused by this session (they fail the same on 4398c0f): legacy `node scripts/verify-exposure-paths.js` ("EP-C must fire") and `node scripts/verify-cli-scan.js` ("minimal remediation plan is shown") in Boppi-auto. They exercise the legacy extension copy and are not in `npm run verify`. Triage later.
 3. Owed when Docker and a disposable Supabase stack are up: rerun `verify-remediation-routes.ts` and `verify-connector-journey.mjs` (real CLI to real routes) to cover T-4 and T-6 end to end. Commit each one with its tests and update the table above.
