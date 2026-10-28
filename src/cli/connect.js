@@ -26,6 +26,7 @@ const riskRubric = require('../engine/riskRubric');
 const scanner = require('../engine/localMcpScanner');
 const fix = require('./fix');
 const remediate = require('./remediate');
+const updateNotice = require('./updateNotice');
 const { openRegular, acquireLock } = fix;
 
 const SCHEMA_VERSION = 1;
@@ -520,6 +521,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function runConnect(options, deps) {
   const out = line => process.stdout.write(line + '\n');
   const err = line => process.stderr.write(line + '\n');
+  deps = { ...deps, fetchImpl: updateNotice.watching(options.home, deps.fetchImpl || globalThis.fetch) };
   if (options.subcommand === 'pair') return runPair(options, deps, out, err);
   const pairing = loadPairing(options.home);
   if (options.subcommand === 'status') { out(renderStatus(options, pairing)); return 0; }
@@ -534,6 +536,7 @@ async function runConnect(options, deps) {
   for (;;) {
     const code = await new Cycle({ options, pairing, deps, out, err }).run();
     if (options.once) return code;
+    updateNotice.announce(options.home, deps.version, err);
     out(`  next poll in ${options.interval} s (Ctrl-C stops; nothing is applied without confirmation here)`);
     await sleep(options.interval * 1000);
   }

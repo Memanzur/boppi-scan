@@ -12,6 +12,7 @@
 const fs = require('fs');
 const hook = require('./hook');
 const push = require('./push');
+const updateNotice = require('./updateNotice');
 
 /** What `boppi events push` sends per record: the stored metadata keys and nothing else. */
 const PUSH_KEYS = Object.freeze(['id', 'at', 'event', 'kind', 'server', 'source', 'tool', 'session', 'invocation', 'cwd', 'outcome', 'durationMs']);
@@ -200,7 +201,7 @@ async function runEventsPush(options, { promptForToken, fetchImpl } = {}) {
     options.token = await promptForToken();
     if (!options.token) { process.stderr.write('events push: no token entered\n'); return 2; }
   }
-  const result = await pushEvents({ eventsUrl: url, token: options.token, events, fetchImpl });
+  const result = await pushEvents({ eventsUrl: url, token: options.token, events, fetchImpl: updateNotice.watching(options.home, fetchImpl || globalThis.fetch) });
   if (!result.ok) { process.stderr.write(`${push.describeFailure(result)}\n`); return 5; }
   process.stdout.write(`events push: sent ${result.received} events from the last ${sinceDays} days to ${url.host}; ${result.accepted} new, ${result.received - result.accepted} already there${skipped ? `; ${skipped} unreadable records skipped` : ''}. Metadata only: event, server, tool, outcome, duration and keyed digests. Review it on the workspace's Activity page.\n`);
   return 0;

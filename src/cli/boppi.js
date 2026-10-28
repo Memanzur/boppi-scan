@@ -41,6 +41,7 @@ const overlayBundle = require('./overlayBundle');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
+const updateNotice = require('./updateNotice');
 const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
@@ -967,7 +968,7 @@ async function runPush(options) {
   process.stdout.write('Only sanitized inventory metadata is sent: no secret values, file contents, or raw paths.\n');
   if (!options.merge && !snapshot) process.stderr.write('Partial, incomplete, legacy, or oversized scan: merging evidence without removing earlier records. Run a complete discovery scan to replace the full inventory.\n');
 
-  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt, collector, coverage, builtinResidual });
+  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl: updateNotice.watching(options.home, globalThis.fetch) });
   if (!result.ok) {
     process.stderr.write(`${push.describeFailure(result)}\n`);
     return 5;
@@ -1084,11 +1085,22 @@ async function run(argv) {
   return 0;
 }
 
+/** The command, then the stored update notice on stderr. A hook stays silent: Claude Code reads its output. */
+async function main(argv) {
+  const code = await run(argv);
+  if (argv[0] !== 'hook') {
+    let home = process.env.BOPPI_SCAN_HOME || os.homedir();
+    try { home = parseArgs(argv).home; } catch (_) { /* usage error: default home */ }
+    updateNotice.announce(home, VERSION);
+  }
+  return code;
+}
+
 if (require.main === module) {
-  run(process.argv.slice(2)).then(code => { process.exitCode = code; }).catch(error => {
+  main(process.argv.slice(2)).then(code => { process.exitCode = code; }).catch(error => {
     process.stderr.write(`boppi: unexpected error: ${error && error.message ? error.message : error}\n`);
     process.exitCode = 3;
   });
 }
 
-module.exports = { run, parseArgs, discover, performScan, exportPayload, verifiedReduction, VERSION };
+module.exports = { run, main, parseArgs, discover, performScan, exportPayload, verifiedReduction, VERSION };

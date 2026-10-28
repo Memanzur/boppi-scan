@@ -6,7 +6,7 @@ if (major < 18) {
   process.exit(3);
 }
 const cli = require('../src/cli/boppi');
-cli.run(process.argv.slice(2)).then(code => { process.exitCode = code; }).catch(error => {
+cli.main(process.argv.slice(2)).then(code => { process.exitCode = code; }).catch(error => {
   process.stderr.write(`boppi: unexpected error: ${error && error.message ? error.message : error}\n`);
   process.exitCode = 3;
 });
