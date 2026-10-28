@@ -81,10 +81,12 @@ function liveFixes(home) {
   const restored = new Set(manifest.entries.filter(e => e.action === 'rollback').map(e => e.restoredFrom));
   const fixes = manifest.entries.filter(e => e.action === 'remove_server');
   const live = fixes.filter(e => !restored.has(e.id)).map(e => ({ id: e.id, server: e.server, original: e.original }));
-  const known = new Set(fixes.map(e => e.backup && path.resolve(e.backup)));
+  // Records may hold the resolved path (/private/tmp) while --home names a link to it (/tmp); compare real paths.
+  const real = file => { try { return fs.realpathSync(file); } catch (_) { return path.resolve(file); } };
+  const known = new Set(fixes.map(e => e.backup && real(e.backup)));
   let files = [];
   try { files = fs.readdirSync(path.join(boppiDir(home), 'backups')).filter(name => name.endsWith('.bak')); } catch (_) { /* no backups dir */ }
-  for (const name of files) if (!known.has(path.resolve(boppiDir(home), 'backups', name))) live.push({ id: null, server: null, original: name });
+  for (const name of files) if (!known.has(real(path.join(boppiDir(home), 'backups', name)))) live.push({ id: null, server: null, original: name });
   return live;
 }
 

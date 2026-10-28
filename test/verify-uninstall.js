@@ -113,6 +113,17 @@ const HOOK_SNIPPET = { hooks: { PreToolUse: [{ matcher: 'mcp__.*', hooks: [{ typ
   const after = await runCli(['uninstall', '--yes'], fixed);
   ok('after the rollback, uninstall removes everything without --include-backups', after.code === 0 && after.stdout.includes('backups of fixes already rolled back') && !fs.existsSync(path.join(fixed, '.boppi')), after.stderr);
 
+  // The connector records backups under the resolved home (/private/tmp on macOS); --home may name a link to it.
+  const realHome = makeHome(root, 'real-home');
+  const aliasHome = path.join(root, 'alias-home');
+  fs.symlinkSync(realHome, aliasHome);
+  const viaReal = await runCli(['fix', '--server', 'fetch', '--yes'], realHome);
+  const realId = JSON.parse(fs.readFileSync(path.join(realHome, '.boppi', 'backups', 'index.json'), 'utf8')).entries.find(e => e.action === 'remove_server').id;
+  const realBack = await runCli(['rollback', '--id', realId, '--yes'], realHome);
+  ok('setup: fix and rollback recorded under the real home path', viaReal.code === 0 && realBack.code === 0, viaReal.stderr + realBack.stderr);
+  const viaAlias = await runCli(['uninstall', '--yes'], aliasHome);
+  ok('uninstall through a linked home still sees the rolled-back backup as recorded', viaAlias.code === 0 && !viaAlias.stdout.includes('a backup no fix record names') && !fs.existsSync(path.join(realHome, '.boppi')), viaAlias.stdout);
+
   const forced = makeHome(root, 'forced-home');
   ok('setup: a second home with a fix applied', (await runCli(['fix', '--server', 'fetch', '--yes'], forced)).code === 0);
   const all = await runCli(['uninstall', '--yes', '--include-backups'], forced);
