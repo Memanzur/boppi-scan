@@ -247,7 +247,7 @@ Every row is a rescan of the configuration with that one edit applied. `breaks` 
 
 ### Dashboard-requested fixes (connector)
 
-`boppi connect` lets a teammate in your Boppi workspace propose one of the removals `boppi plan` already offers, and lets you apply it here with the same preview, backup and rescan as `boppi fix`. The cloud never fixes anything without local approval, and the connector only pulls: it opens no port, accepts no command string, and talks to one workspace URL that must be `https` (plain `http` only to localhost).
+`boppi connect` lets a teammate in your Boppi workspace propose one of the removals `boppi plan` already offers, and lets you apply it here with the same preview, backup and rescan as `boppi fix`. The cloud never fixes anything without local approval, and the connector only pulls: it opens no port, accepts no command string, and talks to one workspace URL that must be `https` (plain `http` only to localhost). Before it claims an approved proposal, the connector checks that the proposal matches exactly one of the changes this machine offered in the same run: the same file, entry, hashes, expected exposure paths and capability loss. Anything else is refused as `not_offered` and never written, even with `--yes`.
 
 ```
 boppi connect pair --url https://app.boppi.io --code <pair-code> [--name <device name>]

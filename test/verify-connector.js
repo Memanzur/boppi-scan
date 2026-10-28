@@ -227,6 +227,33 @@ function startWorkspace() {
     ok('the output says nothing was written', raced.stdout.includes('not written (hash_changed)') && !raced.stdout.includes('applied locally'));
     fs.writeFileSync(desktopConfig, original);
 
+    section('only removals this device offered are executed (T-4)');
+    {
+      const tampered = [
+        ['no expected exposure paths', b => { b.expectedExposureKeys = []; }],
+        ['hidden capability loss', b => { b.capabilityLoss = []; }],
+        ['another project fingerprint', b => { b.project = 'p_forged0000000000'; }],
+        ['an unknown action treated as a removal', b => { b.action = 'move_server'; }],
+      ];
+      for (const [label, mutate] of tampered) {
+        await runCli(['connect', 'run', '--once'], home);
+        const id = ws.propose(fetchKey);
+        mutate(ws.proposals.get(id).binding);
+        ws.approve(id);
+        const claimsBefore = ws.byRoute('claim').length;
+        const forged = await runCli(['connect', 'run', '--once', '--yes'], home);
+        ok(`${label}: refused as not_offered even with --yes, never claimed, file and manifest untouched`, forged.stdout.includes(`${id}  refused (not_offered)`) && ws.byRoute('claim').length === claimsBefore && fs.readFileSync(desktopConfig).equals(original) && manifestEntries().length === 0 && !forged.stdout.includes('applied locally'));
+        ws.proposals.get(id).state = 'cancelled';
+      }
+      const offer = ws.previews.get(fetchKey);
+      const binding = { ...offer, action: 'remove_server' };
+      ok('offerMatches accepts the exact offer', connect.offerMatches(offer, binding));
+      ok('offerMatches refuses a server the device did not offer', !connect.offerMatches(offer, { ...binding, server: '1password' }));
+      ok('offerMatches refuses an unoffered file fingerprint', !connect.offerMatches(offer, { ...binding, targetFile: 'f_other' }));
+      ok('offerMatches refuses a changed config or preview hash', !connect.offerMatches(offer, { ...binding, configHash: '0'.repeat(64) }) && !connect.offerMatches(offer, { ...binding, previewHash: '0'.repeat(64) }));
+      ok('offerMatches refuses a removal offer used as a rollback', !connect.offerMatches(offer, { ...binding, action: 'rollback', backupManifestId: 'remove_server-x' }));
+    }
+
     section('an approved proposal applied, reported and rescanned');
     await runCli(['connect', 'run', '--once'], home);
     const applyProposal = ws.propose(fetchKey);

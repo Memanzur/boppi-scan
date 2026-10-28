@@ -172,6 +172,23 @@ function toOffer(target, scannerVersion, computedAt) {
   };
 }
 
+const sameList = (a, b) => Array.isArray(a) && Array.isArray(b) && JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+
+/**
+ * Whether a proposal binding is exactly one of this run's offers: same
+ * action, client, project, file, entry, hashes, rollback manifest, and the
+ * same expected paths and capability loss the confirmation will print. The
+ * device executes nothing else, whatever the workspace sends.
+ */
+function offerMatches(offer, binding) {
+  const action = binding.action;
+  if (action !== 'rollback' && action !== 'remove_server') return false;
+  if ((offer.action || 'remove_server') !== action) return false;
+  for (const key of ['client', 'project', 'targetFile', 'server', 'configHash', 'previewHash']) if (offer[key] !== binding[key]) return false;
+  if (action === 'rollback') return offer.backupManifestId === binding.backupManifestId;
+  return sameList(offer.expectedExposureKeys, binding.expectedExposureKeys) && sameList(offer.capabilityLoss, binding.capabilityLoss || []);
+}
+
 /** The local file a binding's target fingerprint names, among the files a scan with these options reads, or null. */
 function fileForBinding(options, binding) {
   for (const descriptor of fix.descriptorsFor(options)) {
@@ -407,13 +424,17 @@ class Cycle {
     return false;
   }
 
-  async execute(proposal, scan) {
+  async execute(proposal, scan, offers) {
     const b = proposal.binding;
     const already = manifestEntryFor(this.options.home, proposal.id);
     if (already) { this.out(`  ${proposal.id}  already applied on this machine as manifest ${already.id}; not applying again`); return; }
     if (b.expiresAt && Date.parse(b.expiresAt) < Date.now()) { this.out(`  ${proposal.id}  expired at ${b.expiresAt}; not claiming`); return; }
     const target = targetForBinding(this.options, scan, b);
     const current = target.regularFile && target.configHash === b.configHash && target.previewHash === b.previewHash;
+    if (current && !offers.some(offer => offerMatches(offer, b))) {
+      this.out(`  ${proposal.id}  refused (not_offered): "${clip(String(b.server), 128)}" on ${clip(String(b.client), 32)} is not a change this device offered in this run; not claimed, nothing written`);
+      return;
+    }
     if (current && !await this.confirmLocally(proposal, target)) return;
     if (!current) this.out(`  ${proposal.id}  "${b.server}" on ${b.client}: ${target.regularFile ? 'the file or its preview changed since the proposal' : `the target is not a regular file (${target.failureCode})`}; claiming so the workspace records the conflict, nothing will be written`);
 
@@ -483,7 +504,7 @@ class Cycle {
     const rollbacks = offers.filter(o => o.action === 'rollback').length;
     this.out(`BOPPI · CONNECT  ${scan.startedAt}  ${offers.length - rollbacks} removal offer(s), ${rollbacks} rollback offer(s) sent (hashes, fingerprints, key names, counts, versions; no paths or contents), ${proposals.length} proposal${proposals.length === 1 ? '' : 's'} returned`);
     for (const proposal of proposals.filter(p => p.state === 'proposed')) await this.reportPreview(proposal, scan);
-    for (const proposal of proposals.filter(p => p.state === 'approved')) await this.execute(proposal, scan);
+    for (const proposal of proposals.filter(p => p.state === 'approved')) await this.execute(proposal, scan, offers);
     for (const proposal of proposals.filter(p => p.state === 'applied')) await this.gradeApplied(proposal, scan);
     return this.problems ? 5 : 0;
   }
@@ -546,4 +567,4 @@ async function runConnect(options, deps) {
   }
 }
 
-module.exports = { SUBCOMMANDS, ROUTES, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, applyRemoval, runConnect };
+module.exports = { SUBCOMMANDS, ROUTES, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, offerMatches, applyRemoval, runConnect };
