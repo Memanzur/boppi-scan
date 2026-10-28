@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:21 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:30 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -17,7 +17,7 @@ An externally testable beta: a stranger signs up on hosted Boppi Cloud, installs
 
 | Repo | Branch | Head at this checkpoint |
 | --- | --- | --- |
-| Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | b61416c (T-9) + mirror ff7fa9b |
+| Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | eff4796 (C-1) + mirror commits |
 | Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | 31aaab6 (routes probe fix) + this handoff commit |
 | Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | dbf2fca (B-9 reproducible demo; B-4/B-5 49aa147; not deployed) |
 
@@ -46,6 +46,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | B-8 local delete_my_account test | done | control b63bca1 | test:db:local 426 PASS (36 new, in remediation, governance, intelligence-review and intelligence-evaluation); negative control (deletion that leaves the workspace) fails as expected |
 | B-7 in-app Privacy and Terms links | done | control c6e57f6 | Chromium 1280/390 on stack n89Sdo (restarted from its volume, rebuilt, then stopped again): 5 surfaces, links visible with right targets, no overflow, axe clean, 0 console errors; evidence `~/Desktop/Boppi-hybrid-2026-10-27-evidence/b7-policy-links/`; verify exit 0 |
 | B-9 byte-reproducible demo build | done | website dbf2fca, Cloud sync ec0df0a, manifest r2 (this commit) | Root causes: random per-install fingerprint key, random temp home, live clock. Pinned: clock = candidate built_at (preload), home `/tmp/boppi-website-demo-build`, demo key = sha256('boppi-synthetic-demo-key:'+tarball sha). Two builds identical; `npm run demo:build -- --check` REPRODUCED sha256 3e8d9fb4...; website guest 32 (under headers), Cloud guest 16; `docs/release/RELEASE_MANIFEST_0.4.0-32a9667-r2.json` verified 28 (the original manifest now fails by design: Cloud runtime changed after its snapshot) |
+| C-1 verified overlay bundle (+ B-6 README EP-D wording) | done | scanner eff4796 | test/verify-overlay-bundle.js 52 (all 8 spec criteria), npm test 41/41; plain scan export identical to the previous commit apart from time-derived ids. NOTE: scanner src/README now differ from the 32a9667 tarball, so `verify-release-manifest` r2 fails its 'working file equals packaged' check until the next candidate is built (planned at the end of Milestone C) |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker stack n89Sdo (22:30-22:57): exact-tarball beta journey 27, remediation routes 63, real-CLI connector journey 31, browser remediation drive 59 steps. Logs in `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-32a9667/` |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -56,15 +57,15 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-C-1 verified overlay bundle in the scanner (`src/cli/overlayBundle.js`, `boppi overlay verify|status|rollback|reset`, `scan --overlay-bundle <f> --trust <f>`), spec = `docs/requirements/gap-audit-2026-10-27/intelligence-website.md` section 6 (8 acceptance criteria). If interrupted: inspect `git -C ~/Desktop/boppi-scan-auto status`, keep the diff, finish it and run `npm test -- --resume`. Melody 2026-10-27: Milestone C is not the finish line; continue through D and E automatically.
+C-3 next (see below). Melody 2026-10-27: Milestone C is not the finish line; continue through D and E automatically.
 
 ## Exact next steps (next five tasks)
 
-1. Website leftovers from the audit: stale sitemap lastmod, Lovable README.
-2. Milestone C-1: verified overlay bundle (Ed25519, expiry, compatibility; scanner).
-3. Milestone C-3: correction-reason retention function and review history table (new migration + down file, local only).
-4. Milestone C-4: Intelligence SQL/journey tests runnable from one command.
-5. Next candidate rebuild (new folder, never overwrite 32a9667) once scanner changes accumulate. It must carry B-6: README.md:151 says EP-D fires when 'sensitive data sits behind an unverified server', but it fires only on an explicit `trustStatus: "unverified"` config key, which no client writes; unrecognized servers do not trigger it. Deferred because README.md is inside the frozen tarball and verify-release-manifest requires the checkout README to equal the packaged one.
+1. C-3: correction-reason retention (purge function with a retention window) and an append-only review history table; new migration + down file; local SQL tests only.
+2. C-4: one command that runs every Intelligence SQL and journey test.
+3. C-2: held-out labeling protocol doc + a deterministic corpus split by server identity (tooling only; human labeling is a founder gate).
+4. Build the next candidate (new folder; never overwrite 32a9667) from the scanner with C-1 + B-6, rerun kit, demo (`npm run demo:build` reproducible), manifest.
+5. Milestone D (coverage): Desktop extensions, Windows paths, rebase of the 5a branch; then E (operations).
 
 After that: Milestone C (signed overlay bundles), D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667-r2.json`; r1 is the 22:50 snapshot); 104147d stays as the fallback.
 
