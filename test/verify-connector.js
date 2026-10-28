@@ -98,6 +98,7 @@ function startWorkspace() {
       const proposal = body && body.proposalId ? ws.proposals.get(body.proposalId) : null;
       switch (req.url) {
         case '/api/connector/poll': {
+          if (ws.limitOnce) { ws.limitOnce = false; res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '137' }); return res.end(JSON.stringify({ error: 'rate_limited', retryAfterSeconds: 137 })); }
           if (!Array.isArray(body.offers) || body.offers.length > 64) return reply(res, 400, { error: 'validation' });
           ws.previews = new Map(body.offers.map(o => [offerKey(o), o]));
           return reply(res, 200, { proposals: [...ws.proposals.values()].filter(p => ['proposed', 'approved', 'applied'].includes(p.state)).map(p => ({ id: p.id, state: p.state, binding: p.binding, approvedAt: p.approvedAt })) });
@@ -427,6 +428,11 @@ function startWorkspace() {
     const refused = await runCli(['connect', 'run', '--once'], home);
     ok('run refuses a stored non-loopback http workspace before any request', refused.code === 2 && refused.stderr.includes('https') && ws.requests.length === requestsBefore);
     fs.writeFileSync(pairingFile, JSON.stringify(pairing));
+
+    section('rate limit');
+    ws.limitOnce = true;
+    const limited = await runCli(['connect', 'run', '--once'], home);
+    ok('a 429 poll exits 5 and says when to retry, without retrying on its own', limited.code === 5 && limited.stderr.includes('HTTP 429: rate_limited') && limited.stderr.includes('retry in 137 seconds') && limited.stderr.includes('does not retry on its own'), limited.stderr);
 
     section('credential rotation');
     const readPairing = () => JSON.parse(fs.readFileSync(pairingFile, 'utf8'));

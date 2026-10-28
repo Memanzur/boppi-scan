@@ -108,6 +108,8 @@ async function request({ url, credential, route, body, fetchImpl = globalThis.fe
 function describeFailure(route, result) {
   if (result.networkError) return `could not reach the workspace for ${route}: ${result.networkError}`;
   const code = result.body && result.body.error ? result.body.error : 'unknown error';
+  const wait = Number(result.body && result.body.retryAfterSeconds);
+  if (result.status === 429) return `the workspace refused ${route} (HTTP 429: ${code}): this device made too many calls; retry in ${Number.isInteger(wait) && wait > 0 ? `${wait} seconds` : 'a few minutes'}. boppi does not retry on its own`;
   return `the workspace refused ${route} (HTTP ${result.status}: ${code})`;
 }
 
