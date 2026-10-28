@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:10 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:20 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -40,6 +40,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-8 rollback harness + down files for the newest migrations | done | control 1f1171e | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
 | T-9 documentation truth pass | done (website copy moved to B-4/B-5) | scanner b61416c, control dd00843 | scanner 40/40 (events push now exits 5 as documented), control verify exit 0 |
 | B-1 specific dashboard error messages | done | control 67b53f3 | verify:flash 6 (in npm run verify), verify exit 0; signed-in browser check owed (needs stack) |
+| B-2 applied-age display (D-27a, display only) | done | control 2d7e01c | verify:remediation 316 |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker journeys not rerun |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -50,11 +51,10 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Nothing uncommitted. Next: B-2. Docker Desktop was started locally at 23:10 for disposable stacks (no hosted target).
+Running the Docker-backed journeys on a NEW disposable stack (`/tmp/boppi-beta-local.*`, created by `docs/LOCAL_BETA_RUNBOOK.md`): local-beta prepare/build/serve, then `verify` with BOPPI_BETA_CANDIDATE = the 32a9667 CANDIDATE.json, `verify:remediation:routes`, and `verify-connector-journey.mjs`. Recovery: if interrupted, `supabase stop --workdir <that dir>` (no `--all`, no `--no-backup`), kill anything on 3097/3098, and start again with a fresh mktemp dir; `prepare` refuses a stack that already has beta-state.json, so never reuse one. Older stopped stacks (8AQeHU, XtHzu1, ...) are left alone.
 
 ## Exact next steps (next five tasks)
 
-2. B-2: D-27 option (a) as presentation only: show "applied, not verified" with its age on the remediation screen.
 3. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`lib/domain.ts:62` lacks shell/code/network/read/write).
 4. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
 
