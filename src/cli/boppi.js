@@ -32,6 +32,7 @@ const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const builtinTools = require('./builtinTools');
 const plugins = require('./discovery/claudePlugins');
+const configFacts = require('./configFacts');
 const recognitionModule = require('./recognition');
 const predict = require('./predict');
 const verify = require('./verify');
@@ -636,6 +637,7 @@ async function performScan(options) {
     }
     inventory = result.inventory;
   }
+  configFacts.attach(discovery.clients, inventory.mcpServers);
   const incomplete = discovery.clients
     .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable'))
     .map(c => c.label);

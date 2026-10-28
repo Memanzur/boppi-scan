@@ -3,6 +3,7 @@
 const { rankPredictions } = require('../predict');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
 const recognition = require('../recognition');
+const configFacts = require('../configFacts');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
@@ -270,6 +271,8 @@ function renderReport(report, options = {}) {
     const unknownSentence = recognition.coverageSentence(report.recognition);
     const hints = report.graph ? securityGraph.productionHints(report.graph) : [];
     out('  ', s.dim('Not established: '), `runtime behavior, activity that did not appear in configuration, or access not evidenced by the scanned metadata.${unknownSentence ? ` ${unknownSentence}` : ''}${hints.length ? ` ${plural(hints.length, 'permission')} named like production access with no tool list behind ${hints.length === 1 ? 'it' : 'them'} (${hints.join(', ')}): treated as unknown, not as a production path.` : ''}`);
+    const factsSentence = configFacts.coverageSentence(report.inventory.mcpServers);
+    if (factsSentence) out('  ', s.dim('Not graded: '), factsSentence);
     if (report.incomplete?.length) out('  ', s.yellow('Incomplete: '), `these sources could not be fully analyzed: ${report.incomplete.join(', ')}.`);
     else out('  ', s.dim('Scan status: '), 'complete for the supported configuration sources that were found.');
     if (report.traversal && !report.traversal.complete) out('  ', s.yellow('Search limit: '), `${traversalSentence(report.traversal)} Paths beyond the limit were not examined; a missing path is not evidence of absence.`);
