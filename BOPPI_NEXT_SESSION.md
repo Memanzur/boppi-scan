@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:08 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:30 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -19,7 +19,7 @@ An externally testable beta: a stranger signs up on hosted Boppi Cloud, installs
 | --- | --- | --- |
 | Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | b61416c (T-9) + mirror ff7fa9b |
 | Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | 31aaab6 (routes probe fix) + this handoff commit |
-| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 89fd4e6 (demo refresh only) |
+| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 49aa147 (B-4/B-5, not deployed) |
 
 The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders regrouped 2026-10-27 21:09; see `~/Desktop/Boppi Workspace/START HERE.md`). Keep the links.
 
@@ -42,6 +42,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | B-1 specific dashboard error messages | done | control 67b53f3 | verify:flash 6 (in npm run verify), verify exit 0; signed-in Chromium on stack n89Sdo: specific texts shown, a crafted free-text error shows only the generic sentence, 0 console errors |
 | B-2 applied-age display (D-27a, display only) | done | control 2d7e01c | verify:remediation 316; Chromium on stack n89Sdo shows "Applied 30 hours ago and not verified since. Run boppi connect run..." for a synthetic proposal aged by SQL |
 | B-3 Intelligence label vocabulary | done | control 608b29e | verify:intelligence 8 (new parity test: every label is an engine permission category and fits the intake constraint), verify exit 0. Added run_shell_commands, execute_code, read_files, write_files, call_external_api, browse_internet; no migration |
+| B-4/B-5 website copy, privacy draft, security headers | done (draft; publish is a founder call) | website 49aa147 | build + lint (same 7 warnings); under the vercel.json headers via `scripts/serve-with-headers.mjs`: guest 32, 10-25 claims 36, new `docs/release/evidence-2026-10-27-b4/check.cjs` 26; negative control: inline script, external fetch, framing all blocked. Untracked `undefined/` in the website repo is screenshot output from a 10-25 claims run without an out dir (22:48); left untouched |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker stack n89Sdo (22:30-22:57): exact-tarball beta journey 27, remediation routes 63, real-CLI connector journey 31, browser remediation drive 59 steps. Logs in `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-32a9667/` |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -56,11 +57,11 @@ Nothing. Stack `/tmp/boppi-beta-local.n89Sdo` is stopped (volume kept) and port 
 
 ## Exact next steps (next five tasks)
 
-1. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
-2. B-8: local `delete_my_account` SQL test across remediation, governance and intelligence rows (disposable DB).
-3. B-7: in-app privacy link.
-4. B-9: deterministic demo build.
-5. B-6: EP-D README wording.
+1. B-8: local `delete_my_account` SQL test across remediation, governance and intelligence rows (disposable DB).
+2. B-7: in-app privacy link.
+3. B-9: deterministic demo build.
+4. B-6: EP-D README wording.
+5. Website leftovers from the audit: stale sitemap lastmod, Lovable README.
 
 After that: Milestone C (signed overlay bundles), D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667.json`); 104147d stays as the fallback.
 
