@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:00 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:10 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -39,6 +39,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-10 push --file re-sanitize; fix predictions file out of the project | done | scanner 2621c8b, control resync 1fe2912 | `npm test` 40/40 (push 61 with planted-canary test), control verify exit 0 |
 | T-8 rollback harness + down files for the newest migrations | done | control 1f1171e | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
 | T-9 documentation truth pass | done (website copy moved to B-4/B-5) | scanner b61416c, control dd00843 | scanner 40/40 (events push now exits 5 as documented), control verify exit 0 |
+| B-1 specific dashboard error messages | done | control 67b53f3 | verify:flash 6 (in npm run verify), verify exit 0; signed-in browser check owed (needs stack) |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker journeys not rerun |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -49,11 +50,10 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Nothing uncommitted. Next: B-1.
+Nothing uncommitted. Next: B-2. Docker Desktop was started locally at 23:10 for disposable stacks (no hosted target).
 
 ## Exact next steps (next five tasks)
 
-1. B-1: specific error and notice messages in the dashboard (`apps/control-plane/lib/navigation.ts`) instead of one generic sentence.
 2. B-2: D-27 option (a) as presentation only: show "applied, not verified" with its age on the remediation screen.
 3. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`lib/domain.ts:62` lacks shell/code/network/read/write).
 4. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
