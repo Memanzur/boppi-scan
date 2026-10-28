@@ -48,7 +48,10 @@ function readInstalls(root) {
       installs.push({ id, scope: typeof record.scope === 'string' ? record.scope : null, installPath: path.resolve(installPath), version: typeof record.version === 'string' ? record.version : null });
     }
   }
-  return { entry: { ...entry, status: 'found', installs: installs.length, ...(skipped ? { skipped } : {}) }, installs };
+  // A record Boppi cannot read may hold servers, so the index is not complete evidence: keep the readable installs, but report the file
+  // unreadable so the scan is incomplete and a push merges instead of replacing (an omitted plugin must never read as removed).
+  if (skipped) return { entry: { ...entry, status: 'unreadable', reason: 'unsupported install record shape', installs: installs.length, skipped }, installs };
+  return { entry: { ...entry, status: 'found', installs: installs.length }, installs };
 }
 
 /** enabledPlugins from the user, project and local settings files, later files winning, as Claude Code merges them. Managed settings are not read here. */

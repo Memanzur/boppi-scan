@@ -214,6 +214,39 @@ function resanitizeRecords(records) {
   });
 }
 
+// Inventory ids are models.stableId: <kind>_<16 hex>. An export edited by hand can put anything there, and the workspace stores ids verbatim.
+const EXTERNAL_ID = /^[a-z][a-z0-9_-]{0,40}_[0-9a-f]{16}$/;
+const ID_FIELD = /(^|_)external_id$|ExternalId$/;
+
+/**
+ * Fields of an outgoing ingest body that must not be sent: an id that is not
+ * a Boppi id, or any string value or object key with the shape of a secret.
+ * Returns JSON paths only, never values, so the refusal itself leaks nothing.
+ * Ids are rejected rather than rewritten: rewriting would break the references
+ * between records.
+ */
+function unsafeFields(body) {
+  const out = [];
+  const walk = (value, at, key) => {
+    if (typeof value === 'string') {
+      if (ID_FIELD.test(key) && !EXTERNAL_ID.test(value)) out.push(`${at} (not a Boppi id)`);
+      else if (scanner.isSecretShaped(value)) out.push(`${at} (secret-shaped value)`);
+    } else if (Array.isArray(value)) value.forEach((item, i) => walk(item, `${at}[${i}]`, key));
+    else if (value && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        if (scanner.isSecretShaped(k)) out.push(`${at} (secret-shaped key)`);
+        else walk(v, at ? `${at}.${k}` : k, k);
+      }
+    }
+  };
+  walk(body, '', '');
+  return out;
+}
+
+function describeUnsafe(fields) {
+  return `push: refused before sending: ${fields.length} field${fields.length === 1 ? '' : 's'} could carry a secret or are not Boppi ids (${fields.slice(0, 5).join('; ')}${fields.length > 5 ? '; …' : ''}). Nothing was sent. Export again with boppi scan --json instead of editing the file.`;
+}
+
 /** Workspace or ingest URL as given by the user, resolved to the ingest endpoint. */
 function resolveIngestUrl(input) {
   let url;
@@ -272,6 +305,8 @@ async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, coll
  */
 async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl = globalThis.fetch }) {
   if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
+  const unsafe = unsafeFields(ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }));
+  if (unsafe.length) return { ok: false, unsafe };
   const batches = snapshot ? [records] : [];
   if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
   let ingested = 0;
@@ -301,6 +336,7 @@ const CODE_HINT = Object.freeze({
 });
 
 function describeFailure(result) {
+  if (result.unsafe) return describeUnsafe(result.unsafe);
   if (result.networkError) return `Could not reach the workspace: ${result.networkError}`;
   const body = result.body || {};
   const message = body.error || 'unknown error';
@@ -309,4 +345,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, unsafeFields, describeUnsafe, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };

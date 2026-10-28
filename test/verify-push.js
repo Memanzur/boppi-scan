@@ -96,9 +96,9 @@ function startWorkspace() {
   ok('export envelope is projected to safe keys before upload', !JSON.stringify(dirtyEnvelope).includes('PRIVATE_TOKEN') && !JSON.stringify(dirtyEnvelope).includes('/private/config'));
 
   section('Built-in residual envelope');
-  const residualPayload = { builtinResidual: [{ agentId: 'agent_abc', clientKey: 'claude-code', client: 'Claude Code', tools: ['Bash', 'WebFetch'], exposureKeys: ['EP-A:agent_abc', 'EP-E:agent_abc'], priorities: { 'EP-A:agent_abc': 'high', 'EP-E:agent_abc': 'medium', 'EP-Z:other': 'critical' }, settingsRead: true, settingsHint: 'permissions.deny in /Users/private/.claude/settings.json', configPath: '/Users/private/.claude.json' }] };
+  const residualPayload = { builtinResidual: [{ agentId: 'agent_00000000000000ab', clientKey: 'claude-code', client: 'Claude Code', tools: ['Bash', 'WebFetch'], exposureKeys: ['EP-A:agent_00000000000000ab', 'EP-E:agent_00000000000000ab'], priorities: { 'EP-A:agent_00000000000000ab': 'high', 'EP-E:agent_00000000000000ab': 'medium', 'EP-Z:other': 'critical' }, settingsRead: true, settingsHint: 'permissions.deny in /Users/private/.claude/settings.json', configPath: '/Users/private/.claude.json' }] };
   const residual = push.builtinResidualFromExport(residualPayload);
-  ok('the residual envelope carries agent id, client, tools, exposure keys, priorities and the settings flag only', residual.length === 1 && residual[0].agentExternalId === 'agent_abc' && residual[0].tools.join() === 'Bash,WebFetch' && residual[0].exposureKeys.length === 2 && Object.keys(residual[0].priorities).join() === 'EP-A:agent_abc,EP-E:agent_abc' && residual[0].settingsRead === true && Object.keys(residual[0]).sort().join() === 'agentExternalId,client,clientKey,exposureKeys,priorities,settingsRead,tools');
+  ok('the residual envelope carries agent id, client, tools, exposure keys, priorities and the settings flag only', residual.length === 1 && residual[0].agentExternalId === 'agent_00000000000000ab' && residual[0].tools.join() === 'Bash,WebFetch' && residual[0].exposureKeys.length === 2 && Object.keys(residual[0].priorities).join() === 'EP-A:agent_00000000000000ab,EP-E:agent_00000000000000ab' && residual[0].settingsRead === true && Object.keys(residual[0]).sort().join() === 'agentExternalId,client,clientKey,exposureKeys,priorities,settingsRead,tools');
   ok('the residual envelope never carries a settings hint or a path', !JSON.stringify(residual).includes('/Users/private') && !JSON.stringify(residual).includes('settingsHint'));
   ok('an export without a residual sends no residual field', push.builtinResidualFromExport({}) === null && !('builtin_residual' in push.ingestBody({ records: [], builtinResidual: null })));
   ok('a malformed residual entry is dropped, not sent', push.builtinResidualFromExport({ builtinResidual: [{ agentId: 7 }, null] }) === null);
@@ -107,7 +107,7 @@ function startWorkspace() {
   const residualFile = path.join(root, 'residual-export.json');
   fs.writeFileSync(residualFile, JSON.stringify({ ...exported, ...residualPayload }));
   const residualDry = runCli(['push', '--file', residualFile, '--dry-run'], home);
-  ok('a dry run of an export with a residual shows the builtin_residual field the workspace will receive', residualDry.code === 0 && JSON.parse(residualDry.stdout.slice(0, residualDry.stdout.lastIndexOf('}') + 1)).builtin_residual[0].agentExternalId === 'agent_abc');
+  ok('a dry run of an export with a residual shows the builtin_residual field the workspace will receive', residualDry.code === 0 && JSON.parse(residualDry.stdout.slice(0, residualDry.stdout.lastIndexOf('}') + 1)).builtin_residual[0].agentExternalId === 'agent_00000000000000ab');
 
   section('URL rules');
   ok('origin resolves to the ingest endpoint', push.resolveIngestUrl('https://app.boppi.io').toString() === 'https://app.boppi.io/api/ingest');
@@ -177,7 +177,7 @@ function startWorkspace() {
     const incompleteBody = workspace.requests.at(-1).body;
     ok('unreadable discovery is pushed visibly without snapshot cleanup', incompletePush.code === 4 && incompleteBody.snapshot === undefined && incompleteBody.coverage.clients.some(client => client.status === 'unreadable'));
     fs.unlinkSync(path.join(home, '.claude.json'));
-    const bigInventory = { agents: [{ id: 'agent_big', name: 'Big', source: { evidenceClass: 'observed' } }], permissions: Array.from({ length: 2500 }, (_, i) => ({ id: `perm_${i}`, agentId: 'agent_big', rawPermission: `grant ${i}`, normalizedCategory: 'read_files', accessLevel: 'broad', normalizationConfidence: 0.7, source: { evidenceClass: 'inferred' } })) };
+    const bigInventory = { agents: [{ id: 'agent_000000000000b16a', name: 'Big', source: { evidenceClass: 'observed' } }], permissions: Array.from({ length: 2500 }, (_, i) => ({ id: `perm_${i.toString(16).padStart(16, '0')}`, agentId: 'agent_000000000000b16a', rawPermission: `grant ${i}`, normalizedCategory: 'read_files', accessLevel: 'broad', normalizationConfidence: 0.7, source: { evidenceClass: 'inferred' } })) };
     const before = workspace.requests.length;
     const big = await push.pushRecords({ ingestUrl: push.resolveIngestUrl(workspace.url), token: 'bpc_good', records: push.toRecords(bigInventory), snapshot: false, fetchImpl: fetch });
     const bigBatches = workspace.requests.slice(before);

@@ -498,7 +498,8 @@ function discover(options) {
   for (const descriptor of descriptors) {
     if (wanted && !wanted.has(descriptor.clientKey)) continue;
     const read = fix.readClient(descriptor, options.cwd);
-    const client = { clientKey: descriptor.clientKey, label: descriptor.label, source: descriptor.source, files: read.files, mergedServers: {}, primaryPath: null };
+    // Server names come from the user's files: a prototype-free map keeps "__proto__" or "constructor" an ordinary entry instead of a setter.
+    const client = { clientKey: descriptor.clientKey, label: descriptor.label, source: descriptor.source, files: read.files, mergedServers: Object.create(null), primaryPath: null };
     for (const server of read.servers) client.mergedServers[server.label] = server.server;
     for (const entry of read.files) {
       if (entry.status === 'not_found') continue;
@@ -987,9 +988,12 @@ async function runPush(options) {
   const records = options.file ? push.resanitizeRecords(push.toRecords(inventory, recognition)) : push.toRecords(inventory, recognition);
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
-  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and ${incomplete.length === 1 ? 'is' : 'are'} missing from this push.\n`);
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be fully analyzed; whatever the unread files configure is missing from this push, which adds to the workspace without removing anything.\n`);
 
   const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
+  // Checked on the body exactly as it would be sent, before a dry run prints it or a request carries it.
+  const unsafe = push.unsafeFields(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }));
+  if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe)}\n`); return 2; }
   if (options.dryRun) {
     process.stdout.write(JSON.stringify(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }), null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
@@ -1057,7 +1061,7 @@ async function run(argv) {
     return scan.exitCode || 3;
   }
   const { discovery, inventory, paths, incomplete } = scan;
-  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and ${incomplete.length === 1 ? 'is' : 'are'} missing from the results.\n`);
+  if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be fully analyzed; whatever the unread files configure is missing from the results.\n`);
 
   const report = {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,

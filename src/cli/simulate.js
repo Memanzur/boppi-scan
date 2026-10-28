@@ -16,9 +16,10 @@ const { advertisedLookup } = require('./discovery/discover');
 
 /** Inject catalog-inferred capabilities into raw server entries before scanning, and match overlay claims per server. `advertised` is the stored-tool-list lookup for this client (see discover.advertisedLookup); it reads files only. */
 function enrich(mergedServers, home, overlay = null, advertised = null) {
-  const inferenceByServer = {};
-  const overlayByServer = {};
-  const mcpServers = {};
+  // Keyed by server names from user files, so prototype-free: "__proto__" must stay a server, not a setter.
+  const inferenceByServer = Object.create(null);
+  const overlayByServer = Object.create(null);
+  const mcpServers = Object.create(null);
   for (const [name, server] of Object.entries(mergedServers || {})) {
     if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
     const inference = inferCapabilities(name, server, { home, advertised });

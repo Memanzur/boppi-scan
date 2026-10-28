@@ -67,7 +67,8 @@ function snapshot(dir) {
   ok('enablement is recorded from enabledPlugins, and from defaultEnabled when unset', enablement['deploy-tools@acme'].state === 'enabled' && enablement['deploy-tools@acme'].source === 'user' && enablement['notes@acme'].state === 'disabled' && enablement['quiet@acme'].state === 'disabled' && enablement['quiet@acme'].source === 'default');
   const notesManifest = files.find(f => f.path === path.join(fx.notes, '.claude-plugin', 'plugin.json'));
   ok('mcpServers given as a file path is unreadable with a reason, never silently empty', notesManifest.status === 'unreadable' && /does not read yet/.test(notesManifest.reason), notesManifest.reason);
-  ok('an install record with a relative installPath is skipped and counted', descriptor.pluginIndex.status === 'found' && descriptor.pluginIndex.installs === 3 && descriptor.pluginIndex.skipped === 1);
+  // QA-001: a skipped record may hold servers, so the index is unreadable evidence while the readable installs are still scanned.
+  ok('an install record with a relative installPath is counted and makes the index unreadable', descriptor.pluginIndex.status === 'unreadable' && descriptor.pluginIndex.reason === 'unsupported install record shape' && descriptor.pluginIndex.installs === 3 && descriptor.pluginIndex.skipped === 1);
 
   section('The scan grades plugin servers and keeps their secrets and paths out of the export');
   const exportFile = path.join(root, 'scan.json');
@@ -114,7 +115,7 @@ function snapshot(dir) {
   const moved = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-plugins-moved-'));
   fs.cpSync(path.join(home, '.claude', 'plugins'), path.join(moved, 'plugins'), { recursive: true });
   const movedIndex = plugins.pluginFiles({ home: plain, cwd: plain, pluginRoot: path.join(moved, 'plugins') }).index;
-  ok('the index is read from the override root', movedIndex.status === 'found' && movedIndex.path === path.join(moved, 'plugins', 'installed_plugins.json'));
+  ok('the index is read from the override root', movedIndex.installs === 3 && movedIndex.path === path.join(moved, 'plugins', 'installed_plugins.json'));
   const envRun = runCli(['scan', '--json', path.join(plain, 'env.json'), '--quiet'], plain, { CLAUDE_CODE_PLUGIN_CACHE_DIR: path.join(moved, 'plugins') });
   const envNames = read(path.join(plain, 'env.json')).inventory.real.mcpServers.map(s => s.name);
   ok('the CLI honors the environment variable', envRun.code !== null && envNames.includes('plugin:deploy-tools:api'), envNames.join(', '));
