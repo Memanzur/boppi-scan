@@ -8,6 +8,8 @@
  */
 'use strict';
 
+const scanner = require('../engine/localMcpScanner');
+
 const DEFAULT_WORKSPACE_URL = 'https://app.boppi.io';
 const EVENTS_PATH = '/api/events';
 const INGEST_PATH = '/api/ingest';
@@ -183,6 +185,34 @@ function toRecords(inventory, recognition) {
   return records;
 }
 
+const RAW_PATH = /^(?:\/|~\/|[A-Za-z]:[\\/]|\\\\)/;
+
+/** Replace every secret-shaped string anywhere in a value. */
+function scrubSecrets(value) {
+  if (typeof value === 'string') return scanner.isSecretShaped(value) ? '[redacted-sensitive-value]' : value;
+  if (Array.isArray(value)) return value.map(scrubSecrets);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, scrubSecrets(v)]));
+  return value;
+}
+
+/**
+ * Records built from a file the user may have edited since boppi wrote it
+ * (push --file): run the scan-time sanitizers again, so a pasted token,
+ * a raw path or a full command path never leaves the machine. Idempotent
+ * on an unedited export, so it pushes the same body a fresh scan would.
+ */
+function resanitizeRecords(records) {
+  return records.map(r => {
+    const metadata = scrubSecrets(r.metadata || {});
+    if (r.kind === 'mcp_server') {
+      if (typeof metadata.command === 'string') metadata.command = scanner.sanitizeCommand(metadata.command) || '[redacted-sensitive-command]';
+      if (Array.isArray(metadata.args)) metadata.args = scanner.sanitizeArguments(metadata.args.map(String));
+      if (typeof metadata.config_path === 'string' && RAW_PATH.test(metadata.config_path)) metadata.config_path = scanner.pathFingerprint(metadata.config_path);
+    }
+    return { ...r, name: scrubSecrets(r.name), metadata };
+  });
+}
+
 /** Workspace or ingest URL as given by the user, resolved to the ingest endpoint. */
 function resolveIngestUrl(input) {
   let url;
@@ -278,4 +308,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };

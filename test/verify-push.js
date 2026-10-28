@@ -126,6 +126,24 @@ function startWorkspace() {
   ok('--dry-run needs no token, prints the records, and sends nothing', dry.code === 0 && dry.stdout.includes('"records"') && dry.stdout.includes('Nothing was sent'));
   const dryFile = runCli(['push', '--dry-run', '--file', exportPath], home);
   ok('--file pushes an earlier export without rescanning', dryFile.code === 0 && JSON.parse(dryFile.stdout.slice(0, dryFile.stdout.lastIndexOf('}') + 1)).records.length === records.length);
+  const bodyOf = out => JSON.parse(out.stdout.slice(0, out.stdout.lastIndexOf('}') + 1));
+  {
+    const fresh = bodyOf(dry).records.map(r => JSON.stringify(r)).sort();
+    const fromExport = bodyOf(dryFile).records.map(r => JSON.stringify(r)).sort();
+    ok('an unedited export re-sanitizes to exactly the records a fresh scan sends', JSON.stringify(fresh) === JSON.stringify(fromExport));
+    const edited = JSON.parse(fs.readFileSync(exportPath, 'utf8'));
+    const servers = (edited.inventory.real || edited.inventory).mcpServers;
+    servers[0].arguments = [...(servers[0].arguments || []), '--api-key=CANARYKEY0001', '/Users/canary/private/notes', 'ghp_CANARYTOKEN0000000000000', '--token', 'CANARYNEXT0002', 'postgres://canary:CANARYPASS3@db.example'];
+    servers[0].command = '/Users/canary/bin/run-server';
+    servers[0].configPath = '/Users/canary/.claude.json';
+    servers[0].name = 'sk-CANARYNAME00000000';
+    const editedPath = path.join(root, 'edited-export.json');
+    fs.writeFileSync(editedPath, JSON.stringify(edited));
+    const planted = runCli(['push', '--dry-run', '--file', editedPath], home);
+    const body = planted.stdout.slice(0, planted.stdout.lastIndexOf('}') + 1);
+    ok('a planted token, password, path and command in an edited export never reach the request body', planted.code === 0 && !/CANARY|\/Users\/canary/.test(body));
+    ok('the edited server is still sent, with its secrets redacted', body.includes('[redacted-sensitive-argument]') && body.includes('[redacted-sensitive-value]') && body.includes('run-server'));
+  }
   const badFile = runCli(['push', '--dry-run', '--file', path.join(root, 'missing.json')], home);
   ok('a missing --file exits 2 with the reason', badFile.code === 2 && badFile.stderr.includes('cannot read'));
 

@@ -811,8 +811,11 @@ async function runFix(options) {
     if (!approved) { process.stdout.write('Not applied.\n'); return 2; }
   }
 
-  const exportFile = path.resolve(options.cwd, `boppi-fix-${before.startedAt.replace(/[:.]/g, '-')}.json`);
-  fs.writeFileSync(exportFile, JSON.stringify(exportPayload(before), null, 2));
+  // Kept under ~/.boppi, owner-only, so a fix never leaves a file in the project that could be committed.
+  const exportDir = path.join(options.home, '.boppi', 'fix-exports');
+  fs.mkdirSync(exportDir, { recursive: true, mode: 0o700 });
+  const exportFile = path.join(exportDir, `boppi-fix-${before.startedAt.replace(/[:.]/g, '-')}.json`);
+  fs.writeFileSync(exportFile, JSON.stringify(exportPayload(before), null, 2), { mode: 0o600 });
   process.stdout.write(`\nSTAGES  predictions saved to ${exportFile}\n`);
 
   let result = null, after = null, grade = null, failure = null;
@@ -900,7 +903,7 @@ async function runPush(options) {
 
   if (options.file) incomplete = (coverage?.clients || []).filter(client => ['unreadable', 'failed'].includes(client.status)).map(client => client.label);
 
-  const records = push.toRecords(inventory, recognition);
+  const records = options.file ? push.resanitizeRecords(push.toRecords(inventory, recognition)) : push.toRecords(inventory, recognition);
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and ${incomplete.length === 1 ? 'is' : 'are'} missing from this push.\n`);

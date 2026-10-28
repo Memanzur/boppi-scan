@@ -72,6 +72,8 @@
     const held = raw.replace(EMBEDDED_URL, match => { origins.push(sanitizeEndpoint(match) || '[redacted-endpoint]'); return `\u0000${origins.length - 1}\u0000`; });
     return held.replace(EMBEDDED_PATH, match => pathFingerprint(match)).replace(/\u0000(\d+)\u0000/g, (_, i) => origins[Number(i)]);
   }
+  /** Whether a string has the shape of a credential value (token prefix, JWT, user:password@host). */
+  function isSecretShaped(value) { return typeof value === 'string' && (SENSITIVE_VALUE.test(value) || CREDENTIAL_URI.test(value) || CREDENTIAL_AT_HOST.test(value)); }
   function sanitizeArgument(value) {
     const raw = text(value, 'argument', 500);
     if (SENSITIVE_NAME.test(raw) || SENSITIVE_VALUE.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
@@ -169,5 +171,5 @@
     if (!raw || !SOURCE_SPECS[raw.sourceId] || raw.consentRecorded !== true) fail('raw scan result lacks consent and source provenance');
     return { agent:raw.agent, mcpServers:raw.records || [], diagnostics:raw.diagnostics || [], source:raw.source, sourceId:raw.sourceId, dryRun:raw.dryRun !== false, consentRecorded:true };
   }
-  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, pathFingerprint, setFingerprintKey };
+  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, isSecretShaped, pathFingerprint, setFingerprintKey };
 });
