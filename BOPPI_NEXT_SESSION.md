@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:17 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:21 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -56,7 +56,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Nothing. Stack `/tmp/boppi-beta-local.n89Sdo` is stopped (volume kept) and port 3097 is free. The routes run found a test bug from T-6: the "removed origin flag" probe sent a valid approval. Fixed in 31aaab6 (63/63 after the fix). Do not reuse n89Sdo for `prepare`; make a fresh mktemp stack next time.
+C-1 verified overlay bundle in the scanner (`src/cli/overlayBundle.js`, `boppi overlay verify|status|rollback|reset`, `scan --overlay-bundle <f> --trust <f>`), spec = `docs/requirements/gap-audit-2026-10-27/intelligence-website.md` section 6 (8 acceptance criteria). If interrupted: inspect `git -C ~/Desktop/boppi-scan-auto status`, keep the diff, finish it and run `npm test -- --resume`. Melody 2026-10-27: Milestone C is not the finish line; continue through D and E automatically.
 
 ## Exact next steps (next five tasks)
 
