@@ -15,6 +15,7 @@ Boppi helps people and organizations understand, manage, and control what their 
 1. **Visibility. Know what is connected.** Which AI agents, MCP servers, applications, identities, permissions, and resources Boppi can identify.
 2. **Understanding. Know what matters.** Exposure explained in everyday language and backed by actual evidence. Observed activity, configured potential access, inferred permissions, and unknowns are always told apart. Severity is never exaggerated and certainty is never manufactured.
 3. **Control. Know what to do.** Permission guidance, access reviews, policy controls, remediation previews, explicit approvals, verification, and rollback. Boppi never claims to enforce a policy unless enforcement is technically verified.
+   - **Just-in-time privileges (planned, advanced; added 2026-10-27 at the founder's request).** Agents and MCP tools receive narrowly scoped access only when needed, for an approved purpose and a limited time, enforced on the device and fail closed, with audit and verified removal. Not implemented today. Design, dependencies and threat model: `docs/design/JIT_PRIVILEGE_MANAGEMENT_2026-10-27.md` (control plane).
 
 ## Business strategy
 
@@ -72,7 +73,7 @@ Everything above this section.
 
 ### Planned functionality (not started or design only)
 
-Beginner-friendly onboarding past the current welcome page; notifications; user-submitted corrections flowing into Intelligence; background monitoring install and cloud heartbeat (P4-4); remediation pairing, routes, and screens on top of the proposal state machine; team policies and approval workflows; just-in-time and temporary permissions; policy-as-code; automated access reviews; Phase 2 integrations beyond the three supported clients.
+Beginner-friendly onboarding past the current welcome page; notifications; user-submitted corrections flowing into Intelligence; background monitoring install and cloud heartbeat (P4-4); remediation pairing, routes, and screens on top of the proposal state machine; team policies and approval workflows; just-in-time and temporary permissions (design only, see the JIT design note; no code); policy-as-code; automated access reviews; Phase 2 integrations beyond the three supported clients.
 
 ### Hypotheses requiring user validation
 
