@@ -1,4 +1,64 @@
-# SAVED AND STOPPED — Boppi local release consolidation, 2026-10-27
+# Current checkpoint (read first) — updated 2026-10-27 22:25 MDT
+
+Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
+
+1. Run `bash ~/Desktop/Boppi-auto/scripts/session-preflight.sh` (read-only). It shows uncommitted changes, interrupted git operations, leftover processes, ports, Docker and disposable databases, plus the scanner test state.
+2. Never discard uncommitted changes. Read the diff, compare it with "In progress" below, then finish or commit it.
+3. Check for partial side effects before you restart anything. Never repeat a migration against any Supabase project. The disposable test databases (`npm run test:db:local`, plain Postgres in a mktemp dir on port 54391) are safe to rerun. Local Supabase Docker stacks hold volumes, so inspect them before you reset them.
+4. Rerun only the tests you need. In the scanner, `npm test -- --resume` skips suites that already passed on identical code, and `npm test -- --only a.js,b.js` runs a subset.
+
+Not authorized: push, merge, deploy, publish, Gate B/C, any production or hosted change, billing, DNS, credentials, Soccer App (`abmxjvstbepetqskipby`).
+
+## Goal
+
+An externally testable beta: a stranger signs up on hosted Boppi Cloud, installs the Agent on their own computer, pairs, sees findings, approves a supported fix, verifies it and returns later. Plan: `docs/release/BUILD_ROADMAP_2026-10-27.md` (Milestones A to E, the next ten tasks) and `docs/release/EXTERNAL_BETA_READINESS_2026-10-27.md`. The full Agent + Cloud + Intelligence vision stays in `BOPPI_PRODUCT_VISION.md`, including planned JIT privileges (`docs/design/JIT_PRIVILEGE_MANAGEMENT_2026-10-27.md`, decisions D-34 to D-37).
+
+## Repositories (all local, nothing pushed)
+
+| Repo | Branch | Head at this checkpoint |
+| --- | --- | --- |
+| Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | 6bf3b43 (handoff mirror commit follows) |
+| Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | ad8ba18 + this handoff commit |
+| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 67aa3ee, untouched |
+
+The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders regrouped 2026-10-27 21:09; see `~/Desktop/Boppi Workspace/START HERE.md`). Keep the links.
+
+## Milestone A progress (roadmap section 4)
+
+| Task | State | Commit | Verification |
+| --- | --- | --- | --- |
+| T-1 finding verifies only from complete, comparable snapshots | done | control d3a446f | test:db:local 390 PASS (rerun 2026-10-27 22:15 after the restart) |
+| T-2 complete collector erasure | done | control ad8ba18 | same run; `npm run verify` exit 0, 311 remediation checks |
+| T-3 same-name Claude Code servers | done (recovered after the restart) | scanner 9116f44 | `npm test` 39/39 suites, new verify-same-name-servers 19, connector 65 |
+| (tooling) resumable scanner test runner | done | scanner 6bf3b43 | --resume and --only smoke-tested |
+| (tooling) session preflight script | done | control, this commit | ran clean |
+| T-4 connector executes only removals this device offered | next | | |
+| T-5 CLI fix/rollback use the connector's safe write path | todo | | |
+| T-6 approval origin decided server-side | todo | | |
+| T-7 login CSRF, signup enumeration, CSV injection | todo | | |
+| T-10 push --file re-sanitize; fix manifest location | todo | | |
+| T-8 rollback harness + down files for five newest migrations | todo | | |
+| T-9 documentation truth pass, then rebuild the candidate | todo | | |
+
+## Recovered after the 2026-10-27 ~21:49 restart
+
+- The session before the restart committed the JIT design (ebb12e3), the gap audit and roadmap (2c167cc), T-1 (d3a446f) and T-2 (ad8ba18). It did not update this handoff.
+- It left T-3 uncommitted in the scanner (7 files, last write 21:48). With it, `npm test` showed 37/38: connector dashboard rollback broke because `rollbackTarget` passed a location without a key path. Fixed: the rollback relabels the backup's entries and checks the key path recorded in the manifest. Added the missing regression suite, then committed.
+- No interrupted git operation, no leftover process, no stale disposable database. The Docker daemon was not running, so no local Supabase stack was up and none was touched. Leftover `boppi-*` temp dirs in $TMPDIR are test homes, harmless, not deleted.
+
+## In progress
+
+Nothing uncommitted. Next: T-4.
+
+## Exact next steps
+
+1. T-4 (scanner `src/cli/connect.js`): before any write, refuse a removal proposal whose binding (client, target file fingerprint, server label, config hash) does not match an offer this device computes from its current plan, including with `--yes`. Tests in `test/verify-connector.js`: a foreign server, a changed hash, an unoffered fingerprint.
+2. Then T-5, T-6, T-7, T-10, T-8, T-9 in that order. Commit each one with its tests and update the table above.
+3. After Milestone A, rebuild the candidate from the fixed scanner (new folder, never overwrite the 104147d candidate) and move the D-11 choice to it.
+
+---
+
+# Historical: saved and stopped after release consolidation, 2026-10-27 17:13 (superseded by the checkpoint above)
 
 Melody requested a complete local save and stop. This supersedes older feature-development instructions below. Resume only after the next user instruction. No push, merge, deploy, publish, production operation, Gate B/C, Soccer App access, or DNS/credential/account/billing/project change is authorized.
 
