@@ -1,5 +1,7 @@
 # Release candidate: boppi 0.4.0 (local, unpublished)
 
+**Superseded status (note added 2026-10-28):** the newest candidate, its manifest and every open gate are listed in Boppi-auto `docs/roadmap/FOUNDER_DASHBOARD.md` and `docs/release/APPROVAL_GATES_2026-10-28.md`. Candidate names below are history.
+
 **Current frozen candidate (2026-10-27):** `~/Desktop/Boppi-candidate-0.4.0-104147d`, source `104147d`, sha256 `1de37969ccb1ae094c69b48800b5d27303308ead12dca7e73fb8d938da2c16d0`; cross-component manifest in control `docs/release/RELEASE_MANIFEST_0.4.0-104147d.json`. Source has moved on since (Milestone A safety fixes, see `BOPPI_NEXT_SESSION.md`), so a newer candidate will supersede it; until then 104147d is the one to select. The 2026-10-25 candidate `2d65a09` and everything below are history.
 
 ## October 25 continuation: three verified beta blockers repaired locally; independent confirmation pending
