@@ -92,7 +92,9 @@ function startWorkspace() {
         ws.device = { id: crypto.randomUUID(), credential: `bpd_${crypto.randomBytes(32).toString('hex')}`, device: body.device };
         return reply(res, 200, { deviceId: ws.device.id, organizationId: 'org-1', credential: ws.device.credential, credentialExpiresAt: new Date(Date.now() + 30 * 86400000).toISOString(), workspaceName: 'Test Workspace' });
       }
-      if (!ws.device || req.headers.authorization !== `Bearer ${ws.device.credential}`) return reply(res, 401, { error: 'invalid_credential' });
+      // A pending rotated credential works once and then replaces the current one, as in the workspace.
+      if (ws.device && ws.device.next && req.headers.authorization === `Bearer ${ws.device.next}`) { ws.device.credential = ws.device.next; ws.device.next = null; ws.promotions = (ws.promotions || 0) + 1; }
+      if (!ws.device || ws.device.revoked || req.headers.authorization !== `Bearer ${ws.device.credential}`) return reply(res, 401, { error: 'invalid_credential' });
       const proposal = body && body.proposalId ? ws.proposals.get(body.proposalId) : null;
       switch (req.url) {
         case '/api/connector/poll': {
@@ -135,6 +137,16 @@ function startWorkspace() {
           proposal.state = body.configHash === proposal.appliedHash && sameVersions(body.versions) && !remainingKeys.length ? 'verified' : 'verification_failed';
           if (proposal.state === 'verified' && proposal.rollbackOf) ws.proposals.get(proposal.rollbackOf).state = 'rolled_back';
           return reply(res, 200, { state: proposal.state, remainingKeys });
+        }
+        case '/api/connector/rotate': {
+          ws.device.next = `bpd_${crypto.randomBytes(32).toString('hex')}`;
+          if (ws.dropRotateOnce) { ws.dropRotateOnce = false; req.socket.destroy(); return; }
+          return reply(res, 200, { credential: ws.device.next, credentialExpiresAt: new Date(Date.now() + 30 * 86400000).toISOString() });
+        }
+        case '/api/connector/unpair': {
+          if (ws.dropUnpairOnce) { ws.dropUnpairOnce = false; req.socket.destroy(); return; }
+          ws.device.revoked = true;
+          return reply(res, 200, { unpaired: true });
         }
         default: return reply(res, 404, { error: 'not_found' });
       }
@@ -416,9 +428,43 @@ function startWorkspace() {
     ok('run refuses a stored non-loopback http workspace before any request', refused.code === 2 && refused.stderr.includes('https') && ws.requests.length === requestsBefore);
     fs.writeFileSync(pairingFile, JSON.stringify(pairing));
 
+    section('credential rotation');
+    const readPairing = () => JSON.parse(fs.readFileSync(pairingFile, 'utf8'));
+    const beforeRotate = readPairing();
+    const rotated = await runCli(['connect', 'rotate'], home);
+    const afterRotate = readPairing();
+    ok('connect rotate stores a new credential and expiry, owner-only', rotated.code === 0 && afterRotate.credential !== beforeRotate.credential && /^bpd_[0-9a-f]{64}$/.test(afterRotate.credential) && afterRotate.credentialExpiresAt !== beforeRotate.credentialExpiresAt && afterRotate.rotatedAt && (fs.statSync(pairingFile).mode & 0o777) === 0o600, rotated.stderr);
+    ok('the rotation output never prints a credential', !/bpd_[0-9a-f]{8}/.test(rotated.stdout + rotated.stderr));
+    ok('the workspace holds it as pending until first use', ws.device.next === afterRotate.credential && ws.device.credential === beforeRotate.credential);
+    const promotedRun = await runCli(['connect', 'run', '--once'], home);
+    ok('the next run uses the new credential, which promotes it', promotedRun.code === 0 && ws.device.credential === afterRotate.credential && ws.device.next === null, promotedRun.stderr);
+    ok('status shows when the credential was rotated', (await runCli(['connect', 'status'], home)).stdout.includes(`rotated ${afterRotate.rotatedAt}`));
+    ws.dropRotateOnce = true;
+    const lostRotation = await runCli(['connect', 'rotate'], home);
+    ok('a lost rotation answer exits 5 and leaves the stored credential as it was', lostRotation.code === 5 && lostRotation.stderr.includes('the current credential stays in use') && readPairing().credential === afterRotate.credential);
+    const afterLost = await runCli(['connect', 'run', '--once'], home);
+    ok('the device keeps working with its current credential after a lost answer', afterLost.code === 0 && ws.device.credential === afterRotate.credential, afterLost.stderr);
+    const rotateRequests = ws.byRoute('rotate').length;
+    fs.writeFileSync(pairingFile, JSON.stringify({ ...readPairing(), credentialExpiresAt: new Date(Date.now() + 20 * 86400000).toISOString() }), { mode: 0o600 });
+    await runCli(['connect', 'run', '--once'], home);
+    ok('run does not rotate with more than 7 days left', ws.byRoute('rotate').length === rotateRequests);
+    fs.writeFileSync(pairingFile, JSON.stringify({ ...readPairing(), credentialExpiresAt: new Date(Date.now() + 3 * 86400000).toISOString() }), { mode: 0o600 });
+    const auto = await runCli(['connect', 'run', '--once'], home);
+    ok('run rotates with 7 days or less left, then polls with the new credential', auto.code === 0 && auto.stdout.includes('Credential rotated') && ws.byRoute('rotate').length === rotateRequests + 1 && ws.device.credential === readPairing().credential && ws.device.next === null, auto.stderr);
+
     section('unpair');
+    ws.dropUnpairOnce = true;
+    const unreachable = await runCli(['connect', 'unpair'], home);
+    ok('an unpair the workspace never answered keeps the pairing so it can be retried (exit 5)', unreachable.code === 5 && unreachable.stderr.includes('Nothing deleted') && fs.existsSync(pairingFile) && !ws.device.revoked);
+    const stale = readPairing();
     const unpair = await runCli(['connect', 'unpair'], home);
-    ok('unpair deletes the pairing and the claims file and says the workspace still lists the device', unpair.code === 0 && !fs.existsSync(pairingFile) && !fs.existsSync(connect.claimsFile(home)) && unpair.stdout.includes('revoked'));
+    ok('unpair revokes the device in the workspace, then deletes the pairing and the claims file', unpair.code === 0 && ws.device.revoked === true && !fs.existsSync(pairingFile) && !fs.existsSync(connect.claimsFile(home)) && unpair.stdout.includes('the workspace revoked this device'));
+    ok('unpair sent the stored credential and nothing else', ws.byRoute('unpair').at(-1).authorization === `Bearer ${stale.credential}` && JSON.stringify(ws.byRoute('unpair').at(-1).body) === '{}');
+    fs.writeFileSync(pairingFile, JSON.stringify(stale), { mode: 0o600 });
+    const already = await runCli(['connect', 'unpair'], home);
+    ok('a credential the workspace already refuses is deleted locally with that explanation', already.code === 0 && already.stdout.includes('no longer accepts') && !fs.existsSync(pairingFile));
+    const nothing = await runCli(['connect', 'unpair'], home);
+    ok('unpair with no pairing sends nothing', nothing.code === 0 && nothing.stdout.includes('Nothing to unpair.'));
   } finally {
     workspace.server.close();
   }

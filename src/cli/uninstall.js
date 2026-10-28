@@ -12,8 +12,8 @@
  * hook, so it does not remove it either. It reads the Claude Code settings
  * files and prints each hook entry that runs `boppi hook`, with its location,
  * because a left-over entry recreates <home>/.boppi on the next MCP call.
- * The workspace keeps listing a paired device until it is revoked on the
- * Collectors page; the program itself goes with `npm uninstall -g boppi`.
+ * It never contacts the workspace: `boppi connect unpair` revokes a paired
+ * device there. The program itself goes with `npm uninstall -g boppi`.
  */
 'use strict';
 const fs = require('fs');
@@ -113,7 +113,7 @@ function renderPlan(state, hooks, pairing, options) {
       ? `  includes ${state.backupFiles} fix backup file${state.backupFiles === 1 ? '' : 's'}: after this, boppi rollback cannot restore any earlier fix.`
       : `  stops here: ${state.backupFiles} fix backup file${state.backupFiles === 1 ? '' : 's'} would be lost. Pass --include-backups to delete them too, or run boppi rollback first.`);
   }
-  if (pairing) lines.push(`  pairing: deletes the device credential for ${pairing.url}. The workspace keeps listing "${pairing.deviceName || pairing.deviceId}" until it is revoked on the Collectors page.`);
+  if (pairing) lines.push(`  pairing: deletes the device credential for ${pairing.url} without contacting it. Run boppi connect unpair first to revoke "${pairing.deviceName || pairing.deviceId}" in the workspace too; otherwise it stays listed until revoked on the Collectors page.`);
   if (options.historyFile && path.resolve(options.historyFile) !== path.join(state.dir, 'history.json')) lines.push(`  not touched: --history-file ${options.historyFile} (outside ${state.dir}); delete it yourself if you want it gone.`);
   if (hooks.found.length) {
     lines.push('  Claude Code still runs `boppi hook` from these settings (Boppi does not edit them). Remove each entry, or the next MCP call recreates the events file:');

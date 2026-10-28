@@ -81,7 +81,7 @@ const HOOK_SNIPPET = { hooks: { PreToolUse: [{ matcher: 'mcp__.*', hooks: [{ typ
   ok('--dry-run lists every top-level entry and exits 0', dry.code === 0 && stored.every(name => dry.stdout.includes(name)) && dry.stdout.includes('Dry run: nothing removed.'), dry.stdout);
   ok('--dry-run changes nothing', snapshot(path.join(home, '.boppi')) === before);
   ok('entries are explained (history, pairing, update notice)', dry.stdout.includes('scan history') && dry.stdout.includes('workspace pairing and device credential') && dry.stdout.includes('update notice'));
-  ok('the pairing line names the workspace and says the device stays listed until revoked', dry.stdout.includes('https://w.example') && dry.stdout.includes('until it is revoked on the Collectors page'));
+  ok('the pairing line names the workspace, says it is not contacted, and points at connect unpair', dry.stdout.includes('https://w.example') && dry.stdout.includes('without contacting it') && dry.stdout.includes('Run boppi connect unpair first') && dry.stdout.includes('until revoked on the Collectors page'));
   ok('the device credential is never printed', !dry.stdout.includes('bpd_secret_value_never_printed') && !dry.stderr.includes('bpd_secret_value_never_printed'));
   ok('both `boppi hook` entries are reported with file and location; the unrelated hook is not', dry.stdout.includes(`${userSettings}  hooks.PreToolUse[0].hooks[0]  "boppi hook"`) && dry.stdout.includes('hooks.PostToolUse[0].hooks[1]  "/usr/local/bin/boppi hook"') && !dry.stdout.includes('echo unrelated'));
   ok('it says how to remove the program itself', dry.stdout.includes('npm uninstall -g boppi'));

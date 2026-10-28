@@ -30,8 +30,10 @@ const updateNotice = require('./updateNotice');
 const { openRegular, acquireLock } = fix;
 
 const SCHEMA_VERSION = 1;
-const ROUTES = Object.freeze({ pair: '/api/connector/pair', poll: '/api/connector/poll', preview: '/api/connector/preview', claim: '/api/connector/claim', applied: '/api/connector/applied', rescan: '/api/connector/rescan' });
-const SUBCOMMANDS = Object.freeze(['pair', 'status', 'unpair', 'run']);
+const ROUTES = Object.freeze({ pair: '/api/connector/pair', poll: '/api/connector/poll', preview: '/api/connector/preview', claim: '/api/connector/claim', applied: '/api/connector/applied', rescan: '/api/connector/rescan', rotate: '/api/connector/rotate', unpair: '/api/connector/unpair' });
+const SUBCOMMANDS = Object.freeze(['pair', 'status', 'unpair', 'run', 'rotate']);
+// connect run rotates the device credential once it has this long left.
+const ROTATE_WITHIN_MS = 7 * 24 * 60 * 60 * 1000;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const OFFER_MAX = 64;
 const CONSUMED_MAX = 256;
@@ -509,13 +511,57 @@ function renderStatus(options, pairing) {
     `  device:     ${pairing.deviceName || '?'} (${pairing.deviceId})`,
     `  org:        ${pairing.organizationId || '?'}`,
     `  paired at:  ${pairing.pairedAt || '?'}`,
-    `  credential: expires ${pairing.credentialExpiresAt || 'unknown'}${expired ? ' (expired; pair again)' : ''}`,
+    `  credential: expires ${pairing.credentialExpiresAt || 'unknown'}${expired ? ' (expired; pair again)' : ''}${pairing.rotatedAt ? `, rotated ${pairing.rotatedAt}` : ''}; connect run rotates it when 7 days or less remain, boppi connect rotate does it now`,
     `  pending:    ${Object.keys(loadClaims(options.home).pending).length} unanswered claim(s)`,
     'Status reads the local file only; nothing was sent.',
   ].join('\n');
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function rotationDue(pairing, now = Date.now()) {
+  const expires = Date.parse(pairing.credentialExpiresAt);
+  return Number.isFinite(expires) && expires - now <= ROTATE_WITHIN_MS;
+}
+
+/**
+ * Ask the workspace for a new credential and store it. The workspace keeps
+ * the current one valid until the new one is first used, so a lost answer or
+ * a failed write leaves this device working with the old credential.
+ * Resolves to the updated pairing, or null after printing why not.
+ */
+async function rotateCredential(options, pairing, deps, out, err) {
+  const result = await request({ url: pairing.url, credential: pairing.credential, route: 'rotate', body: { versions: versionsOf(deps.version) }, fetchImpl: deps.fetchImpl });
+  if (!result.ok) { err(`connect rotate: ${describeFailure('rotate', result)}; the current credential stays in use`); return null; }
+  const b = result.body;
+  if (typeof b.credential !== 'string' || !/^bpd_[0-9a-f]{64}$/.test(b.credential) || Number.isNaN(Date.parse(b.credentialExpiresAt))) { err('connect rotate: the workspace answered without a usable credential; the current one stays in use'); return null; }
+  const next = { ...pairing, credential: b.credential, credentialExpiresAt: b.credentialExpiresAt, rotatedAt: stamp() };
+  writeOwnerOnly(pairingFile(options.home), next);
+  out(`Credential rotated: the new one expires ${next.credentialExpiresAt} and replaces the old one in the workspace on its first use. Stored in ${pairingFile(options.home)} (owner-only).`);
+  return next;
+}
+
+/** Revoke this device in the workspace, then delete the local pairing. A workspace that cannot be reached keeps both. */
+async function runUnpair(options, pairing, deps, out, err) {
+  if (!pairing) { out('Nothing to unpair.'); return 0; }
+  let url;
+  try { url = resolveWorkspaceUrl(pairing.url); } catch (error) {
+    err(`connect unpair: the stored workspace URL is refused (${error.message}); nothing was sent. Revoke the device on the Collectors page, then delete ${pairingFile(options.home)} yourself.`);
+    return 2;
+  }
+  const result = await request({ url, credential: pairing.credential, route: 'unpair', body: {}, fetchImpl: deps.fetchImpl });
+  const refused = !result.ok && result.status === 401;
+  if (!result.ok && !refused) {
+    err(`connect unpair: ${describeFailure('unpair', result)}. Nothing deleted, so you can retry. To give up on the workspace, revoke the device on its Collectors page, or delete ${pairingFile(options.home)} yourself (boppi uninstall removes it with everything else).`);
+    return 5;
+  }
+  fs.rmSync(pairingFile(options.home), { force: true });
+  fs.rmSync(claimsFile(options.home), { force: true });
+  out(refused
+    ? `The workspace no longer accepts this device's credential (revoked or expired), so there was nothing to revoke there. ${pairingFile(options.home)} deleted.`
+    : `Unpaired: the workspace revoked this device, and ${pairingFile(options.home)} is deleted. Its credentials stop working everywhere.`);
+  return 0;
+}
 
 /** Exit code. deps: performScan, confirm, version, fetchImpl (tests). */
 async function runConnect(options, deps) {
@@ -525,16 +571,14 @@ async function runConnect(options, deps) {
   if (options.subcommand === 'pair') return runPair(options, deps, out, err);
   const pairing = loadPairing(options.home);
   if (options.subcommand === 'status') { out(renderStatus(options, pairing)); return 0; }
-  if (options.subcommand === 'unpair') {
-    fs.rmSync(pairingFile(options.home), { force: true });
-    fs.rmSync(claimsFile(options.home), { force: true });
-    out(pairing ? `Unpaired: ${pairingFile(options.home)} deleted. The workspace still lists this device until it is revoked on the Collectors page.` : 'Nothing to unpair.');
-    return 0;
-  }
-  if (!pairing) { err(`connect run: not paired. ${renderStatus(options, null)}`); return 2; }
-  try { pairing.url = resolveWorkspaceUrl(pairing.url); } catch (error) { err(`connect run: refusing the stored workspace URL: ${error.message}`); return 2; }
+  if (options.subcommand === 'unpair') return runUnpair(options, pairing, deps, out, err);
+  if (!pairing) { err(`connect ${options.subcommand}: not paired. ${renderStatus(options, null)}`); return 2; }
+  try { pairing.url = resolveWorkspaceUrl(pairing.url); } catch (error) { err(`connect ${options.subcommand}: refusing the stored workspace URL: ${error.message}`); return 2; }
+  if (options.subcommand === 'rotate') return (await rotateCredential(options, pairing, deps, out, err)) ? 0 : 5;
+  let current = pairing;
   for (;;) {
-    const code = await new Cycle({ options, pairing, deps, out, err }).run();
+    if (rotationDue(current)) current = (await rotateCredential(options, current, deps, out, err)) || current;
+    const code = await new Cycle({ options, pairing: current, deps, out, err }).run();
     if (options.once) return code;
     updateNotice.announce(options.home, deps.version, err);
     out(`  next poll in ${options.interval} s (Ctrl-C stops; nothing is applied without confirmation here)`);
@@ -542,4 +586,4 @@ async function runConnect(options, deps) {
   }
 }
 
-module.exports = { SUBCOMMANDS, ROUTES, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, offerMatches, applyRemoval, runConnect };
+module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, offerMatches, applyRemoval, runConnect };

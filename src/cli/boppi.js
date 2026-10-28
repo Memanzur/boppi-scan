@@ -91,7 +91,7 @@ function usage() {
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
     '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
     '  boppi uninstall               list everything Boppi stored under ~/.boppi and the Claude Code hook entries that run it, then delete ~/.boppi after you confirm (--yes, --dry-run; fix backups only with --include-backups)',
-    '  boppi connect pair|status|unpair|run  pair this machine with your workspace for dashboard-requested fixes; run pulls proposals, shows the exact sanitized preview here, and applies one only after you confirm',
+    '  boppi connect pair|status|unpair|run|rotate  pair this machine with your workspace for dashboard-requested fixes; run pulls proposals, shows the exact sanitized preview here, and applies one only after you confirm; unpair revokes this device in the workspace and deletes the local pairing; rotate replaces the device credential (run does it when 7 days or less remain)',
     '',
     'Push options (push, events push and connect are the only commands that use the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,

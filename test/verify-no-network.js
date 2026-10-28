@@ -101,7 +101,9 @@ function makeHome(root) {
   const connectRun = run(['connect', 'run', '--once']);
   ok('connect run reaches only fetch, toward the stored workspace, after the local scan (positive control)', connectRun.code !== 0 && connectRun.attempts.length > 0 && connectRun.attempts.every(a => a === 'fetch') && connectRun.stderr.includes('poll'));
   const connectUnpair = run(['connect', 'unpair']);
-  ok('connect unpair deletes the pairing without network access', connectUnpair.code === 0 && connectUnpair.attempts.length === 0 && !fs.existsSync(path.join(home, '.boppi', 'connector.json')));
+  ok('connect unpair makes one fetch toward the stored workspace and, unanswered, keeps the pairing for a retry', connectUnpair.code === 5 && connectUnpair.attempts.length === 1 && connectUnpair.attempts[0] === 'fetch' && fs.existsSync(path.join(home, '.boppi', 'connector.json')));
+  const uninstalled = run(['uninstall', '--yes', '--include-backups']);
+  ok('uninstall deletes ~/.boppi, pairing included, without network access', uninstalled.code === 0 && uninstalled.attempts.length === 0 && !fs.existsSync(path.join(home, '.boppi')));
   const watchOnce = run(['watch', '--once', '--only', 'claude-code']);
   ok('watch --once starts no process and touches no network', watchOnce.code === 0 && watchOnce.attempts.length === 0 && watchOnce.stdout.includes('BOPPI · WATCH'));
   const forgetAll = run(['discover', '--forget', '--all']);
