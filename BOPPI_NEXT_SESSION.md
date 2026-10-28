@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:06 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:08 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -44,6 +44,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | B-3 Intelligence label vocabulary | done | control 608b29e | verify:intelligence 8 (new parity test: every label is an engine permission category and fits the intake constraint), verify exit 0. Added run_shell_commands, execute_code, read_files, write_files, call_external_api, browse_internet; no migration |
 | B-4/B-5 website copy, privacy draft, security headers | done (draft; publish is a founder call) | website 49aa147 | build + lint (same 7 warnings); under the vercel.json headers via `scripts/serve-with-headers.mjs`: guest 32, 10-25 claims 36, new `docs/release/evidence-2026-10-27-b4/check.cjs` 26; negative control: inline script, external fetch, framing all blocked. Untracked `undefined/` in the website repo is screenshot output from a 10-25 claims run without an out dir (22:48); left untouched |
 | B-8 local delete_my_account test | done | control b63bca1 | test:db:local 426 PASS (36 new, in remediation, governance, intelligence-review and intelligence-evaluation); negative control (deletion that leaves the workspace) fails as expected |
+| B-7 in-app Privacy and Terms links | done | control c6e57f6 | Chromium 1280/390 on stack n89Sdo (restarted from its volume, rebuilt, then stopped again): 5 surfaces, links visible with right targets, no overflow, axe clean, 0 console errors; evidence `~/Desktop/Boppi-hybrid-2026-10-27-evidence/b7-policy-links/`; verify exit 0 |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker stack n89Sdo (22:30-22:57): exact-tarball beta journey 27, remediation routes 63, real-CLI connector journey 31, browser remediation drive 59 steps. Logs in `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-32a9667/` |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -58,11 +59,11 @@ Nothing. Stack `/tmp/boppi-beta-local.n89Sdo` is stopped (volume kept) and port 
 
 ## Exact next steps (next five tasks)
 
-1. B-7: in-app privacy link.
-2. B-9: deterministic demo build.
-3. B-6: EP-D README wording.
-4. Website leftovers from the audit: stale sitemap lastmod, Lovable README.
-5. Milestone C-1: verified overlay bundle (Ed25519, expiry, compatibility; scanner).
+1. B-9: deterministic demo build.
+2. B-6: EP-D README wording.
+3. Website leftovers from the audit: stale sitemap lastmod, Lovable README.
+4. Milestone C-1: verified overlay bundle (Ed25519, expiry, compatibility; scanner).
+5. Milestone C-3: correction-reason retention function and review history table (new migration + down file, local only).
 
 After that: Milestone C (signed overlay bundles), D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667.json`); 104147d stays as the fallback.
 
