@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:16 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:17 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -60,11 +60,11 @@ Nothing. Stack `/tmp/boppi-beta-local.n89Sdo` is stopped (volume kept) and port 
 
 ## Exact next steps (next five tasks)
 
-1. B-6: EP-D README wording.
-2. Website leftovers from the audit: stale sitemap lastmod, Lovable README.
-3. Milestone C-1: verified overlay bundle (Ed25519, expiry, compatibility; scanner).
-4. Milestone C-3: correction-reason retention function and review history table (new migration + down file, local only).
-5. Milestone C-4: Intelligence SQL/journey tests runnable from one command.
+1. Website leftovers from the audit: stale sitemap lastmod, Lovable README.
+2. Milestone C-1: verified overlay bundle (Ed25519, expiry, compatibility; scanner).
+3. Milestone C-3: correction-reason retention function and review history table (new migration + down file, local only).
+4. Milestone C-4: Intelligence SQL/journey tests runnable from one command.
+5. Next candidate rebuild (new folder, never overwrite 32a9667) once scanner changes accumulate. It must carry B-6: README.md:151 says EP-D fires when 'sensitive data sits behind an unverified server', but it fires only on an explicit `trustStatus: "unverified"` config key, which no client writes; unrecognized servers do not trigger it. Deferred because README.md is inside the frozen tarball and verify-release-manifest requires the checkout README to equal the packaged one.
 
 After that: Milestone C (signed overlay bundles), D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667-r2.json`; r1 is the 22:50 snapshot); 104147d stays as the fallback.
 
