@@ -371,12 +371,14 @@ If a server entry contains something that looks like a secret in a place the sca
 | Client | Files |
 |--------|-------|
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows, `~/.config/Claude/claude_desktop_config.json` on Linux |
-| Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory; permission settings from `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory (counts and mode only) |
+| Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory; permission settings from `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory (counts and mode only); MCP servers of installed plugins (below) |
 | Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
 
 A server entry that carries a `disabled` or `enabled: false` key inside one of these files is still graded as configured. The documented Claude Desktop and Cursor formats have no such key, so Boppi cannot tell whether the client honors it; it says what the file would allow. (Claude Code's documented enable and disable settings are read on a development branch and are not in this release.)
 
-Windsurf and VS Code are not discovered yet. Pull requests welcome. Each client is one file under `src/cli/discovery/`.
+Claude Code plugins: the scan reads `installed_plugins.json` in the plugins root (`~/.claude/plugins`, or `CLAUDE_CODE_PLUGIN_CACHE_DIR`) and, for each recorded install, the `mcpServers` in its `.mcp.json` and `.claude-plugin/plugin.json`. Plugin servers appear as `plugin:<plugin>:<server>`, the name Claude Code registers, and are graded like any other server. Whether the plugin is on (`enabledPlugins` in the user, project and local settings, or the manifest's `defaultEnabled`) is recorded on the file entry but does not change the grade yet. Boppi never edits a plugin file: `boppi fix` and `boppi plan` say to disable the plugin instead (`claude plugin disable <id>`). A `plugin.json` whose `mcpServers` names another file, an `.mcpb`/`.dxt` bundle or a URL is reported unreadable, which makes the scan incomplete rather than silently empty. Plugins synced from claude.ai, `--plugin-dir` plugins and skills-directory plugins are not read.
+
+Not discovered yet: Claude Desktop extensions (`.mcpb`, formerly `.dxt`). They are installed from the app and do not appear in `claude_desktop_config.json`, and no official page documents where they live on disk, so a clean Claude Desktop result does not cover them. Also not discovered: Windsurf, VS Code and Codex CLI. Pull requests welcome. Each client is one file under `src/cli/discovery/`.
 
 ## Support
 

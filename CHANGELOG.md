@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (after the 0.4.0 candidate dbf9704)
+
+- Claude Code plugin MCP servers (D-2). Discovery reads `installed_plugins.json` in the documented plugins root (`~/.claude/plugins` or `CLAUDE_CODE_PLUGIN_CACHE_DIR`) and the `mcpServers` of each install's `.mcp.json` and `.claude-plugin/plugin.json`. Servers are labeled `plugin:<plugin>:<server>`, as Claude Code registers them, and graded like other servers; `enabledPlugins` and `defaultEnabled` are recorded, not graded. Plugin files are read-only to Boppi: `fix`, `plan`, remediation and the connector never locate them, and the message says to disable the plugin. An unreadable index or a `plugin.json` that points `mcpServers` at a file, bundle or URL marks the scan incomplete. Claude Desktop extensions stay undiscovered (install location undocumented) and the README says so. `test/verify-claude-plugins.js`, 23 checks; removing the read-only guard fails 3 of them, including one where fix edited a cached plugin file.
+
 ## 0.4.0
 
 Local candidate (unpublished). Milestone 1, trustworthy checkup.

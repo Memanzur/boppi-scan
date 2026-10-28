@@ -31,6 +31,7 @@ const agentRiskEngine = require('../engine/agentRiskEngine');
 const { createConfigProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const builtinTools = require('./builtinTools');
+const plugins = require('./discovery/claudePlugins');
 const recognitionModule = require('./recognition');
 const predict = require('./predict');
 const verify = require('./verify');
@@ -179,6 +180,8 @@ function parseArgs(argv) {
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false, reset: false, code: null, name: null, subcommand: null,
     install: false, printConfig: false, set: [], record: null, forget: false, all: false, interval: 60, duration: 0, once: false, log: null, since: 30, disable: false, enable: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
+    // Claude Code's documented override of the plugins root (~/.claude/plugins).
+    pluginRoot: process.env.CLAUDE_CODE_PLUGIN_CACHE_DIR || null,
   };
   let askRequested = false;
   const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--overlay-bundle', '--trust', '--receipt', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
@@ -491,6 +494,10 @@ function discover(options) {
       filesRead.add(entry.path);
       if (entry.status === 'found' && !client.primaryPath) client.primaryPath = entry.path;
     }
+    if (descriptor.pluginIndex && descriptor.pluginIndex.status !== 'not_found') {
+      filesRead.add(descriptor.pluginIndex.path);
+      client.files.push({ ...descriptor.pluginIndex });
+    }
     if (builtinTools.hasBuiltinTools(client.clientKey)) {
       // Permission settings are read only when discovery found this client, and never in explicit --config mode.
       client.builtin = builtinTools.describeBuiltin(client.clientKey, client.primaryPath ? descriptor.settingsFiles || null : null, { home: options.home, cwd: options.cwd });
@@ -726,7 +733,11 @@ function renderPlanDiffs(scan, options) {
     const client = scan.discovery.clients.find(c => c.clientKey === p.client.key);
     const preview = client ? previewFor(scan, options, client, p.edit.server) : null;
     lines.push('', `  remove "${p.edit.server}" from ${p.client.label}`);
-    if (!preview) { lines.push('    no readable file holds this entry'); continue; }
+    if (!preview) {
+      const remedy = client ? plugins.pluginRemedy(client, p.edit.server) : null;
+      lines.push(remedy ? `    source:  ${remedy.file}. ${remedy.reason}` : '    no readable file holds this entry');
+      continue;
+    }
     lines.push(`    file:    ${preview.file} (${preview.scope} scope)`, remediate.renderPreview(preview, '    '));
   }
   return lines.join('\n');
@@ -812,7 +823,9 @@ async function runFix(options) {
   const client = candidates[0];
   const preview = previewFor(before, options, client, options.server);
   if (!preview) {
-    process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
+    const remedy = plugins.pluginRemedy(client, options.server);
+    if (remedy) process.stderr.write(`fix: "${options.server}" is not in a file Boppi edits. ${remedy.reason}\n`);
+    else process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
     return 2;
   }
   const prediction = before.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === options.server && p.client.key === client.clientKey);

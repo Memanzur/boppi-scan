@@ -20,7 +20,7 @@ function descriptorsFor(options) {
       files: [{ path: path.resolve(options.config), scope: 'explicit', blocks: [{ keyPath: ['mcpServers'], scope: 'explicit' }] }],
     }];
   }
-  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
+  return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform, pluginRoot: options.pluginRoot || null }));
 }
 
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -39,6 +39,7 @@ function objectAt(json, keyPath) {
 function unreadableReason(error) {
   if (error.code === 'EACCES' || error.code === 'EPERM') return 'permission denied';
   if (error.code === 'EISDIR') return 'this is a directory, not a config file';
+  if (error.message === 'plugin_mcp_reference') return 'mcpServers names a file, bundle or URL, which Boppi does not read yet';
   return error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
 }
 
@@ -57,12 +58,14 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     const resolved = path.resolve(file.path);
     if (seen.has(resolved)) continue; // user and project config can be the same file
     seen.add(resolved);
-    const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [] };
+    const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [], ...(file.plugin ? { plugin: file.plugin } : {}) };
     files.push(entry);
     if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;
     let json;
     try {
       json = overrides.has(resolved) ? overrides.get(resolved) : JSON.parse(fs.readFileSync(resolved, 'utf8'));
+      // plugin.json may point mcpServers at other files or bundles; that is not read, and saying so beats reporting no servers.
+      if (file.pluginManifest && isObject(json) && hasOwn(json, 'mcpServers') && !isObject(json.mcpServers)) throw new Error('plugin_mcp_reference');
       validateConfigShape(json, { source: descriptor.source, cwd });
     } catch (error) {
       entry.status = 'unreadable';
@@ -73,12 +76,14 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     documents.set(resolved, json);
     for (const block of file.blocks) {
       for (const [name, server] of Object.entries(objectAt(json, block.keyPath) || {})) {
-        let label = name;
-        for (let n = 2; taken.has(label); n++) label = n === 2 ? `${name} (${block.scope})` : `${name} (${block.scope} ${n})`;
+        // A plugin's servers register as plugin:<plugin>:<server>, so that is their base label.
+        const base = (block.labelPrefix || '') + name;
+        let label = base;
+        for (let n = 2; taken.has(label); n++) label = n === 2 ? `${base} (${block.scope})` : `${base} (${block.scope} ${n})`;
         taken.add(label);
         entry.servers.push(label);
-        if (label !== name) (entry.renamed = entry.renamed || []).push({ from: name, to: label });
-        servers.push({ label, name, file: resolved, scope: file.scope, keyPath: [...block.keyPath, name], server });
+        if (label !== base) (entry.renamed = entry.renamed || []).push({ from: base, to: label });
+        servers.push({ label, name, file: resolved, scope: file.scope, keyPath: [...block.keyPath, name], server, ...(file.readOnly ? { readOnly: true } : {}) });
       }
     }
     entry.serverCount = entry.servers.length;
@@ -95,7 +100,8 @@ function readClient(descriptor, cwd, overrides = new Map()) {
 function locateServer(descriptor, label, cwd, overrides) {
   const { servers, documents } = readClient(descriptor, cwd, overrides);
   const found = servers.find(s => s.label === label);
-  if (!found) return null;
+  // A read-only source (a plugin's files) is never located, so no write path can edit it.
+  if (!found || found.readOnly) return null;
   const labels = new Map(servers.filter(s => s.file === found.file).map(s => [JSON.stringify(s.keyPath), s.label]));
   return { file: found.file, scope: found.scope, json: documents.get(found.file), name: found.name, keyPath: found.keyPath, labels };
 }

@@ -9,6 +9,7 @@
 const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
 const fix = require('./fix');
+const plugins = require('./discovery/claudePlugins');
 const verify = require('./verify');
 const { pathFingerprint } = require('../engine/localMcpScanner');
 
@@ -201,7 +202,11 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
   const prediction = scanBefore.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === server && p.client.key === clientKey) || null;
 
   yield event('backup', 'running', { file: located ? located.file : null });
-  if (!located) { yield fail('backup', { reason: `no readable ${clientKey} file holds ${JSON.stringify(server)}` }); return; }
+  if (!located) {
+    const remedy = client ? plugins.pluginRemedy(client, server) : null;
+    yield fail('backup', { reason: remedy ? `${JSON.stringify(server)} is not in a file Boppi edits. ${remedy.reason}` : `no readable ${clientKey} file holds ${JSON.stringify(server)}` });
+    return;
+  }
   const release = fix.acquireLock(options.home, pathFingerprint(located.file));
   if (!release) { yield fail('backup', { reason: `another boppi process is editing ${located.file}; nothing was written, try again when it finishes` }); return; }
   let manifestEntry, backup;

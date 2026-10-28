@@ -2,8 +2,11 @@
 'use strict';
 const path = require('path');
 const { claudeCodeSettingsFiles } = require('../builtinTools');
+const plugins = require('./claudePlugins');
 
-function locate({ home, cwd }) {
+function locate({ home, cwd, pluginRoot = null }) {
+  // Installed plugins' MCP servers, read-only (claudePlugins.js); the index entry is coverage only.
+  const installed = plugins.pluginFiles({ home, cwd, pluginRoot });
   return {
     clientKey: 'claude-code',
     label: 'Claude Code',
@@ -19,7 +22,9 @@ function locate({ home, cwd }) {
         blocks: [{ keyPath: ['mcpServers'], scope: 'user' }, { keyPath: ['projects', cwd, 'mcpServers'], scope: 'local' }],
       },
       { path: path.join(cwd, '.mcp.json'), scope: 'project', blocks: [{ keyPath: ['mcpServers'], scope: 'project' }] },
+      ...installed.files,
     ],
+    pluginIndex: installed.index,
   };
 }
 
