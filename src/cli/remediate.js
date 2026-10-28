@@ -11,7 +11,8 @@ const fs = require('fs');
 const fix = require('./fix');
 const plugins = require('./discovery/claudePlugins');
 const verify = require('./verify');
-const { pathFingerprint } = require('../engine/localMcpScanner');
+const { pathFingerprint, sanitizeArguments } = require('../engine/localMcpScanner');
+const narrowScope = require('./narrowScope');
 
 const CONTEXT_LINES = 3;
 const HIDDEN = '[not shown]';
@@ -116,20 +117,42 @@ function hunks(ops, context = CONTEXT_LINES) {
 }
 
 /**
- * Everything fix shows before asking, bound to the bytes it was computed
- * from. located comes from fix.locateServer; the entry removed is the one at
- * its key path and nothing else. Reads the file unless bytes are given,
- * writes nothing, and throws when those bytes no longer hold the entry.
+ * The file with the edit made: the entry at keyPath removed, or with narrow
+ * ({ index, from, to }) its args[index] replaced. Null when the bytes no
+ * longer hold what the edit expects, so a stale preview never writes.
  */
-function previewRemoval({ located, serverName, cwd, recordsByName, bytes = fs.readFileSync(located.file) }) {
+function editedJson(json, keyPath, narrow) {
+  const edited = JSON.parse(JSON.stringify(json));
+  if (!narrow) return fix.deleteAt(edited, keyPath) ? edited : null;
+  const parent = fix.objectAt(edited, keyPath.slice(0, -1));
+  const entry = parent && parent[keyPath[keyPath.length - 1]];
+  if (!isObject(entry) || !Array.isArray(entry.args) || entry.args[narrow.index] !== narrow.from) return null;
+  parent[keyPath[keyPath.length - 1]] = narrowScope.narrowedEntry(entry, narrow.index, narrow.to);
+  return edited;
+}
+
+/**
+ * Everything fix shows before asking, bound to the bytes it was computed
+ * from. located comes from fix.locateServer; the entry edited is the one at
+ * its key path and nothing else: removed, or with narrow one directory
+ * argument replaced. Reads the file unless bytes are given, writes nothing,
+ * and throws when those bytes no longer hold the entry.
+ */
+function previewEdit({ located, serverName, cwd, recordsByName, bytes = fs.readFileSync(located.file), narrow = null }) {
   const json = JSON.parse(bytes.toString('utf8'));
   const raw = (fix.objectAt(json, located.keyPath.slice(0, -1)) || {})[located.name];
   if (!isObject(raw)) throw new Error(`${JSON.stringify(serverName)} is no longer in ${located.file}`);
   const recordOf = keyPath => recordsByName.get(located.labels.get(JSON.stringify(keyPath)));
   const before = JSON.stringify(projection(json, cwd, recordOf), null, 2);
-  const edited = JSON.parse(JSON.stringify(json));
-  fix.deleteAt(edited, located.keyPath);
-  const after = JSON.stringify(projection(edited, cwd, recordOf), null, 2);
+  const edited = editedJson(json, located.keyPath, narrow);
+  if (!edited) throw new Error(`${JSON.stringify(serverName)} in ${located.file} no longer has the directory argument to narrow`);
+  // The narrowed entry is shown through the scanner's own sanitizer, so the new directory appears as a fingerprint like the old one.
+  const editedKey = JSON.stringify(located.keyPath);
+  const recordAfter = narrow ? keyPath => {
+    const record = recordOf(keyPath);
+    return JSON.stringify(keyPath) === editedKey && record ? { ...record, arguments: sanitizeArguments(narrowScope.narrowedEntry(raw, narrow.index, narrow.to).args) } : record;
+  } : recordOf;
+  const after = JSON.stringify(projection(edited, cwd, recordAfter), null, 2);
   const entry = sanitizedEntry(raw, recordsByName.get(serverName));
   return { file: located.file, scope: located.scope, server: serverName, keyPaths: [fix.renderKeyPath(located.keyPath)], entry, diff: hunks(lineDiff(before, after)), fileHashes: { [located.file]: fix.sha256(bytes) } };
 }
@@ -143,14 +166,14 @@ function renderPreview(preview, indent = '  ') {
   return lines.join('\n');
 }
 
-/** Why the written file is not the planned edit, or null when it is. */
-function validateEdited({ bytes, expected, keyPath }) {
+/** Why the written file is not the planned edit, or null when it is. removed is false for an edit that keeps the entry. */
+function validateEdited({ bytes, expected, keyPath, removed = true }) {
   let parsed;
   try { parsed = JSON.parse(bytes.toString('utf8')); } catch (_) { return 'the written file is not valid JSON'; }
   if (!isObject(parsed)) return 'the written file is not a JSON object';
   const parent = fix.objectAt(parsed, keyPath.slice(0, -1));
   if (!parent) return 'the block that held the entry is no longer an object';
-  if (hasOwn(parent, keyPath[keyPath.length - 1])) return `${fix.renderKeyPath(keyPath)} is still present`;
+  if (removed && hasOwn(parent, keyPath[keyPath.length - 1])) return `${fix.renderKeyPath(keyPath)} is still present`;
   if (JSON.stringify(parsed) !== JSON.stringify(expected)) return 'the file changed beyond the removed entry';
   return null;
 }
@@ -181,16 +204,17 @@ function outcome({ scanBefore, scanAfter, clientKey, prediction }) {
 }
 
 /**
- * The stages of one remove_server fix. Yields { stage, status, detail, at }
- * and also passes each event to emit when given. expectedHashes are the
- * file hashes captured by previewRemoval; apply refuses when they no longer
+ * The stages of one fix: remove_server, or narrow_scope when narrow
+ * ({ index, from, to, prediction }) is given. Yields { stage, status, detail,
+ * at } and also passes each event to emit when given. expectedHashes are the
+ * file hashes captured by previewEdit; apply refuses when they no longer
  * match. rescan(options) is performScan, injected so this module does not
  * depend on the CLI entry point. The write takes the per-file lock the
  * connector uses, never follows a symlink, re-checks the hash just before an
  * atomic rename, and keeps the file mode. io.writeAtomic exists for tests
  * that need the write to go wrong.
  */
-async function* runRemediation({ options, server, clientKey, scanBefore, expectedHashes, exportFile = null, rescan, io = {} }, emit) {
+async function* runRemediation({ options, server, clientKey, scanBefore, expectedHashes, exportFile = null, rescan, narrow = null, io = {} }, emit) {
   const writeAtomic = io.writeAtomic || fix.writeAtomic;
   const events = [];
   const event = (stage, status, detail = {}) => { const e = { stage, status, detail, at: stamp() }; events.push(e); if (emit) emit(e); return e; };
@@ -199,7 +223,9 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
   const client = clientOf(scanBefore, clientKey);
   const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === clientKey);
   const located = client && descriptor ? fix.locateServer(descriptor, server, options.cwd) : null;
-  const prediction = scanBefore.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === server && p.client.key === clientKey) || null;
+  // A narrow edit brings its own prediction (predict.predictNarrow): the scan only predicts removals and moves.
+  const prediction = narrow ? narrow.prediction || null : scanBefore.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === server && p.client.key === clientKey) || null;
+  const action = narrow ? 'narrow_scope' : 'remove_server';
 
   yield event('backup', 'running', { file: located ? located.file : null });
   if (!located) {
@@ -224,10 +250,10 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
     yield event('backup', 'done', { file: located.file, backup });
 
     yield event('apply', 'running', { file: located.file });
-    const edited = JSON.parse(originalBytes.toString('utf8'));
-    if (!fix.deleteAt(edited, located.keyPath)) {
+    const edited = editedJson(JSON.parse(originalBytes.toString('utf8')), located.keyPath, narrow);
+    if (!edited) {
       fs.rmSync(backup, { force: true });
-      yield fail('apply', { reason: `${JSON.stringify(server)} was not found in ${located.file} at write time`, written: false });
+      yield fail('apply', { reason: `${JSON.stringify(server)}${narrow ? ' with that directory argument' : ''} was not found in ${located.file} at write time`, written: false });
       return;
     }
     // Re-read just before the rename: another writer (the client itself) may have saved since the preview.
@@ -242,21 +268,21 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
       yield fail('apply', { reason: `write failed (${error.message}); the file was not replaced`, written: false });
       return;
     }
-    const problem = validateEdited({ bytes: fs.readFileSync(located.file), expected: edited, keyPath: located.keyPath });
+    const problem = validateEdited({ bytes: fs.readFileSync(located.file), expected: edited, keyPath: located.keyPath, removed: !narrow });
     if (problem) {
       fix.writeAtomic(located.file, originalBytes, opened.mode);
       yield fail('apply', { reason: `the edited file did not validate (${problem}); restored from ${backup}`, written: true, restored: true });
       return;
     }
     try {
-      manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, keyPath: located.keyPath, action: 'remove_server', scanExport: exportFile, backupHash: current, appliedHash: fix.fileHash(located.file) });
+      manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, keyPath: located.keyPath, action, ...(narrow ? { argIndex: narrow.index } : {}), scanExport: exportFile, backupHash: current, appliedHash: fix.fileHash(located.file) });
     } catch (_) {
       fix.writeAtomic(located.file, originalBytes, opened.mode);
       yield fail('apply', { reason: 'could not record the rollback manifest; the original bytes were restored', written: true, restored: true });
       return;
     }
   } finally { release(); }
-  yield event('apply', 'done', { file: located.file, keyPaths: [fix.renderKeyPath(located.keyPath)], manifestId: manifestEntry.id, backup });
+  yield event('apply', 'done', { file: located.file, action, keyPaths: [fix.renderKeyPath(located.keyPath)], manifestId: manifestEntry.id, backup });
 
   yield event('rescan', 'running', {});
   const scanAfter = await rescan(options);
@@ -279,7 +305,7 @@ function renderStage(event, indent = '  ') {
   if (event.status === 'failed') return `${label} ${d.reason}`;
   switch (event.stage) {
     case 'backup': return `${label} ${d.backup}`;
-    case 'apply': return `${label} removed ${d.keyPaths.join(', ')}; manifest ${d.manifestId}`;
+    case 'apply': return `${label} ${d.action === 'narrow_scope' ? 'narrowed the directory argument of' : 'removed'} ${d.keyPaths.join(', ')}; manifest ${d.manifestId}`;
     case 'rescan': return `${label} ${d.pathsBefore} exposure path${d.pathsBefore === 1 ? '' : 's'} before, ${d.pathsAfter} after`;
     case 'verify': return `${label} ${d.status || d.reason}`;
     case 'result': return renderResult(d, indent);
@@ -302,4 +328,4 @@ function renderResult(result, indent = '  ') {
   return lines.join('\n');
 }
 
-module.exports = { capabilityLossText, previewRemoval, renderPreview, validateEdited, lineDiff, hunks, projection, sanitizedEntry, outcome, runRemediation, renderStage, renderResult };
+module.exports = { capabilityLossText, previewEdit, renderPreview, validateEdited, lineDiff, hunks, projection, sanitizedEntry, outcome, runRemediation, renderStage, renderResult };

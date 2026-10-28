@@ -158,6 +158,9 @@ function acquireLock(home, targetFile) {
   return null;
 }
 
+/** Manifest actions that wrote a config file and can be rolled back; a 'rollback' entry records a restore. */
+const FIX_ACTIONS = Object.freeze(['remove_server', 'narrow_scope']);
+
 function sha256(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 function fileHash(file) { return sha256(fs.readFileSync(file)); }
 
@@ -214,4 +217,4 @@ function confirm(question) {
   });
 }
 
-module.exports = { CLIENTS, openRegular, lockPath, acquireLock, descriptorsFor, readClient, locateServer, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };
+module.exports = { CLIENTS, FIX_ACTIONS, openRegular, lockPath, acquireLock, descriptorsFor, readClient, locateServer, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };

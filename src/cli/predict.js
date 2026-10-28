@@ -44,15 +44,13 @@ function participatingServers(inventory, agentId, agentPaths, graph) {
  * One prediction per participating server of one scanned client.
  * client: a discovery client with agentId and mergedServers set.
  */
-function predictForClient({ client, inventory, graph, paths, observedAt, home, overlay = null, scannerVersion, otherClients = [] }) {
-  const agentPaths = paths.filter(p => p.agentId === client.agentId);
-  if (!agentPaths.length) return [];
-  const contextFor = c => ({ clientKey: c.clientKey, label: c.label, source: c.source, configPath: c.primaryPath, observedAt, home, overlay, builtin: c.builtin || null });
-  const agentContext = contextFor(client);
+const contextFor = (c, observedAt, home, overlay) => ({ clientKey: c.clientKey, label: c.label, source: c.source, configPath: c.primaryPath, observedAt, home, overlay, builtin: c.builtin || null });
+
+/** The fields every prediction carries, for one server edit on one client and its simulation. */
+function basePrediction({ client, inventory, observedAt, scannerVersion }) {
   const inventoryHash = inventoryDigest(inventory, client.agentId);
   const configFingerprint = scanner.pathFingerprint(client.primaryPath);
-  const targets = otherClients.filter(c => c.agentId && c.primaryPath && !c.scanError && c.clientKey !== client.clientKey);
-  const base = (server, edit, sim) => ({
+  return (server, edit, sim, disruption = capabilitiesLost(inventory, client.agentId, server.id)) => ({
     schemaVersion: SCHEMA_VERSION,
     predictionId: models.stableId('prediction', [models.ENGINE_VERSION, client.agentId, edit, sim.before.exposureKeys]),
     engineVersion: models.ENGINE_VERSION,
@@ -70,16 +68,24 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
     predictedEliminated: sim.eliminated,
     predictedSurviving: sim.survived,
     predictedLowered: sim.lowered,
-    disruption: capabilitiesLost(inventory, client.agentId, server.id),
+    disruption,
     inventoryHash,
   });
+}
+
+function predictForClient({ client, inventory, graph, paths, observedAt, home, overlay = null, scannerVersion, otherClients = [] }) {
+  const agentPaths = paths.filter(p => p.agentId === client.agentId);
+  if (!agentPaths.length) return [];
+  const agentContext = contextFor(client, observedAt, home, overlay);
+  const targets = otherClients.filter(c => c.agentId && c.primaryPath && !c.scanError && c.clientKey !== client.clientKey);
+  const base = basePrediction({ client, inventory, observedAt, scannerVersion });
   return participatingServers(inventory, client.agentId, agentPaths, graph).flatMap(server => {
     const removal = { action: 'remove_server', server: server.name };
     const out = [base(server, removal, simulateConfigEdit({ rawConfig: { mcpServers: client.mergedServers }, agentContext, edit: removal }))];
     for (const target of targets) {
       if (Object.prototype.hasOwnProperty.call(target.mergedServers, server.name)) continue;
       const move = { action: 'move_server', server: server.name, toClient: target.clientKey };
-      const sim = simulateMoveServer({ rawConfig: { mcpServers: client.mergedServers }, agentContext, targetRawConfig: { mcpServers: target.mergedServers }, targetAgentContext: contextFor(target), edit: move });
+      const sim = simulateMoveServer({ rawConfig: { mcpServers: client.mergedServers }, agentContext, targetRawConfig: { mcpServers: target.mergedServers }, targetAgentContext: contextFor(target, observedAt, home, overlay), edit: move });
       out.push({ ...base(server, move, sim), target: { key: target.clientKey, label: target.label, agentId: target.agentId,
         coverageIdentity: target.coverageIdentity,
         evidenceComplete: Array.isArray(target.files) && target.files.length > 0 && target.files.every(f => ['found', 'not_found'].includes(f.status)),
@@ -88,6 +94,18 @@ function predictForClient({ client, inventory, graph, paths, observedAt, home, o
     }
     return out;
   });
+}
+
+/**
+ * The prediction for pointing one server's broad directory argument at a
+ * narrower folder: a rescan of the client with the edited entry. `edit` is
+ * narrowScope.describeEdit's fingerprinted form; `entry` is the edited raw
+ * entry, used only to simulate. Nothing is lost by name: the server keeps its
+ * capabilities and only reaches less.
+ */
+function predictNarrow({ client, inventory, observedAt, home, overlay = null, scannerVersion, server, edit, entry }) {
+  const sim = simulateConfigEdit({ rawConfig: { mcpServers: client.mergedServers }, agentContext: contextFor(client, observedAt, home, overlay), edit: { action: 'narrow_scope', server: server.name, entry } });
+  return basePrediction({ client, inventory, observedAt, scannerVersion })(server, edit, sim, { lost: [], kept: [...new Set(server.capabilities || [])].sort(), builtin: [] });
 }
 
 /**
@@ -166,4 +184,4 @@ function planFromPredictions(predictions, paths, options = {}) {
   return { schemaVersion: SCHEMA_VERSION, targetedExposures: targeted, severityFloor: options.severityFloor || 'low', steps, residualExposureKeys: [...remaining].sort(), breaksAll: remaining.size === 0 };
 }
 
-module.exports = { SCHEMA_VERSION, inventoryDigest, participatingServers, predictForClient, builtinResidualForClient, loweredOf, rankPredictions, planFromPredictions };
+module.exports = { SCHEMA_VERSION, inventoryDigest, participatingServers, predictForClient, predictNarrow, builtinResidualForClient, loweredOf, rankPredictions, planFromPredictions };

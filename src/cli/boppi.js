@@ -35,6 +35,7 @@ const plugins = require('./discovery/claudePlugins');
 const configFacts = require('./configFacts');
 const recognitionModule = require('./recognition');
 const predict = require('./predict');
+const narrowScope = require('./narrowScope');
 const verify = require('./verify');
 const overlayModule = require('./overlay');
 const overlayBundle = require('./overlayBundle');
@@ -74,7 +75,7 @@ function usage() {
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
     '  boppi plan                     compare every candidate fix (paths broken, new paths, capabilities lost) and show the exact edits; changes nothing',
-    '  boppi fix --server <name>      preview the exact edit, then remove one server entry from its config file (backup first), rescan, and grade the prediction',
+    '  boppi fix --server <name>      preview the exact edit, then remove one server entry from its config file (backup first), rescan, and grade the prediction; --narrow <dir> keeps the server and narrows its directory instead',
     '  boppi rollback [--id <id>]     list the backups fix recorded, or restore one to its file and rescan',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '  boppi overlay verify <bundle.json> --trust <keys.json>   check a signed claims bundle without changing anything',
@@ -102,6 +103,7 @@ function usage() {
     '',
     'fix options:',
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
+    '  --narrow <dir>      keep the server and point its broad directory argument (home, a system root or a secrets folder) at <dir>, a folder inside it',
     '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor',
     '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
     '',
@@ -189,7 +191,7 @@ function parseArgs(argv) {
     pluginRoot: process.env.CLAUDE_CODE_PLUGIN_CACHE_DIR || null,
   };
   let askRequested = false;
-  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--overlay-bundle', '--trust', '--receipt', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name']);
+  const takesValue = new Set(['--question', '--since', '--interval', '--duration', '--log', '--record', '--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--overlay-bundle', '--trust', '--receipt', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--id', '--set', '--code', '--name', '--narrow']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (options.command === 'events' && !options.subcommand && arg === 'push') options.subcommand = 'push';
@@ -223,6 +225,7 @@ function parseArgs(argv) {
       else if (arg === '--file') options.file = value;
       else if (arg === '--platform') options.platform = value;
       else if (arg === '--server') options.server = value;
+      else if (arg === '--narrow') options.narrow = value;
       else if (arg === '--sarif') options.sarif = value;
       else if (arg === '--policy') options.policy = value;
       else if (arg === '--client') options.client = value;
@@ -268,6 +271,7 @@ function parseArgs(argv) {
     if (options.subcommand === 'rollback' && (!options.receipt || !options.trust)) throw new Error('overlay rollback requires --receipt <receipt.json> and --trust <public-keys.json>');
   }
   if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
+  if (options.narrow && options.command !== 'fix') throw new Error('--narrow is only accepted by boppi fix');
   if (options.command === 'events' && !options.help && !options.version && (!Number.isFinite(options.since) || options.since < 1 || options.since > 3650)) throw new Error('--since must be a number of days from 1 to 3650');
   if (options.command === 'watch' && !options.help && !options.version) {
     if (!Number.isFinite(options.interval) || options.interval < 1) throw new Error('--interval must be a number of seconds, at least 1');
@@ -669,7 +673,7 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   // Which explicit file was scanned, in portable form, so a report can print a `boppi fix` command that targets the same file.
   const scanArgs = options.config ? { config: portablePath(path.resolve(options.config), options.home), source: options.source } : null;
-  const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, traversal, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs };
+  const scan = { startedAt, scannerVersion: VERSION, home: options.home, platform: options.platform, scope: options.config ? 'explicit' : options.only ? 'selected' : 'full', durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, graph, paths, traversal, prioritization, rootCauses, predictions, remediationPlan, builtinResidual, inferenceByClient, recognition, diagnostics, incomplete, storageExport, scanArgs, overlayModel: overlay || null };
   // Include attempted locations, even absent files, and cwd (Claude Code stores project blocks in a user file).
   // File contents deliberately do not define coverage: a real edit must remain comparable.
   scan.coverageIdentity = evidenceIdentity.digest('coverage-v2', {
@@ -801,13 +805,34 @@ async function runVerify(options) {
   return 0;
 }
 
-/** The sanitized diff preview for removing one server from one client's file, or null when no readable file holds it. */
-function previewFor(scan, options, client, serverName) {
+/** The sanitized diff preview for removing (or with narrow, narrowing) one server in one client's file, or null when no readable file holds it. */
+function previewFor(scan, options, client, serverName, narrow = null) {
   const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === client.clientKey);
   const located = descriptor ? fix.locateServer(descriptor, serverName, options.cwd) : null;
   if (!located) return null;
   const recordsByName = new Map(scan.inventory.mcpServers.filter(s => s.agentId === client.agentId).map(s => [s.name, s]));
-  return remediate.previewRemoval({ located, serverName, cwd: options.cwd, recordsByName });
+  return remediate.previewEdit({ located, serverName, cwd: options.cwd, recordsByName, narrow });
+}
+
+/**
+ * The narrow_scope plan for fix --narrow: which argument, its replacement,
+ * and the prediction from a rescan with the edited entry. Returns { error }
+ * when the server has no single broad directory or the target is not narrower.
+ */
+function planNarrow(scan, options, client) {
+  const entry = client.mergedServers[options.server];
+  const broad = narrowScope.broadDirectories(entry, options.home);
+  if (!broad.length) return { error: `"${options.server}" has no directory argument covering the home directory, a system root or a secrets folder, so there is nothing to narrow` };
+  if (broad.length > 1) return { error: `"${options.server}" has ${broad.length} broad directory arguments; --narrow edits one, so narrow this entry by hand or remove it` };
+  const [{ index, arg, label }] = broad;
+  const to = path.resolve(options.cwd, options.narrow.startsWith('~/') ? path.join(options.home, options.narrow.slice(2)) : options.narrow);
+  const problem = narrowScope.targetProblem({ from: arg, to, home: options.home });
+  if (problem) return { error: `${problem}. --narrow needs an existing folder inside the one "${options.server}" has now` };
+  const server = scan.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === options.server);
+  const edit = narrowScope.describeEdit({ server: options.server, entry, index, to });
+  const prediction = server ? predict.predictNarrow({ client, inventory: scan.inventory, observedAt: scan.startedAt, home: options.home, overlay: scan.overlayModel, scannerVersion: scan.scannerVersion, server, edit, entry: narrowScope.narrowedEntry(entry, index, to) }) : null;
+  if (prediction) prediction.evidenceComplete = prediction.evidenceComplete && scan.traversal.complete === true;
+  return { narrow: { index, from: arg, to, prediction }, label };
 }
 
 /** boppi fix: preview, confirm, then run the staged removal and print each stage. */
@@ -829,25 +854,29 @@ async function runFix(options) {
     return 2;
   }
   const client = candidates[0];
-  const preview = previewFor(before, options, client, options.server);
+  const narrowPlan = options.narrow ? planNarrow(before, options, client) : {};
+  if (narrowPlan.error) { process.stderr.write(`fix: ${narrowPlan.error}.\n`); return 2; }
+  const narrow = narrowPlan.narrow || null;
+  const preview = previewFor(before, options, client, options.server, narrow);
   if (!preview) {
     const remedy = plugins.pluginRemedy(client, options.server);
     if (remedy) process.stderr.write(`fix: "${options.server}" is not in a file Boppi edits. ${remedy.reason}\n`);
     else process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
     return 2;
   }
-  const prediction = before.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === options.server && p.client.key === client.clientKey);
+  const prediction = narrow ? narrow.prediction : before.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === options.server && p.client.key === client.clientKey);
   const server = before.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === options.server);
   const lost = prediction ? prediction.disruption.lost : (server ? server.capabilities : []);
 
-  process.stdout.write(`BOPPI · FIX  remove "${options.server}" from ${client.label}\n`);
+  process.stdout.write(narrow ? `BOPPI · FIX  narrow "${options.server}" on ${client.label}\n` : `BOPPI · FIX  remove "${options.server}" from ${client.label}\n`);
   process.stdout.write(`  file:    ${preview.file} (${preview.scope} scope)\n`);
+  if (narrow) process.stdout.write(`  narrows: the directory argument that covers ${narrowPlan.label} becomes ${narrow.to}\n`);
   const lowered = prediction ? predict.loweredOf(prediction) : [];
-  if (prediction) process.stdout.write(`  breaks:  ${prediction.predictedEliminated.length} of ${prediction.before.exposureKeys.length} exposure path${prediction.before.exposureKeys.length === 1 ? '' : 's'} on ${client.label}, by rescanning without it\n`);
+  if (prediction) process.stdout.write(`  breaks:  ${prediction.predictedEliminated.length} of ${prediction.before.exposureKeys.length} exposure path${prediction.before.exposureKeys.length === 1 ? '' : 's'} on ${client.label}, by rescanning ${narrow ? 'with the narrower directory' : 'without it'}\n`);
   else process.stdout.write('  breaks:  nothing modeled; this server takes part in no exposure path\n');
   if (lowered.length) process.stdout.write(`  lowers:  ${lowered.map(step => `${step.exposureKey.split(':')[0]} ${step.from} to ${step.to}`).join(', ')} (the path stays open through what remains)\n`);
   if (prediction && !prediction.predictedEliminated.length && !lowered.length) process.stdout.write('  note:    this edit is not predicted to close or lower any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
-  process.stdout.write(`  loses:   ${remediate.capabilityLossText(lost, server)}\n`);
+  process.stdout.write(narrow ? `  loses:   nothing by name; the server keeps its tools and can reach only ${narrow.to}\n` : `  loses:   ${remediate.capabilityLossText(lost, server)}\n`);
   process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
   process.stdout.write(remediate.renderPreview(preview) + '\n');
 
@@ -864,11 +893,14 @@ async function runFix(options) {
   const exportDir = path.join(options.home, '.boppi', 'fix-exports');
   fs.mkdirSync(exportDir, { recursive: true, mode: 0o700 });
   const exportFile = path.join(exportDir, `boppi-fix-${before.startedAt.replace(/[:.]/g, '-')}.json`);
-  fs.writeFileSync(exportFile, JSON.stringify(exportPayload(before), null, 2), { mode: 0o600 });
+  const payload = exportPayload(before);
+  // The narrow prediction is made here, not by the scan; boppi verify --file grades it from this export.
+  if (narrow && narrow.prediction) payload.predictions = [...payload.predictions, narrow.prediction];
+  fs.writeFileSync(exportFile, JSON.stringify(payload, null, 2), { mode: 0o600 });
   process.stdout.write(`\nSTAGES  predictions saved to ${exportFile}\n`);
 
   let result = null, after = null, grade = null, failure = null;
-  const stages = remediate.runRemediation({ options, server: options.server, clientKey: client.clientKey, scanBefore: before, expectedHashes: preview.fileHashes, exportFile, rescan: performScan });
+  const stages = remediate.runRemediation({ options, server: options.server, clientKey: client.clientKey, scanBefore: before, expectedHashes: preview.fileHashes, exportFile, rescan: performScan, narrow });
   for await (const event of stages) {
     const line = remediate.renderStage(event);
     if (line) process.stdout.write(line + '\n');

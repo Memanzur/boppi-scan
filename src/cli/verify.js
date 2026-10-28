@@ -61,7 +61,8 @@ function locateAgent(prediction, byAgent, options) {
 /**
  * Rules, in order:
  * 1. agent absent from the new scan: UNRESOLVED agent_not_scanned
- * 2. server key still present: UNRESOLVED edit_not_applied
+ * 2. server key still present: UNRESOLVED edit_not_applied (narrow_scope: the
+ *    server must remain and its entry must match the simulated one)
  * 3. every predicted-eliminated key absent, every predicted-surviving key present,
  *    and every predicted-lowered key gone or at or below its predicted priority: CONFIRMED
  * 4. some predicted change missing (a survivor, a path still at its old priority,
@@ -86,7 +87,11 @@ function resolvePrediction(prediction, byAgent, options = {}) {
   flags.push(...located.flags);
   if (!located.state) return { ...base, status: STATUS.UNRESOLVED, reason: 'agent_not_scanned', observed: null };
   const { state } = located;
-  if (state.serverNames.has(prediction.edit.server)) return { ...base, status: STATUS.UNRESOLVED, reason: 'edit_not_applied', observed: { exposureKeys: state.exposureKeys } };
+  if (prediction.edit.action === 'narrow_scope') {
+    // A narrowed server stays; the edit landed only when its entry is the one the prediction simulated.
+    if (!state.serverNames.has(prediction.edit.server)) return { ...base, status: STATUS.UNRESOLVED, reason: 'server_absent', observed: { exposureKeys: state.exposureKeys } };
+    if (state.serverIdentities[prediction.edit.server] !== prediction.edit.expectedIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'narrow_not_applied', observed: { exposureKeys: state.exposureKeys } };
+  } else if (state.serverNames.has(prediction.edit.server)) return { ...base, status: STATUS.UNRESOLVED, reason: 'edit_not_applied', observed: { exposureKeys: state.exposureKeys } };
 
   // Exposure keys embed the agent id, so a client-matched agent is compared in the prediction's own id space.
   const asPredicted = key => (state.agentId === prediction.agentId ? key : key.replace(state.agentId, prediction.agentId));
@@ -107,7 +112,7 @@ function resolvePrediction(prediction, byAgent, options = {}) {
   if (prediction.evidenceComplete !== true || !prediction.coverageIdentity || !state.coverageIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'baseline_evidence_unknown', observed };
   if (prediction.coverageIdentity !== state.coverageIdentity) return { ...base, status: STATUS.UNRESOLVED, reason: 'coverage_changed', observed };
 
-  if (!['remove_server', 'move_server'].includes(prediction.edit.action)) return { ...base, status: STATUS.UNRESOLVED, reason: 'unsupported_edit', observed };
+  if (!['remove_server', 'move_server', 'narrow_scope'].includes(prediction.edit.action)) return { ...base, status: STATUS.UNRESOLVED, reason: 'unsupported_edit', observed };
   if (prediction.edit.action === 'move_server') {
     const target = prediction.target;
     if (!target || target.key !== prediction.edit.toClient || target.evidenceComplete !== true || !target.coverageIdentity || !target.serverIdentity || !target.predictedState
@@ -170,6 +175,8 @@ const REASON_TEXT = Object.freeze({
   no_change_predicted: 'this edit was never expected to close or lower a path; nothing changed, as predicted',
   agent_not_scanned: 'that agent was not in this scan',
   edit_not_applied: 'the server is still configured',
+  narrow_not_applied: 'the server entry is not the narrowed one (the edit did not land, or the entry changed since)',
+  server_absent: 'the server is no longer configured, so narrowing it cannot be graded',
   all_predicted_eliminated_present: 'every path predicted to vanish is still present',
   some_predicted_eliminated_present: 'some paths predicted to vanish are still present',
   predicted_surviving_absent: 'paths predicted to survive are gone too',
@@ -260,6 +267,7 @@ function nextStep(summary, resolutions = []) {
 /** One row label per prediction kind, so a removal and the moves predicted for the same server are not all called "remove". */
 function editLabel(r) {
   if (r.edit && r.edit.action === 'move_server') return `move ${r.edit.server} to ${(r.target && r.target.label) || r.edit.toClient}`;
+  if (r.edit && r.edit.action === 'narrow_scope') return `narrow ${r.edit.server}`;
   return `remove ${r.edit.server}`;
 }
 

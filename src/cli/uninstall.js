@@ -72,14 +72,14 @@ function inventory(home) {
 }
 
 /**
- * Fixes whose backup is still the only way back: every remove_server entry no
+ * Fixes whose backup is still the only way back: every fix entry (fix.FIX_ACTIONS) no
  * rollback entry names, plus any .bak file no manifest entry accounts for (an
  * unreadable manifest makes every backup count).
  */
 function liveFixes(home) {
   const manifest = fix.readManifest(home);
   const restored = new Set(manifest.entries.filter(e => e.action === 'rollback').map(e => e.restoredFrom));
-  const fixes = manifest.entries.filter(e => e.action === 'remove_server');
+  const fixes = manifest.entries.filter(e => fix.FIX_ACTIONS.includes(e.action));
   const live = fixes.filter(e => !restored.has(e.id)).map(e => ({ id: e.id, server: e.server, original: e.original }));
   // Records may hold the resolved path (/private/tmp) while --home names a link to it (/tmp); compare real paths.
   const real = file => { try { return fs.realpathSync(file); } catch (_) { return path.resolve(file); } };

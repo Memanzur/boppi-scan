@@ -115,7 +115,7 @@ function editSentence(step) {
 /** The scanned config files the edit applies to, so the instruction names a real file. */
 function editLocations(step, report) {
   const client = (report.discovery || []).find(c => c.clientKey === step.client.key);
-  const verb = step.edit.action === 'move_server' ? 'move' : 'remove';
+  const verb = step.edit.action === 'move_server' ? 'move' : step.edit.action === 'narrow_scope' ? 'narrow' : 'remove';
   return filesHolding(client, step.edit.server).map(file => `${verb} the "${step.edit.server}" entry from ${file}`);
 }
 

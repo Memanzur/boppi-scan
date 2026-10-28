@@ -8,12 +8,12 @@ const fix = require('./fix');
 const { pathFingerprint } = require('../engine/localMcpScanner');
 
 function renderList(manifest) {
-  const fixes = manifest.entries.filter(e => e.action === 'remove_server').slice().reverse();
-  if (!fixes.length) return 'No backups recorded. boppi fix writes one entry per applied removal.';
+  const fixes = manifest.entries.filter(e => fix.FIX_ACTIONS.includes(e.action)).slice().reverse();
+  if (!fixes.length) return 'No backups recorded. boppi fix writes one entry per applied fix.';
   const restored = new Set(manifest.entries.filter(e => e.action === 'rollback').map(e => e.restoredFrom));
   const lines = ['BOPPI · BACKUPS  newest first', ''];
   for (const entry of fixes) {
-    lines.push(`  ${entry.id}  ${entry.createdAt}  remove ${JSON.stringify(entry.server)} from ${entry.clientKey}${restored.has(entry.id) ? '  (rolled back)' : ''}`);
+    lines.push(`  ${entry.id}  ${entry.createdAt}  ${entry.action === 'narrow_scope' ? 'narrow' : 'remove'} ${JSON.stringify(entry.server)} ${entry.action === 'narrow_scope' ? 'on' : 'from'} ${entry.clientKey}${restored.has(entry.id) ? '  (rolled back)' : ''}`);
     lines.push(`    original: ${entry.original}`);
     lines.push(`    backup:   ${entry.backup}${fs.existsSync(entry.backup) ? '' : '  (missing)'}`);
   }
@@ -25,7 +25,7 @@ function renderList(manifest) {
 async function runRollback(options, { rescan, recordScan, summaryLine }) {
   const manifest = fix.readManifest(options.home);
   if (!options.id) { process.stdout.write(renderList(manifest) + '\n'); return 0; }
-  const entry = manifest.entries.find(e => e.id === options.id && e.action === 'remove_server');
+  const entry = manifest.entries.find(e => e.id === options.id && fix.FIX_ACTIONS.includes(e.action));
   if (!entry) { process.stderr.write(`rollback: no fix with id ${JSON.stringify(options.id)} in ${fix.manifestPath(options.home)}; boppi rollback lists them.\n`); return 2; }
   if (!fs.existsSync(entry.backup)) { process.stderr.write(`rollback: backup ${entry.backup} is missing.\n`); return 2; }
   const backupBytes = fs.readFileSync(entry.backup);

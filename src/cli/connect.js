@@ -131,7 +131,7 @@ function describeTarget({ options, scan, client, located, server }) {
   let preview;
   try {
     const recordsByName = new Map(scan.inventory.mcpServers.filter(s => s.agentId === client.agentId).map(s => [s.name, s]));
-    preview = remediate.previewRemoval({ located, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes });
+    preview = remediate.previewEdit({ located, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes });
   } catch (_) { return { ...base, regularFile: false, failureCode: 'other', configHash: EMPTY_HASH, previewHash: EMPTY_HASH }; }
   const previewText = remediate.renderPreview(preview);
   return { ...base, serverRecord: scan.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === server), preview, previewText, configHash: fix.sha256(opened.bytes), previewHash: previewHashOf(previewText) };
@@ -235,7 +235,7 @@ function rollbackTarget(options, scan, binding) {
     const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === binding.client);
     const located = descriptor && fix.locateServer(descriptor, entry.server, options.cwd, new Map([[found.file, JSON.parse(backup.bytes.toString('utf8'))]]));
     if (!located || located.file !== found.file || (entry.keyPath && JSON.stringify(located.keyPath) !== JSON.stringify(entry.keyPath))) return base;
-    const preview = remediate.previewRemoval({ located, serverName: entry.server, cwd: options.cwd, recordsByName, bytes: backup.bytes });
+    const preview = remediate.previewEdit({ located, serverName: entry.server, cwd: options.cwd, recordsByName, bytes: backup.bytes });
     // Reverse both the operation signs and the old/new hunk coordinates.
     preview.diff = preview.diff.map(line => line.startsWith('@@ ')
       ? line.replace(/^@@ -(\d+,\d+) \+(\d+,\d+) @@$/, '@@ -$2 +$1 @@')

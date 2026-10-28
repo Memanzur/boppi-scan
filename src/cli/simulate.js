@@ -75,17 +75,18 @@ function diffKeys(before, after) {
 }
 
 /**
- * Apply {action:'remove_server', server} to a copy of the raw config and
- * rescan. agentContext is the client descriptor a scan would use
+ * Apply {action:'remove_server', server} or {action:'narrow_scope', server,
+ * entry} to a copy of the raw config and rescan. agentContext is the client descriptor a scan would use
  * ({clientKey, label, source, configPath, observedAt, home}).
  */
 function simulateConfigEdit({ rawConfig, agentContext, edit }) {
-  if (!edit || edit.action !== 'remove_server') throw new TypeError(`Simulate: unsupported action ${edit && edit.action}`);
+  if (!edit || !['remove_server', 'narrow_scope'].includes(edit.action)) throw new TypeError(`Simulate: unsupported action ${edit && edit.action}`);
   const servers = rawConfig && rawConfig.mcpServers ? rawConfig.mcpServers : {};
   if (!Object.prototype.hasOwnProperty.call(servers, edit.server)) throw new TypeError(`Simulate: server ${edit.server} is not in the config`);
   const { [edit.server]: removed, ...rest } = servers;
+  const afterServers = edit.action === 'narrow_scope' ? { ...servers, [edit.server]: edit.entry } : rest;
   const before = exposureStateOf(clientInventory({ ...agentContext, mergedServers: servers }));
-  const after = exposureStateOf(clientInventory({ ...agentContext, mergedServers: rest }));
+  const after = exposureStateOf(clientInventory({ ...agentContext, mergedServers: afterServers }));
   return { before, after, ...diffKeys(before.exposureKeys, after.exposureKeys), lowered: loweredBetween(before, after) };
 }
 
