@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 22:45 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:00 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -33,8 +33,8 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | (tooling) resumable scanner test runner | done | scanner 6bf3b43 | --resume and --only smoke-tested |
 | (tooling) session preflight script | done | control, this commit | ran clean |
 | T-4 connector executes only removals this device offered | done | scanner 61dcbb3 | `npm test` 39/39, connector 74 (mock workspace). Real-route journey not rerun: Docker is off after the restart; rerun it when a disposable stack is up |
-| T-5 CLI fix/rollback use the connector's safe write path | next | | |
-| T-6 approval origin decided server-side | todo | | |
+| T-5 CLI fix/rollback use the connector's safe write path | done | scanner a233b19 | `npm test` 40/40, new verify-safe-writes 18 |
+| T-6 approval origin decided server-side | next | | |
 | T-7 login CSRF, signup enumeration, CSV injection | todo | | |
 | T-10 push --file re-sanitize; fix manifest location | todo | | |
 | T-8 rollback harness + down files for five newest migrations | todo | | |
@@ -48,12 +48,12 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Nothing uncommitted. Next: T-5.
+Nothing uncommitted. Next: T-6.
 
 ## Exact next steps
 
-1. T-5 (scanner `src/cli/remediate.js` runRemediation and `src/cli/rollback.js`): use the connector's write path (openRegular without following symlinks, lock, hash recheck at the write boundary, writeAtomic). Tests: symlinked target refused, file changed between preview and write refused, original bytes intact.
-2. Then T-6, T-7, T-10, T-8, T-9 in that order. Commit each one with its tests and update the table above.
+1. T-6 (control `apps/control-plane`): `approve_remediation` must not trust a caller-supplied `origin_verified`. Decide origin in the server route (lib/remediation/origin.ts) and make a direct RPC call from a user session refuse. Tests: SQL negative in supabase/tests/local/remediation.sql (disposable DB, safe to rerun) plus the routes suite.
+2. Then T-7, T-10, T-8, T-9 in that order. Commit each one with its tests and update the table above.
 3. After Milestone A, rebuild the candidate from the fixed scanner (new folder, never overwrite the 104147d candidate) and move the D-11 choice to it.
 
 ---
