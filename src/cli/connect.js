@@ -412,7 +412,7 @@ class Cycle {
     const target = targetForBinding(this.options, scan, b);
     const current = target.regularFile && target.configHash === b.configHash && target.previewHash === b.previewHash;
     if (current && !offers.some(offer => offerMatches(offer, b))) {
-      this.out(`  ${proposal.id}  refused (not_offered): "${clip(String(b.server), 128)}" on ${clip(String(b.client), 32)} is not a change this device offered in this run; not claimed, nothing written`);
+      this.out(`  ${proposal.id}  refused (not_offered): "${clip(String(b.server), 128)}" on ${clip(String(b.client), 32)} is not a change this device offered in this run; not claimed, nothing written. Offers belong to the folder boppi connect run started in and to the file as it was; run it from the same folder as before, or let this run's fresh offer be proposed again`);
       return;
     }
     if (current && !await this.confirmLocally(proposal, target)) return;
@@ -433,7 +433,7 @@ class Cycle {
     if (applied.ok) this.out(b.action === 'rollback'
       ? `    applied locally: restored the verified backup ${applied.backup}; manifest ${applied.backupManifestId}`
       : `    applied locally: backup ${applied.backup}; manifest ${applied.backupManifestId}; undo with boppi rollback --id ${applied.backupManifestId}`);
-    else this.out(`    not written (${applied.failureCode}); the file is as it was`);
+    else this.out(`    not written (${applied.failureCode}); the file is as it was${applied.failureCode === 'hash_changed' ? `. The file changed after the preview you approved${b.client === 'claude-code' ? ' (Claude Code rewrites ~/.claude.json while it runs; quit it first)' : ''}. Run boppi connect run --once to send a fresh offer, then propose and approve again` : ''}`);
     if (reported.networkError) { this.err(`    applied: ${describeFailure('applied', reported)}; the report is kept and sent on the next run`); return; }
     delete this.claims.pending[proposal.id];
     this.rememberNonce(nonce);

@@ -238,6 +238,7 @@ function startWorkspace() {
     ok('the applied report names hash_changed with no applied hash', racedReport && racedReport.body.proposalId === changedProposal && racedReport.body.failureCode === 'hash_changed' && !racedReport.body.appliedHash && racedReport.body.regularFile === true && HEX64.test(racedReport.body.hashAtWrite));
     ok('the file is left exactly as the other writer left it and no manifest entry exists', fs.readFileSync(desktopConfig).equals(Buffer.concat([original, Buffer.from('\n')])) && manifestEntries().length === 0 && ws.proposals.get(changedProposal).state === 'conflicted');
     ok('the output says nothing was written', raced.stdout.includes('not written (hash_changed)') && !raced.stdout.includes('applied locally'));
+    ok('it says the file changed after the approved preview and how to get a fresh offer', raced.stdout.includes('changed after the preview you approved') && raced.stdout.includes('boppi connect run --once to send a fresh offer'));
     fs.writeFileSync(desktopConfig, original);
 
     section('only removals this device offered are executed (T-4)');
@@ -255,7 +256,7 @@ function startWorkspace() {
         ws.approve(id);
         const claimsBefore = ws.byRoute('claim').length;
         const forged = await runCli(['connect', 'run', '--once', '--yes'], home);
-        ok(`${label}: refused as not_offered even with --yes, never claimed, file and manifest untouched`, forged.stdout.includes(`${id}  refused (not_offered)`) && ws.byRoute('claim').length === claimsBefore && fs.readFileSync(desktopConfig).equals(original) && manifestEntries().length === 0 && !forged.stdout.includes('applied locally'));
+        ok(`${label}: refused as not_offered even with --yes, never claimed, file and manifest untouched`, forged.stdout.includes(`${id}  refused (not_offered)`) && forged.stdout.includes('run it from the same folder as before') && ws.byRoute('claim').length === claimsBefore && fs.readFileSync(desktopConfig).equals(original) && manifestEntries().length === 0 && !forged.stdout.includes('applied locally'));
         ws.proposals.get(id).state = 'cancelled';
       }
       const offer = ws.previews.get(fetchKey);
