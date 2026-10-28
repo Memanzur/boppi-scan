@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { validateConfigShape } = require('./configFiles');
 
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const MANIFEST_VERSION = 1;
@@ -16,48 +17,105 @@ function descriptorsFor(options) {
   if (options.config) {
     return [{
       clientKey: options.source, label: `Explicit config (${options.source})`, source: options.source,
-      files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || {} }],
+      files: [{ path: path.resolve(options.config), scope: 'explicit', blocks: [{ keyPath: ['mcpServers'], scope: 'explicit' }] }],
     }];
   }
   return CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
 }
 
-/** The scanned file and key path that hold a server for one client, or null. */
-function locateServer(client, descriptor, serverName) {
+const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+/** The plain object at keyPath, or null when any step is missing or not an object. */
+function objectAt(json, keyPath) {
+  let node = json;
+  for (const key of keyPath) {
+    if (!isObject(node) || !hasOwn(node, key)) return null;
+    node = node[key];
+  }
+  return isObject(node) ? node : null;
+}
+
+function unreadableReason(error) {
+  if (error.code === 'EACCES' || error.code === 'EPERM') return 'permission denied';
+  if (error.code === 'EISDIR') return 'this is a directory, not a config file';
+  return error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
+}
+
+/**
+ * Read every file one client descriptor names, in order, and list each
+ * server with the label scans and plans use, its name in the file, and the
+ * exact key path that holds it. A name an earlier block already used is
+ * labeled with that block's scope, so no entry is dropped. Discovery and
+ * every write path go through here, so a label resolves to the entry it was
+ * given to. overrides maps a resolved path to parsed contents to read in
+ * place of that file, so a rollback can label the entries of a backup.
+ */
+function readClient(descriptor, cwd, overrides = new Map()) {
+  const files = [], servers = [], documents = new Map(), taken = new Set(), seen = new Set();
   for (const file of descriptor.files) {
     const resolved = path.resolve(file.path);
-    if (!fs.existsSync(resolved)) continue;
+    if (seen.has(resolved)) continue; // user and project config can be the same file
+    seen.add(resolved);
+    const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [] };
+    files.push(entry);
+    if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;
     let json;
-    try { json = JSON.parse(fs.readFileSync(resolved, 'utf8')); } catch (_) { continue; }
-    const servers = file.extract(json) || {};
-    if (!Object.prototype.hasOwnProperty.call(servers, serverName)) continue;
-    return { file: resolved, scope: file.scope, json };
+    try {
+      json = overrides.has(resolved) ? overrides.get(resolved) : JSON.parse(fs.readFileSync(resolved, 'utf8'));
+      validateConfigShape(json, { source: descriptor.source, cwd });
+    } catch (error) {
+      entry.status = 'unreadable';
+      entry.reason = unreadableReason(error);
+      continue;
+    }
+    entry.status = 'found';
+    documents.set(resolved, json);
+    for (const block of file.blocks) {
+      for (const [name, server] of Object.entries(objectAt(json, block.keyPath) || {})) {
+        let label = name;
+        for (let n = 2; taken.has(label); n++) label = n === 2 ? `${name} (${block.scope})` : `${name} (${block.scope} ${n})`;
+        taken.add(label);
+        entry.servers.push(label);
+        if (label !== name) (entry.renamed = entry.renamed || []).push({ from: name, to: label });
+        servers.push({ label, name, file: resolved, scope: file.scope, keyPath: [...block.keyPath, name], server });
+      }
+    }
+    entry.serverCount = entry.servers.length;
   }
-  return null;
+  return { files, servers, documents };
 }
 
-/** Delete the server from every mcpServers block the client reads in this file. Returns how many blocks changed. */
-function deleteServer(json, serverName, cwd) {
-  let removed = 0;
-  if (json.mcpServers && typeof json.mcpServers === 'object' && Object.prototype.hasOwnProperty.call(json.mcpServers, serverName)) {
-    delete json.mcpServers[serverName];
-    removed += 1;
-  }
-  const project = json.projects && cwd && json.projects[cwd];
-  if (project && project.mcpServers && typeof project.mcpServers === 'object' && Object.prototype.hasOwnProperty.call(project.mcpServers, serverName)) {
-    delete project.mcpServers[serverName];
-    removed += 1;
-  }
-  return removed;
+/**
+ * The file, key path and name in the file that hold the server a scan
+ * labeled `label`, read from the files as they are now, or null. labels maps
+ * every key path in that file to its scan label, so a preview can sanitize
+ * each entry with its own record. overrides is passed to readClient.
+ */
+function locateServer(descriptor, label, cwd, overrides) {
+  const { servers, documents } = readClient(descriptor, cwd, overrides);
+  const found = servers.find(s => s.label === label);
+  if (!found) return null;
+  const labels = new Map(servers.filter(s => s.file === found.file).map(s => [JSON.stringify(s.keyPath), s.label]));
+  return { file: found.file, scope: found.scope, json: documents.get(found.file), name: found.name, keyPath: found.keyPath, labels };
 }
 
-/** The mcpServers blocks of this file that deleteServer would touch, as JSON pointer-like key paths. */
-function serverBlocks(json, cwd) {
-  const blocks = [];
-  if (json.mcpServers && typeof json.mcpServers === 'object') blocks.push({ keyPath: 'mcpServers', servers: json.mcpServers });
-  const project = json.projects && cwd && json.projects[cwd];
-  if (project && project.mcpServers && typeof project.mcpServers === 'object') blocks.push({ keyPath: `projects[${JSON.stringify(cwd)}].mcpServers`, servers: project.mcpServers });
-  return blocks;
+/** Delete the one entry at keyPath. Returns whether it was there. */
+function deleteAt(json, keyPath) {
+  const parent = objectAt(json, keyPath.slice(0, -1));
+  const name = keyPath[keyPath.length - 1];
+  if (!parent || !hasOwn(parent, name)) return false;
+  delete parent[name];
+  return true;
+}
+
+/** A key path as the preview prints it: mcpServers."x" or projects["/repo"].mcpServers."x". */
+function renderKeyPath(keyPath) {
+  return keyPath.map((key, index) => {
+    if (index === keyPath.length - 1) return `.${JSON.stringify(key)}`;
+    if (keyPath[index - 1] === 'projects') return `[${JSON.stringify(key)}]`;
+    return index ? `.${key}` : key;
+  }).join('');
 }
 
 function sha256(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
@@ -116,4 +174,4 @@ function confirm(question) {
   });
 }
 
-module.exports = { CLIENTS, descriptorsFor, locateServer, deleteServer, serverBlocks, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };
+module.exports = { CLIENTS, descriptorsFor, readClient, locateServer, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };

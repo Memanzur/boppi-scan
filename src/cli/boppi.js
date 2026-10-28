@@ -16,7 +16,6 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const evidenceIdentity = require('./evidenceIdentity');
-const { validateConfigShape } = require('./configFiles');
 
 const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
@@ -466,37 +465,13 @@ function discover(options) {
 
   for (const descriptor of descriptors) {
     if (wanted && !wanted.has(descriptor.clientKey)) continue;
-    const client = { clientKey: descriptor.clientKey, label: descriptor.label, source: descriptor.source, files: [], mergedServers: {}, primaryPath: null };
-    const seenPaths = new Set();
-    for (const file of descriptor.files) {
-      const resolved = path.resolve(file.path);
-      if (seenPaths.has(resolved)) continue; // user and project config can be the same file
-      seenPaths.add(resolved);
-      const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [] };
-      if (fs.existsSync(resolved)) {
-        try {
-          const json = JSON.parse(fs.readFileSync(resolved, 'utf8'));
-          filesRead.add(resolved);
-          validateConfigShape(json, { source: descriptor.source, cwd: options.cwd });
-          const servers = file.extract(json) || {};
-          entry.status = 'found';
-          entry.serverCount = Object.keys(servers).length;
-          if (!client.primaryPath) client.primaryPath = resolved;
-          for (const [name, server] of Object.entries(servers)) {
-            const key = client.mergedServers[name] ? `${name} (${file.scope})` : name;
-            client.mergedServers[key] = server;
-            entry.servers.push(key);
-            if (key !== name) (entry.renamed = entry.renamed || []).push({ from: name, to: key });
-          }
-        } catch (error) {
-          entry.status = 'unreadable';
-          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
-            : error.code === 'EISDIR' ? 'this is a directory, not a config file'
-            : error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
-          filesRead.add(resolved);
-        }
-      }
-      client.files.push(entry);
+    const read = fix.readClient(descriptor, options.cwd);
+    const client = { clientKey: descriptor.clientKey, label: descriptor.label, source: descriptor.source, files: read.files, mergedServers: {}, primaryPath: null };
+    for (const server of read.servers) client.mergedServers[server.label] = server.server;
+    for (const entry of read.files) {
+      if (entry.status === 'not_found') continue;
+      filesRead.add(entry.path);
+      if (entry.status === 'found' && !client.primaryPath) client.primaryPath = entry.path;
     }
     if (builtinTools.hasBuiltinTools(client.clientKey)) {
       // Permission settings are read only when discovery found this client, and never in explicit --config mode.
@@ -782,7 +757,7 @@ async function runVerify(options) {
 /** The sanitized diff preview for removing one server from one client's file, or null when no readable file holds it. */
 function previewFor(scan, options, client, serverName) {
   const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === client.clientKey);
-  const located = descriptor ? fix.locateServer(client, descriptor, serverName) : null;
+  const located = descriptor ? fix.locateServer(descriptor, serverName, options.cwd) : null;
   if (!located) return null;
   const recordsByName = new Map(scan.inventory.mcpServers.filter(s => s.agentId === client.agentId).map(s => [s.name, s]));
   return remediate.previewRemoval({ located, serverName, cwd: options.cwd, recordsByName });

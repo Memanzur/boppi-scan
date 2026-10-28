@@ -8,8 +8,8 @@ function locate({ home, cwd }) {
     label: 'Cursor',
     source: 'cursor',
     files: [
-      { path: path.join(home, '.cursor', 'mcp.json'), scope: 'user', extract: json => json.mcpServers || {} },
-      { path: path.join(cwd, '.cursor', 'mcp.json'), scope: 'project', extract: json => json.mcpServers || {} },
+      { path: path.join(home, '.cursor', 'mcp.json'), scope: 'user', blocks: [{ keyPath: ['mcpServers'], scope: 'user' }] },
+      { path: path.join(cwd, '.cursor', 'mcp.json'), scope: 'project', blocks: [{ keyPath: ['mcpServers'], scope: 'project' }] },
     ],
   };
 }

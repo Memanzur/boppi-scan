@@ -39,20 +39,21 @@ function sanitizedEntry(raw, record) {
   return out;
 }
 
-function projectServers(servers, recordsByName) {
-  return Object.fromEntries(Object.entries(servers).map(([name, raw]) => [name, sanitizedEntry(raw, recordsByName.get(name))]));
+function projectServers(servers, blockPath, recordOf) {
+  return Object.fromEntries(Object.entries(servers).map(([name, raw]) => [name, sanitizedEntry(raw, recordOf([...blockPath, name]))]));
 }
 
 /**
  * The file as the diff shows it: the mcpServers blocks a client reads, with
- * every entry sanitized, and every other value hidden. Secret values cannot
- * reach the preview because nothing from the raw file survives except keys.
+ * every entry sanitized by the record of its own key path, and every other
+ * value hidden. Secret values cannot reach the preview because nothing from
+ * the raw file survives except keys.
  */
-function projection(json, cwd, recordsByName) {
+function projection(json, cwd, recordOf, prefix = []) {
   const out = {};
   for (const [key, value] of Object.entries(json)) {
-    if (key === 'mcpServers' && isObject(value)) out[key] = projectServers(value, recordsByName);
-    else if (key === 'projects' && isObject(value) && cwd) out[key] = Object.fromEntries(Object.entries(value).map(([project, body]) => [project, project === cwd && isObject(body) ? projection(body, null, recordsByName) : HIDDEN]));
+    if (key === 'mcpServers' && isObject(value)) out[key] = projectServers(value, [...prefix, key], recordOf);
+    else if (key === 'projects' && isObject(value) && cwd) out[key] = Object.fromEntries(Object.entries(value).map(([project, body]) => [project, project === cwd && isObject(body) ? projection(body, null, recordOf, [...prefix, key, project]) : HIDDEN]));
     else out[key] = HIDDEN;
   }
   return out;
@@ -112,16 +113,23 @@ function hunks(ops, context = CONTEXT_LINES) {
   return lines;
 }
 
-/** Everything fix shows before asking, bound to the bytes it was computed from. Reads the file unless bytes are given, writes nothing. */
+/**
+ * Everything fix shows before asking, bound to the bytes it was computed
+ * from. located comes from fix.locateServer; the entry removed is the one at
+ * its key path and nothing else. Reads the file unless bytes are given,
+ * writes nothing, and throws when those bytes no longer hold the entry.
+ */
 function previewRemoval({ located, serverName, cwd, recordsByName, bytes = fs.readFileSync(located.file) }) {
   const json = JSON.parse(bytes.toString('utf8'));
-  const keyPaths = fix.serverBlocks(json, cwd).filter(block => hasOwn(block.servers, serverName)).map(block => `${block.keyPath}.${JSON.stringify(serverName)}`);
-  const before = JSON.stringify(projection(json, cwd, recordsByName), null, 2);
+  const raw = (fix.objectAt(json, located.keyPath.slice(0, -1)) || {})[located.name];
+  if (!isObject(raw)) throw new Error(`${JSON.stringify(serverName)} is no longer in ${located.file}`);
+  const recordOf = keyPath => recordsByName.get(located.labels.get(JSON.stringify(keyPath)));
+  const before = JSON.stringify(projection(json, cwd, recordOf), null, 2);
   const edited = JSON.parse(JSON.stringify(json));
-  fix.deleteServer(edited, serverName, cwd);
-  const after = JSON.stringify(projection(edited, cwd, recordsByName), null, 2);
-  const entry = sanitizedEntry(fix.serverBlocks(json, cwd).map(block => block.servers[serverName]).find(Boolean), recordsByName.get(serverName));
-  return { file: located.file, scope: located.scope, server: serverName, keyPaths, entry, diff: hunks(lineDiff(before, after)), fileHashes: { [located.file]: fix.sha256(bytes) } };
+  fix.deleteAt(edited, located.keyPath);
+  const after = JSON.stringify(projection(edited, cwd, recordOf), null, 2);
+  const entry = sanitizedEntry(raw, recordsByName.get(serverName));
+  return { file: located.file, scope: located.scope, server: serverName, keyPaths: [fix.renderKeyPath(located.keyPath)], entry, diff: hunks(lineDiff(before, after)), fileHashes: { [located.file]: fix.sha256(bytes) } };
 }
 
 function renderPreview(preview, indent = '  ') {
@@ -134,21 +142,14 @@ function renderPreview(preview, indent = '  ') {
 }
 
 /** Why the written file is not the planned edit, or null when it is. */
-function validateEdited({ bytes, expected, serverName, cwd }) {
+function validateEdited({ bytes, expected, keyPath }) {
   let parsed;
   try { parsed = JSON.parse(bytes.toString('utf8')); } catch (_) { return 'the written file is not valid JSON'; }
   if (!isObject(parsed)) return 'the written file is not a JSON object';
-  const blocksExpected = fix.serverBlocks(expected, cwd);
-  const blocksAfter = fix.serverBlocks(parsed, cwd);
-  if (blocksAfter.length !== blocksExpected.length) return 'an mcpServers block is no longer an object';
-  for (const [index, block] of blocksExpected.entries()) {
-    const after = blocksAfter[index];
-    if (after.keyPath !== block.keyPath) return `${block.keyPath} is missing`;
-    if (hasOwn(after.servers, serverName)) return `${JSON.stringify(serverName)} is still in ${block.keyPath}`;
-    for (const [name, entry] of Object.entries(block.servers)) if (JSON.stringify(after.servers[name]) !== JSON.stringify(entry)) return `entry ${JSON.stringify(name)} in ${block.keyPath} changed`;
-    if (Object.keys(after.servers).length !== Object.keys(block.servers).length) return `${block.keyPath} gained an entry`;
-  }
-  if (JSON.stringify(parsed) !== JSON.stringify(expected)) return 'the file changed outside its mcpServers blocks';
+  const parent = fix.objectAt(parsed, keyPath.slice(0, -1));
+  if (!parent) return 'the block that held the entry is no longer an object';
+  if (hasOwn(parent, keyPath[keyPath.length - 1])) return `${fix.renderKeyPath(keyPath)} is still present`;
+  if (JSON.stringify(parsed) !== JSON.stringify(expected)) return 'the file changed beyond the removed entry';
   return null;
 }
 
@@ -193,7 +194,7 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
 
   const client = clientOf(scanBefore, clientKey);
   const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === clientKey);
-  const located = client && descriptor ? fix.locateServer(client, descriptor, server) : null;
+  const located = client && descriptor ? fix.locateServer(descriptor, server, options.cwd) : null;
   const prediction = scanBefore.predictions.find(p => p.edit.action === 'remove_server' && p.edit.server === server && p.client.key === clientKey) || null;
 
   yield event('backup', 'running', { file: located ? located.file : null });
@@ -212,7 +213,7 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
   }
   const originalBytes = fs.readFileSync(located.file);
   const edited = JSON.parse(originalBytes.toString('utf8'));
-  if (!fix.deleteServer(edited, server, options.cwd)) {
+  if (!fix.deleteAt(edited, located.keyPath)) {
     fs.rmSync(backup, { force: true });
     yield fail('apply', { reason: `${JSON.stringify(server)} was not found in ${located.file} at write time`, written: false });
     return;
@@ -222,7 +223,7 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
     yield fail('apply', { reason: `write failed (${error.message}); the original bytes were restored`, written: false, restored: true });
     return;
   }
-  const problem = validateEdited({ bytes: fs.readFileSync(located.file), expected: edited, serverName: server, cwd: options.cwd });
+  const problem = validateEdited({ bytes: fs.readFileSync(located.file), expected: edited, keyPath: located.keyPath });
   if (problem) {
     fs.copyFileSync(backup, located.file);
     yield fail('apply', { reason: `the edited file did not validate (${problem}); restored from ${backup}`, written: true, restored: true });
@@ -230,13 +231,13 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
   }
   let manifestEntry;
   try {
-    manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, action: 'remove_server', scanExport: exportFile, backupHash: fix.sha256(originalBytes), appliedHash: fix.fileHash(located.file) });
+    manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, keyPath: located.keyPath, action: 'remove_server', scanExport: exportFile, backupHash: fix.sha256(originalBytes), appliedHash: fix.fileHash(located.file) });
   } catch (_) {
     fs.writeFileSync(located.file, originalBytes);
     yield fail('apply', { reason: 'could not record the rollback manifest; the original bytes were restored', written: true, restored: true });
     return;
   }
-  yield event('apply', 'done', { file: located.file, keyPaths: fix.serverBlocks(JSON.parse(originalBytes.toString('utf8')), options.cwd).filter(b => hasOwn(b.servers, server)).map(b => `${b.keyPath}.${JSON.stringify(server)}`), manifestId: manifestEntry.id, backup });
+  yield event('apply', 'done', { file: located.file, keyPaths: [fix.renderKeyPath(located.keyPath)], manifestId: manifestEntry.id, backup });
 
   yield event('rescan', 'running', {});
   const scanAfter = await rescan(options);

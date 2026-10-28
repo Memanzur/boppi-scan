@@ -128,14 +128,15 @@ function openRegular(file) {
 function previewHashOf(text) { return fix.sha256(Buffer.from(text, 'utf8')); }
 
 /** A removal target as the connector sees it: the local file plus what the cloud may know about it. */
-function describeTarget({ options, scan, client, file, scope, server }) {
+function describeTarget({ options, scan, client, located, server }) {
+  const file = located.file;
   const opened = openRegular(file);
   const base = { client: client.clientKey, project: scanner.pathFingerprint(path.resolve(options.cwd)), targetFile: scanner.pathFingerprint(file), server, file, ...opened };
   if (!opened.regularFile) return { ...base, configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
   let preview;
   try {
     const recordsByName = new Map(scan.inventory.mcpServers.filter(s => s.agentId === client.agentId).map(s => [s.name, s]));
-    preview = remediate.previewRemoval({ located: { file, scope }, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes });
+    preview = remediate.previewRemoval({ located, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes });
   } catch (_) { return { ...base, regularFile: false, failureCode: 'other', configHash: EMPTY_HASH, previewHash: EMPTY_HASH }; }
   const previewText = remediate.renderPreview(preview);
   return { ...base, serverRecord: scan.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === server), preview, previewText, configHash: fix.sha256(opened.bytes), previewHash: previewHashOf(previewText) };
@@ -151,9 +152,9 @@ function localTargets(scan, options) {
     if (!descriptor) continue;
     for (const prediction of scan.predictions) {
       if (prediction.client.key !== client.clientKey || prediction.edit.action !== 'remove_server' || !prediction.predictedEliminated.length) continue;
-      const located = fix.locateServer(client, descriptor, prediction.edit.server);
+      const located = fix.locateServer(descriptor, prediction.edit.server, options.cwd);
       if (!located) continue;
-      const target = describeTarget({ options, scan, client, file: located.file, scope: located.scope, server: prediction.edit.server });
+      const target = describeTarget({ options, scan, client, located, server: prediction.edit.server });
       if (target.regularFile) out.push({ ...target, prediction });
     }
   }
@@ -183,13 +184,20 @@ function fileForBinding(options, binding) {
   return null;
 }
 
+/** The entry a removal binding names, read from the files as they are now, or null when its label no longer resolves inside the bound file. */
+function locateBinding(options, binding) {
+  const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === binding.client);
+  const located = descriptor ? fix.locateServer(descriptor, binding.server, options.cwd) : null;
+  return located && scanner.pathFingerprint(located.file) === binding.targetFile ? located : null;
+}
+
 /** Recompute a proposal's target from the file as it is now. A target with no local file reports as missing. */
 function targetForBinding(options, scan, binding) {
   if (binding.action === 'rollback') return rollbackTarget(options, scan, binding);
-  const found = fileForBinding(options, binding);
+  const located = locateBinding(options, binding);
   const client = scan.discovery.clients.find(c => c.clientKey === binding.client);
-  if (!found || !client) return { client: binding.client, project: binding.project, targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'file_missing', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
-  return describeTarget({ options, scan, client, file: found.file, scope: found.scope, server: binding.server });
+  if (!located || !client) return { client: binding.client, project: binding.project, targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'file_missing', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
+  return describeTarget({ options, scan, client, located, server: binding.server });
 }
 
 /** Only a connector removal in the current scan scope can be restored. */
@@ -211,8 +219,11 @@ function rollbackTarget(options, scan, binding) {
   try {
     const client = scan.discovery.clients.find(c => c.clientKey === binding.client);
     const recordsByName = new Map(scan.inventory.mcpServers.filter(s => client && s.agentId === client.agentId).map(s => [s.name, s]));
-    const preview = remediate.previewRemoval({ located: found, serverName: entry.server, cwd: options.cwd, recordsByName, bytes: backup.bytes });
-    if (!preview.keyPaths.length) return base;
+    // Label the backup's entries as the scan did before the removal, then restore exactly the entry that was removed.
+    const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === binding.client);
+    const located = descriptor && fix.locateServer(descriptor, entry.server, options.cwd, new Map([[found.file, JSON.parse(backup.bytes.toString('utf8'))]]));
+    if (!located || located.file !== found.file || (entry.keyPath && JSON.stringify(located.keyPath) !== JSON.stringify(entry.keyPath))) return base;
+    const preview = remediate.previewRemoval({ located, serverName: entry.server, cwd: options.cwd, recordsByName, bytes: backup.bytes });
     // Reverse both the operation signs and the old/new hunk coordinates.
     preview.diff = preview.diff.map(line => line.startsWith('@@ ')
       ? line.replace(/^@@ -(\d+,\d+) \+(\d+,\d+) @@$/, '@@ -$2 +$1 @@')
@@ -259,7 +270,7 @@ function applyRemoval({ options, binding, proposalId, now }) {
   const release = acquireLock(options.home, binding.targetFile);
   if (!release) return { ok: false, failureCode: 'lock_busy', hashAtWrite: EMPTY_HASH, regularFile: false };
   try {
-    const found = fileForBinding(options, binding);
+    const found = locateBinding(options, binding);
     if (!found) return { ok: false, failureCode: 'file_missing', hashAtWrite: EMPTY_HASH, regularFile: false };
     const opened = openRegular(found.file);
     if (!opened.regularFile) return { ok: false, failureCode: opened.failureCode, hashAtWrite: EMPTY_HASH, regularFile: false };
@@ -268,7 +279,7 @@ function applyRemoval({ options, binding, proposalId, now }) {
     if (hashAtWrite !== binding.configHash) return { ok: false, failureCode: 'hash_changed', ...report };
     let edited;
     try { edited = JSON.parse(opened.bytes.toString('utf8')); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
-    if (!fix.deleteServer(edited, binding.server, options.cwd)) return { ok: false, failureCode: 'other', ...report };
+    if (!fix.deleteAt(edited, found.keyPath)) return { ok: false, failureCode: 'other', ...report };
     let backup;
     try { backup = fix.writeBackup({ file: found.file, home: options.home, now, bytes: opened.bytes }); } catch (_) { return { ok: false, failureCode: 'backup_failed', ...report }; }
     const text = JSON.stringify(edited, null, 2) + '\n';
@@ -277,7 +288,7 @@ function applyRemoval({ options, binding, proposalId, now }) {
       return { ok: false, failureCode: error.code === 'EACCES' || error.code === 'EPERM' ? 'permission_denied' : 'other', ...report };
     }
     const written = fs.readFileSync(found.file);
-    const problem = remediate.validateEdited({ bytes: written, expected: edited, serverName: binding.server, cwd: options.cwd });
+    const problem = remediate.validateEdited({ bytes: written, expected: edited, keyPath: found.keyPath });
     if (problem) {
       fix.writeAtomic(found.file, opened.bytes, opened.mode);
       fs.rmSync(backup, { force: true });
@@ -286,7 +297,7 @@ function applyRemoval({ options, binding, proposalId, now }) {
     const appliedHash = fix.sha256(written);
     let entry;
     try {
-      entry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: found.file, clientKey: binding.client, server: binding.server, project: binding.project, action: 'remove_server', scanExport: null, backupHash: hashAtWrite, appliedHash, proposalId });
+      entry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: found.file, clientKey: binding.client, server: binding.server, keyPath: found.keyPath, project: binding.project, action: 'remove_server', scanExport: null, backupHash: hashAtWrite, appliedHash, proposalId });
     } catch (_) {
       fix.writeAtomic(found.file, opened.bytes, opened.mode);
       fs.rmSync(backup, { force: true });

@@ -12,7 +12,7 @@ function locate({ home, platform }) {
     clientKey: 'claude-desktop',
     label: 'Claude Desktop',
     source: 'claude-desktop',
-    files: [{ path: file, scope: 'user', extract: json => json.mcpServers || {} }],
+    files: [{ path: file, scope: 'user', blocks: [{ keyPath: ['mcpServers'], scope: 'user' }] }],
   };
 }
 
