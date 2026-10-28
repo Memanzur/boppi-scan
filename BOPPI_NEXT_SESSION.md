@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 22:40 MDT
+# Current checkpoint (read first) — updated 2026-10-27 22:55 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -38,7 +38,8 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-7 login CSRF, signup enumeration, CSV injection | done (enumeration deferred, D-39) | control 5ac116b | test:auth-callback 16 (real route handler, forged + same-origin posts), verify exit 0 |
 | T-10 push --file re-sanitize; fix predictions file out of the project | done | scanner 2621c8b, control resync 1fe2912 | `npm test` 40/40 (push 61 with planted-canary test), control verify exit 0 |
 | T-8 rollback harness + down files for the newest migrations | done | control 1f1171e | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
-| T-9 documentation truth pass, then rebuild the candidate | next | | |
+| T-9 documentation truth pass | done (website copy moved to B-4/B-5) | scanner b61416c, control dd00843 | scanner 40/40 (events push now exits 5 as documented), control verify exit 0 |
+| Candidate rebuild from b61416c | in progress | | |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
 
@@ -48,12 +49,17 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 
 ## In progress
 
-Nothing uncommitted. Next: T-9.
+Building candidate 0.4.0-b61416c with `node scripts/release-candidate.js --out "$HOME/Desktop/Boppi Workspace/Builds/Candidates/Boppi-candidate-0.4.0-b61416c"` in the scanner. Recovery if interrupted: if that folder exists without `CANDIDATE.json`, the build died; move the folder aside (rename with `-interrupted`, never delete) and rerun. If `CANDIDATE.json` exists, the build finished; read its checks. The 104147d candidate is never touched.
 
-## Exact next steps
+## Exact next steps (next five tasks)
 
-1. T-9: documentation truth pass. The list is in `docs/release/BUILD_ROADMAP_2026-10-27.md` section 2 (scanner SECURITY.md and README network commands, candidate doc head, control docs that predate the connector, guide text, ledger rows R-2/R-3 now true). Also `src/cli/push.js` header still says push is the only network command.
-2. Then rebuild the candidate from the fixed scanner into a NEW folder (never overwrite `Boppi-candidate-0.4.0-104147d`), regenerate both guest demos from it, and update the release manifest. D-11 then chooses the new candidate.
+1. Finish the candidate build above, add a Desktop link to it, then regenerate website `public/boppi-demo.{html,json}` and Cloud `public/guest-demo.{html,json}` from it and write `docs/release/RELEASE_MANIFEST_0.4.0-b61416c.json` (keep the 104147d manifest). D-11 then chooses between candidates.
+2. B-1: specific error and notice messages in the dashboard (`apps/control-plane/lib/navigation.ts`) instead of one generic sentence.
+3. B-2: D-27 option (a) as presentation only: show "applied, not verified" with its age on the remediation screen.
+4. B-3: Intelligence label vocabulary aligned with the scanner taxonomy (`lib/domain.ts:62` lacks shell/code/network/read/write).
+5. B-4/B-5: website copy fixes ("seven rules plus one" miscount, privacy page covering events push/connect/corrections, ExposurePaths/Privacy/Platform text) and security headers in `vercel.json`; not deployed.
+
+Then B-7 in-app privacy link, B-8 local delete_my_account SQL test, B-9 deterministic demo build, Milestone C (signed overlay bundles), D (coverage), E (operations). Owed when Docker is running: `verify-remediation-routes.ts` and `verify-connector-journey.mjs` on a disposable stack.
 
 Known pre-existing failures, not caused by this session (they fail the same on 4398c0f): legacy `node scripts/verify-exposure-paths.js` ("EP-C must fire") and `node scripts/verify-cli-scan.js` ("minimal remediation plan is shown") in Boppi-auto. They exercise the legacy extension copy and are not in `npm run verify`. Triage later.
 3. Owed when Docker and a disposable Supabase stack are up: rerun `verify-remediation-routes.ts` and `verify-connector-journey.mjs` (real CLI to real routes) to cover T-4 and T-6 end to end. Commit each one with its tests and update the table above.
