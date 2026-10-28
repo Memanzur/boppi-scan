@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:56 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:58 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -19,7 +19,7 @@ An externally testable beta: a stranger signs up on hosted Boppi Cloud, installs
 | --- | --- | --- |
 | Scanner `~/Desktop/boppi-scan-auto` | codex/live-brand-alignment | dbf9704 (candidate input; C-2 4bb94c5) + mirror commits |
 | Control `~/Desktop/Boppi-auto` | codex/live-brand-alignment | 6ec9a42 (Cloud demo from dbf9704; C-4 51315e0) + this handoff commit |
-| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 52d2536 (demo from dbf9704; B-4/B-5 49aa147; not deployed) |
+| Website `~/Desktop/Boppi-website-positioning` | codex/homepage-positioning | 7559bbd (sitemap + README; demo 52d2536; not deployed) |
 
 The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders regrouped 2026-10-27 21:09; see `~/Desktop/Boppi Workspace/START HERE.md`). Keep the links.
 
@@ -51,6 +51,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | C-4 one-command Intelligence tests | done | control 51315e0 | `BOPPI_SCAN_DIR=... npm run test:intelligence -- <stack>` exit 0 (TS 8, SQL 4 suites, bundle 52, research 10, journey 24); journey needs a stack with pushed scans (`local-beta.mjs verify` first); run.sh suite list + BOPPI_LOCAL_SUITES filter; full test:db:local still 455 |
 | C-2 held-out protocol + split by server identity | done (tooling only; human labels are a founder gate) | scanner 4bb94c5 | `research/intelligence/HELD_OUT_PROTOCOL.md`, `heldout.mjs`, frozen `heldout-split-v1.json` (digest dfeeb3a1..., seed 20261028, 30%): 35 held-out identities / 38 packages, 125 dev / 162, the 50 V1-labeled packages pinned to dev, no scope or stem shared across sides. heldout.test.mjs 7 (tamper, reseal, pinned, label blinding/agent refusal, two-labeler diff); `npm run verify:intelligence` recomputes the split and refuses drift. First identity rule over-grouped via the bare word 'mcp'; fixed with a role-word list before freezing |
 | Candidate 0.4.0-dbf9704 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-dbf9704` (read-only, sha256 4e6dcf9a86980584d5664df8dbd0140767e505b61ce8bd3947ac903d026bf7bc, 70 files incl. overlayBundle.js, no research/); website demo 52d2536, Cloud demo 6ec9a42; manifest `docs/release/RELEASE_MANIFEST_0.4.0-dbf9704.json` | packaging 29/29; kit 6 cases identical to 32a9667; demo REPRODUCED (html 52d57ee8...); website guest 32, claims 36, B-4 26 under headers; stack HDMqMo: cloud guest 16, exact-tarball beta journey 27, routes 63, real-CLI connector journey 31; manifest verifier 28. Not rerun: browser remediation drive 59. Logs `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-dbf9704/`. D-11 should now choose dbf9704; 32a9667 and 104147d stay as fallbacks |
+| Website leftovers | done | website 7559bbd | sitemap lists /checkup and /demo with each page's source date; new `npm run check:sitemap` failed 5 ways on the old file, passes now; README replaces the Lovable boilerplate (it said to publish from Lovable). build 0, lint 7 warnings as before. The website change after the pinned head made the dbf9704 manifest fail by design, so `RELEASE_MANIFEST_0.4.0-dbf9704-r2.json` pins 7559bbd: verified 28 |
 | D-1 rebase of 5a(a) | IN PROGRESS | new branch `dev/claude-code-settings-5a-rebased` in worktree `~/Desktop/Boppi Workspace/Worktrees/boppi-scan-5a-rebased` (from dbf9704), cherry-pick of 3447992 stopped on conflicts in src/cli/boppi.js, src/cli/discovery/claudeCode.js, test/run-all.js | The original branch and worktree `~/Desktop/boppi-scan-dev-5a` are untouched; that worktree has UNCOMMITTED 5a(b) edits in ~10 files: never discard them. Conflict: HEAD moved config reading into fix.readClient (blocks with keyPath); 5a adds a per-file `policy` reader. Resolve by having readClient return the parsed documents (it already does) and computing projectPolicy from the ~/.claude.json document in discover() |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker stack n89Sdo (22:30-22:57): exact-tarball beta journey 27, remediation routes 63, real-CLI connector journey 31, browser remediation drive 59 steps. Logs in `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-32a9667/` |
 
@@ -68,11 +69,10 @@ Milestone C done (C-1..C-4), candidate dbf9704 built and verified. Now D-1 (see 
 
 1. D-1: finish the 5a(a) rebase (resolve conflicts, npm test), then decide whether the uncommitted 5a(b) diff applies on top (copy it as a patch, never modify the original worktree).
 2. Milestone D rest: D-2 Desktop extensions + plugin MCP discovery, D-3 inspect-only secret/header facts, D-4 Windows discover fixes, D-5 GitHub Action pin test, D-6 offline update notice.
-3. Website leftovers: stale sitemap lastmod, Lovable README.
-4. Milestone E (operations): retention job wiring (D-40 pending), CI for the local suites, MFA step-up for approvals (E-3), account data export, device credential rotation, rate limits.
-5. From EXTERNAL_BETA_READINESS: clean-environment journey harness, uninstall/cleanup command, update notice, external tester guide.
+3. Milestone E (operations): retention job wiring (D-40 pending), CI for the local suites, MFA step-up for approvals (E-3), account data export, device credential rotation, rate limits.
+4. From EXTERNAL_BETA_READINESS: clean-environment journey harness, uninstall/cleanup command, update notice, external tester guide.
 
-After that: D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate dbf9704 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-dbf9704.json`); 32a9667 (r2) and 104147d stay as fallbacks.
+After that: D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate dbf9704 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-dbf9704-r2.json`); 32a9667 (r2) and 104147d stay as fallbacks.
 
 Known pre-existing failures, not caused by this session (they fail the same on 4398c0f): legacy `node scripts/verify-exposure-paths.js` ("EP-C must fire") and `node scripts/verify-cli-scan.js` ("minimal remediation plan is shown") in Boppi-auto. They exercise the legacy extension copy and are not in `npm run verify`. Triage later.
 
