@@ -5,8 +5,9 @@
  * fingerprint key, hook events, connector pairing and claims, stored tool
  * lists, overlay state, demo sandbox, fix exports, update notice, backups).
  * The command lists it, then deletes that one directory after confirmation.
- * Fix backups are the only way back from an applied fix, so a directory that
- * holds any is kept unless --include-backups is given.
+ * A fix backup is the only way back from a fix that is still applied, so the
+ * directory is kept while any is live, unless --include-backups is given.
+ * Backups of fixes already rolled back do not hold it up.
  *
  * It never edits a client's settings: Boppi does not install the Claude Code
  * hook, so it does not remove it either. It reads the Claude Code settings
@@ -67,7 +68,24 @@ function inventory(home) {
     return { name: entry.name, what: known ? EXPLAINED[known] : 'other Boppi file', ...size };
   }).sort((a, b) => a.name.localeCompare(b.name));
   const backups = rows.find(row => row.name === 'backups');
-  return { dir, exists: true, rows, backupFiles: backups ? backups.files : 0 };
+  return { dir, exists: true, rows, backupFiles: backups ? backups.files : 0, liveFixes: backups ? liveFixes(home) : [] };
+}
+
+/**
+ * Fixes whose backup is still the only way back: every remove_server entry no
+ * rollback entry names, plus any .bak file no manifest entry accounts for (an
+ * unreadable manifest makes every backup count).
+ */
+function liveFixes(home) {
+  const manifest = fix.readManifest(home);
+  const restored = new Set(manifest.entries.filter(e => e.action === 'rollback').map(e => e.restoredFrom));
+  const fixes = manifest.entries.filter(e => e.action === 'remove_server');
+  const live = fixes.filter(e => !restored.has(e.id)).map(e => ({ id: e.id, server: e.server, original: e.original }));
+  const known = new Set(fixes.map(e => e.backup && path.resolve(e.backup)));
+  let files = [];
+  try { files = fs.readdirSync(path.join(boppiDir(home), 'backups')).filter(name => name.endsWith('.bak')); } catch (_) { /* no backups dir */ }
+  for (const name of files) if (!known.has(path.resolve(boppiDir(home), 'backups', name))) live.push({ id: null, server: null, original: name });
+  return live;
 }
 
 /** Claude Code settings files Boppi's hook snippet may have been pasted into. */
@@ -108,10 +126,15 @@ function renderPlan(state, hooks, pairing, options) {
     for (const row of state.rows) lines.push(`    ${row.name.padEnd(24)} ${row.what}, ${row.files} file${row.files === 1 ? '' : 's'}, ${sizeText(row.bytes)}`);
     if (!state.rows.length) lines.push('    (empty)');
   }
-  if (state.backupFiles) {
-    lines.push(options.includeBackups
-      ? `  includes ${state.backupFiles} fix backup file${state.backupFiles === 1 ? '' : 's'}: after this, boppi rollback cannot restore any earlier fix.`
-      : `  stops here: ${state.backupFiles} fix backup file${state.backupFiles === 1 ? '' : 's'} would be lost. Pass --include-backups to delete them too, or run boppi rollback first.`);
+  const live = state.liveFixes || [];
+  if (live.length && !options.includeBackups) {
+    lines.push(`  stops here: ${live.length} fix${live.length === 1 ? ' is' : 'es are'} still applied, and ${live.length === 1 ? 'its backup is' : 'their backups are'} the only way back:`);
+    for (const f of live) lines.push(f.id ? `    ${f.server} in ${f.original}: boppi rollback --id ${f.id}` : `    ${f.original}: a backup no fix record names; boppi rollback lists what it can restore`);
+    lines.push('  Roll each back first, or pass --include-backups to keep the fixes and delete their backups.');
+  } else if (live.length) {
+    lines.push(`  includes the backups of ${live.length} fix${live.length === 1 ? '' : 'es'} still applied: after this, boppi rollback cannot restore ${live.length === 1 ? 'it' : 'them'}.`);
+  } else if (state.backupFiles) {
+    lines.push('  includes backups of fixes already rolled back; nothing is left to restore from them.');
   }
   if (pairing) lines.push(`  pairing: deletes the device credential for ${pairing.url} without contacting it. Run boppi connect unpair first to revoke "${pairing.deviceName || pairing.deviceId}" in the workspace too; otherwise it stays listed until revoked on the Collectors page.`);
   if (options.historyFile && path.resolve(options.historyFile) !== path.join(state.dir, 'history.json')) lines.push(`  not touched: --history-file ${options.historyFile} (outside ${state.dir}); delete it yourself if you want it gone.`);
@@ -133,7 +156,7 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   process.stdout.write(renderPlan(state, hooks, pairing, options) + '\n');
   if (!state.exists) return 0;
   if (options.dryRun) { process.stdout.write('Dry run: nothing removed.\n'); return 0; }
-  if (state.backupFiles && !options.includeBackups) { process.stderr.write('uninstall: not removed. Pass --include-backups to delete the fix backups too.\n'); return 2; }
+  if ((state.liveFixes || []).length && !options.includeBackups) { process.stderr.write('uninstall: not removed. Roll back the fixes listed above, or pass --include-backups to keep them and delete their backups.\n'); return 2; }
   if (!options.yes) {
     if (!process.stdin.isTTY) { process.stderr.write('uninstall: not removed. Pass --yes to remove without a terminal confirmation.\n'); return 2; }
     if (!(await confirm(`Delete ${state.dir}? [y/N] `))) { process.stdout.write('Not removed.\n'); return 2; }
@@ -144,4 +167,4 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   return 0;
 }
 
-module.exports = { BOPPI_HOOK, inventory, settingsFiles, findHookEntries, renderPlan, runUninstall };
+module.exports = { BOPPI_HOOK, inventory, liveFixes, settingsFiles, findHookEntries, renderPlan, runUninstall };

@@ -98,18 +98,31 @@ const HOOK_SNIPPET = { hooks: { PreToolUse: [{ matcher: 'mcp__.*', hooks: [{ typ
   const again = await runCli(['uninstall', '--yes'], home);
   ok('a second run has nothing to remove and exits 0', again.code === 0 && again.stdout.includes('does not exist; nothing stored here to remove.'));
 
-  section('Fix backups need --include-backups');
+  section('Backups of fixes still applied hold uninstall; rolled-back ones do not');
   const fixed = makeHome(root, 'fixed-home');
   const applied = await runCli(['fix', '--server', 'fetch', '--yes'], fixed);
   const backupDir = path.join(fixed, '.boppi', 'backups');
   ok('setup: a real fix left a backup', applied.code === 0 && fs.existsSync(backupDir) && fs.readdirSync(backupDir).length > 0, applied.stderr);
+  const fixId = JSON.parse(fs.readFileSync(path.join(backupDir, 'index.json'), 'utf8')).entries.find(e => e.action === 'remove_server').id;
   const withBackups = snapshot(path.join(fixed, '.boppi'));
   const keep = await runCli(['uninstall', '--yes'], fixed);
-  ok('with backups and no --include-backups it stops (exit 2) and changes nothing', keep.code === 2 && keep.stdout.includes('stops here') && keep.stderr.includes('--include-backups') && snapshot(path.join(fixed, '.boppi')) === withBackups);
-  const rolled = await runCli(['rollback'], fixed);
-  ok('rollback still lists the backup after the refusal', rolled.code === 0 && /backup/i.test(rolled.stdout));
-  const all = await runCli(['uninstall', '--yes', '--include-backups'], fixed);
-  ok('--include-backups removes them, and says rollback can no longer restore', all.code === 0 && all.stdout.includes('boppi rollback cannot restore') && !fs.existsSync(path.join(fixed, '.boppi')));
+  ok('with a fix still applied it stops (exit 2) and changes nothing', keep.code === 2 && keep.stdout.includes('stops here: 1 fix is still applied') && keep.stderr.includes('--include-backups') && snapshot(path.join(fixed, '.boppi')) === withBackups);
+  ok('it names the exact rollback command for that fix', keep.stdout.includes(`fetch in `) && keep.stdout.includes(`boppi rollback --id ${fixId}`));
+  const restored = await runCli(['rollback', '--id', fixId, '--yes'], fixed);
+  ok('setup: that rollback restores the file', restored.code === 0 && restored.stdout.includes('Restored.'), restored.stderr);
+  const after = await runCli(['uninstall', '--yes'], fixed);
+  ok('after the rollback, uninstall removes everything without --include-backups', after.code === 0 && after.stdout.includes('backups of fixes already rolled back') && !fs.existsSync(path.join(fixed, '.boppi')), after.stderr);
+
+  const forced = makeHome(root, 'forced-home');
+  ok('setup: a second home with a fix applied', (await runCli(['fix', '--server', 'fetch', '--yes'], forced)).code === 0);
+  const all = await runCli(['uninstall', '--yes', '--include-backups'], forced);
+  ok('--include-backups removes a live fix\'s backup and says rollback can no longer restore it', all.code === 0 && all.stdout.includes('boppi rollback cannot restore it') && !fs.existsSync(path.join(forced, '.boppi')));
+
+  const stray = makeHome(root, 'stray-home');
+  fs.mkdirSync(path.join(stray, '.boppi', 'backups'), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(stray, '.boppi', 'backups', 'claude_desktop_config.json.0123456789ab.2026-10-28T00-00-00-000Z.bak'), '{}', { mode: 0o600 });
+  const strayRun = await runCli(['uninstall', '--yes'], stray);
+  ok('a backup no fix record names is treated as live (no manifest to prove otherwise)', strayRun.code === 2 && strayRun.stdout.includes('a backup no fix record names') && fs.existsSync(path.join(stray, '.boppi')));
   const misplaced = await runCli(['scan', '--include-backups'], fixed);
   ok('--include-backups is refused on other commands', misplaced.code === 2 && misplaced.stderr.includes('only accepted with uninstall'));
 
