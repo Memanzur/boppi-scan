@@ -30,3 +30,7 @@ Ten tests cover minimization, injection/unsubstantiated evidence, split overlap,
 The earlier static-inspector experiment remains failed on precision. Its corpus, labels, metrics and V2 held-out protocol are unchanged. No candidate from that experiment is promoted by this demo. Existing capability overlay behavior is reused; this protocol adds no automatic loader or production update path.
 
 A production update system still needs an independent security review, a human-approved policy for reviewer/publisher trust and key lifecycle, protected durable receiver state, transport/retention/consent design, and evaluated rules with real held-out evidence. The in-memory receiver watermark is a test contract, not tamper-proof installed state. A synthetic receipt cannot approve a production rule. File integrity proves which bytes a key signed, not that a claim is correct. Founder rubric, security, content/hashed-id consent and real-device gates remain open.
+
+## Held-out split by server identity (C-2)
+
+`HELD_OUT_PROTOCOL.md` sets how real held-out labels get made: two independent human labelers per package, blinded, with disagreements settled by a third person. `heldout.mjs` splits the public npm corpus so no held-out package shares a scope or name stem with development. The frozen split is `heldout-split-v1.json`, and `npm run verify:intelligence` recomputes it and refuses any drift. No held-out labels exist yet. Producing them is a founder gate.

@@ -39,6 +39,6 @@
     "release-candidate": "node scripts/release-candidate.js",
     "verify-versions": "node scripts/verify-versions.js",
     "intelligence:demo": "node research/intelligence/demo.mjs",
-    "verify:intelligence": "node --test research/intelligence/pipeline.test.mjs"
+    "verify:intelligence": "node --test research/intelligence/pipeline.test.mjs research/intelligence/heldout.test.mjs && node research/intelligence/heldout.mjs --check"
   }
 }

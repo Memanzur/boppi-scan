@@ -78,7 +78,7 @@ const SUITES = [
   'verify-rubric-corpus.js',
   'verify-discovery-fixtures.js',
   'verify-discover.js', 'verify-watch.js', 'verify-hook-collector.js', 'verify-evidence-layers.js', 'verify-traversal-budget.js',
-  'verify-ask.js', '../research/intelligence/pipeline.test.mjs',
+  'verify-ask.js', '../research/intelligence/pipeline.test.mjs', '../research/intelligence/heldout.test.mjs',
   'verify-live-check-fixture.js', 'verify-report-a11y.js', 'verify-review-findings.js', 'verify-beta-blockers.js', 'verify-config-shapes.js',
   'verify-same-name-servers.js', 'verify-safe-writes.js', 'verify-overlay-bundle.js',
 ];

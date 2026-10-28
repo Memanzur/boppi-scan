@@ -1,0 +1,1864 @@
+{
+  "schemaVersion": 1,
+  "method": "identity-groups-v1",
+  "seed": 20261028,
+  "heldOutPercent": 30,
+  "corpusDigest": "fa886a081ba6b7263dfaa291b79bc5719c87c8e7c7ad418d8ccec6f8bb5d57b5",
+  "pinnedDevelopment": [
+    "@azure-devops/mcp",
+    "@blaxel/core",
+    "@bytebase/dbhub",
+    "@clerk/mcp-tools",
+    "@cloudbase/cloudbase-mcp",
+    "@copilotkit/aimock",
+    "@copilotkit/mcp-apps-renderer",
+    "@devframes/agentic",
+    "@drawio/mcp",
+    "@ericthered926/duckduckgo-mcp-server",
+    "@foldkit/devtools-mcp",
+    "@hasna/conversations",
+    "@hasna/files",
+    "@hasna/mementos",
+    "@hubspot/mcp-server",
+    "@langchain/mcp-adapters",
+    "@letoribo/mcp-graphql-enhanced",
+    "@mcp-ui/client",
+    "@n8n/mcp-apps",
+    "@nitrostack/core",
+    "@paperclipai/mcp-server",
+    "@productbrain/mcp",
+    "@raishin/vanguard-frontier-agentic",
+    "@sap-ux/fiori-mcp-server",
+    "@shopify/ucp-cli",
+    "@softeria/ms-365-mcp-server",
+    "@tanstack/ai-mcp",
+    "@testsprite/testsprite-mcp",
+    "@transcend-io/mcp",
+    "@transcend-io/mcp-server-assessment",
+    "@transcend-io/mcp-server-consent",
+    "@upstash/context7-mcp",
+    "@wonderwhy-er/desktop-commander",
+    "@z_ai/mcp-server",
+    "agent-install",
+    "chrome-devtools-mcp",
+    "claude-flow",
+    "context-mode",
+    "easy-skills",
+    "eve",
+    "fastify-mcp",
+    "gitnexus",
+    "hevy-mcp",
+    "hostinger-api-mcp",
+    "instar",
+    "mcp-auth",
+    "nx-mcp",
+    "task-master-ai",
+    "use-mcp",
+    "xcodebuildmcp"
+  ],
+  "development": [
+    {
+      "identity": "@21st-dev/magic",
+      "packages": [
+        {
+          "name": "@21st-dev/magic",
+          "version": "0.2.3",
+          "contentHash": "sha256-f7276177b3cfc9e17fea8deba62a064df969c27fc88112404a91c815b1323aed"
+        }
+      ]
+    },
+    {
+      "identity": "@aashari/mcp-server-atlassian-jira",
+      "packages": [
+        {
+          "name": "@aashari/mcp-server-atlassian-jira",
+          "version": "3.3.0",
+          "contentHash": "sha256-4f56d6e2d2960d05639d79c6afee49e6d27fce67c96cdf3aba1f4698b6c00586"
+        }
+      ]
+    },
+    {
+      "identity": "@absolutejs/manifest",
+      "packages": [
+        {
+          "name": "@absolutejs/manifest",
+          "version": "0.10.0",
+          "contentHash": "sha256-7811efc7a0180c469068ca011d8cbb34822f1ba90c7cbe7481e83fa6f36a9b7d"
+        }
+      ]
+    },
+    {
+      "identity": "@ag-ui/mcp-apps-middleware",
+      "packages": [
+        {
+          "name": "@ag-ui/mcp-apps-middleware",
+          "version": "0.1.1",
+          "contentHash": "sha256-7491b2b28ea4a50d67835e9bcafb269373b81c1b34dc7ded77d26ce6ddd8dbf9"
+        }
+      ]
+    },
+    {
+      "identity": "@aikidosec/mcp",
+      "packages": [
+        {
+          "name": "@aikidosec/mcp",
+          "version": "1.0.25",
+          "contentHash": "sha256-ae9811a4710b1af190d133994d26148d99cdc1cadf0624c1b4ce7907387e6cda"
+        }
+      ]
+    },
+    {
+      "identity": "@apify/actors-mcp-server",
+      "packages": [
+        {
+          "name": "@apify/actors-mcp-server",
+          "version": "0.17.1",
+          "contentHash": "sha256-7ca2aa8ef02bfb5a40d10dd05343db2f4c115692441f764f0953de73ad5e9d73"
+        }
+      ]
+    },
+    {
+      "identity": "@azure-devops/mcp",
+      "packages": [
+        {
+          "name": "@azure-devops/mcp",
+          "version": "2.10.0",
+          "contentHash": "sha256-5dfe3bfc6de687b70118d650495c7d5bb4b67fa16ad9900d343daf4314d07280"
+        }
+      ]
+    },
+    {
+      "identity": "@azure/mcp",
+      "packages": [
+        {
+          "name": "@azure/mcp",
+          "version": "3.0.0-beta.48",
+          "contentHash": "sha256-458a2bc617448db7b9ff2c534f4e1dc327783161cf5b9aecce920238afac357d"
+        },
+        {
+          "name": "@azure/mcp-darwin-arm64",
+          "version": "3.0.0-beta.48",
+          "contentHash": "sha256-eaa2ca1ef0b6c0cbb94d058486af8a8567ddcee1b40a97b0d68f0f9d89f73ee9"
+        },
+        {
+          "name": "@azure/mcp-linux-x64",
+          "version": "3.0.0-beta.48",
+          "contentHash": "sha256-3a42b8b72ca25f9b00f8ba8a57017cf4834d555713deefcbab6e0ee771b30c7b"
+        },
+        {
+          "name": "@azure/mcp-win32-x64",
+          "version": "3.0.0-beta.48",
+          "contentHash": "sha256-addba7eb17d42bdf5fb27f387cb5afa33399bab2c3a34c97a09bf62623c95c55"
+        }
+      ]
+    },
+    {
+      "identity": "@bangdao-ai/acw-tools",
+      "packages": [
+        {
+          "name": "@bangdao-ai/acw-tools",
+          "version": "1.13.78",
+          "contentHash": "sha256-b8f883d77b07ba70e3e536c6c3a8281b74c3037585f3bdb6714297055617d319"
+        }
+      ]
+    },
+    {
+      "identity": "@bike4mind/cli",
+      "packages": [
+        {
+          "name": "@bike4mind/cli",
+          "version": "1.2.0",
+          "contentHash": "sha256-620190c609f38b88cad56b1be08e8989c166b4bd49f2afc98e0ad774ee7df212"
+        }
+      ]
+    },
+    {
+      "identity": "@blackwell-systems/gcf",
+      "packages": [
+        {
+          "name": "@blackwell-systems/gcf",
+          "version": "2.6.1",
+          "contentHash": "sha256-6341bf5faf12f30c32f40ac9284c7dc37d560300aeee281fc6b2cb98756bd65e"
+        }
+      ]
+    },
+    {
+      "identity": "@blaxel/core",
+      "packages": [
+        {
+          "name": "@blaxel/core",
+          "version": "0.3.25",
+          "contentHash": "sha256-2e5e59d5b114502a260c0d80445a12bac698371c5cb1002bbc86538c5723c212"
+        }
+      ]
+    },
+    {
+      "identity": "@brave/brave-search-mcp-server",
+      "packages": [
+        {
+          "name": "@brave/brave-search-mcp-server",
+          "version": "2.1.4",
+          "contentHash": "sha256-11fb05393510b83d91270d5937a59eab0aaa5c49d30cbc4d467f289ae1eb3c44"
+        }
+      ]
+    },
+    {
+      "identity": "@browserstack/mcp-server",
+      "packages": [
+        {
+          "name": "@browserstack/mcp-server",
+          "version": "2.1.0",
+          "contentHash": "sha256-148a17ddf47006a773ae95241fcc9df71c4a8d04e2e84a14acdc5d1eb7e9b40e"
+        }
+      ]
+    },
+    {
+      "identity": "@bytebase/dbhub",
+      "packages": [
+        {
+          "name": "@bytebase/dbhub",
+          "version": "1.4.0",
+          "contentHash": "sha256-6c2a1d7d707398a4372bcf5caf42ee57b85550677a0ec37458474d5ae30fcf61"
+        }
+      ]
+    },
+    {
+      "identity": "@claude-flow/cli",
+      "packages": [
+        {
+          "name": "@claude-flow/cli",
+          "version": "3.49.0",
+          "contentHash": "sha256-6ca2f3ac298cee35fd510353a99df76195eb3843ef2bd828774b5fabcf723cec"
+        },
+        {
+          "name": "@claude-flow/cli-core",
+          "version": "3.7.0",
+          "contentHash": "sha256-afd96271e687bb23518ef8615d177637b57c13cfee8d099b86a0fe0258055038"
+        },
+        {
+          "name": "claude-flow",
+          "version": "3.49.0",
+          "contentHash": "sha256-bd03bdc8f5c880bbc9fcd0119764e53aa6d395765c6b66a6fb8925ad63f32bb7"
+        }
+      ]
+    },
+    {
+      "identity": "@clerk/mcp-tools",
+      "packages": [
+        {
+          "name": "@clerk/mcp-tools",
+          "version": "0.6.0",
+          "contentHash": "sha256-2fd026bfbebac716a0b83b7e0bec374dda935c74f83924cc7eb0ececa6854a29"
+        },
+        {
+          "name": "clerk",
+          "version": "3.4.0",
+          "contentHash": "sha256-9b81da9b75ca518d6acd971dc866907dee5977c95f33a07d0a31b1071a1c4926"
+        }
+      ]
+    },
+    {
+      "identity": "@cloudbase/cloudbase-mcp",
+      "packages": [
+        {
+          "name": "@cloudbase/cloudbase-mcp",
+          "version": "2.34.8",
+          "contentHash": "sha256-301aee50bc12a66f4fa5aac69929cffabf4af3816cff2325b8e449723f7c8ec5"
+        }
+      ]
+    },
+    {
+      "identity": "@copilotkit/aimock",
+      "packages": [
+        {
+          "name": "@copilotkit/aimock",
+          "version": "1.43.0",
+          "contentHash": "sha256-905e2e771ecd8aa25b81bd9ad17822eb6116428407ca0aee832674695916bfc9"
+        },
+        {
+          "name": "@copilotkit/mcp-apps-renderer",
+          "version": "1.76.0",
+          "contentHash": "sha256-fda1f30e48493d3ad34389cf933dc3fe973ee140e9ffeed9358134267e844079"
+        }
+      ]
+    },
+    {
+      "identity": "@currents/mcp",
+      "packages": [
+        {
+          "name": "@currents/mcp",
+          "version": "2.6.1",
+          "contentHash": "sha256-101cb444401296fa5e85140bc3f6bd1ca22df933ddb406fd63c7027bbac4dbae"
+        }
+      ]
+    },
+    {
+      "identity": "@devframes/agentic",
+      "packages": [
+        {
+          "name": "@devframes/agentic",
+          "version": "1.1.0",
+          "contentHash": "sha256-a334ddf7766bd361429af3029df5a43c5625e5712f102bd8de6847363fda43a5"
+        }
+      ]
+    },
+    {
+      "identity": "@drawio/mcp",
+      "packages": [
+        {
+          "name": "@drawio/mcp",
+          "version": "1.6.3",
+          "contentHash": "sha256-b72d663bb24d588c71543db4a83b1e0c0134983a80dc02e6e6ca5dce765c0567"
+        }
+      ]
+    },
+    {
+      "identity": "@ericthered926/duckduckgo-mcp-server",
+      "packages": [
+        {
+          "name": "@ericthered926/duckduckgo-mcp-server",
+          "version": "0.6.0",
+          "contentHash": "sha256-5e61fe444ddc3f0f985fd69d3901556b9d4ad3febf2e5eb5bee14a49007855d1"
+        }
+      ]
+    },
+    {
+      "identity": "@foldkit/devtools-mcp",
+      "packages": [
+        {
+          "name": "@foldkit/devtools-mcp",
+          "version": "0.23.0",
+          "contentHash": "sha256-deaf846df069a79c6b48e9c13082b7b780fb3b35eb42e8e158e338cd7cea9f1c"
+        }
+      ]
+    },
+    {
+      "identity": "@gitkraken/gk",
+      "packages": [
+        {
+          "name": "@gitkraken/gk",
+          "version": "3.1.76",
+          "contentHash": "sha256-f3edd551da66925229e77499798390c6b2ca530de9e782cd9eaeb35808e845b0"
+        }
+      ]
+    },
+    {
+      "identity": "@goke/mcp",
+      "packages": [
+        {
+          "name": "@goke/mcp",
+          "version": "0.1.2",
+          "contentHash": "sha256-ce46a766f06ab08cb36bea1b499c4bea9ac10d48284ca203bd0af624d36fb7d8"
+        }
+      ]
+    },
+    {
+      "identity": "@gongrzhe/server-gmail-autoauth-mcp",
+      "packages": [
+        {
+          "name": "@gongrzhe/server-gmail-autoauth-mcp",
+          "version": "1.1.11",
+          "contentHash": "sha256-9ab01dc1bca2bcba83e11caec2b91fba134879532115d1ff9f7a5afc12961840"
+        }
+      ]
+    },
+    {
+      "identity": "@google-cloud/observability-mcp",
+      "packages": [
+        {
+          "name": "@google-cloud/observability-mcp",
+          "version": "0.2.3",
+          "contentHash": "sha256-61f71b5ed36867935d1c1f7f8f13384d452fc134098dc0724a26f6c42ff5a5a8"
+        },
+        {
+          "name": "@google-cloud/storage-mcp",
+          "version": "0.6.0",
+          "contentHash": "sha256-6a6f2107b2b5cb9070ac8de162571153ab88071cd3ad69026697818422bd785e"
+        }
+      ]
+    },
+    {
+      "identity": "@hasna/connectors",
+      "packages": [
+        {
+          "name": "@hasna/connectors",
+          "version": "1.4.8",
+          "contentHash": "sha256-2b64d5250961f4e3b08acd755f64ca604657426e5acb19e77ac586d6f90a9049"
+        },
+        {
+          "name": "@hasna/conversations",
+          "version": "0.10.0",
+          "contentHash": "sha256-fc257c3875b78c2bb186a32bbe4bd8f19b0d46c5330c62e4faefd24f71b5af36"
+        },
+        {
+          "name": "@hasna/domains",
+          "version": "0.3.1",
+          "contentHash": "sha256-3d8671d8a9008545453e0d1e3e909aa9688b348ef68478d9bffdf42a6e1b170a"
+        },
+        {
+          "name": "@hasna/files",
+          "version": "0.4.1",
+          "contentHash": "sha256-856abf1ab3cca8104140665f61ed5680018bdf9901e50efd081076ad8c23c2d0"
+        },
+        {
+          "name": "@hasna/mementos",
+          "version": "0.17.8",
+          "contentHash": "sha256-26d021e4377d82b053f605aa6c7a1e2cc9a6df189ce33f835192cfdd5a174aee"
+        },
+        {
+          "name": "@hasna/projects",
+          "version": "1.2.4",
+          "contentHash": "sha256-d1ac4b7e2547de5cc79c7150740b8355fe1a7d85c75dfe4be4bf2a93fd73252a"
+        },
+        {
+          "name": "@hasna/skills",
+          "version": "0.10.19",
+          "contentHash": "sha256-75fa65d13db9c50a4f0f8f4eff3388e1a0d1ace2d50b25fc46a42fccb37cbcbd"
+        },
+        {
+          "name": "@hasna/todos",
+          "version": "0.17.2",
+          "contentHash": "sha256-3e2c3e1d9ea685df4648e5cdb4d26fb17c00c42abb7bcfead89a418bb77da501"
+        }
+      ]
+    },
+    {
+      "identity": "@hubspot/mcp-server",
+      "packages": [
+        {
+          "name": "@hubspot/mcp-server",
+          "version": "0.4.0",
+          "contentHash": "sha256-62ed80dc1fc3f657cc446938f8533530f8efae9093746a665d8077a40bd2d4d4"
+        }
+      ]
+    },
+    {
+      "identity": "@kubb/mcp",
+      "packages": [
+        {
+          "name": "@kubb/mcp",
+          "version": "5.4.2",
+          "contentHash": "sha256-80afafcd7084cf52eb91d0420c8d2f021ecffa1114dff57188f1b7de41d871ab"
+        }
+      ]
+    },
+    {
+      "identity": "@langchain/mcp-adapters",
+      "packages": [
+        {
+          "name": "@langchain/mcp-adapters",
+          "version": "2.0.0",
+          "contentHash": "sha256-def88eef7115c1b6729008c0049af9853cd483e28d87d74458616f76396f0898"
+        }
+      ]
+    },
+    {
+      "identity": "@launchdarkly/mcp-server",
+      "packages": [
+        {
+          "name": "@launchdarkly/mcp-server",
+          "version": "0.6.2",
+          "contentHash": "sha256-2eff0ca1051ea2252f6fcd1519ed72ff1b67cd457c29797e88dc2860dbdc0c8f"
+        }
+      ]
+    },
+    {
+      "identity": "@letoribo/mcp-graphql-enhanced",
+      "packages": [
+        {
+          "name": "@letoribo/mcp-graphql-enhanced",
+          "version": "4.15.3",
+          "contentHash": "sha256-a3e7b8f4cf6ea9dfcbf600fe8514e085bfe63513e742a61fa16f78da68bb1f50"
+        }
+      ]
+    },
+    {
+      "identity": "@lovable.dev/mcp-js",
+      "packages": [
+        {
+          "name": "@lovable.dev/mcp-js",
+          "version": "3.0.4",
+          "contentHash": "sha256-58d55a79eaf8d42c13e6329d9396834e0cb219764085e2e83df012d9804be280"
+        }
+      ]
+    },
+    {
+      "identity": "@lushly-dev/afd-server",
+      "packages": [
+        {
+          "name": "@lushly-dev/afd-server",
+          "version": "1.0.0",
+          "contentHash": "sha256-15885e57de885aa6e33641c7a273dbcb6a258ca6e7962b4fd78c4b37b95af51b"
+        }
+      ]
+    },
+    {
+      "identity": "@mastra/mcp-docs-server",
+      "packages": [
+        {
+          "name": "@mastra/mcp-docs-server",
+          "version": "1.3.4",
+          "contentHash": "sha256-5f9235568a5cefa6de84c3567eb37ed79b48cfe4fa99e4996a6c474312b92d3f"
+        },
+        {
+          "name": "@transcend-io/mcp",
+          "version": "1.6.0",
+          "contentHash": "sha256-0e01b0c270800c38d79c89431cd7db4aabb4b13ad879bd9c191f10268e37dccd"
+        },
+        {
+          "name": "@transcend-io/mcp-server-admin",
+          "version": "1.1.3",
+          "contentHash": "sha256-8f7a20c6bc6ca66dc0ca57188c5307084e9ae8e7885ed8cbeaf094dec16cdfc6"
+        },
+        {
+          "name": "@transcend-io/mcp-server-assessment",
+          "version": "2.1.13",
+          "contentHash": "sha256-191fc8d8c1da06d0eaad6239e86763ad6099bdb1655e296376b35f321e4ca2d2"
+        },
+        {
+          "name": "@transcend-io/mcp-server-base",
+          "version": "2.5.4",
+          "contentHash": "sha256-1c695c83bbcbf359a9dd46459099b2e570c19776d0e98ed9d88772970e994fd5"
+        },
+        {
+          "name": "@transcend-io/mcp-server-consent",
+          "version": "1.3.0",
+          "contentHash": "sha256-d0c633a9765b3d6ac183aec96995a7283f3697c20fab593a3a7147b1995ac9ce"
+        },
+        {
+          "name": "@transcend-io/mcp-server-custom-functions",
+          "version": "0.2.6",
+          "contentHash": "sha256-d5665f8355d2c0bc1a236bde2ca6c9144725729144ae909ade41844ec96625de"
+        },
+        {
+          "name": "@transcend-io/mcp-server-discovery",
+          "version": "1.0.16",
+          "contentHash": "sha256-84ad0ee0d1e100a23638a70f1cc5e3ce732887c5b630530f326140a7c223a0e5"
+        },
+        {
+          "name": "@transcend-io/mcp-server-docs",
+          "version": "0.4.15",
+          "contentHash": "sha256-67c42f38d97a1c7e1b4b46bd0ad5a78d3a84a49cc85fdf7900c2d5ca4a89ab43"
+        },
+        {
+          "name": "@transcend-io/mcp-server-dsr",
+          "version": "2.0.13",
+          "contentHash": "sha256-d35a9094b17df2360aa10bffeab87b34799e6f6d1296a6a950d29e24b0a8e630"
+        },
+        {
+          "name": "@transcend-io/mcp-server-inventory",
+          "version": "1.0.16",
+          "contentHash": "sha256-46604b5ceedafd141873644cb924b8a861d0b022f17db8fb5229a7c9464881b2"
+        },
+        {
+          "name": "@transcend-io/mcp-server-policy",
+          "version": "0.2.5",
+          "contentHash": "sha256-c2790180d3cffe588c37d68f4f6be14355805a55a203d9d402d97742096b06f1"
+        },
+        {
+          "name": "@transcend-io/mcp-server-preferences",
+          "version": "0.7.20",
+          "contentHash": "sha256-8be1c15260d001e02cc8175459b79b767dcf1e20d2b7e3656ded0e6ac88b5ce9"
+        },
+        {
+          "name": "@transcend-io/mcp-server-workflows",
+          "version": "1.0.16",
+          "contentHash": "sha256-67f69bade296e95c848f696fcc6f17d2b369df97eabba1a16a823591a44ee3a1"
+        }
+      ]
+    },
+    {
+      "identity": "@mcp-b/global",
+      "packages": [
+        {
+          "name": "@mcp-b/global",
+          "version": "5.1.0",
+          "contentHash": "sha256-4bf81472678d830ec97cedc04af21f69eec623afbc1912e5f509581277f0c009"
+        },
+        {
+          "name": "@mcp-b/transports",
+          "version": "5.1.0",
+          "contentHash": "sha256-c6eb8eeb33f76c5d7477c0446856181efc66295e4a6d3a92dadb6661559ec5b0"
+        }
+      ]
+    },
+    {
+      "identity": "@mcp-ui/client",
+      "packages": [
+        {
+          "name": "@mcp-ui/client",
+          "version": "7.1.1",
+          "contentHash": "sha256-8dbeca5ea302957279e1b4394f59601fe14b7110e97e6b91cea27e0c83fc98e3"
+        }
+      ]
+    },
+    {
+      "identity": "@mcp-use/cli",
+      "packages": [
+        {
+          "name": "@mcp-use/cli",
+          "version": "4.2.0",
+          "contentHash": "sha256-1f29ebb69f6f25be8b93c7bffbf6b223bdd41aeea6f65c2882ca3536ffc2bd8b"
+        },
+        {
+          "name": "use-mcp",
+          "version": "0.0.21",
+          "contentHash": "sha256-c230467699dfccc80e4e1565541c19c1a95f9a792901fe98ea232916d212c717"
+        }
+      ]
+    },
+    {
+      "identity": "@metamask/device-mcp",
+      "packages": [
+        {
+          "name": "@metamask/device-mcp",
+          "version": "0.4.2",
+          "contentHash": "sha256-7c41a60f301c8629a640eca13442cd54474261b0d533632ece9dccabb8b132c8"
+        }
+      ]
+    },
+    {
+      "identity": "@modelcontextprotocol/server-everything",
+      "packages": [
+        {
+          "name": "@modelcontextprotocol/server-everything",
+          "version": "2026.8.31",
+          "contentHash": "sha256-5cb6a4de15fcd15f9ca1109f4f9b71fcdcde3e374e3b6cbb5f530ecb3a38b09d"
+        },
+        {
+          "name": "@modelcontextprotocol/server-filesystem",
+          "version": "2026.8.31",
+          "contentHash": "sha256-cc461982775106ac0ce45d2e7f9bdcb50e06c65ff0aac66ea0fd3cc32518bc1c"
+        },
+        {
+          "name": "@modelcontextprotocol/server-memory",
+          "version": "2026.8.31",
+          "contentHash": "sha256-d4675d425ca57bd334d8ce7ab6435a41cfbd671c9e1219809c684f742833f036"
+        },
+        {
+          "name": "@modelcontextprotocol/server-pdf",
+          "version": "2.0.3",
+          "contentHash": "sha256-1ccc74d2ea7ed6d24e9e2dc63f3647023f88079ea2c0413f104f314a96905c04"
+        },
+        {
+          "name": "@modelcontextprotocol/server-sequential-thinking",
+          "version": "2026.8.31",
+          "contentHash": "sha256-46527e28c4cceb37b23041429eaacb17eb60f5ca0e7cf21b7a33e852130e8506"
+        }
+      ]
+    },
+    {
+      "identity": "@mongodb-js/mcp-core",
+      "packages": [
+        {
+          "name": "@mongodb-js/mcp-core",
+          "version": "3.0.5",
+          "contentHash": "sha256-3a6768cef88b9084f5227ace81d3f88e096d692454ef864e58b5fca98f52ae6a"
+        }
+      ]
+    },
+    {
+      "identity": "@n8n/mcp-apps",
+      "packages": [
+        {
+          "name": "@n8n/mcp-apps",
+          "version": "0.18.3",
+          "contentHash": "sha256-f0bd4a3703f7d8db09f473553e468295d386390a7cfe3c5ed800db8865bcd08d"
+        },
+        {
+          "name": "n8n-mcp",
+          "version": "2.91.0",
+          "contentHash": "sha256-023b62a7192282bc25984a30e46cc06a8f37ff70379bb00cd9ea59c480f5a50c"
+        }
+      ]
+    },
+    {
+      "identity": "@netlify/mcp",
+      "packages": [
+        {
+          "name": "@netlify/mcp",
+          "version": "1.17.0",
+          "contentHash": "sha256-54423b9e145c4d7e97f080cbb3afa58f5acde1cb03424edf240d13dfdbdd15d2"
+        }
+      ]
+    },
+    {
+      "identity": "@nitrostack/core",
+      "packages": [
+        {
+          "name": "@nitrostack/core",
+          "version": "1.0.17",
+          "contentHash": "sha256-845ede72b3e63cfc720e06c6e999311bdcde408fbb8d02db6da9ef89795e7f96"
+        }
+      ]
+    },
+    {
+      "identity": "@open-mercato/ai-assistant",
+      "packages": [
+        {
+          "name": "@open-mercato/ai-assistant",
+          "version": "0.8.0",
+          "contentHash": "sha256-9fba500dfad0ae12c86cff6ea11e8cb460c8146ec19c2e9d9c1bec0725add1db"
+        }
+      ]
+    },
+    {
+      "identity": "@orval/mcp",
+      "packages": [
+        {
+          "name": "@orval/mcp",
+          "version": "8.39.0",
+          "contentHash": "sha256-e0baa41018d2a6c7acce6e2017c24f3faa8d1d13591842bcb7a0fa0cb92b302b"
+        }
+      ]
+    },
+    {
+      "identity": "@pandacss/mcp",
+      "packages": [
+        {
+          "name": "@pandacss/mcp",
+          "version": "2.0.1",
+          "contentHash": "sha256-e17209f2e23693f8d055e26ebf1cc74da42c91dc8d82a617e19ce77a8da04777"
+        }
+      ]
+    },
+    {
+      "identity": "@paperclipai/mcp-server",
+      "packages": [
+        {
+          "name": "@paperclipai/mcp-server",
+          "version": "2026.916.1",
+          "contentHash": "sha256-fd0bf0dde5c78c601d12c39de7128386774bc9d07e071025353196f2a05c15bd"
+        }
+      ]
+    },
+    {
+      "identity": "@posthog/mcp",
+      "packages": [
+        {
+          "name": "@posthog/mcp",
+          "version": "0.21.2",
+          "contentHash": "sha256-72d3679f7899bcdc3250242deab52e0670db4456d94099d51b51c790cbf4dd56"
+        }
+      ]
+    },
+    {
+      "identity": "@primer/mcp",
+      "packages": [
+        {
+          "name": "@primer/mcp",
+          "version": "1.1.0",
+          "contentHash": "sha256-76e7a7a9865488ae5afd8b68db155097b90451cf83ba15da18b85466d29a76fd"
+        }
+      ]
+    },
+    {
+      "identity": "@productbrain/mcp",
+      "packages": [
+        {
+          "name": "@productbrain/mcp",
+          "version": "0.0.1-beta.8361",
+          "contentHash": "sha256-026b8b0c977cc185001bdf43b534742e98fade934f644cacabb2821b4caf1f57"
+        }
+      ]
+    },
+    {
+      "identity": "@raishin/vanguard-frontier-agentic",
+      "packages": [
+        {
+          "name": "@raishin/vanguard-frontier-agentic",
+          "version": "3.14.0",
+          "contentHash": "sha256-a0b58eba5e579954c5afbafa8b958ce7def09f8f447eee686f19e69eeec895d8"
+        }
+      ]
+    },
+    {
+      "identity": "@rekog/mcp-nest",
+      "packages": [
+        {
+          "name": "@rekog/mcp-nest",
+          "version": "2.0.7",
+          "contentHash": "sha256-c1a83de111e0b14671562989ea3b9bed4d6675b625a014cd2f96b006c2c8a3f7"
+        }
+      ]
+    },
+    {
+      "identity": "@salesforce/mcp",
+      "packages": [
+        {
+          "name": "@salesforce/mcp",
+          "version": "0.30.15",
+          "contentHash": "sha256-2ddccdc259b7451bd1924d1af1a829d78a990dc6a4a668efca4880637910317c"
+        }
+      ]
+    },
+    {
+      "identity": "@sap-ux/fiori-mcp-server",
+      "packages": [
+        {
+          "name": "@sap-ux/fiori-mcp-server",
+          "version": "1.15.0",
+          "contentHash": "sha256-992a1998db2e0e56dbc036be8ddc0219e4cae4a1ce050d929fdbfb39a365ea6a"
+        }
+      ]
+    },
+    {
+      "identity": "@sentry/mcp-server",
+      "packages": [
+        {
+          "name": "@sentry/mcp-server",
+          "version": "0.42.0",
+          "contentHash": "sha256-854fa2ed7c67e5a7609a490c89f9d1867a33180fe94d35e33bc425bf19f2d9a1"
+        }
+      ]
+    },
+    {
+      "identity": "@shopify/dev-mcp",
+      "packages": [
+        {
+          "name": "@shopify/dev-mcp",
+          "version": "1.16.0",
+          "contentHash": "sha256-b708e30a3ea5b2c26a3bc9e5fdd30bc1c0003da45a5811db9fc6ecdb25aea6a1"
+        },
+        {
+          "name": "@shopify/ucp-cli",
+          "version": "0.9.0",
+          "contentHash": "sha256-ee02f9aa8728c195bebfc7597910400a2da565c39a4e634ce06447489637d971"
+        }
+      ]
+    },
+    {
+      "identity": "@shortcut/mcp",
+      "packages": [
+        {
+          "name": "@shortcut/mcp",
+          "version": "0.25.0",
+          "contentHash": "sha256-00189fa0d2172b27341da213b8e79287b4a34787faecd75d694d559002a5a890"
+        }
+      ]
+    },
+    {
+      "identity": "@softeria/ms-365-mcp-server",
+      "packages": [
+        {
+          "name": "@softeria/ms-365-mcp-server",
+          "version": "0.157.2",
+          "contentHash": "sha256-27153736a8bae6a6f402ccb62cbb552d7608fc705be8d2ca8252bc621bbbeaf1"
+        }
+      ]
+    },
+    {
+      "identity": "@stripe/mcp",
+      "packages": [
+        {
+          "name": "@stripe/mcp",
+          "version": "0.3.3",
+          "contentHash": "sha256-5bb231ce7ed6094f340e945e73e88ba40a9e53139c04af9913a68fc386e79ce2"
+        }
+      ]
+    },
+    {
+      "identity": "@swmansion/argent",
+      "packages": [
+        {
+          "name": "@swmansion/argent",
+          "version": "0.26.0",
+          "contentHash": "sha256-9bcb3a34c354999bf8ead2aa3e0a1ff9098cc387f649c5f7ac8f94f3d3a43d9a"
+        }
+      ]
+    },
+    {
+      "identity": "@tacticlaunch/mcp-linear",
+      "packages": [
+        {
+          "name": "@tacticlaunch/mcp-linear",
+          "version": "1.4.3",
+          "contentHash": "sha256-78048bf90f3713f0bb34a6a397710724bb655bad10cfb52dc9b0dee8f05c2b58"
+        }
+      ]
+    },
+    {
+      "identity": "@tanstack/ai-mcp",
+      "packages": [
+        {
+          "name": "@tanstack/ai-mcp",
+          "version": "0.6.0",
+          "contentHash": "sha256-b51f96eacf8808a43e1bf6d75b2ba26903cf61c4b636caf13987a8a177285b6a"
+        }
+      ]
+    },
+    {
+      "identity": "@testsprite/testsprite-mcp",
+      "packages": [
+        {
+          "name": "@testsprite/testsprite-mcp",
+          "version": "0.0.46",
+          "contentHash": "sha256-fa03251fb6b3a717295dde4f2ae8cdd84709123db15f06c4b4c00ada188857f6"
+        }
+      ]
+    },
+    {
+      "identity": "@tobilu/qmd",
+      "packages": [
+        {
+          "name": "@tobilu/qmd",
+          "version": "2.8.3",
+          "contentHash": "sha256-ef4fd94a438a7bfaf732f77ae755bc6a1c0b34fc540227b4a79f0301919c43d0"
+        }
+      ]
+    },
+    {
+      "identity": "@ui5/mcp-server",
+      "packages": [
+        {
+          "name": "@ui5/mcp-server",
+          "version": "0.3.1",
+          "contentHash": "sha256-bf70d6b0b0bf21e03bab94c680b3edda817584b0fb902b40a98e464b8d07332e"
+        }
+      ]
+    },
+    {
+      "identity": "@upstash/context7-mcp",
+      "packages": [
+        {
+          "name": "@upstash/context7-mcp",
+          "version": "4.1.1",
+          "contentHash": "sha256-a4efce0b4f2fd904dc00742e8a0f1f1086a3ec5d51f790b5f33d5b706dc14e32"
+        }
+      ]
+    },
+    {
+      "identity": "@vantasdk/vanta-mcp-server",
+      "packages": [
+        {
+          "name": "@vantasdk/vanta-mcp-server",
+          "version": "1.2.0",
+          "contentHash": "sha256-14388f3e1e1fc6424baf79fd086e637542e18b0d2bbd404c2f259c237f506ba1"
+        }
+      ]
+    },
+    {
+      "identity": "@winor30/mcp-server-datadog",
+      "packages": [
+        {
+          "name": "@winor30/mcp-server-datadog",
+          "version": "1.8.0",
+          "contentHash": "sha256-8a3d22476426edd73892fbefcdcc546457a9862174184705ce65940990377e31"
+        }
+      ]
+    },
+    {
+      "identity": "@wonderwhy-er/desktop-commander",
+      "packages": [
+        {
+          "name": "@wonderwhy-er/desktop-commander",
+          "version": "0.2.52",
+          "contentHash": "sha256-fb646534fd0fe0f18a596743059f22a91d64a75be8b44e1dd467eebc91662ff6"
+        }
+      ]
+    },
+    {
+      "identity": "@z_ai/mcp-server",
+      "packages": [
+        {
+          "name": "@z_ai/mcp-server",
+          "version": "0.1.5",
+          "contentHash": "sha256-945b81ce0fbeac9770829ba215fd38042e444c055ab4f62c13453c0c9f476277"
+        }
+      ]
+    },
+    {
+      "identity": "@zencoderai/slack-mcp-server",
+      "packages": [
+        {
+          "name": "@zencoderai/slack-mcp-server",
+          "version": "0.0.1",
+          "contentHash": "sha256-9f8fd6660d59c0a8fc5420f2f77422eb9b1d611da998bb5c7d03837515a4d66e"
+        },
+        {
+          "name": "slack-mcp-server",
+          "version": "1.3.0",
+          "contentHash": "sha256-34a8ab337a9d6e0da10b0d680698ae13a95befe7adcd699c8ed06eba2b60cef3"
+        }
+      ]
+    },
+    {
+      "identity": "add-mcp",
+      "packages": [
+        {
+          "name": "add-mcp",
+          "version": "2.4.1",
+          "contentHash": "sha256-b9a89934f87bd04391905c0d3ea024216bf76c94dc42f74de45405a1740f4342"
+        }
+      ]
+    },
+    {
+      "identity": "agent-afk",
+      "packages": [
+        {
+          "name": "agent-afk",
+          "version": "5.282.1",
+          "contentHash": "sha256-e09d13761dbf1f6f336f7a79c106229a919aa111f3ff327a28dcf4b35503356f"
+        }
+      ]
+    },
+    {
+      "identity": "agent-inspect",
+      "packages": [
+        {
+          "name": "agent-inspect",
+          "version": "6.31.16",
+          "contentHash": "sha256-cd63c1f5e0d9713b7919dd87b4c0905ee055d3e71546c745ed7e1c785b356bfe"
+        }
+      ]
+    },
+    {
+      "identity": "agent-install",
+      "packages": [
+        {
+          "name": "agent-install",
+          "version": "0.0.8",
+          "contentHash": "sha256-c9251ff24832caa3ec39c821790afdfcd02fd22c62c205acde0ae70c3bb69c22"
+        }
+      ]
+    },
+    {
+      "identity": "agentdb",
+      "packages": [
+        {
+          "name": "agentdb",
+          "version": "3.0.0-alpha.20",
+          "contentHash": "sha256-922253e04f46d546ff34134192d0822dd44b45c35f6dbcd72dbc32c35e0c2bd5"
+        }
+      ]
+    },
+    {
+      "identity": "agentic-flow",
+      "packages": [
+        {
+          "name": "agentic-flow",
+          "version": "2.1.3",
+          "contentHash": "sha256-314bfdcb6110baf3fc8216ceb094a0c9d2d458d22d7e48132e0cca191b2ff250"
+        }
+      ]
+    },
+    {
+      "identity": "aiwg",
+      "packages": [
+        {
+          "name": "aiwg",
+          "version": "2026.9.24",
+          "contentHash": "sha256-ed7235cd68520e7f9a32b1dd017546ac938fe779405a8587cf97aa04302a3f77"
+        }
+      ]
+    },
+    {
+      "identity": "argocd-mcp",
+      "packages": [
+        {
+          "name": "argocd-mcp",
+          "version": "0.9.0",
+          "contentHash": "sha256-664288e7d4d67283a5821103b2c9c07955daba1435e7071cb8db206f7c1b76eb"
+        }
+      ]
+    },
+    {
+      "identity": "chrome-devtools-mcp",
+      "packages": [
+        {
+          "name": "chrome-devtools-mcp",
+          "version": "1.10.1",
+          "contentHash": "sha256-23c64317d3c785d6e6795e3ddf7485d12d9528dfcd233da5bcd5f0de9b75b6af"
+        }
+      ]
+    },
+    {
+      "identity": "claude-cup",
+      "packages": [
+        {
+          "name": "claude-cup",
+          "version": "0.9.12",
+          "contentHash": "sha256-4d04ed42e70c8f7eca5e568846546dad5b5b70cd25da9d1371cebd5c69309bb5"
+        }
+      ]
+    },
+    {
+      "identity": "claude-mem",
+      "packages": [
+        {
+          "name": "claude-mem",
+          "version": "13.28.0",
+          "contentHash": "sha256-298cc05e1580495c3e05c08450674c15f11f52fc9f1f8d14c7b6159ba9830696"
+        }
+      ]
+    },
+    {
+      "identity": "comfyui-mcp",
+      "packages": [
+        {
+          "name": "comfyui-mcp",
+          "version": "0.52.204",
+          "contentHash": "sha256-acf03de9a78e9deacfe0f2b3a25e475eb6d67bddacd8cb3600882e6e15a5a934"
+        }
+      ]
+    },
+    {
+      "identity": "context-mode",
+      "packages": [
+        {
+          "name": "context-mode",
+          "version": "1.0.169",
+          "contentHash": "sha256-9e3f2a936c8926afbfabe3a8655b178be3f0fddd506c4e9fd63402ee15aaaee2"
+        }
+      ]
+    },
+    {
+      "identity": "creem",
+      "packages": [
+        {
+          "name": "creem",
+          "version": "1.13.0",
+          "contentHash": "sha256-232ab8cf47fdb40cbeb1256f99271faeae8e1284ccb9dd42e7bf91df90b9ed0d"
+        }
+      ]
+    },
+    {
+      "identity": "critical",
+      "packages": [
+        {
+          "name": "critical",
+          "version": "9.0.0",
+          "contentHash": "sha256-c67962642d725418557be9b32a6d829faac2e0e2d4891fba0dd395652e33b69d"
+        }
+      ]
+    },
+    {
+      "identity": "ctx7",
+      "packages": [
+        {
+          "name": "ctx7",
+          "version": "0.5.12",
+          "contentHash": "sha256-aad588b487fc680bdb9469bcf03d7daadf4382ef538cd326f4bee33b5b896ea6"
+        }
+      ]
+    },
+    {
+      "identity": "decocms",
+      "packages": [
+        {
+          "name": "decocms",
+          "version": "4.427.15",
+          "contentHash": "sha256-78c542563304cc464a37220486a89e5ed553bc34860a35c1af85085c67e1a37a"
+        }
+      ]
+    },
+    {
+      "identity": "easy-skills",
+      "packages": [
+        {
+          "name": "easy-skills",
+          "version": "1.3.0",
+          "contentHash": "sha256-a52f7e31a5cc5cbb3b2dc18f414580c937891e41c2b0ed65cc6d43e2bda06492"
+        }
+      ]
+    },
+    {
+      "identity": "endform",
+      "packages": [
+        {
+          "name": "endform",
+          "version": "0.81.3",
+          "contentHash": "sha256-285798e99a8b73e68e5036409d4ebf92af02ea25068d4ef54461343cdd753488"
+        }
+      ]
+    },
+    {
+      "identity": "eve",
+      "packages": [
+        {
+          "name": "eve",
+          "version": "0.69.0",
+          "contentHash": "sha256-106291611d2c4072c141d6e53ee8e54d844c9e17b75961749139aa9883593368"
+        }
+      ]
+    },
+    {
+      "identity": "exa-mcp-server",
+      "packages": [
+        {
+          "name": "exa-mcp-server",
+          "version": "3.4.1",
+          "contentHash": "sha256-bada2194c4c48f68fe0824ba0beb577108e96481695fa6912f5aada0c59ce938"
+        }
+      ]
+    },
+    {
+      "identity": "fallow",
+      "packages": [
+        {
+          "name": "fallow",
+          "version": "3.31.0",
+          "contentHash": "sha256-42697887a41a9c00c652120fb6e8bd5f73d2f881ec901c70a6ede9da68738daf"
+        }
+      ]
+    },
+    {
+      "identity": "fastify-mcp",
+      "packages": [
+        {
+          "name": "fastify-mcp",
+          "version": "3.0.0",
+          "contentHash": "sha256-575ece77cacddfe09346618c39a633f9708eaabd230ffd171d2833bda895ae0c"
+        }
+      ]
+    },
+    {
+      "identity": "figma-console-mcp",
+      "packages": [
+        {
+          "name": "figma-console-mcp",
+          "version": "1.40.8",
+          "contentHash": "sha256-86d82601b2a5100092af46edbe22fec5f92fb3914f02a97a630e82fc1f492c2d"
+        }
+      ]
+    },
+    {
+      "identity": "figma-developer-mcp",
+      "packages": [
+        {
+          "name": "figma-developer-mcp",
+          "version": "0.13.2",
+          "contentHash": "sha256-0be2c571a7299556a5f58f025f1d8b71e563ce4734a52aa0da7f293ea1e5a44c"
+        }
+      ]
+    },
+    {
+      "identity": "firecrawl-mcp",
+      "packages": [
+        {
+          "name": "firecrawl-mcp",
+          "version": "3.27.2",
+          "contentHash": "sha256-7d1c241451a190a63474c877f0d095818854c518f94477ba03116ca19ccf40f9"
+        }
+      ]
+    },
+    {
+      "identity": "freee-mcp",
+      "packages": [
+        {
+          "name": "freee-mcp",
+          "version": "0.36.3",
+          "contentHash": "sha256-79c0630924e18ffe72306f122f738967c7ecd03b2aca04fbacdf85783592eef6"
+        }
+      ]
+    },
+    {
+      "identity": "frog",
+      "packages": [
+        {
+          "name": "frog",
+          "version": "1.1.0",
+          "contentHash": "sha256-3920b7c6114521360e305f02a57162b1db21b975abf5578ae0967a0e93af9957"
+        }
+      ]
+    },
+    {
+      "identity": "gitnexus",
+      "packages": [
+        {
+          "name": "gitnexus",
+          "version": "1.6.12",
+          "contentHash": "sha256-20ea5e41fc0fcbd925adc7c5175a92798cef1b735bbd3f707248f5522a7b8d46"
+        }
+      ]
+    },
+    {
+      "identity": "hevy-mcp",
+      "packages": [
+        {
+          "name": "hevy-mcp",
+          "version": "6.1.18",
+          "contentHash": "sha256-a91713fd09e966de95da9249173755e772a52bd3116f5f48156aad64dff99de9"
+        }
+      ]
+    },
+    {
+      "identity": "hlims-mcp",
+      "packages": [
+        {
+          "name": "hlims-mcp",
+          "version": "1.0.0",
+          "contentHash": "sha256-93736cb982eba92beb8519f1992d229e8a375118af52eaddaa649c22bb28eae3"
+        }
+      ]
+    },
+    {
+      "identity": "hostinger-api-mcp",
+      "packages": [
+        {
+          "name": "hostinger-api-mcp",
+          "version": "2.7.0",
+          "contentHash": "sha256-0ad2dae7473633c7266c92636e1a60f78092752946475020488359ab0365b373"
+        }
+      ]
+    },
+    {
+      "identity": "instar",
+      "packages": [
+        {
+          "name": "instar",
+          "version": "1.3.1312",
+          "contentHash": "sha256-23be098914844f600ceb0a0b60fd341310d0bc7864fabc81c32fd79107546557"
+        }
+      ]
+    },
+    {
+      "identity": "kordoc",
+      "packages": [
+        {
+          "name": "kordoc",
+          "version": "4.18.2",
+          "contentHash": "sha256-402cc308df77257d6c7b45c651468fdbcfc24670488f9c8a8bd4227acfe4c848"
+        }
+      ]
+    },
+    {
+      "identity": "mbox-mcp",
+      "packages": [
+        {
+          "name": "mbox-mcp",
+          "version": "0.1.1",
+          "contentHash": "sha256-2eba25cfa13e853c6bd90a2eb4f8680b79cdbf66d7f6beb4af94bf409f18c9dc"
+        }
+      ]
+    },
+    {
+      "identity": "mcp-auth",
+      "packages": [
+        {
+          "name": "mcp-auth",
+          "version": "1.0.0-beta.1",
+          "contentHash": "sha256-544c4727f4c06ce55eec49346c208b17456eb97b9233dacf776a423b607899f0"
+        }
+      ]
+    },
+    {
+      "identity": "mcp-evals",
+      "packages": [
+        {
+          "name": "mcp-evals",
+          "version": "2.0.1",
+          "contentHash": "sha256-17590ce791b23a993619f0aa58453b320a7aeba37a06329352002dfb257603ab"
+        }
+      ]
+    },
+    {
+      "identity": "mcp-handler",
+      "packages": [
+        {
+          "name": "mcp-handler",
+          "version": "2.2.0",
+          "contentHash": "sha256-41054033ec81f66a54abd54736d67c3ec1124f64922b2f8921e4611e3d934329"
+        }
+      ]
+    },
+    {
+      "identity": "mcp-hello-world",
+      "packages": [
+        {
+          "name": "mcp-hello-world",
+          "version": "1.1.2",
+          "contentHash": "sha256-eaaa052bab673ca83f3109e055ad60d7fcf3d00ee69eb7803f4b83cdee26324f"
+        }
+      ]
+    },
+    {
+      "identity": "metaharness",
+      "packages": [
+        {
+          "name": "metaharness",
+          "version": "0.4.17",
+          "contentHash": "sha256-d51248c5c5cc2e7baf73339a0a543f78ee295f224b0bedc80fa1cad62054c769"
+        }
+      ]
+    },
+    {
+      "identity": "next-devtools-mcp",
+      "packages": [
+        {
+          "name": "next-devtools-mcp",
+          "version": "0.4.0",
+          "contentHash": "sha256-d2f9c65fdc7585ede2c149cac7c43b7e04e68bd788616cb217801f431eb90c39"
+        }
+      ]
+    },
+    {
+      "identity": "nx-mcp",
+      "packages": [
+        {
+          "name": "nx-mcp",
+          "version": "0.25.0",
+          "contentHash": "sha256-aeaeb65ac16502a9e88d37eb92fc25f9c57ebd7f3a77e1f0e732a5613b0466b2"
+        }
+      ]
+    },
+    {
+      "identity": "pi-mcp-adapter",
+      "packages": [
+        {
+          "name": "pi-mcp-adapter",
+          "version": "4.0.0",
+          "contentHash": "sha256-8540b444db185535a1ee6f87ba1e45481ad94509f45d91d547b986389c087e1a"
+        }
+      ]
+    },
+    {
+      "identity": "ruflo",
+      "packages": [
+        {
+          "name": "ruflo",
+          "version": "3.49.0",
+          "contentHash": "sha256-14a070c391c7ac3bc5e45c7edd4ad34e57989235c371e9829f63b92e5521e6f3"
+        }
+      ]
+    },
+    {
+      "identity": "ruvector",
+      "packages": [
+        {
+          "name": "ruvector",
+          "version": "0.3.3",
+          "contentHash": "sha256-9a70c5c78559627978eafb1df945a259e40e0bb969aaf5695c6266f0d122dab2"
+        }
+      ]
+    },
+    {
+      "identity": "task-master-ai",
+      "packages": [
+        {
+          "name": "task-master-ai",
+          "version": "0.43.1",
+          "contentHash": "sha256-c2d6d8090ee20e289e7894111e6aec7c5d080dd34d71a7643de89a699ac9941a"
+        }
+      ]
+    },
+    {
+      "identity": "tavily-mcp",
+      "packages": [
+        {
+          "name": "tavily-mcp",
+          "version": "0.2.22",
+          "contentHash": "sha256-4bb5e6badac1aebcd35ccc5dbe266d6d84e05e5a3414e1b1b9fd33bd8ed560f9"
+        }
+      ]
+    },
+    {
+      "identity": "tidewave",
+      "packages": [
+        {
+          "name": "tidewave",
+          "version": "0.9.0",
+          "contentHash": "sha256-9a217bd8912552618ce5f72210ad1f2e4ee1d529b51d955864ceb1f39604c1a4"
+        }
+      ]
+    },
+    {
+      "identity": "veryfront",
+      "packages": [
+        {
+          "name": "veryfront",
+          "version": "0.1.1269",
+          "contentHash": "sha256-1a5f4a6fdb43f712a5642552e8f5171786320baee0e607ba275379369356f69c"
+        }
+      ]
+    },
+    {
+      "identity": "xcodebuildmcp",
+      "packages": [
+        {
+          "name": "xcodebuildmcp",
+          "version": "2.7.0",
+          "contentHash": "sha256-daad6d9a49b5f6f0725aaa9489b60c444290777e446879cb0de70d5a4208b18c"
+        }
+      ]
+    },
+    {
+      "identity": "xmcp",
+      "packages": [
+        {
+          "name": "xmcp",
+          "version": "1.1.3",
+          "contentHash": "sha256-cde807b0909436f99a193e81d2cf881674cae2a80ee52d9c82016b54d7626dd1"
+        }
+      ]
+    }
+  ],
+  "heldOut": [
+    {
+      "identity": "@cap-js/mcp-server",
+      "packages": [
+        {
+          "name": "@cap-js/mcp-server",
+          "version": "0.0.6",
+          "contentHash": "sha256-250fde145dd0a46aeeb5fac940ea98c05385fb1b99c7b6a46fa66359680729e0"
+        }
+      ]
+    },
+    {
+      "identity": "@cyanheads/mcp-ts-core",
+      "packages": [
+        {
+          "name": "@cyanheads/mcp-ts-core",
+          "version": "0.13.10",
+          "contentHash": "sha256-7365eb71a7a2a349d06ee3042995ec0105e8cf053334855aea1f469fc8c325be"
+        }
+      ]
+    },
+    {
+      "identity": "@deepseek-ai/dsh-mcp-client",
+      "packages": [
+        {
+          "name": "@deepseek-ai/dsh-mcp-client",
+          "version": "0.0.1-rc.1",
+          "contentHash": "sha256-56052a24f42db90fe23c612f971dca6e0ef68c2d880f61c5d29ffa4581543b0b"
+        }
+      ]
+    },
+    {
+      "identity": "@eslint/mcp",
+      "packages": [
+        {
+          "name": "@eslint/mcp",
+          "version": "0.3.13",
+          "contentHash": "sha256-1e2595e7485fa52bfa0848b1e6f2946314dd454b947644b60c1e6ffff47cda11"
+        }
+      ]
+    },
+    {
+      "identity": "@executeautomation/playwright-mcp-server",
+      "packages": [
+        {
+          "name": "@executeautomation/playwright-mcp-server",
+          "version": "1.0.12",
+          "contentHash": "sha256-8c2045a30538c1b5e9e72d63dce0d9df307e72f4824d57e9e8ba855ac118a948"
+        }
+      ]
+    },
+    {
+      "identity": "@hono/mcp",
+      "packages": [
+        {
+          "name": "@hono/mcp",
+          "version": "0.3.2",
+          "contentHash": "sha256-79cbaaea4a520fab7ea599a2b2be02ea02e7ae4876126867f00b34f6cd83aca4"
+        }
+      ]
+    },
+    {
+      "identity": "@inkeep/open-knowledge",
+      "packages": [
+        {
+          "name": "@inkeep/open-knowledge",
+          "version": "0.79.13",
+          "contentHash": "sha256-9bc38ef2c2c367785c269f94851043dd2507d68c083f0f30a1020407aa38defc"
+        }
+      ]
+    },
+    {
+      "identity": "@microsoft/jsts-upgrade-assistant",
+      "packages": [
+        {
+          "name": "@microsoft/jsts-upgrade-assistant",
+          "version": "0.1.15",
+          "contentHash": "sha256-4653e30f8928b5baacf3d33c69141da4701aba76d352632950e313b879c4fee8"
+        },
+        {
+          "name": "@microsoft/postgres-mcp",
+          "version": "0.2.0",
+          "contentHash": "sha256-946e96821cca5e9c729b2fb69188a558e08c548e06d343b9ee3493802831de5e"
+        },
+        {
+          "name": "@microsoft/powerbi-modeling-mcp",
+          "version": "1.0.0",
+          "contentHash": "sha256-8ccfa1d1e1bacf68fc7d770e3a5375bec81f3b325a36f1e53d161309be02f0c5"
+        },
+        {
+          "name": "@microsoft/powerbi-modeling-mcp-win32-x64",
+          "version": "1.0.0",
+          "contentHash": "sha256-d98ce0a6c5d14ddd5f174a8debcf766c267f97b6fbcbb2cf4ca3f00e66fbca7d"
+        }
+      ]
+    },
+    {
+      "identity": "@notionhq/notion-mcp-server",
+      "packages": [
+        {
+          "name": "@notionhq/notion-mcp-server",
+          "version": "2.5.2",
+          "contentHash": "sha256-7c0020d4d5b97cdff2e56b56e41d71fad336db9a9a88c454f8095d772f0ea75d"
+        }
+      ]
+    },
+    {
+      "identity": "@oh-my-pi/pi-mnemopi",
+      "packages": [
+        {
+          "name": "@oh-my-pi/pi-mnemopi",
+          "version": "18.4.9",
+          "contentHash": "sha256-5a4c872fc7f867df5feaf0eee766aae39fd4d397ae1feb0000f8bed1d77400ff"
+        }
+      ]
+    },
+    {
+      "identity": "@payloadcms/plugin-mcp",
+      "packages": [
+        {
+          "name": "@payloadcms/plugin-mcp",
+          "version": "3.90.2",
+          "contentHash": "sha256-1b4b44052740110c02673a8dfa30c773125bbb5a6bfdc1b8e4009190a0ea7ea1"
+        }
+      ]
+    },
+    {
+      "identity": "@perplexity-ai/mcp-server",
+      "packages": [
+        {
+          "name": "@perplexity-ai/mcp-server",
+          "version": "1.3.0",
+          "contentHash": "sha256-3e2168b67adcb9a4ad5b4f5a6ca10f5d4ee27a5d8dc33dc3793a483318fa9eec"
+        }
+      ]
+    },
+    {
+      "identity": "@serdnaley/metabase-mcp",
+      "packages": [
+        {
+          "name": "@serdnaley/metabase-mcp",
+          "version": "0.2.0",
+          "contentHash": "sha256-d336d3eb431658339a32bd3a62f866c4dcb67a6b16f76fa289fdc64511aedb23"
+        }
+      ]
+    },
+    {
+      "identity": "@smartbear/mcp",
+      "packages": [
+        {
+          "name": "@smartbear/mcp",
+          "version": "0.41.3",
+          "contentHash": "sha256-bb9f519b1608a2afc4b4840b3f8e3e033bd887a1179579d935517a8b4cbbba00"
+        }
+      ]
+    },
+    {
+      "identity": "@solomonneas/adguard-mcp",
+      "packages": [
+        {
+          "name": "@solomonneas/adguard-mcp",
+          "version": "0.3.1",
+          "contentHash": "sha256-a8d19d92671910cb0dc7e1396a07fe988b27b87fcb8fc472a2a70d17762df44c"
+        }
+      ]
+    },
+    {
+      "identity": "@taazkareem/clickup-mcp-server",
+      "packages": [
+        {
+          "name": "@taazkareem/clickup-mcp-server",
+          "version": "0.14.5",
+          "contentHash": "sha256-bfca413bfcc17115b87eda5d6d017ac949449f061b4cd604be84bfee9e50f639"
+        }
+      ]
+    },
+    {
+      "identity": "@turbopuffer/turbopuffer-mcp",
+      "packages": [
+        {
+          "name": "@turbopuffer/turbopuffer-mcp",
+          "version": "2.7.0",
+          "contentHash": "sha256-e3e39a8f8e01eb382c696e795bbcc47811b19ffea5fd1c6a4dff85695d3f22f2"
+        }
+      ]
+    },
+    {
+      "identity": "@typia/mcp",
+      "packages": [
+        {
+          "name": "@typia/mcp",
+          "version": "15.0.1",
+          "contentHash": "sha256-931dec632c6b173c93204ded36c2e8bc9ae35b87534ca0129b8129ef756aef97"
+        }
+      ]
+    },
+    {
+      "identity": "@wong2/mcp-cli",
+      "packages": [
+        {
+          "name": "@wong2/mcp-cli",
+          "version": "2.0.0",
+          "contentHash": "sha256-9358a9ff7690653b9a0807025ff42215473f04805cfe5b4f8e470252deb51e06"
+        }
+      ]
+    },
+    {
+      "identity": "@zereight/mcp-gitlab",
+      "packages": [
+        {
+          "name": "@zereight/mcp-gitlab",
+          "version": "2.1.67",
+          "contentHash": "sha256-8481572fd59442cbeeddaf573b3ced666c958e44db24615f19703f2c1bc92a2b"
+        }
+      ]
+    },
+    {
+      "identity": "agent-device",
+      "packages": [
+        {
+          "name": "agent-device",
+          "version": "0.21.19",
+          "contentHash": "sha256-bbabd8a8b9b5304f05611b4403f3487851ad3122ec00533260bd0014f58c86c4"
+        }
+      ]
+    },
+    {
+      "identity": "agnost",
+      "packages": [
+        {
+          "name": "agnost",
+          "version": "0.2.1",
+          "contentHash": "sha256-59c162ec94e706d4377e68178a253c22d521ff3a4e210511a0e68679082130b9"
+        }
+      ]
+    },
+    {
+      "identity": "alvin-bot",
+      "packages": [
+        {
+          "name": "alvin-bot",
+          "version": "5.156.1",
+          "contentHash": "sha256-1df2e01fddc80dcf70777e34d692550be29756a0a8781e67e1f6561e196bfa4a"
+        }
+      ]
+    },
+    {
+      "identity": "blume",
+      "packages": [
+        {
+          "name": "blume",
+          "version": "2.1.0",
+          "contentHash": "sha256-244d5d75fd30e7f141ee62ba9a57419d1456701be1a403588e8178eec321894b"
+        }
+      ]
+    },
+    {
+      "identity": "codebase-memory-mcp",
+      "packages": [
+        {
+          "name": "codebase-memory-mcp",
+          "version": "0.11.0",
+          "contentHash": "sha256-309ca2fca7ab9cb41bcdf3a82329d616efd2e422a823f873105efe9917c81d30"
+        }
+      ]
+    },
+    {
+      "identity": "davinci-resolve-mcp",
+      "packages": [
+        {
+          "name": "davinci-resolve-mcp",
+          "version": "4.8.26",
+          "contentHash": "sha256-c92af20806aa93b66857d7bb300b44320e119102fe8d303c6275cad8e364b4a7"
+        }
+      ]
+    },
+    {
+      "identity": "hono-mcp-server-sse-transport",
+      "packages": [
+        {
+          "name": "hono-mcp-server-sse-transport",
+          "version": "0.0.7",
+          "contentHash": "sha256-703cda315ffa3c5058d355ec1092315cc7644233288f15832736ac3743d3e594"
+        }
+      ]
+    },
+    {
+      "identity": "n8n-nodes-mcp",
+      "packages": [
+        {
+          "name": "n8n-nodes-mcp",
+          "version": "0.1.37",
+          "contentHash": "sha256-3460b98b5e06873d6200ad963a00db27b91398c5a1348ca5d7d56fe7bbe339bc"
+        }
+      ]
+    },
+    {
+      "identity": "nexus-agents",
+      "packages": [
+        {
+          "name": "nexus-agents",
+          "version": "8.126.0",
+          "contentHash": "sha256-09df2112bad2ac7f60eb390005ca686c3db3d550d403ae0f4aa5aceecb655b64"
+        }
+      ]
+    },
+    {
+      "identity": "opencode-mcp",
+      "packages": [
+        {
+          "name": "opencode-mcp",
+          "version": "3.0.0",
+          "contentHash": "sha256-ac23ca9c8f9426d80736dfb50f07dff8f8f786887620d06023d663d9ad566c27"
+        }
+      ]
+    },
+    {
+      "identity": "openinputbridge-mcp",
+      "packages": [
+        {
+          "name": "openinputbridge-mcp",
+          "version": "0.1.1",
+          "contentHash": "sha256-088fa10f34db3d517c04d5aaa01a3788ae9528b0c7fa3429c60b19ee60707246"
+        }
+      ]
+    },
+    {
+      "identity": "paqad-ai",
+      "packages": [
+        {
+          "name": "paqad-ai",
+          "version": "1.95.0",
+          "contentHash": "sha256-a7d638b6efbf706ee3ccc680043693e3bdade45ee435779b9baba4b8bb30b8d9"
+        }
+      ]
+    },
+    {
+      "identity": "pi-mcp-extension",
+      "packages": [
+        {
+          "name": "pi-mcp-extension",
+          "version": "1.5.0",
+          "contentHash": "sha256-93b08713be2850806c793fdfacb0498632bee43531e3ff9654d9710448be89e1"
+        }
+      ]
+    },
+    {
+      "identity": "rsbuild-plugin-vue-mcp",
+      "packages": [
+        {
+          "name": "rsbuild-plugin-vue-mcp",
+          "version": "0.1.3",
+          "contentHash": "sha256-312a2619a8da31af92198f23edb2a6366fbc33fda4203f68b70de2e409508752"
+        }
+      ]
+    },
+    {
+      "identity": "scryfall-mcp-server",
+      "packages": [
+        {
+          "name": "scryfall-mcp-server",
+          "version": "0.1.1",
+          "contentHash": "sha256-7a6e16a065333e334249b8d8844ea6c118efc14fbbf099839c5d02d5e3fc6d36"
+        }
+      ]
+    }
+  ],
+  "digest": "dfeeb3a1d268134d019a418defe7f42d51cedca21b08c53f8e0820484020de97"
+}
