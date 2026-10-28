@@ -19,6 +19,9 @@
   // Each token prefix must start the value or follow a non-alphanumeric character; without that boundary
   // ordinary package names such as desktop-commander ("sk" + 10 chars) were redacted as secrets.
   const SENSITIVE_VALUE = /(?:bearer\s+|(?:^|[^A-Za-z0-9])(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
+  // Vendor formats without a short generic prefix, matched case-sensitively with their real lengths so
+  // ordinary words that happen to start the same way are not caught.
+  const VENDOR_TOKEN = /(?:^|[^A-Za-z0-9])(?:AIza[0-9A-Za-z_-]{30,}|glpat-[0-9A-Za-z_-]{20,}|gh[ousr]_[0-9A-Za-z]{30,}|npm_[0-9A-Za-z]{30,}|pypi-[0-9A-Za-z_-]{40,}|hf_[0-9A-Za-z]{30,}|xai-[0-9A-Za-z]{30,}|ya29\.[0-9A-Za-z_-]{20,}|dop_v1_[0-9a-f]{40,}|shp(?:at|ss|ca|pa)_[0-9a-fA-F]{32}|SG\.[0-9A-Za-z_-]{16,}\.[0-9A-Za-z_-]{16,}|whsec_[0-9A-Za-z+/=]{24,}|lin_api_[0-9A-Za-z]{30,}|ntn_[0-9A-Za-z]{30,}|secret_[0-9A-Za-z]{40,}|AccountKey=[0-9A-Za-z+/=]{40,}|-----BEGIN [A-Z ]*PRIVATE KEY)/;
   const CREDENTIAL_URI = /[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@/i;
   const CREDENTIAL_AT_HOST = /(?:^|[=\s])[^\s/:=@]+:[^\s/@]+@[^\s]+/i;
   const SAFE_CAPABILITIES = new Set(['filesystem_access','shell_access','code_execution','network_access','environment_access','credential_access','browser_automation','untrusted_external_content']);
@@ -73,14 +76,35 @@
     return held.replace(EMBEDDED_PATH, match => pathFingerprint(match)).replace(/\u0000(\d+)\u0000/g, (_, i) => origins[Number(i)]);
   }
   /** Whether a string has the shape of a credential value (token prefix, JWT, user:password@host). */
-  function isSecretShaped(value) { return typeof value === 'string' && (SENSITIVE_VALUE.test(value) || CREDENTIAL_URI.test(value) || CREDENTIAL_AT_HOST.test(value)); }
+  function isSecretShaped(value) { return typeof value === 'string' && (SENSITIVE_VALUE.test(value) || VENDOR_TOKEN.test(value) || CREDENTIAL_URI.test(value) || CREDENTIAL_AT_HOST.test(value)); }
+  function entropy(value) {
+    const counts = {};
+    for (const ch of value) counts[ch] = (counts[ch] || 0) + 1;
+    return Object.values(counts).reduce((sum, n) => sum - (n / value.length) * Math.log2(n / value.length), 0);
+  }
+  const OWN_FINGERPRINT = /^path_[0-9a-f]{16}$/;
+  /**
+   * A key with no recognizable prefix (an AWS secret, a hex API key, a random token after "key-"):
+   * a 16+ character run mixing letters and digits with high entropy, or a 32+ character base64 run
+   * with upper case, lower case and digits. Words, versions, UUIDs and Boppi's own path fingerprints
+   * do not qualify. Only used on arguments, where nothing else names the value.
+   */
+  function hasOpaqueToken(value) {
+    return value.split(/[\s=:,;"'`@]+/).some(piece => {
+      if (piece.length < 16 || !/^[A-Za-z0-9_\-+/.~]+$/.test(piece) || OWN_FINGERPRINT.test(piece)) return false;
+      if (piece.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(piece) && /[A-Z]/.test(piece) && /[a-z]/.test(piece) && /\d/.test(piece)) return true;
+      return piece.split(/[-_.~/+]/).some(run => run.length >= 16 && /[A-Za-z]/.test(run) && /\d/.test(run) && entropy(run) >= 3);
+    });
+  }
   function sanitizeArgument(value) {
     const raw = text(value, 'argument', 500);
-    if (SENSITIVE_NAME.test(raw) || SENSITIVE_VALUE.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
-    if (isSensitiveFlag(raw)) return raw.includes('=') ? `${raw.slice(0, raw.indexOf('='))}=[redacted-sensitive-argument]` : raw;
+    if (SENSITIVE_NAME.test(raw) || isSecretShaped(raw)) return '[redacted-sensitive-argument]';
+    // "key-<hex>" reads as a flag name but is itself the secret.
+    if (isSensitiveFlag(raw)) return raw.includes('=') ? `${raw.slice(0, raw.indexOf('='))}=[redacted-sensitive-argument]` : hasOpaqueToken(raw) ? '[redacted-sensitive-argument]' : raw;
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw)) return pathFingerprint(raw);
     const clean = fingerprintEmbedded(raw);
+    if (hasOpaqueToken(clean)) return '[redacted-sensitive-argument]';
     return clean.length > 160 ? `${clean.slice(0, 160)}…` : clean;
   }
   /** Sanitize an argument list; the value after a bare credential flag is redacted whatever it looks like. */

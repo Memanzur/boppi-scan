@@ -121,7 +121,7 @@ PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left t
   - ~/Library/Application Support/Claude/claude_desktop_config.json
   - ~/.claude.json
   - ~/.cursor/mcp.json
-  Known secret shapes are redacted, environment variable values are not read, and recognized paths become fingerprints. Review an export before sharing it.
+  Secret values in arguments (known token formats and random-looking keys) are redacted, environment variable values are not read, and recognized paths become fingerprints. Review an export before sharing it.
 
 JSON export written to boppi-scan.json
 ```
