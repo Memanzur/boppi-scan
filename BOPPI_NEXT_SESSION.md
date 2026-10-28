@@ -37,7 +37,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | T-6 approval origin decided server-side | done (scoped, see D-38) | control 4398c0f | test:db:local 390 PASS, verify exit 0. New migration 20261027130000 + down file, so 20 migrations are now pending on production on top of its 8 (Gate C plan must include the new ones). The routes and connector-journey scripts need a local Supabase stack: not rerun |
 | T-7 login CSRF, signup enumeration, CSV injection | done (enumeration deferred, D-39) | control 5ac116b | test:auth-callback 16 (real route handler, forged + same-origin posts), verify exit 0 |
 | T-10 push --file re-sanitize; fix predictions file out of the project | done | scanner 2621c8b, control resync 1fe2912 | `npm test` 40/40 (push 61 with planted-canary test), control verify exit 0 |
-| T-8 rollback harness + down files for the newest migrations | done | control (this checkpoint's parent commit) | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
+| T-8 rollback harness + down files for the newest migrations | done | control 1f1171e | test:db:rollback OK: 20 pending files each round-trip and all roll back together; negative control fails as expected; test:db:local 390 |
 | T-9 documentation truth pass, then rebuild the candidate | next | | |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
