@@ -344,6 +344,12 @@ As a GitHub Action, with the SARIF uploaded to code scanning:
 
 Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx boppi@<version>`. From 0.4.0, `version` defaults to the version the action was released with and must be an exact version: `latest` or a range such as `^0.4.0` is refused, so a new npm release never reaches your CI until you change the tag. (The v0.3.0 action still defaults to `latest`; set `version: 0.3.0` with it.) Inputs reach the step only as environment variables, so a value cannot run as shell code.
 
+### Updates and removal
+
+Boppi never checks npm for updates. Your workspace's answers to `push`, `events push` and `connect` carry the oldest Boppi version it supports; Boppi stores the last value per workspace in `~/.boppi/update-notice.json` (owner-only) and, when you are older, prints one line on stderr after a command, also offline: `Update: <workspace> asks for Boppi <version> or newer; ... Run: npm install -g boppi@latest`. It never changes an exit code and never prints from `boppi hook`. `NO_UPDATE_NOTIFIER=1` or `BOPPI_NO_UPDATE_NOTICE=1` silences it.
+
+`boppi uninstall` lists everything Boppi stored under `~/.boppi` (history, settings, fingerprint key, hook events, pairing, stored tool lists, overlay state, demo sandbox, fix exports, backups) and every Claude Code hook entry that runs `boppi hook`, with its file and location, then deletes `~/.boppi` after you confirm (`--yes` without a terminal, `--dry-run` to only list). Fix backups are the only way back from an applied fix, so a `~/.boppi` that holds any is kept unless you add `--include-backups`. It does not edit your Claude Code settings: remove the listed hook entries yourself, or the next MCP call recreates the events file. A paired device stays listed in the workspace until you revoke it on the Collectors page. Remove the program with `npm uninstall -g boppi`.
+
 ## What leaves the machine
 
 Nothing, unless you run `boppi push` or `boppi connect`.

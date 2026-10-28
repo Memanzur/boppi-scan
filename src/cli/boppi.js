@@ -57,10 +57,11 @@ const rollback = require('./rollback');
 const hook = require('./hook');
 const settingsModule = require('./settings');
 const connect = require('./connect');
+const uninstallCommand = require('./uninstall');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect', 'overlay']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect', 'overlay', 'uninstall']);
 const OVERLAY_SUBCOMMANDS = ['verify', 'status', 'rollback', 'reset'];
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
@@ -89,6 +90,7 @@ function usage() {
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
     '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
+    '  boppi uninstall               list everything Boppi stored under ~/.boppi and the Claude Code hook entries that run it, then delete ~/.boppi after you confirm (--yes, --dry-run; fix backups only with --include-backups)',
     '  boppi connect pair|status|unpair|run  pair this machine with your workspace for dashboard-requested fixes; run pulls proposals, shows the exact sanitized preview here, and applies one only after you confirm',
     '',
     'Push options (push, events push and connect are the only commands that use the network):',
@@ -235,6 +237,7 @@ function parseArgs(argv) {
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
+    else if (arg === '--include-backups') options.includeBackups = true;
     else if (arg === '--reset') options.reset = true;
     else if (arg === '--diff') options.diff = true;
     else if (arg === '--install') options.install = true;
@@ -276,6 +279,7 @@ function parseArgs(argv) {
     if (options.yes && !options.server) throw new Error('--yes is only accepted together with --server');
     if (process.env.BOPPI_DISCOVER_TIMEOUTS) { try { options.discoveryTimeouts = JSON.parse(process.env.BOPPI_DISCOVER_TIMEOUTS); } catch { throw new Error('BOPPI_DISCOVER_TIMEOUTS must be JSON'); } }
   }
+  if (options.includeBackups && options.command !== 'uninstall') throw new Error('--include-backups is only accepted with uninstall');
   if (options.command === 'connect' && !options.help && !options.version) {
     if (!options.subcommand) throw new Error(`connect requires one of: ${connect.SUBCOMMANDS.join(', ')}`);
     if (options.subcommand === 'pair' && (!options.url || !options.code)) throw new Error('connect pair requires --url <workspace> and --code <pair-code>');
@@ -1010,6 +1014,7 @@ async function run(argv) {
   if (options.command === 'watch') return watchCommand.runWatch({ ...options, only: options.only ? options.only.map(v => ONLY_ALIASES[v] || v) : null }, { performScan, writeHistory });
   if (options.command === 'discover') return discoverCommand.runDiscover({ ...options, clientKey: options.client ? ONLY_ALIASES[options.client] : null }, { discover, confirm: fix.confirm, version: VERSION });
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
+  if (options.command === 'uninstall') return uninstallCommand.runUninstall(options);
   if (options.command === 'connect') return connect.runConnect(options, { performScan, confirm: fix.confirm, version: VERSION });
   if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
 
