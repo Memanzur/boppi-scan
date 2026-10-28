@@ -1,4 +1,4 @@
-# Current checkpoint (read first) — updated 2026-10-27 23:38 MDT
+# Current checkpoint (read first) — updated 2026-10-27 23:43 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
 
@@ -48,6 +48,7 @@ The Desktop paths are links into `~/Desktop/Boppi Workspace/Worktrees/` (folders
 | B-9 byte-reproducible demo build | done | website dbf2fca, Cloud sync ec0df0a, manifest r2 (this commit) | Root causes: random per-install fingerprint key, random temp home, live clock. Pinned: clock = candidate built_at (preload), home `/tmp/boppi-website-demo-build`, demo key = sha256('boppi-synthetic-demo-key:'+tarball sha). Two builds identical; `npm run demo:build -- --check` REPRODUCED sha256 3e8d9fb4...; website guest 32 (under headers), Cloud guest 16; `docs/release/RELEASE_MANIFEST_0.4.0-32a9667-r2.json` verified 28 (the original manifest now fails by design: Cloud runtime changed after its snapshot) |
 | C-1 verified overlay bundle (+ B-6 README EP-D wording) | done | scanner eff4796 | test/verify-overlay-bundle.js 52 (all 8 spec criteria), npm test 41/41; plain scan export identical to the previous commit apart from time-derived ids. NOTE: scanner src/README now differ from the 32a9667 tarball, so `verify-release-manifest` r2 fails its 'working file equals packaged' check until the next candidate is built (planned at the end of Milestone C) |
 | C-3 review history + withdrawn-reason purge | done | control 6de3f79 | New migration 20261028010000 + down file: production would now need 21 migrations on top of its 8. test:db:local 455, test:db:rollback OK (21 files), purge-then-down refusal atomic, verify exit 0, Chromium on fresh stack `/tmp/boppi-beta-local.HDMqMo` (stopped, volume kept). D-40 added (retention window, no schedule). Removed four macOS ' 3' duplicate files from gitignored `.next/types` that broke tsc |
+| C-4 one-command Intelligence tests | done | control 51315e0 | `BOPPI_SCAN_DIR=... npm run test:intelligence -- <stack>` exit 0 (TS 8, SQL 4 suites, bundle 52, research 10, journey 24); journey needs a stack with pushed scans (`local-beta.mjs verify` first); run.sh suite list + BOPPI_LOCAL_SUITES filter; full test:db:local still 455 |
 | Candidate 0.4.0-32a9667 | done | candidate `~/Desktop/Boppi-candidate-0.4.0-32a9667` (read-only, sha256 1def0c21d7f397f93731afb0927beb195e3bbd147fa06ea40ad99c5d95b14ed3); demos website 89fd4e6, Cloud 8cc5131; manifest 3792103 | packaging 29/29, kit 6 cases (same outputs as 104147d), website guest 32 + claims 36, Cloud guest 16, manifest verifier 28. Docker stack n89Sdo (22:30-22:57): exact-tarball beta journey 27, remediation routes 63, real-CLI connector journey 31, browser remediation drive 59 steps. Logs in `~/Desktop/Boppi-hybrid-2026-10-27-evidence/candidate-32a9667/` |
 
 ## Recovered after the 2026-10-27 ~21:49 restart
@@ -62,11 +63,11 @@ C-3 next (see below). Melody 2026-10-27: Milestone C is not the finish line; con
 
 ## Exact next steps (next five tasks)
 
-1. C-4: one command that runs every Intelligence SQL and journey test.
-2. C-2: held-out labeling protocol doc + a deterministic corpus split by server identity (tooling only; human labeling is a founder gate).
-3. Build the next candidate (new folder; never overwrite 32a9667) from the scanner with C-1 + B-6, rerun kit, demo (`npm run demo:build` reproducible), manifest.
-4. Milestone D (coverage): Desktop extensions, Windows paths, rebase of the 5a branch; then E (operations).
-5. Website leftovers: stale sitemap lastmod, Lovable README.
+1. C-2: held-out labeling protocol doc + a deterministic corpus split by server identity (tooling only; human labeling is a founder gate).
+2. Build the next candidate (new folder; never overwrite 32a9667) from the scanner with C-1 + B-6, rerun kit, demo (`npm run demo:build` reproducible), manifest.
+3. Milestone D (coverage): Desktop extensions, Windows paths, rebase of the 5a branch; then E (operations).
+4. Website leftovers: stale sitemap lastmod, Lovable README.
+5. Milestone E (operations): retention job wiring (D-40 pending), CI for the local suites, MFA step-up for approvals (E-3), account data export, device credential rotation, rate limits.
 
 After that: Milestone C (signed overlay bundles), D (coverage: rebase 5a, Desktop extensions, Windows), E (operations). D-11 should now choose candidate 32a9667 (manifest `docs/release/RELEASE_MANIFEST_0.4.0-32a9667-r2.json`; r1 is the 22:50 snapshot); 104147d stays as the fallback.
 
