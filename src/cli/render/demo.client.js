@@ -41,7 +41,7 @@
   }
   function simulate(fix) {
     var lowered = fix.lowered || [];
-    var summary = 'Removing "' + fix.server + '" closes ' + plural(fix.eliminated.length, 'potential path') + (lowered.length ? ' and lowers ' + plural(lowered.length, 'path') + ' (' + lowered.map(function (step) { return step.from + ' to ' + step.to; }).join(', ') + ')' : '') + '; ' + plural(fix.after.paths.length, 'path') + ' remain. The agent loses: ' + (fix.loses.length ? fix.loses.map(function (id) { return capLabel(activeScenario.view, id); }).join(', ') : 'nothing it does not also get from another server') + '.';
+    var summary = 'Removing "' + fix.server + '" closes ' + plural(fix.eliminated.length, 'potential path') + (lowered.length ? ' and lowers ' + plural(lowered.length, 'path') + ' (' + lowered.map(function (step) { return step.from + ' to ' + step.to; }).join(', ') + ')' : '') + '; ' + plural(fix.after.paths.length, 'path') + ' remain. The agent loses: ' + (!fix.capabilitiesKnown ? 'capabilities unknown, so removing it may break functionality not modeled here' : fix.loses.length ? fix.loses.map(function (id) { return capLabel(activeScenario.view, id); }).join(', ') + ' (modeled capabilities; other functionality may be lost)' : 'no known unique capability identified; unmodeled functionality may still be lost') + '.';
     update(fix.after, summary);
     result.textContent = 'Simulated. No file was changed. ' + summary;
     Array.prototype.forEach.call(fixes.children, function (node) { node.setAttribute('aria-pressed', node.getAttribute('data-fix') === fix.id ? 'true' : 'false'); });

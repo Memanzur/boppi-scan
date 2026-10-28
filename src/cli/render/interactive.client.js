@@ -40,6 +40,8 @@
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function capLabel(id) { return (view.capabilityLabels && view.capabilityLabels[id]) || id; }
   function capList(ids) { return ids.map(capLabel).join(', '); }
+  // Empty modeled loss never means harmless: same wording as boppi fix (remediate.capabilityLossText).
+  function lossText(r) { return !(r.entry && r.entry.capabilities && r.entry.capabilities.length) ? 'capabilities unknown: Boppi has not established what this server does, so removing it may break functionality not modeled here' : r.loses.length ? capList(r.loses) + ' (modeled capabilities; other functionality may be lost)' : 'no known unique capability identified; unmodeled functionality may still be lost'; }
   function agentName(id) { var a = view.agents.filter(function (x) { return x.id === id; })[0]; return a ? a.name : id; }
   function visibleNodes() { return view.nodes.filter(function (n) { return (state.agent === 'all' || n.agentId === state.agent) && (state.showTools || n.entityType !== 'tool' || n.pathIds.length) && (state.path && !state.context ? index.path[state.path].nodeIds.indexOf(n.id)>=0 : state.full || !view.paths.length || n.pathIds.length || n.kind==='agent' || n.kind==='server' || (state.showTools && n.entityType==='tool')); }); }
   function visiblePaths() { return view.paths.filter(function (p) { return state.agent === 'all' || p.agentId === state.agent; }); }
@@ -161,7 +163,7 @@
   function remediationRow(r) {
     return h('button', { class: 'fix-row' + (state.remediation === r.id ? ' active' : ''), type: 'button', 'data-remediation': r.id, 'aria-pressed': state.remediation === r.id ? 'true' : 'false', onclick: function () { state.remediation = r.id; renderAll(); } }, [
       h('b', { text: remediationTitle(r) + (r.guided ? ' (guided)' : '') }),
-      h('span', { class: 'small', text: 'Removes ' + plural(r.eliminates.length, 'path') + ((r.lowers || []).length ? ', lowers ' + r.lowers.length : '') + (r.survives.length ? ', ' + r.survives.length + ' remain' : ', none remain') + (r.loses.length ? ' · the agent loses ' + capList(r.loses) : ' · loses nothing it does not get elsewhere') }),
+      h('span', { class: 'small', text: 'Removes ' + plural(r.eliminates.length, 'path') + ((r.lowers || []).length ? ', lowers ' + r.lowers.length : '') + (r.survives.length ? ', ' + r.survives.length + ' remain' : ', none remain') + ' · the agent loses: ' + lossText(r) }),
     ]);
   }
   function renderPathPanel(panel, p) {
@@ -211,7 +213,7 @@
     box.appendChild(h('h4', { text: 'Paths that remain (' + r.survives.length + ')' }));
     box.appendChild(r.survives.length ? h('ul', { class: 'small' }, r.survives.map(function (id) { var p = index.path[id]; var step = (r.lowers || []).filter(function (l) { return l.pathId === id; })[0]; return h('li', {}, [badge(p.severity), ' ', p.label, h('span', { class: 'muted', text: step ? ' · stays open at ' + step.to + ' instead of ' + step.from : ' · not reached through "' + r.server + '"' })]); })) : h('p', { class: 'small muted', text: 'None of the paths found for this agent would remain.' }));
     box.appendChild(h('h4', { text: 'What the agent loses' }));
-    box.appendChild(h('p', { class: 'small', text: r.loses.length ? capList(r.loses) + '.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + ' through other servers.' : '') : 'No capability it does not also get from another server.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + '.' : '') }));
+    box.appendChild(h('p', { class: 'small', text: lossText(r) + '.' + (r.keeps.length ? ' Keeps ' + capList(r.keeps) + ' through other servers.' : '') }));
     if (r.target) box.appendChild(h('p', { class: 'small muted', text: 'Moving creates ' + plural(r.target.appears, 'new path') + ' for ' + r.target.label + '.' }));
     box.appendChild(h('p', { class: 'small safety', text: 'A backup of the file is written to ~/.boppi/backups before anything changes, and the result is graded by a fresh scan. Nothing is sent off this machine.' }));
     if (r.guided) {
@@ -274,7 +276,7 @@
     var modal = h('div', { class: 'modal-back', id: 'modal', role: 'dialog', 'aria-modal': 'true' }, [h('div', { class: 'modal' }, [
       h('h3', { text: 'Remove "' + r.server + '" from ' + r.clientLabel + '?' }),
       h('p', { class: 'small' }, ['Boppi will back up ', h('code', { text: r.files.from.join(', ') }), ', delete the ', h('code', { text: r.keyPath }), ' entry, rescan, and grade the result. ' + plural(r.eliminates.length, 'potential exposure path') + ' should disappear' + (r.survives.length ? '; ' + r.survives.length + ' will remain.' : '.')]),
-      r.loses.length ? h('p', { class: 'small', text: 'The agent loses: ' + capList(r.loses) + '.' }) : null,
+      h('p', { class: 'small', text: 'The agent loses: ' + lossText(r) + '.' }),
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal }),
         h('button', { class: 'btn danger', type: 'button', text: 'Yes, remove "' + r.server + '"', onclick: function () { closeModal(); applyFix(r); } }),

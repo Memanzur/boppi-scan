@@ -74,6 +74,7 @@ async function buildScenario(scenario, options, deps) {
         lowered: view.paths.filter(p => afterKeys.has(p.exposureKey) && (SEVERITY_RANK[afterPriority.get(p.exposureKey)] || 0) < (SEVERITY_RANK[p.severity] || 0)).map(p => ({ pathId: p.id, from: p.severity, to: afterPriority.get(p.exposureKey) })),
         remaining: view.paths.filter(p => afterKeys.has(p.exposureKey)).map(p => p.id),
         loses: r.loses,
+        capabilitiesKnown: !!(r.entry && r.entry.capabilities && r.entry.capabilities.length),
       });
     }
   } finally {

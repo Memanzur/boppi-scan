@@ -7,6 +7,7 @@
 const { rankPredictions, loweredOf } = require('./predict');
 const { editFiles } = require('./configFiles');
 const { builtinResidualSentences } = require('./builtinTools');
+const { capabilityLossText } = require('./remediate');
 
 function pad(value, width) {
   const text = String(value ?? '');
@@ -14,9 +15,9 @@ function pad(value, width) {
 }
 
 function editLabel(prediction) {
-  return prediction.edit.action === 'move_server'
-    ? `move "${prediction.edit.server}" from ${prediction.client.label} to ${prediction.target.label}`
-    : `remove "${prediction.edit.server}" from ${prediction.client.label}`;
+  if (prediction.edit.action === 'move_server') return `move "${prediction.edit.server}" from ${prediction.client.label} to ${prediction.target.label}`;
+  if (prediction.edit.action === 'narrow_scope') return `narrow "${prediction.edit.server}" on ${prediction.client.label}`;
+  return `remove "${prediction.edit.server}" from ${prediction.client.label}`;
 }
 
 /** Files on disk where the edit applies, from the scan's discovery. */
@@ -35,6 +36,7 @@ function candidateRows(report) {
       appears: p.target ? p.target.predictedAppeared.length : 0,
       loses: p.disruption ? p.disruption.lost : [],
       keeps: p.disruption ? p.disruption.kept : [],
+      server: ((report.inventory && report.inventory.mcpServers) || []).find(s => s.id === p.serverId || (s.agentId === p.agentId && s.name === p.edit.server)) || null,
     };
   });
 }
@@ -54,12 +56,12 @@ function renderPlan(report, options = {}) {
   out('CANDIDATE FIXES  best first');
   out('  ', pad('#', 3), pad('edit', 58), pad('breaks', 10), pad('lowers', 8), pad('critical', 10), pad('new', 6), 'agent loses');
   rows.forEach((row, i) => {
-    const loses = row.loses.length ? row.loses.join(', ') : 'nothing it does not already have elsewhere';
+    const loses = row.prediction.edit.action === 'narrow_scope' ? 'nothing by name; the server keeps its tools' : capabilityLossText(row.loses, row.server);
     out('  ', pad(i + 1, 3), pad(row.edit, 58), pad(`${row.breaks}/${total}`, 10), pad(row.lowers, 8), pad(row.critical, 10), pad(row.appears, 6), loses);
   });
   out('');
   out('  breaks: exposure paths that disappear on the agent being edited. lowers: paths that stay open at a lower priority. new: paths that appear on the target when a server is moved.');
-  out('  agent loses: capabilities that no other server on that agent provides; the workflow cost of the edit.');
+  out('  agent loses: modeled capabilities that no other server on that agent provides. Boppi models capabilities, not every feature, so an edit can cost more than this column shows.');
 
   const plan = report.remediationPlan;
   if (plan && plan.steps.length) {
