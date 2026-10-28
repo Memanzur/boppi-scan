@@ -10,6 +10,7 @@ const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
 const fix = require('./fix');
 const verify = require('./verify');
+const { pathFingerprint } = require('../engine/localMcpScanner');
 
 const CONTEXT_LINES = 3;
 const HIDDEN = '[not shown]';
@@ -183,11 +184,13 @@ function outcome({ scanBefore, scanAfter, clientKey, prediction }) {
  * and also passes each event to emit when given. expectedHashes are the
  * file hashes captured by previewRemoval; apply refuses when they no longer
  * match. rescan(options) is performScan, injected so this module does not
- * depend on the CLI entry point. io.writeFile exists for tests that need the
- * write to go wrong.
+ * depend on the CLI entry point. The write takes the per-file lock the
+ * connector uses, never follows a symlink, re-checks the hash just before an
+ * atomic rename, and keeps the file mode. io.writeAtomic exists for tests
+ * that need the write to go wrong.
  */
 async function* runRemediation({ options, server, clientKey, scanBefore, expectedHashes, exportFile = null, rescan, io = {} }, emit) {
-  const writeFile = io.writeFile || ((file, text) => fs.writeFileSync(file, text));
+  const writeAtomic = io.writeAtomic || fix.writeAtomic;
   const events = [];
   const event = (stage, status, detail = {}) => { const e = { stage, status, detail, at: stamp() }; events.push(e); if (emit) emit(e); return e; };
   const fail = (stage, detail) => event(stage, 'failed', detail);
@@ -199,44 +202,55 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
 
   yield event('backup', 'running', { file: located ? located.file : null });
   if (!located) { yield fail('backup', { reason: `no readable ${clientKey} file holds ${JSON.stringify(server)}` }); return; }
-  let backup;
-  try { backup = fix.writeBackup({ file: located.file, home: options.home, now: scanBefore.startedAt }); } catch (error) { yield fail('backup', { reason: error.message }); return; }
-  yield event('backup', 'done', { file: located.file, backup });
-
-  yield event('apply', 'running', { file: located.file });
-  const current = fix.fileHash(located.file);
-  const expected = expectedHashes ? expectedHashes[located.file] : null;
-  if (!expected || current !== expected) {
-    fs.rmSync(backup, { force: true });
-    yield fail('apply', { reason: `${located.file} changed since the preview (expected ${expected ? expected.slice(0, 12) : 'no hash'}, found ${current.slice(0, 12)}); nothing was written, run boppi fix again`, written: false });
-    return;
-  }
-  const originalBytes = fs.readFileSync(located.file);
-  const edited = JSON.parse(originalBytes.toString('utf8'));
-  if (!fix.deleteAt(edited, located.keyPath)) {
-    fs.rmSync(backup, { force: true });
-    yield fail('apply', { reason: `${JSON.stringify(server)} was not found in ${located.file} at write time`, written: false });
-    return;
-  }
-  try { writeFile(located.file, JSON.stringify(edited, null, 2) + '\n'); } catch (error) {
-    fs.writeFileSync(located.file, originalBytes);
-    yield fail('apply', { reason: `write failed (${error.message}); the original bytes were restored`, written: false, restored: true });
-    return;
-  }
-  const problem = validateEdited({ bytes: fs.readFileSync(located.file), expected: edited, keyPath: located.keyPath });
-  if (problem) {
-    fs.copyFileSync(backup, located.file);
-    yield fail('apply', { reason: `the edited file did not validate (${problem}); restored from ${backup}`, written: true, restored: true });
-    return;
-  }
-  let manifestEntry;
+  const release = fix.acquireLock(options.home, pathFingerprint(located.file));
+  if (!release) { yield fail('backup', { reason: `another boppi process is editing ${located.file}; nothing was written, try again when it finishes` }); return; }
+  let manifestEntry, backup;
   try {
-    manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, keyPath: located.keyPath, action: 'remove_server', scanExport: exportFile, backupHash: fix.sha256(originalBytes), appliedHash: fix.fileHash(located.file) });
-  } catch (_) {
-    fs.writeFileSync(located.file, originalBytes);
-    yield fail('apply', { reason: 'could not record the rollback manifest; the original bytes were restored', written: true, restored: true });
-    return;
-  }
+    const opened = fix.openRegular(located.file);
+    if (!opened.regularFile) { yield fail('backup', { reason: `${located.file} is not a regular file (${opened.failureCode}); boppi does not edit through symlinks, nothing was written` }); return; }
+    const originalBytes = opened.bytes;
+    const current = fix.sha256(originalBytes);
+    const expected = expectedHashes ? expectedHashes[located.file] : null;
+    if (!expected || current !== expected) {
+      yield fail('backup', { reason: `${located.file} changed since the preview (expected ${expected ? expected.slice(0, 12) : 'no hash'}, found ${current.slice(0, 12)}); nothing was written, run boppi fix again`, written: false });
+      return;
+    }
+    try { backup = fix.writeBackup({ file: located.file, home: options.home, now: scanBefore.startedAt, bytes: originalBytes }); } catch (error) { yield fail('backup', { reason: error.message }); return; }
+    yield event('backup', 'done', { file: located.file, backup });
+
+    yield event('apply', 'running', { file: located.file });
+    const edited = JSON.parse(originalBytes.toString('utf8'));
+    if (!fix.deleteAt(edited, located.keyPath)) {
+      fs.rmSync(backup, { force: true });
+      yield fail('apply', { reason: `${JSON.stringify(server)} was not found in ${located.file} at write time`, written: false });
+      return;
+    }
+    // Re-read just before the rename: another writer (the client itself) may have saved since the preview.
+    const again = fix.openRegular(located.file);
+    if (!again.regularFile || fix.sha256(again.bytes) !== current) {
+      fs.rmSync(backup, { force: true });
+      yield fail('apply', { reason: `${located.file} changed while the fix was being prepared; nothing was written, run boppi fix again`, written: false });
+      return;
+    }
+    try { writeAtomic(located.file, JSON.stringify(edited, null, 2) + '\n', opened.mode); } catch (error) {
+      fs.rmSync(backup, { force: true });
+      yield fail('apply', { reason: `write failed (${error.message}); the file was not replaced`, written: false });
+      return;
+    }
+    const problem = validateEdited({ bytes: fs.readFileSync(located.file), expected: edited, keyPath: located.keyPath });
+    if (problem) {
+      fix.writeAtomic(located.file, originalBytes, opened.mode);
+      yield fail('apply', { reason: `the edited file did not validate (${problem}); restored from ${backup}`, written: true, restored: true });
+      return;
+    }
+    try {
+      manifestEntry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: located.file, clientKey, server, keyPath: located.keyPath, action: 'remove_server', scanExport: exportFile, backupHash: current, appliedHash: fix.fileHash(located.file) });
+    } catch (_) {
+      fix.writeAtomic(located.file, originalBytes, opened.mode);
+      yield fail('apply', { reason: 'could not record the rollback manifest; the original bytes were restored', written: true, restored: true });
+      return;
+    }
+  } finally { release(); }
   yield event('apply', 'done', { file: located.file, keyPaths: [fix.renderKeyPath(located.keyPath)], manifestId: manifestEntry.id, backup });
 
   yield event('rescan', 'running', {});

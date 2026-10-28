@@ -118,6 +118,40 @@ function renderKeyPath(keyPath) {
   }).join('');
 }
 
+/** Read a config file only if it is a regular file, never through a symlink: { regularFile, bytes, mode } or { regularFile: false, failureCode }. */
+function openRegular(file) {
+  let fd;
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0)); } catch (error) {
+    if (error.code === 'ENOENT') return { regularFile: false, failureCode: 'file_missing' };
+    if (error.code === 'EACCES' || error.code === 'EPERM') return { regularFile: false, failureCode: 'permission_denied' };
+    return { regularFile: false, failureCode: 'not_regular_file' };
+  }
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || fs.lstatSync(file).isSymbolicLink()) return { regularFile: false, failureCode: 'not_regular_file' };
+    return { regularFile: true, bytes: fs.readFileSync(fd), mode: stat.mode & 0o777 };
+  } finally { fs.closeSync(fd); }
+}
+
+function lockPath(home, targetFile) { return path.join(home, '.boppi', 'locks', `${targetFile.replace(/[^A-Za-z0-9_]/g, '_')}.lock`); }
+
+/** Take the per-file edit lock shared by fix, rollback and the connector; returns a release function, or null while another live process holds it. targetFile is the file's path fingerprint. */
+function acquireLock(home, targetFile) {
+  const file = lockPath(home, targetFile);
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { fs.writeFileSync(file, `${process.pid}\n`, { mode: 0o600, flag: 'wx' }); return () => fs.rmSync(file, { force: true }); } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      const pid = Number(fs.readFileSync(file, 'utf8').trim());
+      let alive = true;
+      try { process.kill(pid, 0); } catch (killError) { alive = killError.code !== 'ESRCH'; }
+      if (alive || !Number.isInteger(pid)) return null;
+      fs.rmSync(file, { force: true });
+    }
+  }
+  return null;
+}
+
 function sha256(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 function fileHash(file) { return sha256(fs.readFileSync(file)); }
 
@@ -174,4 +208,4 @@ function confirm(question) {
   });
 }
 
-module.exports = { CLIENTS, descriptorsFor, readClient, locateServer, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };
+module.exports = { CLIENTS, openRegular, lockPath, acquireLock, descriptorsFor, readClient, locateServer, objectAt, deleteAt, renderKeyPath, sha256, fileHash, backupDir, backupPath, writeBackup, writeAtomic, manifestPath, readManifest, appendManifestEntry, confirm };

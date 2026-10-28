@@ -5,6 +5,7 @@
 'use strict';
 const fs = require('fs');
 const fix = require('./fix');
+const { pathFingerprint } = require('../engine/localMcpScanner');
 
 function renderList(manifest) {
   const fixes = manifest.entries.filter(e => e.action === 'remove_server').slice().reverse();
@@ -46,9 +47,19 @@ async function runRollback(options, { rescan, recordScan, summaryLine }) {
     if (!await fix.confirm('Restore this file? [y/N] ')) { process.stdout.write('Not restored.\n'); return 2; }
   }
 
-  fs.copyFileSync(entry.backup, entry.original);
-  if (fix.fileHash(entry.original) !== fix.sha256(backupBytes)) { process.stderr.write(`rollback: ${entry.original} does not match the backup after the copy.\n`); return 3; }
-  const record = fix.appendManifestEntry(options.home, { createdAt: new Date().toISOString(), action: 'rollback', restoredFrom: entry.id, backup: entry.backup, original: entry.original, clientKey: entry.clientKey, server: entry.server });
+  // The same write discipline as fix and the connector: one lock per file, no symlinks, a hash recheck at the write boundary, an atomic rename.
+  const release = fix.acquireLock(options.home, pathFingerprint(entry.original));
+  if (!release) { process.stderr.write(`rollback: another boppi process is editing ${entry.original}. Nothing was restored.\n`); return 2; }
+  let record;
+  try {
+    const opened = fix.openRegular(entry.original);
+    if (!opened.regularFile && opened.failureCode !== 'file_missing') { process.stderr.write(`rollback: ${entry.original} is not a regular file (${opened.failureCode}); boppi does not write through symlinks. Nothing was restored.\n`); return 2; }
+    const now = opened.regularFile ? fix.sha256(opened.bytes) : null;
+    if (now !== fix.sha256(backupBytes) && now !== entry.appliedHash) { process.stderr.write('rollback: the config changed after this fix. Nothing was restored; review the backup manually to preserve newer changes.\n'); return 2; }
+    fix.writeAtomic(entry.original, backupBytes, opened.regularFile ? opened.mode : 0o600);
+    if (fix.fileHash(entry.original) !== fix.sha256(backupBytes)) { process.stderr.write(`rollback: ${entry.original} does not match the backup after the write.\n`); return 3; }
+    record = fix.appendManifestEntry(options.home, { createdAt: new Date().toISOString(), action: 'rollback', restoredFrom: entry.id, backup: entry.backup, original: entry.original, clientKey: entry.clientKey, server: entry.server });
+  } finally { release(); }
   process.stdout.write(`Restored. ${entry.original} matches the backup byte for byte; manifest ${record.id}.\n\n`);
 
   const scan = await rescan(options);
