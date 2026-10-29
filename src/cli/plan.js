@@ -67,7 +67,7 @@ function renderPlan(report, options = {}) {
   const plan = report.remediationPlan;
   if (plan && plan.steps.length) {
     out('');
-    out(`SMALLEST SET  ${plan.steps.length} removal${plan.steps.length === 1 ? '' : 's'} break ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposures${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}`);
+    out(`SMALLEST SET  ${plan.steps.length} removal${plan.steps.length === 1 ? ' breaks' : 's break'} ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposure${plan.targetedExposures === 1 ? '' : 's'}${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}`);
     plan.steps.forEach((step, i) => out(`  ${i + 1}. remove "${step.edit.server}" from ${step.client.label} (breaks ${step.breaksCount})`));
   }
   if (plan && !plan.breaksAll) for (const sentence of builtinResidualSentences(report.builtinResidual, plan.residualExposureKeys)) out(`  ${sentence}`);

@@ -207,6 +207,10 @@ function runCli(args, home) {
   const historyAfterSecond = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
   ok('history withholds resolved counts across different homes', historyAfterSecond.length === 2 && historyAfterSecond[1].changes.withheld && historyAfterSecond[1].changes.resolvedPaths === undefined);
   const historyView = runCli(['history', '--history-file', historyFile], changedHome);
+  ok('the history file is owner-only', (fs.statSync(historyFile).mode & 0o777) === 0o600);
+  fs.chmodSync(historyFile, 0o644);
+  runCli(['scan', '--history-file', historyFile, '--quiet'], changedHome);
+  ok('a history file an older version left 0644 is tightened on the next write', (fs.statSync(historyFile).mode & 0o777) === 0o600);
   ok('history subcommand shows return value without rescanning', historyView.code === 0 && historyView.stdout.includes('LOCAL SCAN HISTORY') && historyView.stdout.includes('comparison withheld'));
 
   section('Clean result remains informative');
@@ -215,6 +219,13 @@ function runCli(args, home) {
   fs.writeFileSync(path.join(cleanHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'] } } }));
   const clean = runCli(['scan', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
   ok('clean scan exits successfully', clean.code === 0);
+  const cleanKey = path.join(cleanHome, '.boppi', 'fingerprint-key');
+  ok('a first scan says which local files it created and that they are owner-only', clean.stdout.includes('Created on this machine only (owner-only)') && clean.stdout.includes(path.join(root, 'clean-history.json')) && clean.stdout.includes(cleanKey));
+  const cleanAgain = runCli(['scan', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
+  ok('a later scan that creates nothing says nothing about it', cleanAgain.code === 0 && !cleanAgain.stdout.includes('Created on this machine'));
+  const help = runCli(['--help'], cleanHome);
+  const connectHelp = help.stdout.split('connect options:')[1].split('\n\n')[0];
+  ok('usage names overlay and connect help lists --yes once', /^Usage: boppi \[[^\]]*\|overlay\|/.test(help.stdout) && connectHelp.split('\n').filter(line => line.trimStart().startsWith('--yes')).length === 1);
   ok('clean scan still shows inventory and examined file', clean.stdout.includes('MCP SERVERS (1)') && clean.stdout.includes('claude_desktop_config.json'));
   ok('clean scan explains what it could not establish', clean.stdout.includes('runtime behavior') && clean.stdout.includes('not proof that the environment is safe'));
 

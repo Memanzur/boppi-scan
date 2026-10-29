@@ -69,7 +69,7 @@ const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch|events|ask|connect|uninstall] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|overlay|history|push|demo|hook|settings|discover|watch|events|ask|connect|uninstall] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -116,8 +116,8 @@ function usage() {
     '  --name <name>       (pair) device name the workspace shows (default: this machine\'s hostname)',
     '  --once              (run) one poll cycle, then exit',
     '  --interval <s>      (run) seconds between polls (default 60, minimum 5)',
-    '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used',
-    '  --yes               (pair) replace an existing pairing on this machine (the old device stays live in its workspace until revoked; unpair first to revoke it)',
+    '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used.',
+    '                      (pair) replace an existing pairing on this machine (the old device stays live in its workspace until revoked; unpair first to revoke it)',
     '',
     'rollback options:',
     '  --id <id>           the manifest entry to restore (from boppi rollback with no --id)',
@@ -370,6 +370,12 @@ function historyEntry(scan, changes = null) {
   };
 }
 
+/** The newest 40 entries, owner-only like every other file under ~/.boppi (a rename also tightens a history file an older version left 0644). */
+function saveHistory(file, entries) {
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  fix.writeAtomic(file, JSON.stringify(entries.slice(-40), null, 2), 0o600);
+}
+
 function writeHistory(scan, file) {
   let entries = [];
   try {
@@ -391,8 +397,7 @@ function writeHistory(scan, file) {
   }) : null;
   entry.changes = changes;
   entries.push(entry);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
+  saveHistory(file, entries);
   return changes;
 }
 
@@ -418,10 +423,7 @@ function recordVerification(file, scan, result) {
     confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
     exposureKeys: scan.paths.map(pathItem => pathItem.exposureKey).sort(),
   });
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
-  } catch (_) { /* read-only home */ }
+  try { saveHistory(file, entries); } catch (_) { /* read-only home */ }
 }
 
 /** Exposures confirmed eliminated by a verification and still absent from the most recent scan. */
@@ -1055,6 +1057,12 @@ async function run(argv) {
   if (options.command === 'connect') return connect.runConnect(options, { performScan, confirm: fix.confirm, version: VERSION });
   if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
 
+  const stored = { [options.historyFile]: 'sanitized scan summaries for boppi history', [path.join(options.home, '.boppi', 'fingerprint-key')]: 'the per-machine key that fingerprints paths' };
+  const absent = Object.keys(stored).filter(file => !fs.existsSync(file));
+  const createdNotice = () => {
+    const created = absent.filter(file => fs.existsSync(file));
+    if (created.length && !options.quiet) process.stdout.write(`\nCreated on this machine only (owner-only): ${created.map(file => `${file} (${stored[file]})`).join(', ')}.${created.every(file => file.startsWith(path.join(options.home, '.boppi') + path.sep)) ? ` boppi uninstall removes ${created.length === 1 ? 'it' : 'them'}.` : ''}\n`);
+  };
   const scan = await performScan(options);
   if (scan.failed) {
     process.stderr.write(`Scan failed: ${scan.failed}\n`);
@@ -1087,6 +1095,7 @@ async function run(argv) {
       fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));
       process.stdout.write(`\nJSON export written to ${options.json}\n`);
     }
+    createdNotice();
     if (report.policy && !report.policy.passed) return 1;
     return incomplete.length ? 4 : 0;
   }
@@ -1111,6 +1120,7 @@ async function run(argv) {
     fs.writeFileSync(options.sarif, JSON.stringify(sarif.renderSarif(portableReport, { automationId: options.config ? 'config' : 'scan' }), null, 2));
     process.stdout.write(`\nSARIF report written to ${options.sarif}\n`);
   }
+  createdNotice();
   const hint = terminal.pushHint(options);
   if (hint) process.stdout.write(`\n${hint}\n`);
 
