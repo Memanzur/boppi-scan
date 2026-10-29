@@ -172,7 +172,7 @@ function buildGraphView(report) {
     }
     for (const edge of incoming.get(node.id) || []) {
       if (kind === 'agent') continue;
-      evidence.push({ title: 'Reached from', detail: `${labelById.get(edge.fromEntityId) || edge.fromEntityId} (${edge.relationshipType.replace(/_/g, ' ')}; ${edge.evidenceClass}, confidence ${edge.confidence})` });
+      evidence.push({ title: 'Reached from', detail: `${labelById.get(edge.fromEntityId) || edge.fromEntityId} (${edge.relationshipType.replace(/_/g, ' ')}; ${evidenceLabel(edge.evidenceClass)}, confidence ${edge.confidence})` });
     }
     const pathIds = pathsByNode.get(node.id) || [];
     return {
