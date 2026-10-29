@@ -27,6 +27,10 @@ const VERSION = /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/;
 const SUBJECT = /^(@[a-z0-9][a-z0-9._-]{0,63}\/)?[a-z0-9][a-z0-9._-]{0,127}$/;
 const NONCE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SIGNATURE = /^[A-Za-z0-9+/]{86}==$/;
+const DIGEST = /^[0-9a-f]{64}$/;
+// Evaluation policies this receiver understands, with the result each one requires for `passed` (QA-013).
+const EVALUATION_POLICIES = Object.freeze({ 'held-out-exact-v1': { maxFalsePositive: 0, maxFalseNegative: 0 } });
+const MAX_CASES = 100000;
 
 class BundleRefusal extends Error {
   constructor(reason, detail) { super(`refused (${reason}): ${detail}`); this.reason = reason; }
@@ -99,6 +103,23 @@ function checkClaim(claim, now, index) {
   }
 }
 
+/**
+ * Signatures authenticate the authors, not the numbers. The evaluation must
+ * name a supported policy, carry bounded whole-number counters, and pass by
+ * that policy's own rule; a `passed: true` beside counters that fail it, or
+ * malformed counters, is refused even with good signatures.
+ */
+function checkEvaluation(evaluation) {
+  const policy = typeof evaluation.policy === 'string' && Object.hasOwn(EVALUATION_POLICIES, evaluation.policy) ? EVALUATION_POLICIES[evaluation.policy] : null;
+  insist(policy, 'evaluation_invalid', `evaluation policy ${JSON.stringify(evaluation.policy)} is not supported`);
+  for (const key of ['heldOutCases', 'truePositive', 'falsePositive', 'falseNegative']) {
+    insist(Number.isSafeInteger(evaluation[key]) && evaluation[key] >= 0 && evaluation[key] <= MAX_CASES, 'evaluation_invalid', `evaluation ${key} must be a whole number from 0 to ${MAX_CASES}`);
+  }
+  insist(evaluation.heldOutCases > 0, 'evaluation_invalid', 'evaluation has no held-out cases');
+  const meets = evaluation.truePositive > 0 && evaluation.falsePositive <= policy.maxFalsePositive && evaluation.falseNegative <= policy.maxFalseNegative;
+  insist(evaluation.passed === true && meets, 'evaluation_invalid', evaluation.passed === true ? `evaluation claims a pass its counters do not meet under ${evaluation.policy}` : 'evaluation did not pass');
+}
+
 /** Content the reviewer approves: everything in the body except the review itself. */
 function contentOf(body) { return { schemaVersion: body.schemaVersion, kind: body.kind, mode: body.mode, version: body.version, compatibility: body.compatibility, claims: body.claims, evaluation: body.evaluation }; }
 
@@ -122,7 +143,7 @@ function verifyBundle(text, trust, { now = Date.now(), engineVersion = ENGINE_VE
   insist(atLeast(engineVersion, body.compatibility.engineVersionMin), 'engine_incompatible', `needs engine ${body.compatibility.engineVersionMin} or later; this is ${engineVersion}`);
   insist(Array.isArray(body.compatibility.rubricVersions) && body.compatibility.rubricVersions.includes(rubricVersion), 'rubric_incompatible', `written for rubric ${(body.compatibility.rubricVersions || []).join(', ')}; this is ${rubricVersion}`);
   onlyKeys(body.evaluation, ['policy', 'heldOutCases', 'truePositive', 'falsePositive', 'falseNegative', 'passed'], 'evaluation');
-  insist(body.evaluation.passed === true, 'unsupported_schema', 'evaluation did not pass');
+  checkEvaluation(body.evaluation);
   insist(Array.isArray(body.claims) && body.claims.length > 0 && body.claims.length <= 500, 'claim_invalid', 'claims must be a non-empty bounded list');
   body.claims.forEach((claim, i) => checkClaim(claim, now, i));
   onlyKeys(body.review, ['body', 'signature'], 'review');
@@ -138,7 +159,11 @@ function verifyBundle(text, trust, { now = Date.now(), engineVersion = ENGINE_VE
 function stateDir(home) { return path.join(home, '.boppi', 'intelligence'); }
 function statePath(home) { return path.join(stateDir(home), 'state.json'); }
 function storedPath(home, bundleDigest) { return path.join(stateDir(home), 'bundles', `${bundleDigest}.json`); }
-const EMPTY = Object.freeze({ schemaVersion: 1, highestVersion: null, selectedVersion: null, selectedDigest: null, consumedRollbacks: [] });
+function storedDigests(home) {
+  try { return fs.readdirSync(path.join(stateDir(home), 'bundles')).map(name => name.replace(/\.json$/, '')).filter(d => DIGEST.test(d)).slice(0, MAX_ACCEPTED); } catch { return []; }
+}
+const EMPTY = Object.freeze({ schemaVersion: 1, highestVersion: null, selectedVersion: null, selectedDigest: null, consumedRollbacks: [], accepted: [] });
+const MAX_ACCEPTED = 1000;
 
 /** Fresh state on first use; after first use a missing or unreadable state refuses until reset. */
 function readState(home) {
@@ -146,14 +171,18 @@ function readState(home) {
   if (!fs.existsSync(file)) {
     const bundles = path.join(stateDir(home), 'bundles');
     insist(!fs.existsSync(bundles) || fs.readdirSync(bundles).length === 0, 'state_missing', `${file} is gone but accepted bundles exist; run boppi overlay reset to start over`);
-    return { ...EMPTY, consumedRollbacks: [] };
+    return { ...EMPTY, consumedRollbacks: [], accepted: [] };
   }
   let state;
   try { state = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { refuse('state_corrupt', `${file} is unreadable; run boppi overlay reset to start over`); }
   const ok = state && state.schemaVersion === 1 && Array.isArray(state.consumedRollbacks) && state.consumedRollbacks.every(n => NONCE.test(n))
     && (state.highestVersion === null || VERSION.test(state.highestVersion)) && (state.selectedVersion === null || VERSION.test(state.selectedVersion))
-    && (state.selectedDigest === null || /^[0-9a-f]{64}$/.test(state.selectedDigest)) && (state.resetAt === undefined || typeof state.resetAt === 'string');
+    && (state.selectedDigest === null || DIGEST.test(state.selectedDigest)) && (state.resetAt === undefined || typeof state.resetAt === 'string')
+    && (state.accepted === undefined || (Array.isArray(state.accepted) && state.accepted.length <= MAX_ACCEPTED && state.accepted.every(d => typeof d === 'string' && DIGEST.test(d))));
   insist(ok, 'state_corrupt', `${file} is not valid receiver state; run boppi overlay reset to start over`);
+  // State written before acceptance was recorded: with no reset since, every stored bundle was accepted by this
+  // receiver (the only writer); after a reset nothing is known to be accepted in the current epoch.
+  if (state.accepted === undefined) state.accepted = state.resetAt !== undefined ? [] : storedDigests(home);
   return state;
 }
 function writeState(home, state) {
@@ -177,7 +206,8 @@ function accept(home, text, trust, opts = {}) {
       `version ${verified.version} is not newer than ${state.highestVersion}, the highest accepted; same-version replacement and downgrade are refused (use boppi overlay rollback)`);
     fs.mkdirSync(path.dirname(storedPath(home, verified.digest)), { recursive: true, mode: 0o700 });
     fix.writeAtomic(storedPath(home, verified.digest), text, 0o600);
-    const next = { ...state, highestVersion: verified.version, selectedVersion: verified.version, selectedDigest: verified.digest };
+    const accepted = [...state.accepted.filter(d => d !== verified.digest), verified.digest].slice(-MAX_ACCEPTED);
+    const next = { ...state, highestVersion: verified.version, selectedVersion: verified.version, selectedDigest: verified.digest, accepted };
     writeState(home, next);
     return { verified, state: next, changed: true };
   });
@@ -196,6 +226,8 @@ function rollback(home, receiptText, trust, opts = {}) {
     const state = readState(home);
     insist(!state.consumedRollbacks.includes(body.nonce), 'rollback_replay', `receipt ${body.nonce} was already used`);
     insist(state.selectedDigest && body.fromDigest === state.selectedDigest, 'rollback_binding', 'the receipt does not start from the selected bundle');
+    // A stored file is not proof of acceptance: reset keeps files, so the target must have been accepted since then (QA-005).
+    insist(typeof body.toDigest === 'string' && state.accepted.includes(body.toDigest), 'rollback_target_unverified', 'the target was not accepted by this receiver since its last reset');
     let text;
     try { text = fs.readFileSync(storedPath(home, body.toDigest), 'utf8'); } catch { refuse('rollback_target_unverified', 'the target is not a bundle this receiver verified and accepted'); }
     let target;
@@ -208,10 +240,13 @@ function rollback(home, receiptText, trust, opts = {}) {
   });
 }
 
-/** Start over: no high-water mark is kept. Stored bundles stay on disk but are no longer selectable by rollback. */
+/** Start over: no high-water mark is kept. Stored bundles stay on disk but are no longer selectable by rollback until accepted again; used receipts stay used. */
 function reset(home) {
   return withLock(home, () => {
-    const next = { ...EMPTY, consumedRollbacks: [], resetAt: new Date().toISOString() };
+    // Used rollback receipts stay used: a reset must not make an old receipt valid again. Unreadable state keeps none.
+    let consumedRollbacks = [];
+    try { consumedRollbacks = readState(home).consumedRollbacks; } catch { consumedRollbacks = []; }
+    const next = { ...EMPTY, consumedRollbacks, accepted: [], resetAt: new Date().toISOString() };
     writeState(home, next);
     return next;
   });
