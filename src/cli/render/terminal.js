@@ -7,6 +7,7 @@ const configFacts = require('../configFacts');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
+const { findingBasis } = require('../findingBasis');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -358,6 +359,9 @@ function renderReport(report, options = {}) {
     const agentName = id => report.inventory.agents.find(a => a.id === id)?.name || id;
     for (const f of [...list].sort((a, b) => (SEVERITY_ORDER[b.severity] || 0) - (SEVERITY_ORDER[a.severity] || 0))) {
       out('  ', severityBadge(f.severity, useColor), '  ', pad(f.ruleId, 8), pad(agentName(f.agentId), 16), f.title);
+      const basis = findingBasis(f, report.inventory.permissions);
+      out('       ', s.dim('based on: '), basis.basedOn);
+      out('       ', s.dim('not checked: '), basis.notChecked);
       if (options.verbose) out(s.dim(`       ${f.recommendation}`));
     }
     out('');

@@ -7,6 +7,7 @@
 'use strict';
 const exposurePathEngine = require('../../engine/exposurePathEngine');
 const recognition = require('../recognition');
+const { findingBasis } = require('../findingBasis');
 
 const LEVEL = Object.freeze({ critical: 'error', high: 'error', medium: 'warning', low: 'note' });
 
@@ -38,20 +39,21 @@ function renderSarif(report, options = {}) {
       message: { text: `${p.label} on ${p.agentName}: ${p.nodes.map(n => n.label).join(' -> ')}. ${p.remediation}` },
       locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(p.agentId, report.discovery) } } }],
       partialFingerprints: { boppiPathId: p.id, boppiExposureKey: p.exposureKey },
-      properties: { severity: p.severity, agent: p.agentName, confidence: p.confidence, evidenceCount: p.evidenceCount, disclaimer: p.disclaimer },
+      properties: { severity: p.severity, agent: p.agentName, confidence: p.confidence, evidenceCount: p.evidenceCount, disclaimer: p.disclaimer, ...(p.assessment ? { basedOn: p.assessment.facts, notChecked: p.assessment.unknowns } : {}) },
     });
   }
   const openFindings = report.inventory.findings.filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status));
   const agentName = id => (report.inventory.agents.find(a => a.id === id) || {}).name || id;
   for (const f of openFindings) {
     addRule(f.ruleId, f.ruleId, f.title, f.description || f.title, f.recommendation || '', f.severity);
+    const basis = findingBasis(f, report.inventory.permissions);
     results.push({
       ruleId: f.ruleId,
       level: LEVEL[f.severity] || 'warning',
-      message: { text: `${f.title} (${agentName(f.agentId)}). ${f.recommendation || ''}`.trim() },
+      message: { text: `${f.title} (${agentName(f.agentId)}). ${f.recommendation || ''} Based on: ${basis.basedOn}. Not checked: ${basis.notChecked}.`.replace(/ +/g, ' ') },
       locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(f.agentId, report.discovery) } } }],
       partialFingerprints: { boppiFindingId: f.id },
-      properties: { severity: f.severity, agent: agentName(f.agentId) },
+      properties: { severity: f.severity, agent: agentName(f.agentId), basedOn: basis.basedOn, notChecked: basis.notChecked },
     });
   }
   for (const item of report.recognition || []) {
