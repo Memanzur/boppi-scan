@@ -8,6 +8,7 @@ const { rankPredictions, loweredOf } = require('./predict');
 const { editFiles } = require('./configFiles');
 const { builtinResidualSentences } = require('./builtinTools');
 const { capabilityLossText } = require('./remediate');
+const { scopeFlags } = require('./shell');
 
 function pad(value, width) {
   const text = String(value ?? '');
@@ -74,6 +75,7 @@ function renderPlan(report, options = {}) {
   out('');
   out('EDITS  what to change, per file');
   const shown = rows.slice(0, options.limit || 5);
+  const scope = scopeFlags(options);
   for (const row of shown) {
     const files = editFiles(row.prediction, report.discovery);
     const server = report.inventory.mcpServers.find(s => s.id === row.prediction.serverId);
@@ -81,11 +83,11 @@ function renderPlan(report, options = {}) {
     for (const file of files.from) out(`    in ${file}: delete the key mcpServers.${JSON.stringify(row.prediction.edit.server)}`);
     for (const file of files.to) out(`    in ${file}: add the same entry under mcpServers`);
     if (server) out(`    entry (sanitized): ${server.command || server.endpoint || '?'}${server.arguments.length ? ' ' + server.arguments.join(' ') : ''}`);
-    out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
+    out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${scope}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
   }
   if (rows.length > shown.length) out(`  ${rows.length - shown.length} more candidate${rows.length - shown.length === 1 ? '' : 's'} not shown; --json keeps every prediction.`);
   out('');
-  out('Apply one edit, then boppi verify <export.json> grades the prediction against a fresh scan.');
+  out(`Apply one edit, then boppi verify <export.json>${scope} grades the prediction against a fresh scan.`);
   return lines.join('\n');
 }
 

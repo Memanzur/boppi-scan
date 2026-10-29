@@ -20,6 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const fix = require('./fix');
+const { homeFlag } = require('./shell');
 const connect = require('./connect');
 
 const BOPPI_HOOK = /(^|[\s/\\"'])boppi(\.js|\.cmd)?["']?\s+hook(\s|$)/;
@@ -131,7 +132,7 @@ function renderPlan(state, hooks, pairing, options) {
   const live = state.liveFixes || [];
   if (live.length && !options.includeBackups) {
     lines.push(`  stops here: ${live.length} fix${live.length === 1 ? ' is' : 'es are'} still applied, and ${live.length === 1 ? 'its backup is' : 'their backups are'} the only way back:`);
-    for (const f of live) lines.push(f.id ? `    ${f.server} in ${f.original}: boppi rollback --id ${f.id}` : `    ${f.original}: a backup no fix record names; boppi rollback lists what it can restore`);
+    for (const f of live) lines.push(f.id ? `    ${f.server} in ${f.original}: boppi rollback --id ${f.id}${homeFlag(options)}` : `    ${f.original}: a backup no fix record names; boppi rollback lists what it can restore`);
     lines.push('  Roll each back first, or pass --include-backups to keep the fixes and delete their backups.');
   } else if (live.length) {
     lines.push(`  includes the backups of ${live.length} fix${live.length === 1 ? '' : 'es'} still applied: after this, boppi rollback cannot restore ${live.length === 1 ? 'it' : 'them'}.`);

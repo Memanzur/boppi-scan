@@ -13,12 +13,11 @@
 'use strict';
 const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const scenarios = require('../demo/scenarios');
 const { buildGraphView } = require('./render/graphData');
 const html = require('./render/html');
-const { shellPath } = require('./shell');
+const { shellPath, homeFlag } = require('./shell');
 
 const FIXTURE_DIR = path.join(__dirname, '..', 'demo');
 
@@ -88,8 +87,6 @@ async function buildBundle(options, deps) {
   for (const scenario of scenarios.SCENARIOS) built.push(await buildScenario(scenario, options, deps));
   return { schemaVersion: 1, version: deps.version, generatedAt: new Date().toISOString(), banner: scenarios.BANNER, simulatedLabel: scenarios.SIMULATED, scenarios: built };
 }
-
-function homeFlag(options) { return path.resolve(options.home) === path.resolve(os.homedir()) ? '' : ` --home ${shellPath(options.home)}`; }
 
 async function runDemo(options, deps) {
   const out = text => process.stdout.write(text + '\n');
