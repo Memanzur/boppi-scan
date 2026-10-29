@@ -108,6 +108,8 @@ ROOT CAUSE  the single config edit that breaks the most exposures, checked by re
 
 FINDINGS (3)  2 shown above as exposure paths; --verbose for all
   HIGH  AE-006  Claude Desktop  Broad file access has unknown vendor data-training posture
+       based on: filesystem (filesystem_access: the whole home directory) (listed in the known-server catalog); training posture unknown
+       not checked: no tool call, data transfer, or attack was observed; this is configured potential access
 
   Findings and capabilities from config scans are inferred from evidenced identity (package names,
   directory arguments, environment variable names). Every claim carries its evidence in --json.
@@ -133,7 +135,7 @@ The root cause section is computed, not guessed. The engine removes the grant fr
 ## How it works
 
 1. **Discover.** Locate each client's MCP config files. A missing file is reported as not found, never as an error.
-2. **Infer capabilities.** Config files rarely declare what a server can do, so the scanner infers capabilities from evidenced identity: the package name, the command, directory arguments, and environment variable names. Every inference is labeled with what matched and carries evidence class `inferred`. Coding agents also get their built-in shell and file tools, graded from Claude Code's permission settings.
+2. **Infer capabilities.** Config files rarely declare what a server can do, so the scanner infers capabilities from evidenced identity: the package name, the command, directory arguments, and environment variable names. Every inference is labeled with what matched and carries evidence class `inferred`. A record read straight from a config file carries evidence class `observed` in the `--json` export and the push payload. That value means the scanner read it in configuration, not that anything was seen at runtime, and every report labels it `configured`. Coding agents also get their built-in shell and file tools, graded from Claude Code's permission settings.
 3. **Build the graph.** Agents, servers, capabilities, data, credentials, and destinations become nodes. Every edge records where it came from.
 4. **Find paths.** Six templates describe chains that matter. A path is reported when the graph contains the whole chain.
 5. **Rank the fix.** For each grant, remove it and rerun the search. The grant that breaks the most paths is the recommended fix.
