@@ -60,6 +60,12 @@ section('a real plan of a synthetic home');
   } }));
   const r = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'boppi.js'), 'plan', '--home', home, '--cwd', home, '--no-color'], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' } });
   ok('boppi plan prints the bounded wording and no categorical claim', r.stdout.includes('(modeled capabilities; other functionality may be lost)') && !CATEGORICAL.test(r.stdout), r.stdout.slice(0, 400));
+  const html = path.join(home, 'report.html');
+  const scan = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'boppi.js'), 'scan', '--html', html, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' } });
+  const costLine = scan.stdout.split('\n').find(line => line.includes('cost: the agent loses')) || '';
+  ok('the terminal scan root-cause cost line carries the modeled-capabilities caveat', costLine.includes('(modeled capabilities; other functionality may be lost)'), costLine || scan.stdout.slice(0, 400));
+  const htmlCost = (fs.existsSync(html) ? fs.readFileSync(html, 'utf8') : '').match(/Cost: the agent loses[^<]*/);
+  ok('the static HTML root-cause cost line carries the same caveat', !!htmlCost && htmlCost[0].includes('(modeled capabilities; other functionality may be lost)'), htmlCost && htmlCost[0]);
   fs.rmSync(home, { recursive: true, force: true });
 }
 

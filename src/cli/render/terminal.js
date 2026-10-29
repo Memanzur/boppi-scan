@@ -131,7 +131,7 @@ function disruptionSentence(prediction) {
     builtin.length ? `${builtin.join(', ')} through its own built-in tools` : '',
   ].filter(Boolean).join(' and ');
   if (!d.lost.length) return `no known unique capability identified${keeps ? ` (it keeps ${keeps})` : ''}; unmodeled functionality may still be lost`;
-  return `the agent loses ${d.lost.join(', ')}${keeps ? ` and keeps ${keeps}` : ''}`;
+  return `the agent loses ${d.lost.join(', ')} (modeled capabilities; other functionality may be lost)${keeps ? ` and keeps ${keeps}` : ''}`;
 }
 
 const GATE_WORD = Object.freeze({ unprompted: 'no prompt', prompted: 'prompts', denied: 'denied', unknown: 'not checked' });

@@ -220,7 +220,7 @@ function renderHtml(report, options = {}) {
     const viaServers = d.kept.filter(c => !builtin.includes(c));
     const keeps = [viaServers.length ? `${esc(viaServers.join(', '))} through other servers` : '', builtin.length ? `${esc(builtin.join(', '))} through its own built-in tools` : ''].filter(Boolean).join(' and ');
     if (!d.lost.length) return `no known unique capability identified${keeps ? ` (it keeps ${keeps})` : ''}; unmodeled functionality may still be lost`;
-    return `the agent loses ${esc(d.lost.join(', '))}${keeps ? ` and keeps ${keeps}` : ''}`;
+    return `the agent loses ${esc(d.lost.join(', '))} (modeled capabilities; other functionality may be lost)${keeps ? ` and keeps ${keeps}` : ''}`;
   };
 
   return `<!doctype html>
