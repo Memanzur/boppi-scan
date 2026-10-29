@@ -61,4 +61,16 @@ function candidates(scan, options) {
     .flatMap(client => Object.keys(client.mergedServers || {}).map(name => candidateFor(scan, options, client, name, descriptors)).filter(Boolean));
 }
 
-module.exports = { planFor, projectFolder, candidateFor, candidates };
+const shortKey = key => key.split(':')[0];
+
+/** What a candidate is predicted to close and lower, and the boppi fix command that applies it. */
+function suggestion(candidate, { withClient = false } = {}) {
+  const closes = candidate.prediction.predictedEliminated, lowers = predict.loweredOf(candidate.prediction);
+  const effect = [
+    closes.length ? `closes ${closes.length} exposure path${closes.length === 1 ? '' : 's'} (${closes.map(shortKey).join(', ')})` : null,
+    lowers.length ? `lowers ${lowers.length} (${lowers.map(step => `${shortKey(step.exposureKey)} ${step.from} to ${step.to}`).join(', ')})` : null,
+  ].filter(Boolean).join(', ');
+  return { effect, command: `boppi fix --server ${JSON.stringify(candidate.server)}${withClient ? ` --client ${candidate.client.clientKey}` : ''} --narrow ${JSON.stringify(candidate.to)}` };
+}
+
+module.exports = { planFor, projectFolder, candidateFor, candidates, suggestion };

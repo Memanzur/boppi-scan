@@ -28,8 +28,8 @@ fs.symlinkSync(outside, path.join(home, 'escape'));
 const config = path.join(home, '.cursor', 'mcp.json');
 const write = servers => { const text = JSON.stringify({ theme: 'keep-me', mcpServers: servers }, null, 2); fs.writeFileSync(config, text); return text; };
 const fsEntry = dirs => ({ command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', ...dirs], env: { NODE_ENV: 'production' } });
-const run = (args, extra = {}) => {
-  const r = spawnSync(process.execPath, [CLI, ...args, '--only', 'cursor', '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(root, 'history.json')], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' }, ...extra });
+const run = (args, extra = {}, cwd = home) => {
+  const r = spawnSync(process.execPath, [CLI, ...args, '--only', 'cursor', '--home', home, '--cwd', cwd, '--no-color', '--history-file', path.join(root, 'history.json')], { encoding: 'utf8', env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin' }, ...extra });
   return { code: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
 };
 const manifest = () => { try { return JSON.parse(fs.readFileSync(path.join(home, '.boppi', 'backups', 'index.json'), 'utf8')).entries; } catch (_) { return []; } };
@@ -68,6 +68,22 @@ const notes = path.join(home, 'notes');
   ok('names the scope it narrows and predicts from a rescan', r.stdout.includes('narrows: the directory argument that covers the whole home directory') && /breaks: {2}\d of 3 exposure paths/.test(r.stdout) && r.stdout.includes('lowers:  EP-A critical to high'), r.stdout.split('\n').slice(0, 6).join(' | '));
   const diff = r.stdout.split('\n').filter(line => /^\s+[-+]\s/.test(line));
   ok('the diff changes one argument, shown as fingerprints', diff.length === 2 && diff.every(line => /path_[0-9a-f]{16}/.test(line)) && !diff.some(line => line.includes(home)), diff.join(' | '));
+}
+
+section('plan and scan suggest narrowing to the project folder');
+{
+  const fromNotes = run(['plan'], {}, notes);
+  const fromHome = run(['plan']);
+  const command = `boppi fix --server "fs" --client cursor --narrow ${JSON.stringify(notes)}`;
+  ok('plan from a folder inside the broad directory adds a NARROW section with the prediction and the command', fromNotes.code === 0 && fromNotes.stdout.includes('NARROW  keep a server and limit its folder access to this project') && /narrow "fs" on Cursor: (closes \d exposure paths? \(EP-\w(, EP-\w)*\)|lowers \d \(EP-\w (critical|high|medium) to (high|medium|low)(, EP-\w \w+ to \w+)*\)).*; the server keeps its tools/.test(fromNotes.stdout) && fromNotes.stdout.includes(`then: ${command}`), fromNotes.stdout.slice(-600));
+  ok('plan from the home directory itself, or from a folder outside it, suggests no narrow', fromHome.code === 0 && !fromHome.stdout.includes('NARROW') && fromHome.stdout.includes('CANDIDATE FIXES') && !run(['plan'], {}, outside).stdout.includes('NARROW'));
+  const scan = run(['scan'], {}, notes);
+  ok('the scan\'s next steps suggest the same narrow', scan.stdout.includes(`or keep "fs" and limit its folder access to this project (`) && scan.stdout.includes(`boppi fix --server "fs" --narrow ${JSON.stringify(notes)}`), scan.stdout.slice(-800));
+  ok('a scan from home has no narrow suggestion', !run(['scan']).stdout.includes('limit its folder access'));
+  const exported = path.join(root, 'plan.json');
+  run(['plan', '--json', exported], {}, notes);
+  ok('the plan export carries no narrow prediction and no project folder', !fs.readFileSync(exported, 'utf8').includes('narrow_scope') && !fs.readFileSync(exported, 'utf8').includes(notes));
+  ok('suggesting writes nothing', fs.readFileSync(config, 'utf8') === original && manifest().length === 0);
 }
 
 section('apply, rescan and grade');

@@ -1065,8 +1065,10 @@ async function run(argv) {
     report.policy = policyModule.evaluatePolicy(loaded, inventory, paths);
   }
 
+  // Narrow candidates hold the raw project folder, so only the terminal renderers get them; the report HTML and SARIF exports read does not.
+  const terminalOptions = ['scan', 'paths', 'plan'].includes(options.command) ? { ...options, narrowCandidates: narrowPlan.candidates(scan, options) } : options;
   if (options.command === 'plan') {
-    process.stdout.write(plan.renderPlan(report, options) + '\n');
+    process.stdout.write(plan.renderPlan(report, terminalOptions) + '\n');
     if (options.diff) process.stdout.write('\n' + renderPlanDiffs(scan, options) + '\n');
     if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
     if (options.json) {
@@ -1079,7 +1081,7 @@ async function run(argv) {
 
   report.historyChanges = writeHistory(scan, options.historyFile);
 
-  process.stdout.write(terminal.renderReport(report, options) + '\n');
+  process.stdout.write(terminal.renderReport(report, terminalOptions) + '\n');
   if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
 
   if (options.json) {
