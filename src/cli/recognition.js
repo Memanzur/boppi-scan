@@ -9,6 +9,7 @@
  */
 'use strict';
 const { identityOf } = require('./serverCatalog');
+const launchAnalysis = require('./launchAnalysis');
 
 const LOCAL_RUNTIMES = new Set(['node', 'nodejs', 'bun', 'deno', 'python', 'python3', 'python2', 'ruby', 'php', 'java', 'go', 'dotnet', 'sh', 'bash', 'zsh']);
 const LAUNCHER_LABEL = Object.freeze({ npm: 'npm package', pypi: 'PyPI package', docker: 'Docker image', url: 'remote server', local: 'local program', unknown: 'unknown launcher' });
@@ -57,15 +58,17 @@ function reasonsFor(server, inference) {
 /**
  * One record per server of one scanned client. `records` are the sanitized
  * scanner records (for ids); `mergedServers` the raw entries; `inferenceByServer`
- * the inference each produced.
+ * the inference each produced. An unrecognized server also carries the
+ * static launch facts from launchAnalysis, read relative to `home`.
  */
-function describeClient({ clientKey, label, mergedServers, inferenceByServer, records }) {
+function describeClient({ clientKey, label, mergedServers, inferenceByServer, records, home }) {
   const out = [];
   for (const [name, server] of Object.entries(mergedServers || {})) {
     if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
     const inference = inferenceByServer[name];
     if (!inference) continue;
-    const identity = identityOf(server);
+    const launch = launchAnalysis.packageLaunch(server);
+    const identity = identityOf(server) || (launch ? launch.identity : null);
     const launcher = launcherOf(server, identity);
     const record = (records || []).find(r => r.name === name) || null;
     const recognized = !!inference.catalog || inference.inferences.length > 0 || (Array.isArray(server.capabilities) && server.capabilities.length > 0) || (Array.isArray(inference.reach) && inference.reach.some(entry => entry.tools.length > 0));
@@ -82,6 +85,7 @@ function describeClient({ clientKey, label, mergedServers, inferenceByServer, re
       identity: identity ? { kind: identity.kind, name: identity.name, version: identity.version || null } : null,
       pin: pinOf(launcher, identity),
       capabilityCount: inference.capabilities.length,
+      ...(recognized ? {} : { analysis: launchAnalysis.analyze(server, { home }) }),
     });
   }
   return out;
@@ -107,8 +111,13 @@ function launchSummary(record, server) {
   return `${what} (${record.launcherLabel}${pin})`;
 }
 
+/** The static launch facts for an unrecognized record, or '' when it has none. */
+function analysisSentence(record) {
+  return record && record.analysis ? launchAnalysis.factsSentence(record.analysis) : '';
+}
+
 const ADVICE = 'Treat each as unknown reach, not as safe. Pin the version, declare a "capabilities" array in the entry, or set "requireKnownCapabilities": true in boppi.policy.json to fail scans on them.';
 const UNPINNED_ADVICE = 'Each runs whatever version is published at its next launch; pin with name@1.2.3, name==1.2.3, or image@sha256:<digest>.';
 const TAGGED_ADVICE = 'A Docker tag is a moving label, not a fixed release; pin with image@sha256:<digest> to run the same bytes every time.';
 
-module.exports = { describeClient, unrecognized, unpinned, tagged, packageLaunched, coverageSentence, launchSummary, launcherOf, pinOf, ADVICE, UNPINNED_ADVICE, TAGGED_ADVICE };
+module.exports = { describeClient, unrecognized, unpinned, tagged, packageLaunched, coverageSentence, launchSummary, analysisSentence, launcherOf, pinOf, ADVICE, UNPINNED_ADVICE, TAGGED_ADVICE };
