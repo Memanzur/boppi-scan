@@ -237,6 +237,15 @@ async function narrowCases(root) {
     ws.onClaim = null;
     ok('a file changed after the claim is not written (hash_changed) and the other writer\'s bytes stand', racedRun.stdout.includes('not written (hash_changed)') && ws.byRoute('applied').at(-1).body.failureCode === 'hash_changed' && fs.readFileSync(config).equals(Buffer.concat([original, Buffer.from('\n')])) && manifest().length === 0);
     fs.writeFileSync(config, original);
+    await run(['connect', 'run', '--once']);
+    const vanished = ws.propose(key);
+    ws.approve(vanished);
+    const aside = `${project}-aside`;
+    ws.onClaim = () => fs.renameSync(project, aside);
+    const vanishedRun = await run(['connect', 'run', '--once', '--yes']);
+    ws.onClaim = null;
+    fs.renameSync(aside, project);
+    ok('a project folder gone after the claim leaves no narrow to write: hash_changed, the server is neither narrowed nor removed', vanishedRun.stdout.includes('not written (hash_changed)') && fs.readFileSync(config).equals(original) && manifest().length === 0);
 
     section('a narrow applied, rescanned and verified');
     await run(['connect', 'run', '--once']);

@@ -233,11 +233,8 @@ function targetForBinding(options, scan, binding) {
   const client = scan.discovery.clients.find(c => c.clientKey === binding.client);
   if (!located || !client) return { client: binding.client, project: binding.project, targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'file_missing', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
   if (binding.action !== 'narrow_scope') return describeTarget({ options, scan, client, located, server: binding.server });
-  // A narrow is recomputed from the file and the project folder as they are now; any drift from the binding leaves no preview to match.
-  const candidate = narrowPlan.candidateFor(scan, options, client, binding.server);
-  const same = candidate && candidate.located.file === located.file && candidate.index === binding.argIndex && candidate.edit.from === binding.narrowFrom && candidate.edit.expectedIdentity === binding.expectedIdentity;
-  const target = describeTarget({ options, scan, client, located, server: binding.server, candidate: same ? candidate : null });
-  return same ? target : { ...target, previewHash: EMPTY_HASH };
+  // A narrow is recomputed from the file and the project folder as they are now. Its preview names the argument and both folders by fingerprint, so any drift changes the preview hash; with no candidate the preview is a removal's, which never matches.
+  return describeTarget({ options, scan, client, located, server: binding.server, candidate: narrowPlan.candidateFor(scan, options, client, binding.server) });
 }
 
 /** Only a connector removal in the current scan scope can be restored. */
@@ -335,7 +332,7 @@ function applyEdit({ options, scan, binding, proposalId, now }) {
     const hashAtWrite = fix.sha256(opened.bytes);
     const report = { hashAtWrite, regularFile: true };
     if (hashAtWrite !== binding.configHash) return { ok: false, failureCode: 'hash_changed', ...report };
-    if (narrowing && (target.configHash !== hashAtWrite || target.previewHash !== binding.previewHash)) return { ok: false, failureCode: 'hash_changed', ...report };
+    if (narrowing && (!target.narrow || target.configHash !== hashAtWrite || target.previewHash !== binding.previewHash)) return { ok: false, failureCode: 'hash_changed', ...report };
     let edited;
     try { edited = remediate.editedJson(JSON.parse(opened.bytes.toString('utf8')), found.keyPath, narrowing ? target.narrow : null); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
     if (!edited) return { ok: false, failureCode: 'other', ...report };
