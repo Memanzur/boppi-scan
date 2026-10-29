@@ -265,7 +265,7 @@ ${unknownServers.length ? `
   <h2 id="unrecognized">Unrecognized servers (${unknownServers.length})</h2>
   <div class="card" style="border-left:3px solid var(--warn, #d08a00)">
     <div class="kv">Boppi could not establish what these servers can do. They sit in no exposure path, which is not the same as safe.</div>
-    <ul class="small" style="margin:6px 0 0 18px">${unknownServers.map(item => `<li><b>${esc(item.server)}</b> · ${esc(item.clientLabel)} · ${esc(recognition.launchSummary(item, inventory.mcpServers.find(m => m.id === item.serverId)))} <span class="muted">· ${esc(item.reasons.join(', '))}</span></li>`).join('')}</ul>
+    <ul class="small" style="margin:6px 0 0 18px">${unknownServers.map(item => `<li><b>${esc(item.server)}</b> · ${esc(item.clientLabel)} · ${esc(recognition.launchSummary(item, inventory.mcpServers.find(m => m.id === item.serverId)))} <span class="muted">· ${esc(item.reasons.join(', '))}</span>${recognition.analysisSentence(item) ? `<div class="muted">${esc(recognition.analysisSentence(item))}</div>` : ''}</li>`).join('')}</ul>
     <div class="kv muted small">${esc(recognition.ADVICE)}</div>
   </div>` : ''}
 ${loose.length ? `<div class="card"><div class="kv"><b>Package pins:</b> ${loose.length} of ${recognition.packageLaunched(report.recognition).length} package-launched server${recognition.packageLaunched(report.recognition).length === 1 ? '' : 's'} ${loose.length === 1 ? 'is' : 'are'} unpinned: ${esc(loose.map(r => r.server).join(', '))}.</div><div class="kv muted small">${esc(recognition.UNPINNED_ADVICE)}</div></div>` : ''}
