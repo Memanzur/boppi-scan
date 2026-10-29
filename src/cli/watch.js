@@ -52,9 +52,9 @@ function stateOf(scan, wantedClients) {
 function causeOf(home, file, hash) {
   if (!hash) return 'changed outside Boppi';
   const entries = fix.readManifest(home).entries.filter(e => e.original === file);
-  const applied = entries.find(e => e.action === 'remove_server' && e.appliedHash === hash);
+  const applied = entries.find(e => fix.FIX_ACTIONS.includes(e.action) && e.appliedHash === hash);
   if (applied) return `changed by boppi fix ${applied.id}`;
-  const restored = entries.find(e => e.action === 'remove_server' && e.backupHash === hash);
+  const restored = entries.find(e => fix.FIX_ACTIONS.includes(e.action) && e.backupHash === hash);
   if (restored && entries.some(e => e.action === 'rollback' && e.restoredFrom === restored.id)) return 'restored by boppi rollback';
   return 'changed outside Boppi';
 }
