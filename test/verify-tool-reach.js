@@ -101,7 +101,8 @@ function categories(reach) { return reach.map(r => r.category).sort(); }
   ok('the fetch server has no reach line', /fetch · Claude Desktop[^\n]*\n(?!      (file scope|reach through tools))/.test(scan.stdout));
   ok('EP-C fires from a real config: modify source reaches production', /\[EP-C/.test(scan.stdout) && /\(modify_source_code: [^)]*\) -> modify source code -> kubernetes \(access_production_system/.test(scan.stdout));
   ok('EP-F fires from a gmail server plus fetch', /\[EP-F/.test(scan.stdout) && scan.stdout.includes('gmail (read_email: email connector (gmail)) -> read email'));
-  ok('the terminal report never prints a directory argument', [repo, notes, ssh].every(dir => !scan.stdout.includes(dir)) && !scan.stdout.includes(`${home}\n`) && !scan.stdout.includes(`${home} `));
+  const report = scan.stdout.split(` --home ${home}`).join('').split(` --cwd ${home}`).join('');
+  ok('the terminal report never prints a directory argument (only the --home and --cwd it was given, in follow-up commands)', [repo, notes, ssh].every(dir => !report.includes(dir)) && !report.includes(`${home}\n`) && !report.includes(`${home} `));
 
   const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const permissions = exported.inventory.real.permissions;
