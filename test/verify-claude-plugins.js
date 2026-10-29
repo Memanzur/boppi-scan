@@ -120,6 +120,17 @@ function snapshot(dir) {
   const envNames = read(path.join(plain, 'env.json')).inventory.real.mcpServers.map(s => s.name);
   ok('the CLI honors the environment variable', envRun.code !== null && envNames.includes('plugin:deploy-tools:api'), envNames.join(', '));
 
+  section('The discovery line for a readable plugin index counts installs');
+  const indexed = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-plugins-index-'));
+  fs.cpSync(path.join(home, '.claude'), path.join(indexed, '.claude'), { recursive: true });
+  const indexFile = path.join(indexed, '.claude', 'plugins', 'installed_plugins.json');
+  const index = read(indexFile);
+  delete index.plugins['broken@acme'];
+  write(indexFile, index);
+  const indexedRun = runCli(['scan'], indexed);
+  const indexLine = indexedRun.stdout.split('\n').find(line => line.includes('installed_plugins.json')) || '';
+  ok('installed_plugins.json reads "3 installed plugins", never "undefined servers"', indexLine.endsWith('3 installed plugins') && !indexedRun.stdout.includes('undefined'), indexLine);
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

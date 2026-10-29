@@ -180,7 +180,7 @@ function renderReport(report, options = {}) {
     for (const file of client.files) {
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
       const status = file.status === 'found'
-        ? (file.kind === 'settings' ? settingsStatus(file) : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
+        ? (file.kind === 'settings' ? settingsStatus(file) : file.kind === 'plugin-index' ? `${file.installs} installed plugin${file.installs === 1 ? '' : 's'}` : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
         : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
       out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
