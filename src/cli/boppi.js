@@ -878,16 +878,16 @@ async function runFix(options) {
   if (lowered.length) process.stdout.write(`  lowers:  ${lowered.map(step => `${step.exposureKey.split(':')[0]} ${step.from} to ${step.to}`).join(', ')} (the path stays open through what remains)\n`);
   if (prediction && !prediction.predictedEliminated.length && !lowered.length) process.stdout.write('  note:    this edit is not predicted to close or lower any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
   process.stdout.write(narrow ? `  loses:   nothing by name; the server keeps its tools and can reach only ${narrow.to}\n` : `  loses:   ${remediate.capabilityLossText(lost, server)}\n`);
-  process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
+  process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)} (written only when the edit is applied)\n`);
   process.stdout.write(remediate.renderPreview(preview) + '\n');
 
   if (!options.yes) {
     if (!process.stdin.isTTY) {
-      process.stderr.write('fix: not applied. Pass --yes to apply without a terminal confirmation.\n');
+      process.stderr.write('fix: not applied; no backup or edit was written. Pass --yes to apply without a terminal confirmation.\n');
       return 2;
     }
     const approved = await fix.confirm('Apply this edit? [y/N] ');
-    if (!approved) { process.stdout.write('Not applied.\n'); return 2; }
+    if (!approved) { process.stdout.write('Not applied; no backup or edit was written.\n'); return 2; }
   }
 
   // Kept under ~/.boppi, owner-only, so a fix never leaves a file in the project that could be committed.
