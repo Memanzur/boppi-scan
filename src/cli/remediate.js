@@ -321,7 +321,7 @@ function renderResult(result, indent = '  ') {
   const summary = result.outcome === 'removed' ? 'every exposure path on this agent is gone'
     : result.outcome === 'reduced' ? `${result.remaining.length} exposure path${result.remaining.length === 1 ? '' : 's'} remain${result.remaining.length === 1 ? 's' : ''}${lowered.length ? `, ${lowered.length} at a lower priority` : ''}`
     : result.remaining.length ? 'nothing modeled was eliminated or lowered' : 'no exposure path was modeled for this server';
-  lines.push(`${indent}${'result'.padEnd(STAGE_WIDTH)} ${result.outcome.padEnd(7)} ${summary}; predicted ${predicted} eliminated, observed ${gone} of ${predicted}${result.eliminated.length > gone ? ` (+${result.eliminated.length - gone} not predicted)` : ''}`);
+  lines.push(`${indent}${'result'.padEnd(STAGE_WIDTH)} ${result.outcome.padEnd(7)} ${summary}; predicted ${predicted} eliminated, ${gone} of ${predicted} gone on rescan${result.eliminated.length > gone ? ` (+${result.eliminated.length - gone} not predicted)` : ''}`);
   for (const path of result.remaining) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'remains'.padEnd(7)} ${path.severity}${path.loweredFrom ? ` (lowered from ${path.loweredFrom})` : ''} ${path.label} [${path.pathId}]: ${path.reason}`);
   if (result.capabilitiesLost.length) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'lost'.padEnd(7)} ${result.capabilitiesLost.join(', ')}`);
   lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'undo'.padEnd(7)} boppi rollback --id ${result.manifestId}`);
