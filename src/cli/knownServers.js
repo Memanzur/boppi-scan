@@ -34,7 +34,7 @@ const RULES = Object.freeze([
 
 function expandHome(value, home) {
   if (typeof value !== 'string') return value;
-  if (value.startsWith('~/')) return path.join(home || os.homedir(), value.slice(2));
+  if (value === '~' || value.startsWith('~/')) return path.join(home || os.homedir(), value.slice(2));
   return value;
 }
 
@@ -90,7 +90,7 @@ function inferCapabilities(name, server, options = {}) {
 
   const filesystemPaths = [];
   for (const arg of args) {
-    if (!/^(\/|~\/|[A-Za-z]:[\\/])/.test(arg)) continue;
+    if (!/^(\/|~\/|~$|[A-Za-z]:[\\/])/.test(arg)) continue;
     if (isExistingDirectory(expandHome(arg, home))) filesystemPaths.push(arg);
   }
   if (filesystemPaths.length) {

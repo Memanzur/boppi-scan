@@ -73,6 +73,10 @@ function categories(reach) { return reach.map(r => r.category).sort(); }
   const inferred = inferCapabilities('home-files', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', home] }, { home });
   ok('inferCapabilities returns the scope and the reach', inferred.filesystemScope && inferred.filesystemScope.worst === 'home' && categories(inferred.reach).join() === 'access_credentials,modify_source_code,read_source_code');
   ok('the inference output carries no raw path outside filesystemPaths', !JSON.stringify({ ...inferred, filesystemPaths: [] }).includes(home));
+  for (const spelled of ['~', '~/']) {
+    const tilde = inferCapabilities('home-files', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', spelled] }, { home });
+    ok(`a directory argument of ${spelled} is the whole home directory`, tilde.filesystemScope && tilde.filesystemScope.worst === 'home');
+  }
   const plain = inferCapabilities('time', { command: 'uvx', args: ['mcp-server-time'] }, { home });
   ok('a server with no directory and no categorized tool has null scope and empty reach', plain.filesystemScope === null && plain.reach.length === 0);
 
