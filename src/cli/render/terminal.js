@@ -168,6 +168,11 @@ function plaintextSummary(entries) {
   return parts.join('; ');
 }
 
+/** " · 1 more severe · 1 less severe", or nothing when no shared path changed severity. */
+function severityShift(changes) {
+  return `${changes.moreSevere ? ` · ${changes.moreSevere} more severe` : ''}${changes.lessSevere ? ` · ${changes.lessSevere} less severe` : ''}`;
+}
+
 function renderReport(report, options = {}) {
   const useColor = options.color !== false;
   const s = makeStyle(useColor);
@@ -327,7 +332,7 @@ function renderReport(report, options = {}) {
     if (!report.paths.length) out('');
     out(s.bold('CHANGES SINCE LAST SCAN'), s.dim(`  compared with ${report.historyChanges.comparedAt}`));
     if (report.historyChanges.withheld) out('  ', s.yellow('comparison withheld: '), `${report.historyChanges.withheld}. A path missing from such a comparison is unknown, not resolved.`);
-    else out('  ', `${report.historyChanges.newPaths} new exposure path${report.historyChanges.newPaths === 1 ? '' : 's'} · ${report.historyChanges.resolvedPaths} resolved/no longer present · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers`);
+    else out('  ', `${report.historyChanges.newPaths} new exposure path${report.historyChanges.newPaths === 1 ? '' : 's'} · ${report.historyChanges.resolvedPaths} resolved/no longer present${severityShift(report.historyChanges)} · ${report.historyChanges.agentDelta >= 0 ? '+' : ''}${report.historyChanges.agentDelta} agents · ${report.historyChanges.serverDelta >= 0 ? '+' : ''}${report.historyChanges.serverDelta} MCP servers`);
   } else if (command === 'scan') {
     if (!report.paths.length) out('');
     out(s.bold('CHANGES SINCE LAST SCAN'));
@@ -419,4 +424,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim('Optional cloud history: boppi push --dry-run shows what would be sent. Nothing leaves this machine without a workspace token and your consent. (https://app.boppi.io)');
 }
 
-module.exports = { renderReport, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, traversalSentence, safeText, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, severityShift, summaryLine, pushHint, noSingleEditSentence, advertisedSentence, observedSentence, traversalSentence, safeText, PATH_RULE_FOR_TEMPLATE };

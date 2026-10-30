@@ -58,6 +58,7 @@ const SUITES = [
   'verify-demo-client.js',
   'verify-cli-scan.js',
   'verify-plaintext-exposures.js',
+  'verify-history-severity.js',
   'verify-builtin-tools.js',
   'verify-recognition.js',
   'verify-unknown-servers.js',

@@ -377,6 +377,7 @@ function historyEntry(scan, changes = null) {
     topPaths: top,
     pathIds: scan.paths.map(pathItem => pathItem.id),
     exposureKeys: scan.paths.map(pathItem => pathItem.exposureKey).sort(),
+    keySeverities: Object.fromEntries(scan.paths.map(pathItem => [pathItem.exposureKey, pathItem.severity])),
     changes,
     recommendedEdit: recommendation ? {
       client: recommendation.client.label,
@@ -401,14 +402,19 @@ function writeHistory(scan, file) {
   } catch (_) { /* first run or an unreadable local history file */ }
   const previous = entries.filter(e => e.kind !== 'verification').at(-1) || null;
   const entry = historyEntry(scan);
-  const currentPathIds = new Set(scan.paths.map(pathItem => pathItem.id));
-  const previousPathIds = new Set(previous?.pathIds || []);
+  // Paths compare by exposure key, as the workspace does: the same risk reached through different grants is one risk whose severity may change.
+  const current = entry.keySeverities;
+  const prior = previous?.keySeverities || Object.fromEntries((previous?.exposureKeys || []).map(key => [key, null]));
+  const shared = Object.keys(current).filter(key => key in prior);
+  const rankChange = key => prior[key] ? SEVERITY_ORDER[current[key]] - SEVERITY_ORDER[prior[key]] : 0;
   const withheld = previous ? incomparable(previous, entry) : null;
   // A path missing from an incomplete, differently scoped, or differently graded scan is unknown, not resolved.
   const changes = previous ? (withheld ? { comparedAt: previous.scannedAt, withheld } : {
     comparedAt: previous.scannedAt,
-    newPaths: [...currentPathIds].filter(id => !previousPathIds.has(id)).length,
-    resolvedPaths: [...previousPathIds].filter(id => !currentPathIds.has(id)).length,
+    newPaths: Object.keys(current).filter(key => !(key in prior)).length,
+    resolvedPaths: Object.keys(prior).filter(key => !(key in current)).length,
+    moreSevere: shared.filter(key => rankChange(key) > 0).length,
+    lessSevere: shared.filter(key => rankChange(key) < 0).length,
     agentDelta: scan.inventory.agents.length - (previous.agents || 0),
     serverDelta: scan.inventory.mcpServers.length - (previous.mcpServers || 0),
   }) : null;
@@ -480,7 +486,7 @@ function renderHistory(file) {
     const incomplete = entry.incomplete?.length ? ` · incomplete: ${entry.incomplete.join(', ')}` : '';
     lines.push(`${entry.scannedAt} · ${entry.agents} agents · ${entry.mcpServers} MCP servers · ${entry.exposurePaths} paths (${severity})${incomplete}`);
     if (entry.changes && entry.changes.withheld) lines.push(`  changes: comparison withheld (${entry.changes.withheld})`);
-    else if (entry.changes) lines.push(`  changes: ${entry.changes.newPaths} new · ${entry.changes.resolvedPaths} resolved · ${entry.changes.agentDelta >= 0 ? '+' : ''}${entry.changes.agentDelta} agents · ${entry.changes.serverDelta >= 0 ? '+' : ''}${entry.changes.serverDelta} MCP servers`);
+    else if (entry.changes) lines.push(`  changes: ${entry.changes.newPaths} new · ${entry.changes.resolvedPaths} resolved${terminal.severityShift(entry.changes)} · ${entry.changes.agentDelta >= 0 ? '+' : ''}${entry.changes.agentDelta} agents · ${entry.changes.serverDelta >= 0 ? '+' : ''}${entry.changes.serverDelta} MCP servers`);
     if (entry.recommendedEdit) lines.push(`  recommended: remove "${entry.recommendedEdit.server}" from ${entry.recommendedEdit.client} (${entry.recommendedEdit.eliminated} paths modeled eliminated${entry.recommendedEdit.lowered ? `, ${entry.recommendedEdit.lowered} lowered` : ''})`);
   }
   lines.push('', 'History contains sanitized summaries only. Raw config values and file contents are never stored.');
