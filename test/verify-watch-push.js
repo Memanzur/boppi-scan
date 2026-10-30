@@ -308,6 +308,49 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
   const unsafe = await once(server, unsafeHome, path.join(root, 'unsafe.log'));
   ok('a secret-shaped server name is refused before queueing: exit 2, nothing sent, nothing queued', unsafe.code === 2 && server.requests.length === n5 && unsafe.stderr.includes('watch: refused before sending') && readQueue(unsafeHome).length === 0);
 
+  section('one watch --push per home: a second session is refused, a dead holder is recovered');
+  {
+    const lockHome = makeHome(root, 'locked');
+    const lockLog = path.join(root, 'locked.log');
+    const lockFile = path.join(watchPush.storeDir(lockHome), 'session.lock');
+    const firstSession = startWatch(server, lockHome, lockLog);
+    await waitFor(() => firstSession.stdout().includes('BOPPI · WATCH'), 15000);
+    ok('the running session holds an owner-only lock naming its process', fs.existsSync(lockFile) && ownerOnly(lockFile) && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
+    const queueBefore = fs.readFileSync(queueFile(lockHome), 'utf8');
+    const n6 = server.requests.length;
+    const second = await once(server, lockHome, path.join(root, 'locked-second.log'));
+    ok('a second watch --push on the same home exits 2 before it scans or sends', second.code === 2 && server.requests.length === n6 && !second.stdout.includes('BOPPI · WATCH'));
+    ok('and says which process holds the queue and what to do', second.stderr.includes(`another boppi watch --push (process ${firstSession.child.pid}`) && second.stderr.includes('Only one runs per home at a time'));
+    ok("the second session leaves the first one's queue and lock untouched", fs.readFileSync(queueFile(lockHome), 'utf8') === queueBefore && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
+    const otherHome = makeHome(root, 'unlocked');
+    const elsewhere = await once(server, otherHome, path.join(root, 'unlocked.log'));
+    ok('a session on another home is not blocked', elsewhere.code === 0);
+    firstSession.child.kill('SIGTERM');
+    const stoppedCode = await firstSession.done;
+    ok('a stopped session releases the lock', stoppedCode === 0 && !fs.existsSync(lockFile));
+
+    const killed = startWatch(server, lockHome, lockLog);
+    await waitFor(() => killed.stdout().includes('BOPPI · WATCH'), 15000);
+    killed.child.kill('SIGKILL');
+    await killed.done;
+    ok('a killed session leaves its lock behind', fs.existsSync(lockFile));
+    const recovered = await once(server, lockHome, lockLog);
+    ok('the next session takes over a lock whose process is gone', recovered.code === 0 && !recovered.stderr.includes('another boppi watch --push'));
+    ok('and releases it when --once exits', !fs.existsSync(lockFile));
+
+    fs.writeFileSync(lockFile, '', { mode: 0o600 });
+    const settling = await once(server, lockHome, lockLog);
+    ok('an empty lock still being written is respected', settling.code === 2 && settling.stderr.includes('another boppi watch --push is already using'));
+    const past = new Date(Date.now() - 60000);
+    fs.utimesSync(lockFile, past, past);
+    const afterCrash = await once(server, lockHome, lockLog);
+    ok('an empty lock left by a crash is taken over', afterCrash.code === 0 && !fs.existsSync(lockFile));
+
+    const racers = await Promise.all(Array.from({ length: 4 }, (_, i) => once(server, lockHome, path.join(root, `race-${i}.log`))));
+    ok('four sessions racing on one home: at least one runs, the rest are refused with exit 2', racers.some(r => r.code === 0) && racers.every(r => r.code === 0 || (r.code === 2 && r.stderr.includes('another boppi watch --push'))));
+    ok('the queue survives the race intact', Array.isArray(readQueue(lockHome)));
+  }
+
   section('pure rules');
   const body = { records: [{ kind: 'agent', b: 1, a: 2 }], snapshot: true, snapshot_at: 'T1' };
   ok('the digest ignores snapshot_at and key order', watchPush.digestOf(body) === watchPush.digestOf({ snapshot_at: 'T2', snapshot: true, records: [{ a: 2, kind: 'agent', b: 1 }] }));

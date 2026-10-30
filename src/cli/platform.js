@@ -146,4 +146,42 @@ function wslHint(options, probe) {
   return 'Running inside WSL: this scans the Linux home. Claude Desktop and Cursor on Windows keep their configs in the Windows profile; to scan those, add --home /mnt/c/Users/<you> --platform win32.';
 }
 
-module.exports = { liveEnv, claudeConfigDir, claudeJsonPath, comparable, samePath, isInside, projectKey, parseJson, renameRetry, RENAME_RETRY, openNoFollow, DIRECTORY_ARG, expandHomeArg, ownerOnlyNote, isWsl, wslHint };
+/** Whether one process is running: it exists (EPERM means it does) and, on Linux, is not a zombie. */
+function processRunning(pid, { platform = process.platform, procRoot = '/proc' } = {}) {
+  try { process.kill(pid, 0); } catch (error) { if (error.code !== 'EPERM') return false; }
+  if (platform !== 'linux') return true;
+  try {
+    const stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
+    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
+  } catch { return true; }
+}
+
+const LOCK_SETTLE_MS = 5000;
+
+/**
+ * An exclusive lock file shared across Boppi processes, in a folder that
+ * already exists. The file is created with O_EXCL, so two processes cannot
+ * both take it. A lock whose holder has exited (or is a zombie) is removed
+ * and taken once more; an empty or unreadable one younger than a few seconds
+ * belongs to a process still writing it. Returns a release function, or null
+ * while another process holds it.
+ */
+function exclusiveLock(file) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), { mode: 0o600, flag: 'wx' });
+      return () => { try { fs.unlinkSync(file); } catch { /* already gone */ } };
+    } catch (error) { if (error.code !== 'EEXIST') throw error; }
+    let held = null;
+    try { held = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* empty or unreadable */ }
+    if (held && Number.isInteger(held.pid)) {
+      if (held.pid !== process.pid && processRunning(held.pid)) return null;
+    } else {
+      try { if (Date.now() - fs.statSync(file).mtimeMs < LOCK_SETTLE_MS) return null; } catch { /* removed meanwhile */ }
+    }
+    fs.rmSync(file, { force: true });
+  }
+  return null;
+}
+
+module.exports = { processRunning, exclusiveLock,  liveEnv, claudeConfigDir, claudeJsonPath, comparable, samePath, isInside, projectKey, parseJson, renameRetry, RENAME_RETRY, openNoFollow, DIRECTORY_ARG, expandHomeArg, ownerOnlyNote, isWsl, wslHint };

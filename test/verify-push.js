@@ -212,6 +212,29 @@ function startWorkspace() {
   await push.pushRecords({ ingestUrl, token: 'bpc_x', records: sampleRecords, snapshot: true, snapshotAt: exported.exportedAt, fetchImpl: async (_url, init) => { sentBody = JSON.parse(init.body); return { ok: true, status: 200, headers: new Map(), json: async () => ({ ingested: sampleRecords.length }) }; } });
   ok('pushRecords puts snapshot_at next to snapshot: true', sentBody.snapshot === true && sentBody.snapshot_at === exported.exportedAt);
 
+  section('Configuration source of each agent');
+  {
+    const dry = h => { const r = runCli(['push', '--dry-run'], h); return JSON.parse(r.stdout.slice(0, r.stdout.lastIndexOf('\nDry run:'))); };
+    const agentOf = body => body.records.find(r => r.kind === 'agent' && r.metadata.client === 'claude-desktop');
+    const otherHome = path.join(root, 'other-home');
+    fs.mkdirSync(path.join(otherHome, 'Library', 'Application Support', 'Claude'), { recursive: true });
+    fs.copyFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), path.join(otherHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'));
+    const a = agentOf(dry(home)), b = agentOf(dry(otherHome));
+    ok('an agent record names its client, the scope of its config file and an opaque source digest', a && a.metadata.config_scope === 'user' && /^src_[0-9a-f]{32}$/.test(a.metadata.config_source));
+    ok('the same user config file read from another home folder has the same source and a different record id', a && b && a.metadata.config_source === b.metadata.config_source && a.external_id !== b.external_id);
+    ok('the source digest carries no path', !JSON.stringify(a.metadata).includes(home) && !JSON.stringify(a.metadata).includes('Library'));
+    const sources = h => push.configSources({ clients: [
+      { clientKey: 'cursor', agentId: 'agent_1', primaryPath: '~/.cursor/mcp.json', files: [{ path: '~/.cursor/mcp.json', scope: 'user' }] },
+      { clientKey: 'claude-code', agentId: 'agent_2', primaryPath: `${h}/project/.mcp.json`, files: [{ path: `${h}/project/.mcp.json`, scope: 'project' }] },
+    ] });
+    const one = sources('/Users/a'), two = sources('/Users/b');
+    ok('a project config file is keyed by its location, so two projects never share a source', one.get('agent_2').config_scope === 'project' && one.get('agent_2').config_source !== two.get('agent_2').config_source);
+    ok('different clients reading the same location have different sources', push.configSources({ clients: [{ clientKey: 'cursor', agentId: 'x', primaryPath: '~/a.json', files: [{ path: '~/a.json', scope: 'user' }] }] }).get('x').config_source
+      !== push.configSources({ clients: [{ clientKey: 'claude-code', agentId: 'x', primaryPath: '~/a.json', files: [{ path: '~/a.json', scope: 'user' }] }] }).get('x').config_source);
+    ok('an unknown scope is sent as unknown, not as written', push.configSources({ clients: [{ clientKey: 'cursor', agentId: 'x', primaryPath: '~/a.json', files: [{ path: '~/a.json', scope: '<script>' }] }] }).get('x').config_scope === 'unknown');
+    ok('a push body with source digests passes the unsafe-field check', push.unsafeFields({ records: [a] }).length === 0);
+  }
+
   section('Nothing to push');
   const emptyHome = path.join(root, 'empty-home');
   fs.mkdirSync(emptyHome, { recursive: true });

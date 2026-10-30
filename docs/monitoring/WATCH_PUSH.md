@@ -52,7 +52,7 @@ Every changed body is written to the queue before it is sent. If the process sto
 
 Each write goes to a temp file in the same folder, opened with `O_EXCL` and mode 0600 and never through a symbolic link. Boppi fsyncs the temp file, renames it over the target, and then fsyncs the folder. If `queue.json` or `state.json` is a symbolic link, the command exits 2 and does not read the link target. A file that does not parse, or has the wrong shape, is renamed to `queue.json.corrupt-<timestamp>` (or `state.json.corrupt-<timestamp>`), mode 0600, with a warning on stderr. Boppi then continues with an empty file. Temp files left by an earlier run are deleted on load.
 
-Run only one `watch --push` per home at a time. Two sessions on one home do not corrupt the files, but one can overwrite the other's queue.
+Only one `watch --push` runs per home at a time. At start, before it reads the queue, a session creates `session.lock` (mode 0600, holding its process id and start time) in the folder with `O_EXCL`. A second session on the same home, `--once` included, prints which process holds the lock and exits 2 before it scans or sends. The lock is removed when the session stops. A lock left by a process that no longer runs (killed, or crashed) is taken over by the next session. An empty lock younger than 5 seconds belongs to a session still starting and is respected.
 
 ## Responses
 
@@ -82,7 +82,7 @@ On 401 or 403 the workspace no longer accepts the collector token: it was revoke
 | Code | Meaning |
 | --- | --- |
 | 0 | Sent, or unchanged. A long-running session stopped by Ctrl-C, `SIGTERM`, or `--duration` also exits 0, even when entries are still queued. The stop line gives the count. |
-| 2 | Bad flags, no token without a terminal, an unusable `--log` or push store (for example a symbolic link), or an unsafe body with `--once`. |
+| 2 | Bad flags, no token without a terminal, an unusable `--log` or push store (for example a symbolic link), another `watch --push` already running on this home, or an unsafe body with `--once`. |
 | 3 | The baseline scan failed. |
 | 5 | `--once` only: the workspace was unreachable or answered 429 or 5xx, and at least one entry is queued. |
 | 6 | The token was refused (401 or 403), in `--once` mode or in a long-running session. |
@@ -122,22 +122,20 @@ Save as `~/Library/LaunchAgents/io.boppi.watch-push.plist` and set the mode to 0
 	<key>Label</key><string>io.boppi.watch-push</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/node</string>
-		<string>/usr/local/lib/node_modules/boppi/bin/boppi.js</string>
-		<string>watch</string>
-		<string>--push</string>
-		<string>--log</string>
-		<string>/Users/YOU/.boppi/watch-push.log</string>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>/usr/local/bin/node /usr/local/lib/node_modules/boppi/bin/boppi.js watch --push --log "$HOME/.boppi/watch-push.log"; code=$?; case $code in 2|6) exit 0;; esac; exit $code</string>
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict><key>BOPPI_TOKEN</key><string>bpc_REPLACE_ME</string></dict>
+	<key>StandardErrorPath</key><string>/Users/YOU/.boppi/watch-push.err</string>
 	<key>RunAtLoad</key><true/>
 	<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
 </dict>
 </plist>
 ```
 
-Load it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.boppi.watch-push.plist`. `KeepAlive` restarts the agent after a failure but not after exit 0. Exit 6 (refused token) also restarts it, and each restart is refused again until you replace the token.
+Load it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.boppi.watch-push.plist`. `KeepAlive` with `SuccessfulExit` false restarts the agent after a non-zero exit and not after exit 0. launchd has no setting that stops restarts for one exit code, so the `/bin/sh -c` line turns exit 6 (refused token) and exit 2 (bad flags, or another session on this home) into exit 0. The agent then stops, as the systemd unit below does with `RestartPreventExitStatus`. The reason is in `watch-push.err`. After you replace the token, load the agent again.
 
 To remove it, run these commands:
 

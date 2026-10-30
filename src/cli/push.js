@@ -9,6 +9,7 @@
  */
 'use strict';
 
+const crypto = require('crypto');
 const scanner = require('../engine/localMcpScanner');
 const { BUILTIN_TOOLS } = require('./builtinTools');
 const agentRequest = require('./agentRequest');
@@ -144,6 +145,30 @@ function record(kind, item, metadata) {
   };
 }
 
+const CONFIG_SCOPES = new Set(['user', 'project', 'local', 'plugin']);
+
+/**
+ * Which configuration source each scanned client's agent was read from, keyed
+ * by agent id: the client, the scope of its primary config file, and a digest
+ * of that file's location. A user-scope location is ~-relative (portable
+ * discovery), so the same client file read from another home folder on the
+ * same device has the same source and the workspace can mark the older record
+ * stale. Any other location is the keyed path fingerprint, so two projects
+ * never share a source. Only the digest leaves the machine.
+ */
+function configSources(discovery) {
+  const out = new Map();
+  for (const client of (discovery && Array.isArray(discovery.clients) ? discovery.clients : [])) {
+    if (!client || typeof client.agentId !== 'string' || typeof client.primaryPath !== 'string' || typeof client.clientKey !== 'string') continue;
+    const file = (Array.isArray(client.files) ? client.files : []).find(f => f && f.path === client.primaryPath);
+    const scope = file && CONFIG_SCOPES.has(file.scope) ? file.scope : 'unknown';
+    const location = scope === 'user' ? client.primaryPath : scanner.pathFingerprint(client.primaryPath);
+    const digest = crypto.createHash('sha256').update(`boppi-config-source-v1\0${client.clientKey}\0${scope}\0${location}`).digest('hex').slice(0, 32);
+    out.set(client.agentId, { client: clip(client.clientKey, 32), config_scope: scope, config_source: `src_${digest}` });
+  }
+  return out;
+}
+
 /** The scanner inventory as ingest records. Findings stay local; the control plane derives its own. */
 /** Recognition facts for an MCP server, keyed by server id: whether anything recognized it and how its launch is pinned. Additive on the ingest contract; absent for exports without recognition. */
 function recognitionByServer(recognition) {
@@ -152,8 +177,9 @@ function recognitionByServer(recognition) {
   return out;
 }
 
-function toRecords(inventory, recognition) {
+function toRecords(inventory, recognition, discovery) {
   const recognitionFor = recognitionByServer(recognition);
+  const sourceFor = configSources(discovery);
   const records = [];
   for (const agent of inventory.agents || []) {
     records.push(record('agent', agent, {
@@ -161,6 +187,7 @@ function toRecords(inventory, recognition) {
       ...present('vendor', agent.vendor),
       ...present('owner', agent.owner),
       ...present('device_id', agent.deviceId),
+      ...(sourceFor.get(agent.id) || {}),
     }));
   }
   for (const integration of inventory.integrations || []) {
@@ -307,8 +334,8 @@ function ingestBody({ records, snapshot, snapshotAt, collector, coverage, builti
  * same scan. fromFile re-runs the sanitizers on an export the user may have
  * edited.
  */
-function prepareIngest({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual, merge = false, fromFile = false }) {
-  const mapped = toRecords(inventory, recognition);
+function prepareIngest({ inventory, recognition, discovery, snapshotAt, collector, coverage, builtinResidual, merge = false, fromFile = false }) {
+  const mapped = toRecords(inventory, recognition, discovery);
   const records = fromFile ? resanitizeRecords(mapped) : mapped;
   const snapshot = !merge && completeCoverage(coverage) && records.length <= SNAPSHOT_MAX;
   const body = ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual });
@@ -384,4 +411,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, prepareIngest, postBody, unsafeFields, describeUnsafe, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { configSources, DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, prepareIngest, postBody, unsafeFields, describeUnsafe, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
