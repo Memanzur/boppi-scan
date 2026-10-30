@@ -121,6 +121,35 @@
     }
     return out;
   }
+  const ENV_REFERENCE = /^\s*(?:\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|\$\{env:[^}]+\}|%[A-Za-z_][A-Za-z0-9_]*%)\s*$/;
+  const PLACEHOLDER = /^\s*(?:<[^>]*>|\[[^\]]*\]|your[-_ ].*|x{3,}|\*{3,}|changeme|placeholder|todo|none|null|true|false|\d{1,7})\s*$/i;
+  /** A value written into the file itself rather than a reference to the environment, and not a placeholder. */
+  function literalValue(value) { return typeof value === 'string' && value.trim() !== '' && !ENV_REFERENCE.test(value) && !PLACEHOLDER.test(value); }
+  /**
+   * Where a config file holds a credential in plain text: environment entries by name, arguments by
+   * position. Redaction keeps these values out of every report; this list is what tells the person
+   * they are on disk. The values themselves are never returned.
+   */
+  function plaintextExposures(env, args) {
+    const found = [];
+    if (env && typeof env === 'object' && !Array.isArray(env)) {
+      for (const [name, value] of Object.entries(env)) {
+        if (!name || name.length > 120 || !literalValue(value)) continue;
+        if (isSecretShaped(value) || hasOpaqueToken(value) || (SENSITIVE_NAME.test(name) && value.trim().length >= 8)) found.push({ location:'env', name:text(name, 'environment variable name', 120) });
+      }
+    }
+    let flagged = false;
+    args.forEach((value, position) => {
+      const raw = typeof value === 'string' ? value : '';
+      const eq = raw.indexOf('=');
+      const flagValue = eq > 0 && isSensitiveFlag(raw) ? raw.slice(eq + 1) : null;
+      const candidate = flagged ? raw : flagValue != null ? flagValue : raw;
+      const named = flagged || flagValue != null;
+      if (literalValue(candidate) && (isSecretShaped(candidate) || hasOpaqueToken(candidate) || (named && candidate.trim().length >= 8))) found.push({ location:'argument', position });
+      flagged = isSensitiveFlag(raw) && eq < 0;
+    });
+    return found;
+  }
   function sanitizeCommand(value) {
     if (typeof value !== 'string' || !value.trim()) return null;
     const basename = value.trim().split(/[\\/]/).pop();
@@ -169,7 +198,8 @@
       if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
       const serverName = text(name, 'server name', 160);
       const env = sanitizeEnv(server.env);
-      const args = sanitizeArguments(safeList(server.args, `${serverName}.args`));
+      const rawArgs = safeList(server.args, `${serverName}.args`);
+      const args = sanitizeArguments(rawArgs);
       const capabilities = declaredCapabilities(server);
       const capabilityEvidence = evidenceList(server, `${serverName}.capabilityEvidence`);
       const evidence = (capability, matched) => { if (!capabilityEvidence.some(e => e.capability === capability)) capabilityEvidence.push({ capability, basis:'configured', matched }); };
@@ -186,7 +216,7 @@
         arguments:args, endpoint:sanitizeEndpoint(server.url || server.endpoint), configPath,
         exposedTools:tools, toolEvidence:Array.isArray(server.toolEvidence) ? server.toolEvidence : [], capabilities:[...new Set(capabilities)], capabilityEvidence, trustStatus:trustStatus(server.trustStatus),
         filesystemPathCount:Array.isArray(server.filesystemPaths) ? server.filesystemPaths.length : 0,
-        environmentVariableNames:env.names, credentialReferences:env.credentialReferences,
+        environmentVariableNames:env.names, credentialReferences:env.credentialReferences, plaintextExposures:plaintextExposures(server.env, rawArgs),
         dryRun:input.dryRun !== false, confidence:0.85, source:{...source, observedAt:createdAt}, createdAt, updatedAt:createdAt,
       });
       records.push(record);
@@ -197,5 +227,5 @@
     if (!raw || !SOURCE_SPECS[raw.sourceId] || raw.consentRecorded !== true) fail('raw scan result lacks consent and source provenance');
     return { agent:raw.agent, mcpServers:raw.records || [], diagnostics:raw.diagnostics || [], source:raw.source, sourceId:raw.sourceId, dryRun:raw.dryRun !== false, consentRecorded:true };
   }
-  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, isSecretShaped, pathFingerprint, setFingerprinter, localAgentId };
+  return { id:'local-mcp-companion', version:'1.2.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, plaintextExposures, isSecretShaped, pathFingerprint, setFingerprinter, localAgentId };
 });

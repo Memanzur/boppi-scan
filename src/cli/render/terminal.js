@@ -159,6 +159,15 @@ function summaryLine(report) {
   return `${plural(inventory.agents.length, 'agent')} · ${plural(inventory.mcpServers.length, 'MCP server')}${unknown ? ` (${unknown} unrecognized, unknown reach)` : ''} · ${plural(paths.length, 'exposure path')} (${criticalPaths} critical) · ${plural(inventory.findings.length, 'finding')} (${criticalFindings} critical)`;
 }
 
+function plaintextSummary(entries) {
+  const names = entries.filter(e => e.location === 'env').map(e => e.name);
+  const positions = entries.filter(e => e.location === 'argument').map(e => e.position + 1);
+  const parts = [];
+  if (names.length) parts.push(`environment ${names.length === 1 ? 'entry' : 'entries'} ${names.join(', ')}`);
+  if (positions.length) parts.push(`argument${positions.length === 1 ? '' : 's'} ${positions.join(', ')}`);
+  return parts.join('; ');
+}
+
 function renderReport(report, options = {}) {
   const useColor = options.color !== false;
   const s = makeStyle(useColor);
@@ -247,6 +256,13 @@ function renderReport(report, options = {}) {
         if (facts) out(s.dim(`      ${safeText(facts)}`));
       }
       out(s.dim(`  ${recognition.ADVICE}`));
+    }
+    const plaintext = report.inventory.mcpServers.filter(m => (m.plaintextExposures || []).length);
+    if (plaintext.length) {
+      out('');
+      out(s.bold(`PLAINTEXT SECRETS (${plaintext.length})`), s.dim('  credentials written into a config file; Boppi never reads them out or uploads them'));
+      for (const server of plaintext) out('  ', s.bold(safeText(server.name)), s.dim(' · '), safeText(plaintextSummary(server.plaintextExposures)));
+      out(s.dim('  Anyone or anything that can read these files can use them. Move each value to your keychain or an environment variable and rotate it.'));
     }
     const launched = recognition.packageLaunched(report.recognition);
     const loose = recognition.unpinned(report.recognition);

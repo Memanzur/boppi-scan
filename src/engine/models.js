@@ -225,6 +225,9 @@
       filesystemPathCount: Number.isFinite(Number(clean.filesystemPathCount)) ? Math.max(0, Number(clean.filesystemPathCount)) : 0,
       environmentVariableNames: Array.isArray(clean.environmentVariableNames) ? clean.environmentVariableNames.map(v => requiredString(v, 'mcpServer.environmentVariableNames')) : [],
       credentialReferences: Array.isArray(clean.credentialReferences) ? clean.credentialReferences.map(v => requiredString(v, 'mcpServer.credentialReferences')) : [],
+      plaintextExposures: Array.isArray(clean.plaintextExposures) ? clean.plaintextExposures
+        .filter(e => e && (e.location === 'env' ? typeof e.name === 'string' : e.location === 'argument' && Number.isInteger(e.position) && e.position >= 0))
+        .map(e => e.location === 'env' ? { location: 'env', name: requiredString(e.name, 'mcpServer.plaintextExposures.name') } : { location: 'argument', position: e.position }) : [],
       dryRun: clean.dryRun !== false,
       trustStatus: SAFE_TRUST.has(clean.trustStatus) ? clean.trustStatus : 'unknown',
       riskScore: Math.max(0, Math.min(100, Number(clean.riskScore) || 0)),

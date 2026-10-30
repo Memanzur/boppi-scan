@@ -103,6 +103,8 @@ function serverEvidence(server) {
   if ((server.capabilities || []).length) lines.push({ title: 'Capabilities', detail: server.capabilities.map(capabilityLabel).join(', ') });
   if ((server.environmentVariableNames || []).length) lines.push({ title: 'Environment variable names', detail: server.environmentVariableNames.join(', ') });
   if ((server.credentialReferences || []).length) lines.push({ title: 'Credential references (names only)', detail: server.credentialReferences.join(', ') });
+  const inline = server.plaintextExposures || [];
+  if (inline.length) lines.push({ title: 'Plaintext secrets in the config file', detail: inline.map(e => e.location === 'env' ? e.name : `argument ${e.position + 1}`).join(', ') });
   if ((server.exposedTools || []).length) lines.push({ title: 'Configured or catalog-inferred tools', detail: server.exposedTools.join(', ') });
   return lines;
 }
