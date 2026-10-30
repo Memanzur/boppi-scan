@@ -16,6 +16,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const evidenceIdentity = require('./evidenceIdentity');
+const fingerprint = require('./fingerprint');
 
 const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
@@ -487,6 +488,13 @@ function loadFingerprintKey(home) {
   return key;
 }
 
+/** Key path fingerprints and evidence identities with this machine's secret. */
+function useFingerprintKey(home) {
+  const key = loadFingerprintKey(home);
+  fingerprint.useKey(key);
+  evidenceIdentity.setKey(key);
+}
+
 /** Discover config files per client. Missing files are reported, never errors. */
 function discover(options) {
   const filesRead = new Set();
@@ -580,9 +588,7 @@ function alignFindings(inventory, paths) {
 
 /** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
 async function performScan(options) {
-  const fingerprintKey = loadFingerprintKey(options.home);
-  scanner.setFingerprintKey(fingerprintKey);
-  evidenceIdentity.setKey(fingerprintKey);
+  useFingerprintKey(options.home);
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
 
@@ -951,6 +957,8 @@ async function runPush(options) {
   let incomplete = [];
   let recognition = [];
   if (options.file) {
+    // Re-sanitizing fingerprints any raw path an edited export carries; keyed, so the workspace cannot confirm a guess.
+    useFingerprintKey(options.home);
     let payload;
     try { payload = JSON.parse(fs.readFileSync(options.file, 'utf8')); } catch (error) {
       process.stderr.write(`push: cannot read ${options.file}: ${error.message}\n`);
@@ -1053,7 +1061,11 @@ async function run(argv) {
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
   if (options.command === 'uninstall') return uninstallCommand.runUninstall(options);
   if (options.command === 'connect') return connect.runConnect(options, { performScan, confirm: fix.confirm, version: VERSION });
-  if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
+  if (options.command === 'rollback') {
+    // The file lock is named by the keyed fingerprint, as fix and the connector name it.
+    useFingerprintKey(options.home);
+    return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
+  }
 
   const scan = await performScan(options);
   if (scan.failed) {

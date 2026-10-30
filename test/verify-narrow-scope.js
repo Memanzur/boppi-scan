@@ -67,7 +67,7 @@ const notes = path.join(home, 'notes');
   ok('exits 2 without a terminal and writes nothing', r.code === 2 && r.stderr.includes('--yes') && fs.readFileSync(config, 'utf8') === original && manifest().length === 0);
   ok('names the scope it narrows and predicts from a rescan', r.stdout.includes('narrows: the directory argument that covers the whole home directory') && /breaks: {2}\d of 3 exposure paths/.test(r.stdout) && r.stdout.includes('lowers:  EP-A critical to high'), r.stdout.split('\n').slice(0, 6).join(' | '));
   const diff = r.stdout.split('\n').filter(line => /^\s+[-+]\s/.test(line));
-  ok('the diff changes one argument, shown as fingerprints', diff.length === 2 && diff.every(line => /path_[0-9a-f]{16}/.test(line)) && !diff.some(line => line.includes(home)), diff.join(' | '));
+  ok('the diff changes one argument, shown as fingerprints', diff.length === 2 && diff.every(line => /path_[0-9a-f]{32}/.test(line)) && !diff.some(line => line.includes(home)), diff.join(' | '));
 }
 
 section('apply, rescan and grade');
