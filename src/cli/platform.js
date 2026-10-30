@@ -75,6 +75,28 @@ function renameRetry(from, to, { platform = process.platform, rename = fs.rename
   }
 }
 
+/**
+ * fs.openSync for a user-named output file that never writes through a
+ * symbolic link, also where O_NOFOLLOW does not exist (Windows): the path
+ * is lstat'ed before the open, and the opened file must be that same
+ * regular file. Throws ELOOP for a link and ENOTREG for anything else that
+ * is not a regular file. nofollow is overridable so tests can drop it.
+ */
+function openNoFollow(file, flags, mode, { nofollow = fs.constants.O_NOFOLLOW || 0 } = {}) {
+  const refuse = (code, what) => Object.assign(new Error(`${file} ${what}`), { code });
+  let before = null;
+  try { before = fs.lstatSync(file); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (before && before.isSymbolicLink()) throw refuse('ELOOP', 'is a symbolic link');
+  if (before && !before.isFile()) throw refuse('ENOTREG', 'is not a regular file');
+  const fd = fs.openSync(file, flags | nofollow, mode);
+  try {
+    const opened = fs.fstatSync(fd);
+    if (fs.lstatSync(file).isSymbolicLink() || (before && (opened.ino !== before.ino || opened.dev !== before.dev))) throw refuse('ELOOP', 'is a symbolic link');
+    if (!opened.isFile()) throw refuse('ENOTREG', 'is not a regular file');
+  } catch (error) { fs.closeSync(fd); throw error; }
+  return fd;
+}
+
 /** A directory argument that names a place on disk: /x, ~, ~/x, ~\x, %USERPROFILE%\x, C:\x, C:/x, or a bare drive C:. */
 const DIRECTORY_ARG = /^(\/|~$|~[\\/]|%USERPROFILE%(?:[\\/]|$)|[A-Za-z]:([\\/]|$))/i;
 
@@ -103,4 +125,4 @@ function wslHint(options, probe) {
   return 'Running inside WSL: this scans the Linux home. Claude Desktop and Cursor on Windows keep their configs in the Windows profile; to scan those, add --home /mnt/c/Users/<you> --platform win32.';
 }
 
-module.exports = { comparable, samePath, isInside, projectKey, parseJson, renameRetry, RENAME_RETRY, DIRECTORY_ARG, expandHomeArg, ownerOnlyNote, isWsl, wslHint };
+module.exports = { comparable, samePath, isInside, projectKey, parseJson, renameRetry, RENAME_RETRY, openNoFollow, DIRECTORY_ARG, expandHomeArg, ownerOnlyNote, isWsl, wslHint };

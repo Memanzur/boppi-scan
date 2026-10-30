@@ -16,6 +16,7 @@ const models = require('../../engine/models');
 const scanner = require('../../engine/localMcpScanner');
 const session = require('./session');
 const { ALLOWED_METHODS } = require('./recorder');
+const { openNoFollow } = require('../platform');
 
 const CACHE_SCHEMA_VERSION = 1;
 const MAX_AGE_DAYS = 7;
@@ -129,8 +130,9 @@ function acquireLock(home, serverId) {
 
 /** Write a user-named file without following a symlink and leave it owner-only even if it existed. */
 function writeOwnerOnly(file, text) {
-  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | (fs.constants.O_NOFOLLOW || 0), 0o600);
-  try { fs.fchmodSync(fd, 0o600); fs.writeSync(fd, text); } finally { fs.closeSync(fd); }
+  // Opened without O_TRUNC so a refused link or special file is never emptied; truncated once it is known to be ours.
+  const fd = openNoFollow(file, fs.constants.O_WRONLY | fs.constants.O_CREAT, 0o600);
+  try { fs.fchmodSync(fd, 0o600); fs.ftruncateSync(fd, 0); fs.writeSync(fd, text); } finally { fs.closeSync(fd); }
 }
 
 function writeCache(home, record) {

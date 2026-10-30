@@ -16,6 +16,7 @@ const claudeCode = require('../src/cli/discovery/claudeCode');
 const remediate = require('../src/cli/remediate');
 const { scopeOf } = require('../src/cli/toolCategories');
 const narrowScope = require('../src/cli/narrowScope');
+const { symlinkOrSkip } = require('./helpers/platform');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
@@ -138,6 +139,23 @@ try {
     const started = Date.now();
     const gaveUp = throws(() => platform.renameRetry('a', 'b', { platform: 'win32', rename: stuck.rename }));
     ok(`win32 gives up after ${platform.RENAME_RETRY.attempts} attempts and rethrows`, gaveUp && gaveUp.code === 'EPERM' && stuck.calls() === platform.RENAME_RETRY.attempts, `${stuck.calls()} calls, ${Date.now() - started} ms`);
+  }
+
+  section('User-named output files never write through a link, even without O_NOFOLLOW');
+  {
+    const dir = path.join(root, 'nofollow');
+    fs.mkdirSync(dir);
+    const victim = path.join(dir, 'victim.txt');
+    fs.writeFileSync(victim, 'keep');
+    const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT;
+    const attempt = (file, options) => { try { fs.closeSync(platform.openNoFollow(file, flags, 0o600, options)); return 'opened'; } catch (error) { return error.code; } };
+    for (const [label, options] of [['with O_NOFOLLOW', {}], ['without O_NOFOLLOW, as on Windows', { nofollow: 0 }]]) {
+      const link = path.join(dir, `link-${label.length}.txt`);
+      if (symlinkOrSkip(victim, link, `a link is refused ${label}`)) ok(`a link is refused ${label}`, attempt(link, options) === 'ELOOP' && fs.readFileSync(victim, 'utf8') === 'keep');
+    }
+    ok('a directory is refused', attempt(dir, { nofollow: 0 }) === 'ENOTREG');
+    ok('a new file is created', attempt(path.join(dir, 'new.txt'), { nofollow: 0 }) === 'opened' && fs.existsSync(path.join(dir, 'new.txt')));
+    ok('an existing regular file is opened', attempt(victim, { nofollow: 0 }) === 'opened');
   }
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
