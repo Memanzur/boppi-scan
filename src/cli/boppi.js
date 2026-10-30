@@ -44,6 +44,7 @@ const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
 const updateNotice = require('./updateNotice');
+const { wslHint } = require('./platform');
 const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
@@ -1146,9 +1147,14 @@ async function run(argv) {
 async function main(argv) {
   const code = await run(argv);
   if (argv[0] !== 'hook') {
-    let home = process.env.BOPPI_SCAN_HOME || os.homedir();
-    try { home = parseArgs(argv).home; } catch (_) { /* usage error: default home */ }
-    updateNotice.announce(home, VERSION);
+    let options = null;
+    try { options = parseArgs(argv); } catch (_) { /* usage error: default home */ }
+    const given = flag => argv.some(arg => arg === flag || arg.startsWith(`${flag}=`));
+    const wsl = options && options.command === 'scan' && !options.config
+      ? wslHint({ homeGiven: given('--home') || !!process.env.BOPPI_SCAN_HOME, platformGiven: given('--platform') || !!process.env.BOPPI_SCAN_PLATFORM })
+      : null;
+    if (wsl) process.stderr.write(`\n${wsl}\n`);
+    updateNotice.announce(options ? options.home : process.env.BOPPI_SCAN_HOME || os.homedir(), VERSION);
   }
   return code;
 }

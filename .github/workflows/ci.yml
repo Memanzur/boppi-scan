@@ -18,6 +18,9 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm test
       - run: npm run smoke
+      # npm test pins macOS config rules (run-all.js); the probe runs the CLI with this runner's own rules.
+      - name: Platform probe (host rules, no darwin override)
+        run: node test/platform/platform-probe.js
       - name: Check packed file list
         run: |
           npm pack --dry-run --json > pack-report.json
@@ -30,15 +33,24 @@ jobs:
             console.log('tarball OK: ' + files.length + ' files');
           "
 
-  # Experimental: Windows path rules (PATHEXT lookup, .cmd/.bat refusal,
-  # APPDATA honoring --home) on a real Windows runner. Never run locally;
-  # failures here do not block the build until the job has a track record.
-  windows-paths:
+  # Experimental until a real Windows device passes the AG-19 checklist:
+  # failures do not block the build. autocrlf is off so the checkout matches
+  # .gitattributes (LF), as a developer's clone with the default
+  # core.autocrlf=true also does through eol=lf.
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 22]
     runs-on: windows-latest
     continue-on-error: true
     steps:
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: node test/verify-windows-paths.js
+          node-version: ${{ matrix.node }}
+      - run: npm test
+      - run: npm run smoke
+      - name: Platform probe (Windows rules)
+        run: node test/platform/platform-probe.js

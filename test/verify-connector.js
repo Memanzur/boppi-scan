@@ -6,6 +6,7 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
+const { hasMode, ownerOnly, symlinkOrSkip } = require('./helpers/platform');
 const { spawn } = require('child_process');
 const connect = require('../src/cli/connect');
 const models = require('../src/engine/models');
@@ -314,7 +315,7 @@ async function narrowCases(root) {
     const paired = await runCli(['connect', 'pair', '--url', workspace.url, '--code', PAIR_CODE, '--name', 'test-box'], home);
     const pairingFile = connect.pairingFile(home);
     const pairing = JSON.parse(fs.readFileSync(pairingFile, 'utf8'));
-    ok('pair exits 0 and stores the pairing with mode 0600', paired.code === 0 && (fs.statSync(pairingFile).mode & 0o777) === 0o600);
+    ok('pair exits 0 and stores the pairing with mode 0600', paired.code === 0 && ownerOnly(pairingFile));
     ok('the pairing holds url, ids, credential and expiry', pairing.url === workspace.url && pairing.deviceId === ws.device.id && pairing.organizationId === 'org-1' && pairing.credential === ws.device.credential && pairing.credential.startsWith('bpd_') && typeof pairing.credentialExpiresAt === 'string' && pairing.workspaceName === 'Test Workspace');
     const pairRequest = ws.byRoute('pair')[0];
     ok('the pair request carries name, platform and versions, and no path', pairRequest.body.device.name === 'test-box' && pairRequest.body.device.platform === 'darwin' && sameVersions(pairRequest.body.device.versions) && !pairRequest.authorization && !JSON.stringify(pairRequest.body).includes(home));
@@ -342,12 +343,13 @@ async function narrowCases(root) {
     const symlinkProposal = ws.propose(fetchKey);
     const aside = path.join(root, 'moved-config.json');
     fs.renameSync(desktopConfig, aside);
-    fs.symlinkSync(aside, desktopConfig);
-    const viaSymlink = await runCli(['connect', 'run', '--once'], home);
-    const symlinkPreview = ws.byRoute('preview').at(-1);
-    ok('the preview report says the target is not a regular file and the workspace conflicts it', viaSymlink.code === 0 && symlinkPreview && symlinkPreview.body.proposalId === symlinkProposal && symlinkPreview.body.regularFile === false && ws.proposals.get(symlinkProposal).state === 'conflicted');
-    ok('no offer is made for a symlinked file', ws.byRoute('poll').at(-1).body.offers.length === 0);
-    fs.unlinkSync(desktopConfig);
+    if (symlinkOrSkip(aside, desktopConfig, 'a symlinked target is reported as not a regular file')) {
+      const viaSymlink = await runCli(['connect', 'run', '--once'], home);
+      const symlinkPreview = ws.byRoute('preview').at(-1);
+      ok('the preview report says the target is not a regular file and the workspace conflicts it', viaSymlink.code === 0 && symlinkPreview && symlinkPreview.body.proposalId === symlinkProposal && symlinkPreview.body.regularFile === false && ws.proposals.get(symlinkProposal).state === 'conflicted');
+      ok('no offer is made for a symlinked file', ws.byRoute('poll').at(-1).body.offers.length === 0);
+      fs.unlinkSync(desktopConfig);
+    }
     fs.renameSync(aside, desktopConfig);
 
     section('a file changed between claim and write');
@@ -410,7 +412,7 @@ async function narrowCases(root) {
     ok('--yes is printed, the claim is made, and one applied report follows', applied.code === 0 && applied.stdout.includes('local confirmation skipped (--yes)') && ws.byRoute('applied').length === appliedBefore + 1 && report.body.proposalId === applyProposal);
     ok('the applied report carries the new hash and the manifest id', HEX64.test(report.body.appliedHash) && report.body.appliedHash === crypto.createHash('sha256').update(fs.readFileSync(desktopConfig)).digest('hex') && report.body.hashAtWrite === crypto.createHash('sha256').update(original).digest('hex') && entries.length === 1 && report.body.backupManifestId === entries[0].id);
     ok('the server is gone and unrelated entries survive', !after.mcpServers.fetch && after.mcpServers.filesystem && after.mcpServers['1password'] && after.theme === 'keep-me');
-    ok('the manifest entry names the proposal, the backup matches the original and is owner-only', entries[0].proposalId === applyProposal && entries[0].action === 'remove_server' && fs.readFileSync(entries[0].backup).equals(original) && (fs.statSync(entries[0].backup).mode & 0o777) === 0o600 && entries[0].backupHash === report.body.hashAtWrite);
+    ok('the manifest entry names the proposal, the backup matches the original and is owner-only', entries[0].proposalId === applyProposal && entries[0].action === 'remove_server' && fs.readFileSync(entries[0].backup).equals(original) && ownerOnly(entries[0].backup) && entries[0].backupHash === report.body.hashAtWrite);
     const rescan = ws.byRoute('rescan').at(-1);
     ok('the rescan report carries the remaining exposure keys of that agent and the file hash', rescan && rescan.body.proposalId === applyProposal && Array.isArray(rescan.body.exposureKeys) && rescan.body.exposureKeys.every(key => !ws.proposals.get(applyProposal).binding.expectedExposureKeys.includes(key)) && rescan.body.configHash === report.body.appliedHash && sameVersions(rescan.body.versions));
     ok('a removal rescan reports the removed server\'s identity as null', rescan && rescan.body.serverIdentity === null);
@@ -441,17 +443,19 @@ async function narrowCases(root) {
     await runCli(['connect', 'run', '--once'], home);
     ok('a missing backup is never offered', rollbackOffers().length === 0);
     fs.writeFileSync(aside, original);
-    fs.symlinkSync(aside, backupFile);
-    await runCli(['connect', 'run', '--once'], home);
-    ok('a symlinked backup is never offered', rollbackOffers().length === 0);
-    fs.unlinkSync(backupFile);
+    if (symlinkOrSkip(aside, backupFile, 'a symlinked backup is never offered')) {
+      await runCli(['connect', 'run', '--once'], home);
+      ok('a symlinked backup is never offered', rollbackOffers().length === 0);
+      fs.unlinkSync(backupFile);
+    }
     fs.unlinkSync(aside);
     fs.writeFileSync(backupFile, original, { mode: 0o600 });
     fs.renameSync(desktopConfig, aside);
-    fs.symlinkSync(aside, desktopConfig);
-    await runCli(['connect', 'run', '--once'], home);
-    ok('a symlinked config is never offered for rollback', rollbackOffers().length === 0);
-    fs.unlinkSync(desktopConfig);
+    if (symlinkOrSkip(aside, desktopConfig, 'a symlinked config is never offered for rollback')) {
+      await runCli(['connect', 'run', '--once'], home);
+      ok('a symlinked config is never offered for rollback', rollbackOffers().length === 0);
+      fs.unlinkSync(desktopConfig);
+    }
     fs.renameSync(aside, desktopConfig);
     fs.appendFileSync(desktopConfig, '\n');
     await runCli(['connect', 'run', '--once'], home);
@@ -487,7 +491,7 @@ async function narrowCases(root) {
     const restored = await runCli(['connect', 'run', '--once', '--yes'], home);
     const rollbackReport = ws.byRoute('applied').at(-1).body;
     const restoreEntry = manifestEntries().at(-1);
-    ok('approved rollback restores the exact original bytes with file mode preserved', restored.code === 0 && fs.readFileSync(desktopConfig).equals(original) && (fs.statSync(desktopConfig).mode & 0o777) === 0o644);
+    ok('approved rollback restores the exact original bytes with file mode preserved', restored.code === 0 && fs.readFileSync(desktopConfig).equals(original) && hasMode(desktopConfig, 0o644));
     ok('rollback records its proposal and restoredFrom, hashes, backup and new manifest id', manifestEntries().length === 2 && restoreEntry.action === 'rollback' && restoreEntry.restoredFrom === entries[0].id && restoreEntry.proposalId === rollbackProposal && restoreEntry.backup === backupFile && restoreEntry.backupHash === report.body.appliedHash && restoreEntry.appliedHash === entries[0].backupHash && rollbackReport.backupManifestId === restoreEntry.id && rollbackReport.appliedHash === entries[0].backupHash);
     ok('rescan verifies restoration even when original exposure keys return', ws.proposals.get(rollbackProposal).state === 'verified' && ws.proposals.get(applyProposal).state === 'rolled_back' && ws.byRoute('rescan').at(-1).body.exposureKeys.some(key => ws.proposals.get(applyProposal).binding.expectedExposureKeys.includes(key)) && restored.stdout.includes('configuration hash matches the restored backup') && !restored.stdout.includes('server entry was observed absent') && !restored.stdout.includes('undo with boppi rollback --id rollback-'));
     const listed = await runCli(['rollback'], home);
@@ -567,7 +571,7 @@ async function narrowCases(root) {
     const beforeRotate = readPairing();
     const rotated = await runCli(['connect', 'rotate'], home);
     const afterRotate = readPairing();
-    ok('connect rotate stores a new credential and expiry, owner-only', rotated.code === 0 && afterRotate.credential !== beforeRotate.credential && /^bpd_[0-9a-f]{64}$/.test(afterRotate.credential) && afterRotate.credentialExpiresAt !== beforeRotate.credentialExpiresAt && afterRotate.rotatedAt && (fs.statSync(pairingFile).mode & 0o777) === 0o600, rotated.stderr);
+    ok('connect rotate stores a new credential and expiry, owner-only', rotated.code === 0 && afterRotate.credential !== beforeRotate.credential && /^bpd_[0-9a-f]{64}$/.test(afterRotate.credential) && afterRotate.credentialExpiresAt !== beforeRotate.credentialExpiresAt && afterRotate.rotatedAt && ownerOnly(pairingFile), rotated.stderr);
     ok('the rotation output never prints a credential', !/bpd_[0-9a-f]{8}/.test(rotated.stdout + rotated.stderr));
     ok('the workspace holds it as pending until first use', ws.device.next === afterRotate.credential && ws.device.credential === beforeRotate.credential);
     const promotedRun = await runCli(['connect', 'run', '--once'], home);

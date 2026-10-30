@@ -97,7 +97,7 @@ function makeHome(root) {
   const connectStatus = run(['connect', 'status']);
   ok('connect status reads the local pairing file only', connectStatus.code === 0 && connectStatus.attempts.length === 0);
   fs.mkdirSync(path.join(home, '.boppi'), { recursive: true });
-  fs.writeFileSync(path.join(home, '.boppi', 'connector.json'), JSON.stringify({ schemaVersion: 1, url: 'http://127.0.0.1:1', deviceId: 'dev-test', organizationId: 'org-test', credential: 'bpd_test_credential_value', workspaceName: 'test' }));
+  fs.writeFileSync(path.join(home, '.boppi', 'connector.json'), JSON.stringify({ schemaVersion: 1, url: 'http://127.0.0.1:1', deviceId: 'dev-test', organizationId: 'org-test', credential: 'bpd_test_credential_value', workspaceName: 'test' }), { mode: 0o600 });
   const connectRun = run(['connect', 'run', '--once']);
   ok('connect run reaches only fetch, toward the stored workspace, after the local scan (positive control)', connectRun.code !== 0 && connectRun.attempts.length > 0 && connectRun.attempts.every(a => a === 'fetch') && connectRun.stderr.includes('poll'));
   const connectUnpair = run(['connect', 'unpair']);

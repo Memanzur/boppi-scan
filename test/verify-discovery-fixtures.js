@@ -81,7 +81,7 @@ function compare(name, actual) {
   const file = path.join(EXPECTED, `${name}.json`);
   const text = JSON.stringify(actual, null, 2) + '\n';
   if (process.env.BOPPI_FREEZE) { fs.writeFileSync(file, text); ok(`${name}: projection frozen`, true); return; }
-  ok(`${name}: projection matches the frozen expectation`, fs.existsSync(file) && fs.readFileSync(file, 'utf8') === text, fs.existsSync(file) ? 'differs' : 'missing');
+  ok(`${name}: projection matches the frozen expectation`, fs.existsSync(file) && fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n') === text, fs.existsSync(file) ? 'differs' : 'missing');
 }
 
 (async function main() {

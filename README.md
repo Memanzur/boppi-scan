@@ -375,13 +375,31 @@ When explicitly configured, the hook keeps, per MCP tool call reported by Claude
 
 If a server entry contains something that looks like a secret in a place the scanner cannot redact, the scanner refuses that client's config and prints the reason instead of a result. Move the secret into an environment variable the server reads and rescan.
 
+## Supported platforms
+
+| Platform | Status |
+|----------|--------|
+| macOS | Supported. |
+| Linux | Experimental until it passes testing on real devices. CI runs the suites and a host-rules probe on Ubuntu. |
+| Windows | Experimental until it passes testing on real devices. CI runs the suites on Node 18 and 22 without blocking the build. Nothing here has run on a real Windows machine yet. |
+
+Notes for Windows:
+
+- PowerShell may refuse `npx boppi` with "running scripts is disabled on this system", because `npx.ps1` is a script. Run `npx.cmd boppi scan` (or `boppi.cmd` for a global install) instead, or allow signed scripts for your account with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+- In Git Bash (mintty), Node does not see a terminal, so `fix`, `rollback`, `uninstall` and `connect` refuse to ask for confirmation. Run them from PowerShell or Windows Terminal, prefix the command with `winpty` (for example `winpty npx.cmd boppi fix --server <name>`), or pass `--yes` after reading the preview.
+- Windows has no POSIX file modes. Files Boppi keeps under `%USERPROFILE%\.boppi` (the connector credential among them) are protected only by your profile folder's permissions, which Boppi does not narrow.
+- `boppi discover` refuses `.cmd` and `.bat` launchers, so most `npx`-based entries are not started there. A discovered server is ended with `taskkill /T`; if it exits on its own, anything it started may still be running and the report says so.
+- Inside WSL, `boppi scan` reads the Linux home. To scan Claude Desktop and Cursor on the Windows side, add `--home /mnt/c/Users/<you> --platform win32`.
+
 ## Discovery targets
 
 | Client | Files |
 |--------|-------|
-| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows, `~/.config/Claude/claude_desktop_config.json` on Linux |
-| Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory; permission settings from `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory (counts and mode only); MCP servers of installed plugins (below) |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows, `~/.config/Claude/claude_desktop_config.json` (or `$XDG_CONFIG_HOME/Claude/...`) on Linux |
+| Claude Code | `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`, with settings and plugins under `$CLAUDE_CONFIG_DIR` in place of `~/.claude`), plus `.mcp.json` in the working directory; permission settings from `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` in the working directory (counts and mode only); MCP servers of installed plugins (below) |
 | Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
+
+`APPDATA`, `XDG_CONFIG_HOME` and `CLAUDE_CONFIG_DIR` are honored only when the scan reads your own home folder. With `--home` pointing elsewhere, Boppi reads that folder's default locations.
 
 A server entry that carries a `disabled` or `enabled: false` key inside one of these files is still graded as configured. The documented Claude Desktop and Cursor formats have no such key, so Boppi cannot tell whether the client honors it; it says what the file would allow. (Claude Code's documented enable and disable settings are read on a development branch and are not in this release.)
 
@@ -405,6 +423,8 @@ cd boppi-scan
 npm test
 node bin/boppi.js scan
 ```
+
+`npm test` pins macOS config locations so the suites behave the same on every OS. `node test/platform/platform-probe.js` runs the CLI with the host's own rules instead; CI runs it on every platform. In a Linux container, start Node with an init (`docker run --init ...`) so exited processes are reaped.
 
 The suites under `test/` are executable checks, not unit tests. `npm test` runs all of them and exits non-zero on any failure. See CONTRIBUTING.md before changing anything under `src/engine/`.
 

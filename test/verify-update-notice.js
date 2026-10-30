@@ -11,6 +11,7 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
+const { ownerOnly } = require('./helpers/platform');
 const { spawn } = require('child_process');
 const updateNotice = require('../src/cli/updateNotice');
 const { VERSION } = require('../src/cli/boppi');
@@ -84,7 +85,7 @@ const noticeLines = text => text.split('\n').filter(line => line.startsWith('Upd
   const file = updateNotice.noticeFile(home);
   const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
   ok('the store keeps origin, minimum and time only', JSON.stringify(Object.keys(stored.workspaces)) === JSON.stringify([higher.url]) && JSON.stringify(Object.keys(stored.workspaces[higher.url]).sort()) === '["minimum","seenAt"]' && stored.workspaces[higher.url].minimum === '9.0.0');
-  ok('the store is owner-only', (fs.statSync(file).mode & 0o777) === 0o600, (fs.statSync(file).mode & 0o777).toString(8));
+  ok('the store is owner-only', ownerOnly(file), (fs.statSync(file).mode & 0o777).toString(8));
   const offline = await runCli(['connect', 'status'], home);
   ok('an offline command (workspace gone) still shows the notice with its usual exit code', offline.code === 0 && noticeLines(offline.stderr).length === 1 && offline.stderr.includes('9.0.0'), offline.stderr);
   const quiet = await runCli(['connect', 'status'], home, { NO_UPDATE_NOTIFIER: '1' });

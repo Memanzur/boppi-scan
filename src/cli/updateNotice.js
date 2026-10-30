@@ -16,6 +16,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { renameRetry } = require('./platform');
 
 const HEADER = 'boppi-agent-minimum';
 const RELEASE = /^(\d{1,6})\.(\d{1,6})\.(\d{1,6})$/;
@@ -48,7 +49,7 @@ function save(home, state) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(temp, file);
+  renameRetry(temp, file);
 }
 
 /**

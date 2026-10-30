@@ -7,6 +7,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { renameRetry } = require('./platform');
 
 const SCHEMA_VERSION = 1;
 
@@ -50,7 +51,7 @@ function save(home, settings) {
   const tmp = `${file}.${process.pid}.tmp`;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(tmp, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  renameRetry(tmp, file);
 }
 
 /** Apply `key=value` assignments to the stored settings. Throws on an unknown key or an invalid value. */

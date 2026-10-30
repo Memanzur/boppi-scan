@@ -6,6 +6,7 @@ const fs = require('fs');
 const Module = require('module');
 const os = require('os');
 const path = require('path');
+const { ownerOnly } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 
 // Criterion 6: nothing in the bundle module may reach the network.
@@ -148,7 +149,7 @@ const severities = e => e.exposurePaths.map(p => `${p.exposureKey}:${p.severity}
     const v2 = write('v2.json', makeBundle({ version: '2.0.0' }));
     ok('a newer version is accepted in a new process', cli(['scan', '--overlay-bundle', v2, '--trust', trustFile, '--quiet'], home).code === base.code && JSON.parse(stateBytes(home)).highestVersion === '2.0.0');
     ok('a later process still refuses the older version', cli(['scan', '--overlay-bundle', v1, '--trust', trustFile, '--quiet'], home).stderr.includes('refused (version_not_newer)'));
-    ok('state is mode 600', (fs.statSync(bundles.statePath(home)).mode & 0o777) === 0o600);
+    ok('state is mode 600', ownerOnly(bundles.statePath(home)));
     fs.rmSync(bundles.statePath(home));
     const missing = cli(['scan', '--overlay-bundle', v2, '--trust', trustFile, '--quiet'], home);
     ok('deleted state refuses every bundle (state_missing)', missing.code === 2 && missing.stderr.includes('refused (state_missing)'));

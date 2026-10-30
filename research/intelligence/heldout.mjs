@@ -157,7 +157,8 @@ export function compareLabelers(first, second) {
 }
 
 function corpusPackages(file) {
-  const raw = fs.readFileSync(file, 'utf8');
+  // Hashed with LF line ends, so a CRLF checkout yields the frozen digest too.
+  const raw = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
   const index = JSON.parse(raw);
   insist(Array.isArray(index.packages), 'corpus index has no packages');
   return { packages: index.packages, corpusDigest: crypto.createHash('sha256').update(raw).digest('hex') };

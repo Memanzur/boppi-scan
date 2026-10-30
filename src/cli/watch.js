@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const fix = require('./fix');
+const { samePath, openNoFollow } = require('./platform');
 const { safeText } = require('./render/terminal');
 
 const DEBOUNCE_MS = 500;
@@ -158,7 +159,7 @@ async function runWatch(options, deps) {
   let log = null;
   if (options.log) {
     // Never follow a symlink and leave the file owner-only even when it already existed.
-    try { log = fs.openSync(options.log, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | (fs.constants.O_NOFOLLOW || 0), 0o600); fs.fchmodSync(log, 0o600); } catch (error) { process.stderr.write(`watch: cannot use --log ${options.log}: ${error.code === 'ELOOP' ? 'it is a symbolic link' : error.message}\n`); return 2; }
+    try { log = openNoFollow(options.log, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT, 0o600); fs.fchmodSync(log, 0o600); } catch (error) { process.stderr.write(`watch: cannot use --log ${options.log}: ${error.code === 'ELOOP' ? 'it is a symbolic link' : error.message}\n`); return 2; }
   }
   const record = entry => { if (log !== null) fs.writeSync(log, JSON.stringify(entry) + '\n'); };
 
@@ -207,7 +208,7 @@ async function runWatch(options, deps) {
     try {
       const watcher = fs.watch(dir, { persistent: true }, (eventType, filename) => {
         const changed = filename ? path.join(dir, String(filename)) : null;
-        if (changed && !target.files.some(f => f.path === changed)) return;
+        if (changed && !target.files.some(f => samePath(f.path, changed))) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => rescan('file event'), DEBOUNCE_MS);
       });

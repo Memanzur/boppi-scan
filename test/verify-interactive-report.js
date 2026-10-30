@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { WINDOWS, skip } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 const graphData = require('../src/cli/render/graphData');
 
@@ -108,8 +109,11 @@ function runCli(args, home) {
   ok('fix command asks for the file when the path is fingerprinted', /add --config/.test(outside) && !outside.includes('--config path_abc123'));
   const { shellArgument } = require('../src/cli/shell');
   const dangerousName = 'server$(printf BAD)`printf BAD`\'name';
-  const quoted = spawnSync('/bin/sh', ['-c', 'printf "%s" ' + shellArgument(dangerousName)], { encoding: 'utf8' });
-  ok('copied shell commands preserve literal server names without evaluating substitutions', quoted.status === 0 && quoted.stdout === dangerousName);
+  if (WINDOWS) skip('copied shell commands preserve literal server names', 'needs /bin/sh');
+  else {
+    const quoted = spawnSync('/bin/sh', ['-c', 'printf "%s" ' + shellArgument(dangerousName)], { encoding: 'utf8' });
+    ok('copied shell commands preserve literal server names without evaluating substitutions', quoted.status === 0 && quoted.stdout === dangerousName);
+  }
 
   section('Interactive HTML report');
   const htmlPath = path.join(root, 'report.html');

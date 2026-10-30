@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { hasMode, symlinkOrSkip } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 const fix = require('../src/cli/fix');
 const remediate = require('../src/cli/remediate');
@@ -30,7 +31,6 @@ function runCli(args, home) {
 }
 
 const manifest = home => fix.readManifest(home).entries;
-const mode = file => fs.statSync(file).mode & 0o777;
 
 async function drain(stages) { const events = []; for await (const e of stages) events.push(e); return events; }
 
@@ -42,12 +42,13 @@ async function drain(stages) { const events = []; for await (const e of stages) 
       const { home, file } = makeHome(root, 'symlink');
       const real = path.join(root, 'symlink-real.json');
       fs.renameSync(file, real);
-      fs.symlinkSync(real, file);
-      const before = fs.readFileSync(real, 'utf8');
-      const result = runCli(['fix', '--server', 'fetch', '--yes'], home);
-      ok('fix does not report success', result.code !== 0 && !/removed mcpServers/.test(result.stdout));
-      ok('the symlink target is unchanged and still a symlink', fs.readFileSync(real, 'utf8') === before && fs.lstatSync(file).isSymbolicLink());
-      ok('no manifest entry was recorded', manifest(home).length === 0);
+      if (symlinkOrSkip(real, file, 'fix refuses a symlinked config')) {
+        const before = fs.readFileSync(real, 'utf8');
+        const result = runCli(['fix', '--server', 'fetch', '--yes'], home);
+        ok('fix does not report success', result.code !== 0 && !/removed mcpServers/.test(result.stdout));
+        ok('the symlink target is unchanged and still a symlink', fs.readFileSync(real, 'utf8') === before && fs.lstatSync(file).isSymbolicLink());
+        ok('no manifest entry was recorded', manifest(home).length === 0);
+      }
     }
 
     section('a direct run: stale preview hash, failed write, lock held');
@@ -79,7 +80,7 @@ async function drain(stages) { const events = []; for await (const e of stages) 
       fs.chmodSync(file, 0o640);
       const applied = await drain(remediate.runRemediation(base));
       ok('an unchanged file is fixed', applied.some(e => e.stage === 'apply' && e.status === 'done'));
-      ok('the file mode is kept', mode(file) === 0o640);
+      ok('the file mode is kept', hasMode(file, 0o640));
       ok('only the chosen entry was removed', (() => { const j = JSON.parse(fs.readFileSync(file, 'utf8')); return !j.mcpServers.fetch && j.mcpServers.time && j.theme === 'keep-me'; })());
       ok('no lock file is left behind', !fs.existsSync(fix.lockPath(home, pathFingerprint(file))));
       ok('no temp file is left next to the config', fs.readdirSync(path.dirname(file)).every(name => !name.endsWith('.tmp')));
@@ -96,14 +97,15 @@ async function drain(stages) { const events = []; for await (const e of stages) 
       const fixed = fs.readFileSync(file);
       const real = path.join(root, 'rollback-real.json');
       fs.renameSync(file, real);
-      fs.symlinkSync(real, file);
-      const viaLink = runCli(['rollback', '--id', entry.id, '--yes'], home);
-      ok('rollback through a symlink is refused and writes nothing', viaLink.code === 2 && /not a regular file/.test(viaLink.stderr) && fs.readFileSync(real).equals(fixed) && fs.lstatSync(file).isSymbolicLink());
-      fs.unlinkSync(file);
+      if (symlinkOrSkip(real, file, 'rollback through a symlink is refused')) {
+        const viaLink = runCli(['rollback', '--id', entry.id, '--yes'], home);
+        ok('rollback through a symlink is refused and writes nothing', viaLink.code === 2 && /not a regular file/.test(viaLink.stderr) && fs.readFileSync(real).equals(fixed) && fs.lstatSync(file).isSymbolicLink());
+        fs.unlinkSync(file);
+      }
       fs.renameSync(real, file);
       const restored = runCli(['rollback', '--id', entry.id, '--yes'], home);
       ok('rollback restores the exact original bytes', restored.code === 0 && fs.readFileSync(file).equals(original));
-      ok('rollback keeps the file mode', mode(file) === 0o640);
+      ok('rollback keeps the file mode', hasMode(file, 0o640));
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

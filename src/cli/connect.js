@@ -12,7 +12,7 @@
  * An applied proposal the workspace has not graded yet comes back on every
  * poll until a rescan from this machine's current scan grades it.
  *
- * Local state, all under <home>/.boppi, owner-only:
+ * Local state, all under <home>/.boppi, mode 0600 on POSIX (Windows: the profile folder's ACL):
  *   connector.json         { url, deviceId, organizationId, credential, credentialExpiresAt, workspaceName, deviceName, pairedAt }
  *   connector-claims.json  { pending: { [proposalId]: { nonce, targetFile, client, server, claimedAt } }, consumed: [nonce] }
  *   locks/<targetFile>.lock  held while one proposal writes that file
@@ -29,6 +29,7 @@ const fingerprint = require('./fingerprint');
 const remediate = require('./remediate');
 const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
+const { ownerOnlyNote, parseJson, renameRetry } = require('./platform');
 const updateNotice = require('./updateNotice');
 const { homeFlag } = require('./shell');
 const { openRegular, acquireLock } = fix;
@@ -68,13 +69,23 @@ function writeOwnerOnly(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(temp, file);
+  renameRetry(temp, file);
 }
 
-function loadPairing(home) {
-  let raw;
-  try { raw = JSON.parse(fs.readFileSync(pairingFile(home), 'utf8')); } catch (_) { return null; }
+/**
+ * The stored pairing, or null. On POSIX a connector.json that group or
+ * others can read throws, as ssh refuses a loose private key, so a credential
+ * other accounts could copy is not used silently. allowExposed is for
+ * uninstall, which only deletes the file.
+ */
+function loadPairing(home, { allowExposed = false, platform = process.platform } = {}) {
+  const file = pairingFile(home);
+  let raw, mode;
+  try { mode = fs.statSync(file).mode & 0o777; raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; }
   if (!raw || typeof raw !== 'object' || typeof raw.url !== 'string' || typeof raw.credential !== 'string' || typeof raw.deviceId !== 'string') return null;
+  if (platform !== 'win32' && (mode & 0o077) && !allowExposed) {
+    throw new Error(`refusing ${file}: other accounts on this machine can read it (mode ${mode.toString(8)}). Run chmod 600 "${file}", then boppi connect rotate if anyone else could have copied the credential.`);
+  }
   return raw;
 }
 
@@ -344,7 +355,7 @@ function applyEdit({ options, scan, binding, proposalId, now }) {
     if (hashAtWrite !== binding.configHash) return { ok: false, failureCode: 'hash_changed', ...report };
     if (narrowing && (!target.narrow || target.configHash !== hashAtWrite || target.previewHash !== binding.previewHash)) return { ok: false, failureCode: 'hash_changed', ...report };
     let edited;
-    try { edited = remediate.editedJson(JSON.parse(opened.bytes.toString('utf8')), found.keyPath, narrowing ? target.narrow : null); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
+    try { edited = remediate.editedJson(parseJson(opened.bytes), found.keyPath, narrowing ? target.narrow : null); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
     if (!edited) return { ok: false, failureCode: 'other', ...report };
     let backup;
     try { backup = fix.writeBackup({ file: found.file, home: options.home, now, bytes: opened.bytes }); } catch (_) { return { ok: false, failureCode: 'backup_failed', ...report }; }
@@ -577,7 +588,8 @@ async function runPair(options, deps, out, err) {
   let url;
   try { url = resolveWorkspaceUrl(options.url); } catch (error) { err(`connect pair: ${error.message}`); return 2; }
   // Checked before the code is sent, so a refusal never burns it.
-  const existing = loadPairing(options.home);
+  let existing;
+  try { existing = loadPairing(options.home); } catch (error) { err(`connect pair: ${error.message}`); return 2; }
   if (existing && !options.yes) {
     err(`connect pair: this machine is already paired with ${existing.workspaceName || existing.url} as "${existing.deviceName || existing.deviceId}". Run boppi connect unpair first (it revokes that device there), or add --yes to replace it here only (the old device stays listed and usable in that workspace until someone revokes it).`);
     return 2;
@@ -592,7 +604,7 @@ async function runPair(options, deps, out, err) {
   writeOwnerOnly(pairingFile(options.home), pairing);
   // Claims and consumed nonces belong to the old device; carrying them over would mis-grade or refuse its proposals.
   if (existing) fs.rmSync(claimsFile(options.home), { force: true });
-  out(`Paired with ${pairing.workspaceName || url} as "${deviceName}". Stored in ${pairingFile(options.home)} (owner-only): url, device id, organization id, credential (expires ${pairing.credentialExpiresAt || 'unknown'}).`);
+  out(`Paired with ${pairing.workspaceName || url} as "${deviceName}". Stored in ${pairingFile(options.home)} (${ownerOnlyNote()}): url, device id, organization id, credential (expires ${pairing.credentialExpiresAt || 'unknown'}).`);
   out(`The workspace now knows: device name, platform ${device.platform}, scanner ${device.versions.scanner}, engine ${device.versions.engine}, rubric ${device.versions.rubric}. No path was sent.`);
   out('boppi connect run pulls fix proposals from the workspace; nothing is applied without local confirmation on this machine.');
   return 0;
@@ -633,7 +645,7 @@ async function rotateCredential(options, pairing, deps, out, err) {
   if (typeof b.credential !== 'string' || !/^bpd_[0-9a-f]{64}$/.test(b.credential) || Number.isNaN(Date.parse(b.credentialExpiresAt))) { err('connect rotate: the workspace answered without a usable credential; the current one stays in use'); return null; }
   const next = { ...pairing, credential: b.credential, credentialExpiresAt: b.credentialExpiresAt, rotatedAt: stamp() };
   writeOwnerOnly(pairingFile(options.home), next);
-  out(`Credential rotated: the new one expires ${next.credentialExpiresAt} and replaces the old one in the workspace on its first use. Stored in ${pairingFile(options.home)} (owner-only).`);
+  out(`Credential rotated: the new one expires ${next.credentialExpiresAt} and replaces the old one in the workspace on its first use. Stored in ${pairingFile(options.home)} (${ownerOnlyNote()}).`);
   return next;
 }
 
@@ -665,7 +677,8 @@ async function runConnect(options, deps) {
   const err = line => process.stderr.write(line + '\n');
   deps = { ...deps, fetchImpl: updateNotice.watching(options.home, deps.fetchImpl || globalThis.fetch) };
   if (options.subcommand === 'pair') return runPair(options, deps, out, err);
-  const pairing = loadPairing(options.home);
+  let pairing;
+  try { pairing = loadPairing(options.home); } catch (error) { err(`connect ${options.subcommand}: ${error.message}`); return 2; }
   if (options.subcommand === 'status') { out(renderStatus(options, pairing)); return 0; }
   if (options.subcommand === 'unpair') return runUnpair(options, pairing, deps, out, err);
   if (!pairing) { err(`connect ${options.subcommand}: not paired. ${renderStatus(options, null)}`); return 2; }

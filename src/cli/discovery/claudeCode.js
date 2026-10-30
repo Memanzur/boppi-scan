@@ -3,6 +3,7 @@
 const path = require('path');
 const { claudeCodeSettingsFiles } = require('../builtinTools');
 const plugins = require('./claudePlugins');
+const { claudeJsonPath } = require('../platform');
 
 function locate({ home, cwd, pluginRoot = null }) {
   // Installed plugins' MCP servers, read-only (claudePlugins.js); the index entry is coverage only.
@@ -15,7 +16,7 @@ function locate({ home, cwd, pluginRoot = null }) {
     settingsFiles: claudeCodeSettingsFiles({ home, cwd }),
     files: [
       {
-        path: path.join(home, '.claude.json'),
+        path: claudeJsonPath(home),
         scope: 'user',
         // ~/.claude.json holds much more than MCP config; only these two
         // blocks are read. The second is Claude Code's local scope.
