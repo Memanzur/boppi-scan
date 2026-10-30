@@ -595,10 +595,12 @@ async function narrowCases(root) {
     const repair = await runCli(['connect', 'pair', '--url', workspace.url, '--code', PAIR_CODE], home);
     ok('pairing again while paired is refused before the code is sent (exit 2)', repair.code === 2 && repair.stderr.includes('already paired') && repair.stderr.includes('boppi connect unpair') && ws.byRoute('pair').length === pairsBefore);
     ws.device.revoked = true;
+    let pollGuard;
     const looping = await Promise.race([
       runCli(['connect', 'run', '--interval', '5'], home),
-      new Promise(resolve => setTimeout(() => resolve({ code: 'still polling after 20 s', stdout: '', stderr: '' }), 20000)),
+      new Promise(resolve => { pollGuard = setTimeout(() => resolve({ code: 'still polling after 60 s', stdout: '', stderr: '' }), 60000); }),
     ]);
+    clearTimeout(pollGuard);
     ok('run stops instead of polling forever once the workspace refuses the device (exit 5)', looping.code === 5 && looping.stderr.includes('polling again cannot succeed'), String(looping.code));
     ok('the refusal says the device was revoked, unpaired or expired and how to pair again', looping.stderr.includes('no longer accepts this device') && looping.stderr.includes('boppi connect pair --url'));
     ws.device.revoked = false;

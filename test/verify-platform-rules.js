@@ -328,14 +328,21 @@ try {
     const old = discover.acquireLock(home, 'srv');
     ok('an empty lock left by a crash is taken over', typeof old === 'function');
     old();
-    const startAt = Date.now() + 1500;
-    const racer = `const d = require(${JSON.stringify(require.resolve('../src/cli/discovery/discover'))}); while (Date.now() < ${startAt}); const r = d.acquireLock(${JSON.stringify(home)}, 'race'); console.log(r ? 'took' : 'held'); setTimeout(() => {}, 1500);`;
-    const outputs = await Promise.all(Array.from({ length: 8 }, () => new Promise(resolve => {
-      const child = spawn(process.execPath, ['-e', racer], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const racer = `const d = require(${JSON.stringify(require.resolve('../src/cli/discovery/discover'))}); console.log('ready'); process.stdin.once('data', () => { const r = d.acquireLock(${JSON.stringify(home)}, 'race'); console.log(r ? 'took' : 'held'); process.stdin.resume(); });`;
+    const racers = Array.from({ length: 8 }, () => {
+      const child = spawn(process.execPath, ['-e', racer], { stdio: ['pipe', 'pipe', 'inherit'] });
       let out = '';
-      child.stdout.on('data', chunk => { out += chunk; });
-      child.on('exit', () => resolve(out.trim()));
-    })));
+      const waiters = [];
+      child.stdout.on('data', chunk => { out += chunk; for (const w of waiters) if (w.test.test(out)) w.resolve(); });
+      const printed = test => new Promise(resolve => waiters.push({ test, resolve }));
+      return { child, ready: printed(/ready/), answered: printed(/took|held/), exited: new Promise(resolve => child.on('exit', resolve)), out: () => out.replace('ready', '').trim() };
+    });
+    await Promise.all(racers.map(r => r.ready));
+    for (const r of racers) r.child.stdin.write('go\n');
+    await Promise.all(racers.map(r => r.answered));
+    for (const r of racers) r.child.stdin.end();
+    await Promise.all(racers.map(r => r.exited));
+    const outputs = racers.map(r => r.out());
     ok('eight processes racing for one lock: exactly one takes it', outputs.filter(o => o === 'took').length === 1, outputs.join(','));
   }
 } finally {

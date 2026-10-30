@@ -136,11 +136,25 @@ const cliHook = (home, input, args = []) => spawnSync(process.execPath, [CLI, 'h
   ok('an empty home says how capture starts', empty.status === 0 && empty.stdout.includes('no events recorded'));
 
   section('hook overhead (real command, 30 runs)');
-  const times = [];
-  for (let i = 0; i < 30; i++) { const t = process.hrtime.bigint(); cliHook(home, payload); times.push(Number(process.hrtime.bigint() - t) / 1e6); }
-  times.sort((a, b) => a - b);
-  const p95 = times[Math.floor(times.length * 0.95) - 1];
-  ok(`p95 hook wall time ${p95.toFixed(0)} ms, median ${times[15].toFixed(0)} ms (roadmap target 100 ms on a reference machine; hard bound here 400 ms)`, p95 < 400);
+  // CPU time (user + sys) is the hook's own work and does not grow when other processes load the machine; wall time does, so it is printed, and bounded only where no CPU timer is available.
+  const TIME = '/usr/bin/time';
+  const cpuTimed = fs.existsSync(TIME);
+  const runs = [];
+  for (let i = 0; i < 30; i++) {
+    const t = process.hrtime.bigint();
+    if (cpuTimed) {
+      const r = spawnSync(TIME, ['-p', process.execPath, CLI, 'hook', '--home', home], { input: payload, encoding: 'utf8', env: { ...process.env, BOPPI_HOOK_SEGMENT_BYTES: '' } });
+      const m = /real\s+([\d.]+)\s+user\s+([\d.]+)\s+sys\s+([\d.]+)\s*$/.exec(r.stderr);
+      runs.push({ wall: Number(process.hrtime.bigint() - t) / 1e6, cpu: m ? (Number(m[2]) + Number(m[3])) * 1000 : Infinity });
+    } else {
+      cliHook(home, payload);
+      runs.push({ wall: Number(process.hrtime.bigint() - t) / 1e6, cpu: null });
+    }
+  }
+  const p95 = values => [...values].sort((a, b) => a - b)[Math.floor(values.length * 0.95) - 1];
+  const wallP95 = p95(runs.map(r => r.wall));
+  if (cpuTimed) ok(`p95 hook CPU time ${p95(runs.map(r => r.cpu)).toFixed(0)} ms, p95 wall time ${wallP95.toFixed(0)} ms (roadmap target 100 ms on a reference machine; hard bound here 400 ms of CPU)`, p95(runs.map(r => r.cpu)) < 400);
+  else ok(`p95 hook wall time ${wallP95.toFixed(0)} ms (no ${TIME} for CPU time; roadmap target 100 ms on a reference machine; hard bound here 400 ms)`, wallP95 < 400);
 
   const forgot = cliHook(home, '', ['--forget']);
   ok('--forget deletes every event file and health counter and tells the user to remove the snippet', forgot.status === 0 && hook.storedFiles(home).length === 0 && !fs.existsSync(hook.healthFile(home)) && forgot.stderr.includes('Remove the hook snippet'));
