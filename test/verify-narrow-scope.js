@@ -127,6 +127,16 @@ section('grading rules for narrow_scope');
   ok('the narrowed entry with nothing changed: CONTRADICTED', verify.resolvePrediction(prediction, state(prediction.edit.expectedIdentity)).status === 'CONTRADICTED');
 }
 
+section('a bare ~ counts as the whole home folder');
+{
+  const tilde = write({ fs: fsEntry(['~']), fetch: { command: 'uvx', args: ['mcp-server-fetch'] } });
+  const r = run(['fix', '--server', 'fs', '--narrow', notes, '--yes']);
+  ok('fix --narrow on a server at ~ narrows it and confirms', r.code === 0 && r.stdout.includes('CONFIRMED'), r.stdout.slice(-400) + r.stderr.slice(-200));
+  ok('the ~ argument is replaced by the narrower folder', JSON.parse(fs.readFileSync(config, 'utf8')).mcpServers.fs.args[2] === notes);
+  const restored = run(['rollback', '--id', manifest().at(-1).id, '--yes']);
+  ok('rollback restores the ~ entry byte for byte', restored.code === 0 && fs.readFileSync(config, 'utf8') === tilde);
+}
+
 fs.rmSync(root, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exitCode = failed ? 1 : 0;

@@ -10,6 +10,7 @@
 'use strict';
 
 const scanner = require('../engine/localMcpScanner');
+const { BUILTIN_TOOLS } = require('./builtinTools');
 
 const DEFAULT_WORKSPACE_URL = 'https://app.boppi.io';
 const EVENTS_PATH = '/api/events';
@@ -76,6 +77,9 @@ const SEVERITIES = new Set(['critical', 'high', 'medium', 'low']);
  * settings-read flag travel; the settings hint is a fixed sentence the
  * workspace reconstructs, so it is not sent.
  */
+// Built-in tool names come from a fixed table; anything else in a hand-edited export is not a tool name and is dropped.
+const BUILTIN_TOOL_NAMES = new Set(Object.values(BUILTIN_TOOLS).flat().map(entry => entry.tool));
+
 function builtinResidualFromExport(payload) {
   const entries = Array.isArray(payload.builtinResidual) ? payload.builtinResidual : [];
   const out = entries.slice(0, RESIDUAL_MAX.entries).map(entry => {
@@ -87,7 +91,7 @@ function builtinResidualFromExport(payload) {
       agentExternalId: clip(entry.agentId),
       client: clip(entry.client || CLIENT_LABELS[entry.clientKey] || entry.clientKey || 'unknown', RESIDUAL_MAX.label),
       clientKey: clip(entry.clientKey || 'unknown', 32),
-      tools: (Array.isArray(entry.tools) ? entry.tools : []).filter(tool => typeof tool === 'string').slice(0, RESIDUAL_MAX.tools).map(tool => clip(tool, 32)),
+      tools: (Array.isArray(entry.tools) ? entry.tools : []).filter(tool => BUILTIN_TOOL_NAMES.has(tool)).slice(0, RESIDUAL_MAX.tools),
       exposureKeys: keys,
       priorities,
       ...(typeof entry.settingsRead === 'boolean' ? { settingsRead: entry.settingsRead } : {}),
@@ -197,6 +201,11 @@ function toRecords(inventory, recognition) {
 
 const RAW_PATH = /^(?:\/|~\/|[A-Za-z]:[\\/]|\\\\)/;
 
+// A server or agent name is sent as written, so a bare hex key (a 40-character token, a 32-character API key) counts as
+// secret-shaped there; arguments and other fields keep the narrower test because pins and digests are long hex.
+const LONG_HEX = /(?:^|[^A-Za-z0-9])[0-9a-f]{32,}(?:$|[^A-Za-z0-9])/i;
+function isSecretShapedName(value) { return typeof value === 'string' && (scanner.isSecretShaped(value) || LONG_HEX.test(value)); }
+
 /** Replace every secret-shaped string anywhere in a value. */
 function scrubSecrets(value) {
   if (typeof value === 'string') return scanner.isSecretShaped(value) ? '[redacted-sensitive-value]' : value;
@@ -219,7 +228,7 @@ function resanitizeRecords(records) {
       if (Array.isArray(metadata.args)) metadata.args = scanner.sanitizeArguments(metadata.args.map(String));
       if (typeof metadata.config_path === 'string' && RAW_PATH.test(metadata.config_path)) metadata.config_path = scanner.pathFingerprint(metadata.config_path);
     }
-    return { ...r, name: scrubSecrets(r.name), metadata };
+    return { ...r, name: isSecretShapedName(r.name) ? '[redacted-sensitive-value]' : r.name, metadata };
   });
 }
 
@@ -239,7 +248,7 @@ function unsafeFields(body) {
   const walk = (value, at, key) => {
     if (typeof value === 'string') {
       if (ID_FIELD.test(key) && !EXTERNAL_ID.test(value)) out.push(`${at} (not a Boppi id)`);
-      else if (scanner.isSecretShaped(value)) out.push(`${at} (secret-shaped value)`);
+      else if (key === 'name' ? isSecretShapedName(value) : scanner.isSecretShaped(value)) out.push(`${at} (secret-shaped value)`);
     } else if (Array.isArray(value)) value.forEach((item, i) => walk(item, `${at}[${i}]`, key));
     else if (value && typeof value === 'object') {
       for (const [k, v] of Object.entries(value)) {
@@ -252,8 +261,11 @@ function unsafeFields(body) {
   return out;
 }
 
-function describeUnsafe(fields) {
-  return `push: refused before sending: ${fields.length} field${fields.length === 1 ? '' : 's'} could carry a secret or are not Boppi ids (${fields.slice(0, 5).join('; ')}${fields.length > 5 ? '; …' : ''}). Nothing was sent. Export again with boppi scan --json instead of editing the file.`;
+/** The refusal names JSON paths only. From an export, the file was edited; from a live scan, a name in the client config is shaped like a secret. */
+function describeUnsafe(fields, { fromFile = false } = {}) {
+  const remedy = fromFile ? 'Export again with boppi scan --json instead of editing the file.'
+    : 'A server or agent name in your client configuration is sent as written and looks like a credential; rename that entry in its config file, then push again.';
+  return `push: refused before sending: ${fields.length} field${fields.length === 1 ? '' : 's'} could carry a secret or are not Boppi ids (${fields.slice(0, 5).join('; ')}${fields.length > 5 ? '; …' : ''}). Nothing was sent. ${remedy}`;
 }
 
 /** Workspace or ingest URL as given by the user, resolved to the ingest endpoint. */

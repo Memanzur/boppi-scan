@@ -5,9 +5,10 @@
 'use strict';
 const fs = require('fs');
 const fix = require('./fix');
+const { homeFlag } = require('./shell');
 const { pathFingerprint } = require('../engine/localMcpScanner');
 
-function renderList(manifest) {
+function renderList(manifest, options = {}) {
   const fixes = manifest.entries.filter(e => fix.FIX_ACTIONS.includes(e.action)).slice().reverse();
   if (!fixes.length) return 'No backups recorded. boppi fix writes one entry per applied fix.';
   const restored = new Set(manifest.entries.filter(e => e.action === 'rollback').map(e => e.restoredFrom));
@@ -17,14 +18,14 @@ function renderList(manifest) {
     lines.push(`    original: ${entry.original}`);
     lines.push(`    backup:   ${entry.backup}${fs.existsSync(entry.backup) ? '' : '  (missing)'}`);
   }
-  lines.push('', 'Restore one with: boppi rollback --id <id> [--yes]');
+  lines.push('', `Restore one with: boppi rollback --id <id>${homeFlag(options)} [--yes]`);
   return lines.join('\n');
 }
 
 /** Exit code. rescan(options) is performScan and recordScan(scan) writes the history entry; both injected to keep this module off the entry point. */
 async function runRollback(options, { rescan, recordScan, summaryLine }) {
   const manifest = fix.readManifest(options.home);
-  if (!options.id) { process.stdout.write(renderList(manifest) + '\n'); return 0; }
+  if (!options.id) { process.stdout.write(renderList(manifest, options) + '\n'); return 0; }
   const entry = manifest.entries.find(e => e.id === options.id && fix.FIX_ACTIONS.includes(e.action));
   if (!entry) { process.stderr.write(`rollback: no fix with id ${JSON.stringify(options.id)} in ${fix.manifestPath(options.home)}; boppi rollback lists them.\n`); return 2; }
   if (!fs.existsSync(entry.backup)) { process.stderr.write(`rollback: backup ${entry.backup} is missing.\n`); return 2; }

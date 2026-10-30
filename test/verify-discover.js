@@ -156,7 +156,9 @@ const cacheFiles = home => fs.existsSync(discover.discoveryDir(home)) ? fs.readd
     const pidFile = path.join(root, 'boppi-grandchild.pid');
     const spawned = run(['--server', 'spawner', '--yes'], home, { env: { TMPDIR: root } });
     const grandchild = fs.existsSync(pidFile) ? Number(fs.readFileSync(pidFile, 'utf8')) : 0;
-    const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    // An exited process stays a zombie until its parent reaps it; in a container without an init, PID 1 never does.
+    const zombie = pid => { try { return fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ').pop().startsWith('Z'); } catch { return /^Z/.test((spawnSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' }).stdout || '').trim()); } };
+    const alive = pid => { try { process.kill(pid, 0); } catch { return false; } return !zombie(pid); };
     let gone = !alive(grandchild);
     for (let i = 0; i < 20 && !gone; i++) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100); gone = !alive(grandchild); }
     if (!gone) { try { process.kill(grandchild, 'SIGKILL'); } catch { /* raced */ } }

@@ -70,7 +70,7 @@ const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|history|push|demo|hook|settings|discover|watch|events|ask|connect|uninstall] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|overlay|history|push|demo|hook|settings|discover|watch|events|ask|connect|uninstall] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -117,8 +117,8 @@ function usage() {
     '  --name <name>       (pair) device name the workspace shows (default: this machine\'s hostname)',
     '  --once              (run) one poll cycle, then exit',
     '  --interval <s>      (run) seconds between polls (default 60, minimum 5)',
-    '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used',
-    '  --yes               (pair) replace an existing pairing on this machine (the old device stays live in its workspace until revoked; unpair first to revoke it)',
+    '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used.',
+    '                      (pair) replace an existing pairing on this machine (the old device stays live in its workspace until revoked; unpair first to revoke it)',
     '',
     'rollback options:',
     '  --id <id>           the manifest entry to restore (from boppi rollback with no --id)',
@@ -373,6 +373,12 @@ function historyEntry(scan, changes = null) {
   };
 }
 
+/** The newest 40 entries, owner-only like every other file under ~/.boppi (a rename also tightens a history file an older version left 0644). */
+function saveHistory(file, entries) {
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  fix.writeAtomic(file, JSON.stringify(entries.slice(-40), null, 2), 0o600);
+}
+
 function writeHistory(scan, file) {
   let entries = [];
   try {
@@ -394,8 +400,7 @@ function writeHistory(scan, file) {
   }) : null;
   entry.changes = changes;
   entries.push(entry);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
+  saveHistory(file, entries);
   return changes;
 }
 
@@ -422,10 +427,7 @@ function recordVerification(file, scan, result) {
     confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
     exposureKeys: scan.paths.map(pathItem => pathItem.exposureKey).sort(),
   });
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(entries.slice(-40), null, 2));
-  } catch (_) { /* read-only home */ }
+  try { saveHistory(file, entries); } catch (_) { /* read-only home */ }
 }
 
 /** Exposures confirmed eliminated by a verification and still absent from the most recent scan. */
@@ -515,7 +517,7 @@ function discover(options) {
     for (const entry of read.files) {
       if (entry.status === 'not_found') continue;
       filesRead.add(entry.path);
-      if (entry.status === 'found' && !client.primaryPath) client.primaryPath = entry.path;
+      if ((entry.status === 'found' || entry.serverCount) && !client.primaryPath) client.primaryPath = entry.path;
     }
     if (descriptor.pluginIndex && descriptor.pluginIndex.status !== 'not_found') {
       filesRead.add(descriptor.pluginIndex.path);
@@ -875,16 +877,16 @@ async function runFix(options) {
   if (lowered.length) process.stdout.write(`  lowers:  ${lowered.map(step => `${step.exposureKey.split(':')[0]} ${step.from} to ${step.to}`).join(', ')} (the path stays open through what remains)\n`);
   if (prediction && !prediction.predictedEliminated.length && !lowered.length) process.stdout.write('  note:    this edit is not predicted to close or lower any exposure path; it removes a capability without reducing modeled risk. boppi plan compares edits that do.\n');
   process.stdout.write(narrow ? `  loses:   nothing by name; the server keeps its tools and can reach only ${narrow.to}\n` : `  loses:   ${remediate.capabilityLossText(lost, server)}\n`);
-  process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)}\n`);
+  process.stdout.write(`  backup:  ${fix.backupPath(options.home, preview.file, before.startedAt)} (written only when the edit is applied)\n`);
   process.stdout.write(remediate.renderPreview(preview) + '\n');
 
   if (!options.yes) {
     if (!process.stdin.isTTY) {
-      process.stderr.write('fix: not applied. Pass --yes to apply without a terminal confirmation.\n');
+      process.stderr.write('fix: not applied; no backup or edit was written. Pass --yes to apply without a terminal confirmation.\n');
       return 2;
     }
     const approved = await fix.confirm('Apply this edit? [y/N] ');
-    if (!approved) { process.stdout.write('Not applied.\n'); return 2; }
+    if (!approved) { process.stdout.write('Not applied; no backup or edit was written.\n'); return 2; }
   }
 
   // Kept under ~/.boppi, owner-only, so a fix never leaves a file in the project that could be committed.
@@ -992,7 +994,7 @@ async function runPush(options) {
   const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   // Checked on the body exactly as it would be sent, before a dry run prints it or a request carries it.
   const unsafe = push.unsafeFields(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }));
-  if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe)}\n`); return 2; }
+  if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe, { fromFile: !!options.file })}\n`); return 2; }
   if (options.dryRun) {
     process.stdout.write(JSON.stringify(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }), null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
@@ -1058,6 +1060,12 @@ async function run(argv) {
     return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
   }
 
+  const stored = { [options.historyFile]: 'sanitized scan summaries for boppi history', [path.join(options.home, '.boppi', 'fingerprint-key')]: 'the per-machine key that fingerprints paths' };
+  const absent = Object.keys(stored).filter(file => !fs.existsSync(file));
+  const createdNotice = () => {
+    const created = absent.filter(file => fs.existsSync(file));
+    if (created.length && !options.quiet) process.stdout.write(`\nCreated on this machine only (owner-only): ${created.map(file => `${file} (${stored[file]})`).join(', ')}.${created.every(file => file.startsWith(path.join(options.home, '.boppi') + path.sep)) ? ` boppi uninstall removes ${created.length === 1 ? 'it' : 'them'}.` : ''}\n`);
+  };
   const scan = await performScan(options);
   if (scan.failed) {
     process.stderr.write(`Scan failed: ${scan.failed}\n`);
@@ -1092,6 +1100,7 @@ async function run(argv) {
       fs.writeFileSync(options.json, JSON.stringify(exportPayload(scan), null, 2));
       process.stdout.write(`\nJSON export written to ${options.json}\n`);
     }
+    createdNotice();
     if (report.policy && !report.policy.passed) return 1;
     return incomplete.length ? 4 : 0;
   }
@@ -1116,6 +1125,7 @@ async function run(argv) {
     fs.writeFileSync(options.sarif, JSON.stringify(sarif.renderSarif(portableReport, { automationId: options.config ? 'config' : 'scan' }), null, 2));
     process.stdout.write(`\nSARIF report written to ${options.sarif}\n`);
   }
+  createdNotice();
   const hint = terminal.pushHint(options);
   if (hint) process.stdout.write(`\n${hint}\n`);
 

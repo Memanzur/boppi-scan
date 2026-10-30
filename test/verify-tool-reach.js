@@ -73,6 +73,10 @@ function categories(reach) { return reach.map(r => r.category).sort(); }
   const inferred = inferCapabilities('home-files', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', home] }, { home });
   ok('inferCapabilities returns the scope and the reach', inferred.filesystemScope && inferred.filesystemScope.worst === 'home' && categories(inferred.reach).join() === 'access_credentials,modify_source_code,read_source_code');
   ok('the inference output carries no raw path outside filesystemPaths', !JSON.stringify({ ...inferred, filesystemPaths: [] }).includes(home));
+  for (const spelled of ['~', '~/']) {
+    const tilde = inferCapabilities('home-files', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', spelled] }, { home });
+    ok(`a directory argument of ${spelled} is the whole home directory`, tilde.filesystemScope && tilde.filesystemScope.worst === 'home');
+  }
   const plain = inferCapabilities('time', { command: 'uvx', args: ['mcp-server-time'] }, { home });
   ok('a server with no directory and no categorized tool has null scope and empty reach', plain.filesystemScope === null && plain.reach.length === 0);
 
@@ -101,7 +105,8 @@ function categories(reach) { return reach.map(r => r.category).sort(); }
   ok('the fetch server has no reach line', /fetch · Claude Desktop[^\n]*\n(?!      (file scope|reach through tools))/.test(scan.stdout));
   ok('EP-C fires from a real config: modify source reaches production', /\[EP-C/.test(scan.stdout) && /\(modify_source_code: [^)]*\) -> modify source code -> kubernetes \(access_production_system/.test(scan.stdout));
   ok('EP-F fires from a gmail server plus fetch', /\[EP-F/.test(scan.stdout) && scan.stdout.includes('gmail (read_email: email connector (gmail)) -> read email'));
-  ok('the terminal report never prints a directory argument', [repo, notes, ssh].every(dir => !scan.stdout.includes(dir)) && !scan.stdout.includes(`${home}\n`) && !scan.stdout.includes(`${home} `));
+  const report = scan.stdout.split(` --home ${home}`).join('').split(` --cwd ${home}`).join('');
+  ok('the terminal report never prints a directory argument (only the --home and --cwd it was given, in follow-up commands)', [repo, notes, ssh].every(dir => !report.includes(dir)) && !report.includes(`${home}\n`) && !report.includes(`${home} `));
 
   const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const permissions = exported.inventory.real.permissions;

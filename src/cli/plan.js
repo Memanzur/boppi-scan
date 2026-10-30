@@ -9,6 +9,7 @@ const { editFiles } = require('./configFiles');
 const { builtinResidualSentences } = require('./builtinTools');
 const { capabilityLossText } = require('./remediate');
 const narrowPlan = require('./narrowPlan');
+const { scopeFlags } = require('./shell');
 
 function pad(value, width) {
   const text = String(value ?? '');
@@ -67,7 +68,7 @@ function renderPlan(report, options = {}) {
   const plan = report.remediationPlan;
   if (plan && plan.steps.length) {
     out('');
-    out(`SMALLEST SET  ${plan.steps.length} removal${plan.steps.length === 1 ? '' : 's'} break ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposures${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}`);
+    out(`SMALLEST SET  ${plan.steps.length} removal${plan.steps.length === 1 ? ' breaks' : 's break'} ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposure${plan.targetedExposures === 1 ? '' : 's'}${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}`);
     plan.steps.forEach((step, i) => out(`  ${i + 1}. remove "${step.edit.server}" from ${step.client.label} (breaks ${step.breaksCount})`));
   }
   if (plan && !plan.breaksAll) for (const sentence of builtinResidualSentences(report.builtinResidual, plan.residualExposureKeys)) out(`  ${sentence}`);
@@ -75,6 +76,7 @@ function renderPlan(report, options = {}) {
   out('');
   out('EDITS  what to change, per file');
   const shown = rows.slice(0, options.limit || 5);
+  const scope = scopeFlags(options);
   for (const row of shown) {
     const files = editFiles(row.prediction, report.discovery);
     const server = report.inventory.mcpServers.find(s => s.id === row.prediction.serverId);
@@ -82,7 +84,7 @@ function renderPlan(report, options = {}) {
     for (const file of files.from) out(`    in ${file}: delete the key mcpServers.${JSON.stringify(row.prediction.edit.server)}`);
     for (const file of files.to) out(`    in ${file}: add the same entry under mcpServers`);
     if (server) out(`    entry (sanitized): ${server.command || server.endpoint || '?'}${server.arguments.length ? ' ' + server.arguments.join(' ') : ''}`);
-    out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
+    out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${scope}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
   }
   if (rows.length > shown.length) out(`  ${rows.length - shown.length} more candidate${rows.length - shown.length === 1 ? '' : 's'} not shown; --json keeps every prediction.`);
   const narrows = options.narrowCandidates || [];
@@ -92,11 +94,11 @@ function renderPlan(report, options = {}) {
     for (const candidate of narrows) {
       const { effect, command } = narrowPlan.suggestion(candidate, { withClient: true });
       out(`  narrow "${candidate.server}" on ${candidate.client.label}: ${effect}; the server keeps its tools`);
-      out(`    then: ${command}`);
+      out(`    then: ${command}${scope}`);
     }
   }
   out('');
-  out('Apply one edit, then boppi verify <export.json> grades the prediction against a fresh scan.');
+  out(`Apply one edit, then boppi verify <export.json>${scope} grades the prediction against a fresh scan.`);
   return lines.join('\n');
 }
 

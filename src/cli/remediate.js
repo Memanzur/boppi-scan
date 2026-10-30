@@ -13,6 +13,7 @@ const plugins = require('./discovery/claudePlugins');
 const verify = require('./verify');
 const { pathFingerprint, sanitizeArguments } = require('../engine/localMcpScanner');
 const narrowScope = require('./narrowScope');
+const { homeFlag } = require('./shell');
 
 const CONTEXT_LINES = 3;
 const HIDDEN = '[not shown]';
@@ -286,14 +287,14 @@ async function* runRemediation({ options, server, clientKey, scanBefore, expecte
 
   yield event('rescan', 'running', {});
   const scanAfter = await rescan(options);
-  if (scanAfter.failed) { yield fail('rescan', { reason: `${scanAfter.failed}. The edit stays applied; boppi rollback --id ${manifestEntry.id} restores the backup`, exitCode: scanAfter.exitCode || 3 }); return; }
+  if (scanAfter.failed) { yield fail('rescan', { reason: `${scanAfter.failed}. The edit stays applied; boppi rollback --id ${manifestEntry.id}${homeFlag(options)} restores the backup`, exitCode: scanAfter.exitCode || 3 }); return; }
   yield event('rescan', 'done', { pathsBefore: scanBefore.paths.length, pathsAfter: scanAfter.paths.length, scan: scanAfter });
 
   yield event('verify', 'running', {});
   const grade = prediction ? verify.resolveAll({ predictions: [prediction] }, scanAfter, { explicitConfig: !!options.config }) : null;
   yield event('verify', 'done', grade ? { status: grade.resolutions[0].status, result: grade } : { status: null, reason: 'no exposure path was modeled for this server, so there is no prediction to grade' });
 
-  yield event('result', 'done', { ...outcome({ scanBefore, scanAfter, clientKey, prediction }), backup, exportFile, manifestId: manifestEntry.id, grade: grade ? grade.resolutions[0].status : null });
+  yield event('result', 'done', { ...outcome({ scanBefore, scanAfter, clientKey, prediction }), backup, exportFile, manifestId: manifestEntry.id, undo: `boppi rollback --id ${manifestEntry.id}${homeFlag(options)}`, grade: grade ? grade.resolutions[0].status : null });
 }
 
 const STAGE_WIDTH = 8;
@@ -324,7 +325,7 @@ function renderResult(result, indent = '  ') {
   lines.push(`${indent}${'result'.padEnd(STAGE_WIDTH)} ${result.outcome.padEnd(7)} ${summary}; predicted ${predicted} eliminated, ${gone} of ${predicted} gone on rescan${result.eliminated.length > gone ? ` (+${result.eliminated.length - gone} not predicted)` : ''}`);
   for (const path of result.remaining) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'remains'.padEnd(7)} ${path.severity}${path.loweredFrom ? ` (lowered from ${path.loweredFrom})` : ''} ${path.label} [${path.pathId}]: ${path.reason}`);
   if (result.capabilitiesLost.length) lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'lost'.padEnd(7)} ${result.capabilitiesLost.join(', ')}`);
-  lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'undo'.padEnd(7)} boppi rollback --id ${result.manifestId}`);
+  lines.push(`${indent}${''.padEnd(STAGE_WIDTH)} ${'undo'.padEnd(7)} ${result.undo}`);
   return lines.join('\n');
 }
 

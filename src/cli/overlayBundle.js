@@ -31,6 +31,7 @@ const DIGEST = /^[0-9a-f]{64}$/;
 // Evaluation policies this receiver understands, with the result each one requires for `passed` (QA-013).
 const EVALUATION_POLICIES = Object.freeze({ 'held-out-exact-v1': { maxFalsePositive: 0, maxFalseNegative: 0 } });
 const MAX_CASES = 100000;
+const TAXONOMY_SIZE = normalizer.CATEGORIES.filter(category => category !== 'unknown').length;
 
 class BundleRefusal extends Error {
   constructor(reason, detail) { super(`refused (${reason}): ${detail}`); this.reason = reason; }
@@ -116,6 +117,10 @@ function checkEvaluation(evaluation) {
     insist(Number.isSafeInteger(evaluation[key]) && evaluation[key] >= 0 && evaluation[key] <= MAX_CASES, 'evaluation_invalid', `evaluation ${key} must be a whole number from 0 to ${MAX_CASES}`);
   }
   insist(evaluation.heldOutCases > 0, 'evaluation_invalid', 'evaluation has no held-out cases');
+  // Counters count capabilities per case, and a case names each taxonomy capability at most once (RT-08).
+  const perCase = evaluation.heldOutCases * TAXONOMY_SIZE;
+  insist(evaluation.truePositive + evaluation.falseNegative <= perCase && evaluation.truePositive + evaluation.falsePositive <= perCase, 'evaluation_invalid',
+    `evaluation counts more capabilities than ${evaluation.heldOutCases} held-out case${evaluation.heldOutCases === 1 ? '' : 's'} can hold (${TAXONOMY_SIZE} each)`);
   const meets = evaluation.truePositive > 0 && evaluation.falsePositive <= policy.maxFalsePositive && evaluation.falseNegative <= policy.maxFalseNegative;
   insist(evaluation.passed === true && meets, 'evaluation_invalid', evaluation.passed === true ? `evaluation claims a pass its counters do not meet under ${evaluation.policy}` : 'evaluation did not pass');
 }
@@ -158,6 +163,19 @@ function verifyBundle(text, trust, { now = Date.now(), engineVersion = ENGINE_VE
 // ── receiver state ──
 function stateDir(home) { return path.join(home, '.boppi', 'intelligence'); }
 function statePath(home) { return path.join(stateDir(home), 'state.json'); }
+// Spent rollback nonces, one per line, appended before state.json records them. state.json can be corrupted or
+// deleted and then reset; this file keeps every used receipt used through that (RT-07).
+function consumedPath(home) { return path.join(stateDir(home), 'consumed-rollbacks'); }
+function consumedNonces(home) {
+  try { return fs.readFileSync(consumedPath(home), 'utf8').split('\n').filter(line => NONCE.test(line)); } catch { return []; }
+}
+function recordConsumed(home, nonces) {
+  const known = new Set(consumedNonces(home));
+  const fresh = nonces.filter(nonce => !known.has(nonce));
+  if (!fresh.length) return;
+  fs.mkdirSync(stateDir(home), { recursive: true, mode: 0o700 });
+  fs.appendFileSync(consumedPath(home), fresh.map(nonce => `${nonce}\n`).join(''), { mode: 0o600 });
+}
 function storedPath(home, bundleDigest) { return path.join(stateDir(home), 'bundles', `${bundleDigest}.json`); }
 function storedDigests(home) {
   try { return fs.readdirSync(path.join(stateDir(home), 'bundles')).map(name => name.replace(/\.json$/, '')).filter(d => DIGEST.test(d)).slice(0, MAX_ACCEPTED); } catch { return []; }
@@ -224,7 +242,7 @@ function rollback(home, receiptText, trust, opts = {}) {
   checkSignature(body, receipt.signature, trust.reviewer, 'reviewer_signature');
   return withLock(home, () => {
     const state = readState(home);
-    insist(!state.consumedRollbacks.includes(body.nonce), 'rollback_replay', `receipt ${body.nonce} was already used`);
+    insist(!state.consumedRollbacks.includes(body.nonce) && !consumedNonces(home).includes(body.nonce), 'rollback_replay', `receipt ${body.nonce} was already used`);
     insist(state.selectedDigest && body.fromDigest === state.selectedDigest, 'rollback_binding', 'the receipt does not start from the selected bundle');
     // A stored file is not proof of acceptance: reset keeps files, so the target must have been accepted since then (QA-005).
     insist(typeof body.toDigest === 'string' && state.accepted.includes(body.toDigest), 'rollback_target_unverified', 'the target was not accepted by this receiver since its last reset');
@@ -235,6 +253,7 @@ function rollback(home, receiptText, trust, opts = {}) {
     insist(target.digest === body.toDigest, 'rollback_target_unverified', 'the stored target does not match its digest');
     insist(newer(state.selectedVersion, target.version), 'rollback_not_earlier', `target ${target.version} is not earlier than ${state.selectedVersion}`);
     const next = { ...state, selectedVersion: target.version, selectedDigest: target.digest, consumedRollbacks: [...state.consumedRollbacks, body.nonce] };
+    recordConsumed(home, next.consumedRollbacks);
     writeState(home, next);
     return { target, state: next };
   });
@@ -243,9 +262,14 @@ function rollback(home, receiptText, trust, opts = {}) {
 /** Start over: no high-water mark is kept. Stored bundles stay on disk but are no longer selectable by rollback until accepted again; used receipts stay used. */
 function reset(home) {
   return withLock(home, () => {
-    // Used rollback receipts stay used: a reset must not make an old receipt valid again. Unreadable state keeps none.
-    let consumedRollbacks = [];
-    try { consumedRollbacks = readState(home).consumedRollbacks; } catch { consumedRollbacks = []; }
+    // Used rollback receipts stay used: a reset must not make an old receipt valid again, even when state.json is unreadable or gone.
+    let fromState = [];
+    try { fromState = readState(home).consumedRollbacks; } catch {
+      // Salvage whatever receipt nonces an unreadable state file still holds; counting one too many as used is safe.
+      try { fromState = fs.readFileSync(statePath(home), 'utf8').match(new RegExp(NONCE.source.slice(1, -1), 'g')) || []; } catch { fromState = []; }
+    }
+    recordConsumed(home, fromState);
+    const consumedRollbacks = [...new Set([...consumedNonces(home), ...fromState])];
     const next = { ...EMPTY, consumedRollbacks, accepted: [], resetAt: new Date().toISOString() };
     writeState(home, next);
     return next;

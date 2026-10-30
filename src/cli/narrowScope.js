@@ -15,9 +15,9 @@ const evidenceIdentity = require('./evidenceIdentity');
 const { pathFingerprint } = require('../engine/localMcpScanner');
 
 const BROAD = new Set(['system', 'home', 'secrets']);
-const DIRECTORY_ARG = /^(\/|~\/|[A-Za-z]:[\\/])/;
+const DIRECTORY_ARG = /^(\/|~\/|~$|[A-Za-z]:[\\/])/;
 
-const expandHome = (value, home) => (value.startsWith('~/') ? path.join(home, value.slice(2)) : value);
+const expandHome = (value, home) => (value === '~' || value.startsWith('~/') ? path.join(home, value.slice(2)) : value);
 const isDirectory = candidate => { try { return fs.statSync(candidate).isDirectory(); } catch (_) { return false; } };
 const real = candidate => { try { return fs.realpathSync(candidate); } catch (_) { return null; } };
 

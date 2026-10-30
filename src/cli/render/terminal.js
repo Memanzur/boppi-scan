@@ -9,6 +9,7 @@ const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
 const narrowPlan = require('../narrowPlan');
 const { findingBasis } = require('../findingBasis');
+const { scopeFlags } = require('../shell');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -132,7 +133,7 @@ function disruptionSentence(prediction) {
     builtin.length ? `${builtin.join(', ')} through its own built-in tools` : '',
   ].filter(Boolean).join(' and ');
   if (!d.lost.length) return `no known unique capability identified${keeps ? ` (it keeps ${keeps})` : ''}; unmodeled functionality may still be lost`;
-  return `the agent loses ${d.lost.join(', ')}${keeps ? ` and keeps ${keeps}` : ''}`;
+  return `the agent loses ${d.lost.join(', ')} (modeled capabilities; other functionality may be lost)${keeps ? ` and keeps ${keeps}` : ''}`;
 }
 
 const GATE_WORD = Object.freeze({ unprompted: 'no prompt', prompted: 'prompts', denied: 'denied', unknown: 'not checked' });
@@ -181,8 +182,8 @@ function renderReport(report, options = {}) {
     for (const file of client.files) {
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
       const status = file.status === 'found'
-        ? (file.kind === 'settings' ? settingsStatus(file) : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
-        : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
+        ? (file.kind === 'settings' ? settingsStatus(file) : file.kind === 'plugin-index' ? `${file.installs} installed plugin${file.installs === 1 ? '' : 's'}` : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
+        : file.status === 'unreadable' ? (file.skipped ? `${file.serverCount} server${file.serverCount === 1 ? '' : 's'} read; incomplete (${file.reason})` : `could not be scanned (${file.reason || 'invalid JSON'})`) : 'not found';
       out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
     if (client.scanError) out(s.red('  ! '), pad(client.label, labelWidth), s.red(`analysis failed (${client.scanError}) · this client is missing from every section below`));
@@ -333,10 +334,10 @@ function renderReport(report, options = {}) {
     out('    ', s.dim('breaks '), s.bold(brk.join(' · ')), s.dim(`  (leaves ${total - top.predictedEliminated.length})`));
     const cost = disruptionSentence(top);
     if (cost) out('    ', s.dim('cost: '), cost);
-    out('    ', s.dim('compare every candidate fix with '), s.bold('boppi plan'), s.dim(', apply one with '), s.bold(`boppi fix --server ${JSON.stringify(top.edit.server)}`));
+    out('    ', s.dim('compare every candidate fix with '), s.bold(`boppi plan${scopeFlags(options)}`), s.dim(', apply one with '), s.bold(`boppi fix --server ${JSON.stringify(top.edit.server)}${scopeFlags(options)}`));
     for (const candidate of options.narrowCandidates || []) {
       const { effect, command: narrowCommand } = narrowPlan.suggestion(candidate);
-      out('    ', s.dim(`or keep ${JSON.stringify(candidate.server)} and limit its folder access to this project (${effect}): `), s.bold(narrowCommand));
+      out('    ', s.dim(`or keep ${JSON.stringify(candidate.server)} and limit its folder access to this project (${effect}): `), s.bold(`${narrowCommand}${scopeFlags(options)}`));
     }
     const plan = report.remediationPlan;
     if (plan && plan.steps.length > 1) {
@@ -379,9 +380,9 @@ function renderReport(report, options = {}) {
   out('');
   out(s.bold('NEXT STEPS'));
   if (report.paths.length && options.json) {
-    out('  ', `1. Apply the fix above, then run ${s.bold(`boppi verify ${options.json}`)} to confirm the paths are gone.`);
+    out('  ', `1. Apply the fix above, then run ${s.bold(`boppi verify ${options.json}${scopeFlags(options)}`)} to confirm the paths are gone.`);
   } else if (report.paths.length) {
-    out('  ', `1. Rerun with ${s.bold('--json boppi-scan.json')} to save these predictions, apply the fix, then ${s.bold('boppi verify boppi-scan.json')} confirms it.`);
+    out('  ', `1. Rerun with ${s.bold('--json boppi-scan.json')} to save these predictions, apply the fix, then ${s.bold(`boppi verify boppi-scan.json${scopeFlags(options)}`)} confirms it.`);
   } else {
     out('  ', `1. Rescan after you add or change an MCP server; ${s.bold('boppi history')} shows what changed between runs.`);
   }

@@ -146,12 +146,15 @@ function runCli(args, home) {
   ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/')) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
   ok('the Claude Desktop config is listed by its ~ path', exported.discovery.filesRead.includes('~/Library/Application Support/Claude/claude_desktop_config.json'));
   ok('the export never contains the scanned home directory', !serialized.includes(home));
-  // Check exact JSON string values. A substring check falsely fails on CI
-  // where the username is "runner" and the fixture server is "code-runner".
-  const usernameJson = JSON.stringify(os.userInfo().username);
-  const leak = [os.homedir(), usernameJson].find(needle => serialized.includes(needle));
-  if (leak) console.log(`  leaked value ${JSON.stringify(leak)} near: ${serialized.slice(Math.max(0, serialized.indexOf(leak) - 120), serialized.indexOf(leak) + leak.length + 40)}`);
-  ok('the export never contains the real home directory or username', !leak);
+  // Match the username as a whole string value or path segment, never inside a word or an object key:
+  // CI's "runner" is inside the fixture server "code-runner", and the container user "node" is an export key.
+  const username = os.userInfo().username;
+  const segment = new RegExp(`(^|[\\\\/])${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([\\\\/]|$)`);
+  const values = [];
+  (function walk(value) { if (typeof value === 'string') values.push(value); else if (value && typeof value === 'object') Object.values(value).forEach(walk); })(exported);
+  const leak = values.find(value => value.includes(os.homedir()) || segment.test(value));
+  if (leak !== undefined) console.log(`  leaked value ${JSON.stringify(leak)}`);
+  ok('the export never contains the real home directory or username', leak === undefined);
   ok('discovery block has no mergedServers (raw config) payload', exported.discovery.clients.every(c => !('mergedServers' in c)));
 
   section('Deterministic identity across runs');
@@ -207,6 +210,10 @@ function runCli(args, home) {
   const historyAfterSecond = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
   ok('history withholds resolved counts across different homes', historyAfterSecond.length === 2 && historyAfterSecond[1].changes.withheld && historyAfterSecond[1].changes.resolvedPaths === undefined);
   const historyView = runCli(['history', '--history-file', historyFile], changedHome);
+  ok('the history file is owner-only', (fs.statSync(historyFile).mode & 0o777) === 0o600);
+  fs.chmodSync(historyFile, 0o644);
+  runCli(['scan', '--history-file', historyFile, '--quiet'], changedHome);
+  ok('a history file an older version left 0644 is tightened on the next write', (fs.statSync(historyFile).mode & 0o777) === 0o600);
   ok('history subcommand shows return value without rescanning', historyView.code === 0 && historyView.stdout.includes('LOCAL SCAN HISTORY') && historyView.stdout.includes('comparison withheld'));
 
   section('Clean result remains informative');
@@ -215,6 +222,13 @@ function runCli(args, home) {
   fs.writeFileSync(path.join(cleanHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'] } } }));
   const clean = runCli(['scan', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
   ok('clean scan exits successfully', clean.code === 0);
+  const cleanKey = path.join(cleanHome, '.boppi', 'fingerprint-key');
+  ok('a first scan says which local files it created and that they are owner-only', clean.stdout.includes('Created on this machine only (owner-only)') && clean.stdout.includes(path.join(root, 'clean-history.json')) && clean.stdout.includes(cleanKey));
+  const cleanAgain = runCli(['scan', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
+  ok('a later scan that creates nothing says nothing about it', cleanAgain.code === 0 && !cleanAgain.stdout.includes('Created on this machine'));
+  const help = runCli(['--help'], cleanHome);
+  const connectHelp = help.stdout.split('connect options:')[1].split('\n\n')[0];
+  ok('usage names overlay and connect help lists --yes once', /^Usage: boppi \[[^\]]*\|overlay\|/.test(help.stdout) && connectHelp.split('\n').filter(line => line.trimStart().startsWith('--yes')).length === 1);
   ok('clean scan still shows inventory and examined file', clean.stdout.includes('MCP SERVERS (1)') && clean.stdout.includes('claude_desktop_config.json'));
   ok('clean scan explains what it could not establish', clean.stdout.includes('runtime behavior') && clean.stdout.includes('not proof that the environment is safe'));
 

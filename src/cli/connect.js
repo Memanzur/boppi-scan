@@ -30,6 +30,7 @@ const remediate = require('./remediate');
 const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
 const updateNotice = require('./updateNotice');
+const { homeFlag } = require('./shell');
 const { openRegular, acquireLock } = fix;
 
 const SCHEMA_VERSION = 1;
@@ -511,7 +512,7 @@ class Cycle {
     const reported = await this.post('applied', body);
     if (applied.ok) this.out(b.action === 'rollback'
       ? `    applied locally: restored the verified backup ${applied.backup}; manifest ${applied.backupManifestId}`
-      : `    applied locally: backup ${applied.backup}; manifest ${applied.backupManifestId}; undo with boppi rollback --id ${applied.backupManifestId}`);
+      : `    applied locally: backup ${applied.backup}; manifest ${applied.backupManifestId}; undo with boppi rollback --id ${applied.backupManifestId}${homeFlag(this.options)}`);
     else this.out(`    not written (${applied.failureCode}); the file is as it was${applied.failureCode === 'hash_changed' ? `. The file changed after the preview you approved${b.client === 'claude-code' ? ' (Claude Code rewrites ~/.claude.json while it runs; quit it first)' : ''}. Run boppi connect run --once to send a fresh offer, then propose and approve again` : ''}`);
     if (reported.networkError) { this.err(`    applied: ${describeFailure('applied', reported)}; the report is kept and sent on the next run`); return; }
     delete this.claims.pending[proposal.id];

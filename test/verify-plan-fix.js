@@ -98,6 +98,8 @@ function runCli(args, home, extra = {}) {
   const noYes = runCli(['fix', '--server', 'fetch'], home, { stdio: ['pipe', 'pipe', 'pipe'] });
   ok('fix without --yes and without a terminal exits 2 and changes nothing', noYes.code === 2 && noYes.stderr.includes('--yes') && fs.readFileSync(desktopConfig, 'utf8') === original);
   ok('fix previews the file, what breaks, and what the agent loses', noYes.stdout.includes(`file:    ${desktopConfig}`) && /breaks:\s+\d+ of \d+/.test(noYes.stdout) && noYes.stdout.includes('loses:'));
+  const promised = (noYes.stdout.match(/backup:\s+(\S+\.bak) \(written only when the edit is applied\)/) || [])[1];
+  ok('the unapplied preview says its backup path is written only on apply, and no backup exists', !!promised && !fs.existsSync(promised) && noYes.stderr.includes('no backup or edit was written'), noYes.stdout.split('\n').find(l => l.includes('backup:')));
   const unknown = runCli(['fix', '--server', 'nope', '--yes'], home);
   ok('fix with an unknown server exits 2', unknown.code === 2 && unknown.stderr.includes('no scanned'));
   const ambiguous = runCli(['fix', '--server', 'fetch', '--client', 'beos', '--yes'], home);

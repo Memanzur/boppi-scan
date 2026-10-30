@@ -86,6 +86,28 @@ section('QA-005: a reset epoch decides what rollback may select');
   ok('a malformed accepted list is state_corrupt', reason(() => bundles.readState(home)) === 'state_corrupt');
 }
 
+for (const [label, damage] of [['corrupt', file => fs.writeFileSync(file, '{ not json')], ['missing', file => fs.unlinkSync(file)]]) {
+  const home = path.join(root, `replay-${label}`);
+  const a = bundles.accept(home, v1, trust), b = bundles.accept(home, v2, trust);
+  const used = receipt(b.verified.digest, a.verified.digest);
+  bundles.rollback(home, used, trust);
+  damage(bundles.statePath(home));
+  bundles.reset(home);
+  bundles.accept(home, v1, trust); bundles.accept(home, v2, trust);
+  ok(`RT-07: a receipt used before state.json went ${label} is still refused after the reset`, reason(() => bundles.rollback(home, used, trust)) === 'rollback_replay');
+  ok(`RT-07: the reset state after a ${label} state.json keeps the used receipt`, bundles.readState(home).consumedRollbacks.includes(JSON.parse(used).body.nonce));
+}
+{
+  const home = path.join(root, 'replay-salvage');
+  const a = bundles.accept(home, v1, trust), b = bundles.accept(home, v2, trust);
+  const nonce = crypto.randomUUID();
+  const state = JSON.parse(fs.readFileSync(bundles.statePath(home), 'utf8'));
+  fs.writeFileSync(bundles.statePath(home), JSON.stringify({ ...state, consumedRollbacks: [nonce] }).slice(0, -1));
+  bundles.reset(home);
+  bundles.accept(home, v1, trust); bundles.accept(home, v2, trust);
+  ok('RT-07: a nonce an older version recorded only in a now-corrupt state.json still counts as used', reason(() => bundles.rollback(home, receipt(b.verified.digest, a.verified.digest, nonce), trust)) === 'rollback_replay');
+}
+
 section('QA-013: evaluation evidence is checked, signatures or not');
 for (const [label, edit] of [
   ['policy null', { policy: null }],
@@ -100,9 +122,15 @@ for (const [label, edit] of [
   ['passed with no true positive', { truePositive: 0 }],
   ['passed false', { passed: false }],
   ['the full Codex example', { policy: null, heldOutCases: -1, truePositive: 'unknown', falsePositive: 999, falseNegative: 999 }],
+  ['RT-08: 50000 true positives from 1 held-out case', { heldOutCases: 1, truePositive: 50000 }],
+  ['RT-08: more predicted capabilities than the cases can hold', { heldOutCases: 2, truePositive: 2 * require('../src/engine/permissionNormalizer').CATEGORIES.filter(c => c !== 'unknown').length + 1 }],
 ]) {
   ok(`${label}: refused evaluation_invalid`, reason(() => bundles.verifyBundle(makeBundle('3.0.0', { ...EVALUATION, ...edit }), trust)) === 'evaluation_invalid');
 }
+const { CATEGORIES } = require('../src/engine/permissionNormalizer');
+const perCase = CATEGORIES.filter(c => c !== 'unknown').length;
+ok('RT-08 control: one case naming every taxonomy capability is accepted', reason(() => bundles.verifyBundle(makeBundle('3.0.0', { ...EVALUATION, heldOutCases: 1, truePositive: perCase }), trust)) === null);
+ok('RT-08 control: true positives on a few cases beside true negatives are accepted (the counters cannot tell them apart)', reason(() => bundles.verifyBundle(makeBundle('3.0.0', { ...EVALUATION, heldOutCases: 10, truePositive: 3 }), trust)) === null);
 ok('control: a valid signed shadow bundle is still accepted', bundles.verifyBundle(makeBundle('3.0.0'), trust).claims.every(c => c.status === 'experimental'));
 
 fs.rmSync(root, { recursive: true, force: true });
