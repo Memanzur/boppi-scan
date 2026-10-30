@@ -155,7 +155,7 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   const state = inventory(options.home);
   if (state.refused) { process.stderr.write(`uninstall: ${state.refused}\n`); return 2; }
   const hooks = findHookEntries(options.home, options.cwd);
-  const pairing = connect.loadPairing(options.home);
+  const pairing = connect.loadPairing(options.home, { allowExposed: true });
   process.stdout.write(renderPlan(state, hooks, pairing, options) + '\n');
   if (!state.exists) return 0;
   if (options.dryRun) { process.stdout.write('Dry run: nothing removed.\n'); return 0; }

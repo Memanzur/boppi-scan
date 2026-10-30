@@ -16,7 +16,7 @@ const models = require('../../engine/models');
 const scanner = require('../../engine/localMcpScanner');
 const session = require('./session');
 const { ALLOWED_METHODS } = require('./recorder');
-const { openNoFollow } = require('../platform');
+const { openNoFollow, ownerOnlyNote } = require('../platform');
 
 const CACHE_SCHEMA_VERSION = 1;
 const MAX_AGE_DAYS = 7;
@@ -225,7 +225,7 @@ function summaryLines(result, serverName, cacheFile) {
     if (result.initialize.serverInfo && result.initialize.serverInfo.name) lines.push(`  server:   ${result.initialize.serverInfo.name}${result.initialize.serverInfo.version ? ` ${result.initialize.serverInfo.version}` : ''} (protocol ${result.initialize.protocolVersion})`);
     if (result.listChangedDuringSession) lines.push('  note:     the server announced a changed tool list during the session; the list was fetched again');
     lines.push('  grade:    advertised, not verified. A tool list says what the server offers, not what it was seen to do; the next scan labels these tools as advertised.');
-    lines.push(`  stored:   ${cacheFile} (owner-only), valid for ${MAX_AGE_DAYS} days or until the entry changes; boppi discover --forget --server "${serverName}" removes it`);
+    lines.push(`  stored:   ${cacheFile} (${ownerOnlyNote()}), valid for ${MAX_AGE_DAYS} days or until the entry changes; boppi discover --forget --server "${serverName}" removes it`);
   } else if (result.outcome === 'rejected') {
     lines.push(`REJECTED    "${serverName}" did not complete discovery: ${result.reason}`);
     lines.push('  nothing was stored; the scan keeps treating this server by its configuration alone');

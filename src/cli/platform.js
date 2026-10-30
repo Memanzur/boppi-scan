@@ -109,9 +109,9 @@ function expandHomeArg(value, home) {
   return value;
 }
 
-/** Owner-only, as it holds on this platform. Windows inherits the profile folder's ACL; Boppi does not narrow it. */
+/** How a file Boppi writes for the user alone is protected here. Windows has no file modes; the file inherits its folder's ACL and Boppi does not narrow it. */
 function ownerOnlyNote(platform = process.platform) {
-  return platform === 'win32' ? 'in your user profile; Windows permissions are inherited, Boppi does not narrow them' : 'owner-only';
+  return platform === 'win32' ? 'protected only by your Windows profile folder\'s permissions; Boppi does not narrow them' : 'owner-only';
 }
 
 /** True inside Windows Subsystem for Linux. */

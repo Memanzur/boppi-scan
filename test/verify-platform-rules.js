@@ -16,7 +16,9 @@ const claudeCode = require('../src/cli/discovery/claudeCode');
 const remediate = require('../src/cli/remediate');
 const { scopeOf } = require('../src/cli/toolCategories');
 const narrowScope = require('../src/cli/narrowScope');
-const { symlinkOrSkip } = require('./helpers/platform');
+const { WINDOWS, skip, symlinkOrSkip } = require('./helpers/platform');
+const connect = require('../src/cli/connect');
+const { spawnSync } = require('child_process');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
@@ -156,6 +158,28 @@ try {
     ok('a directory is refused', attempt(dir, { nofollow: 0 }) === 'ENOTREG');
     ok('a new file is created', attempt(path.join(dir, 'new.txt'), { nofollow: 0 }) === 'opened' && fs.existsSync(path.join(dir, 'new.txt')));
     ok('an existing regular file is opened', attempt(victim, { nofollow: 0 }) === 'opened');
+  }
+
+  section('The connector credential: owner-only where that holds, said plainly where it does not');
+  {
+    ok('Windows wording never claims owner-only', !/owner-only/.test(platform.ownerOnlyNote('win32')) && /Windows/.test(platform.ownerOnlyNote('win32')));
+    ok('POSIX wording says owner-only', platform.ownerOnlyNote('linux') === 'owner-only');
+    const home = path.join(root, 'pair-home');
+    const file = connect.pairingFile(home);
+    write(file, JSON.stringify({ url: 'https://w.example', deviceId: 'dev-1', credential: 'bpd_secret_value_never_printed' }));
+    fs.chmodSync(file, 0o600);
+    ok('a 0600 pairing loads', connect.loadPairing(home, { platform: 'linux' }).deviceId === 'dev-1');
+    if (WINDOWS) skip('a group- or world-readable pairing is refused on POSIX', 'Windows has no file modes');
+    else {
+      fs.chmodSync(file, 0o644);
+      let refusal = null;
+      try { connect.loadPairing(home, { platform: 'linux' }); } catch (error) { refusal = error.message; }
+      ok('a world-readable pairing is refused with the fix to run', refusal && refusal.includes('mode 644') && refusal.includes('chmod 600') && !refusal.includes('bpd_secret'), refusal);
+      ok('uninstall can still read it to delete it', connect.loadPairing(home, { platform: 'linux', allowExposed: true }).deviceId === 'dev-1');
+      ok('the Windows rules do not read POSIX modes', connect.loadPairing(home, { platform: 'win32' }).deviceId === 'dev-1');
+      const status = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'boppi.js'), 'connect', 'status', '--home', home], { encoding: 'utf8' });
+      ok('boppi connect stops with exit 2 and says why', status.status === 2 && /other accounts on this machine can read it/.test(status.stderr), status.stderr);
+    }
   }
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
