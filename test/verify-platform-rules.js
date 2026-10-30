@@ -116,6 +116,29 @@ try {
     ok('narrowing to a sibling that only shares a name prefix is refused', /not inside/.test(narrowScope.targetProblem({ from: '~/notes', to: path.join(home, 'notes-old'), home }) || ''));
     ok('narrowing to a folder inside is accepted', narrowScope.targetProblem({ from: '~\\notes', to: path.join(home, 'notes', 'inbox'), home }) === null);
   }
+
+  section('Replace by rename survives a briefly locked file on Windows');
+  {
+    const flaky = (failures, code = 'EPERM') => {
+      let calls = 0;
+      return { rename: () => { calls++; if (calls <= failures) throw Object.assign(new Error(code), { code }); }, calls: () => calls };
+    };
+    const throws = fn => { try { fn(); return null; } catch (error) { return error; } };
+    const twice = flaky(2);
+    ok('win32 retries EPERM until the rename goes through', !throws(() => platform.renameRetry('a', 'b', { platform: 'win32', rename: twice.rename })) && twice.calls() === 3);
+    for (const code of ['EACCES', 'EBUSY']) {
+      const once = flaky(1, code);
+      ok(`win32 retries ${code}`, !throws(() => platform.renameRetry('a', 'b', { platform: 'win32', rename: once.rename })) && once.calls() === 2);
+    }
+    const posix = flaky(1);
+    ok('POSIX does not retry', throws(() => platform.renameRetry('a', 'b', { platform: 'linux', rename: posix.rename })) && posix.calls() === 1);
+    const missing = flaky(1, 'ENOENT');
+    ok('win32 does not retry an error a wait cannot fix', throws(() => platform.renameRetry('a', 'b', { platform: 'win32', rename: missing.rename })) && missing.calls() === 1);
+    const stuck = flaky(Infinity);
+    const started = Date.now();
+    const gaveUp = throws(() => platform.renameRetry('a', 'b', { platform: 'win32', rename: stuck.rename }));
+    ok(`win32 gives up after ${platform.RENAME_RETRY.attempts} attempts and rethrows`, gaveUp && gaveUp.code === 'EPERM' && stuck.calls() === platform.RENAME_RETRY.attempts, `${stuck.calls()} calls, ${Date.now() - started} ms`);
+  }
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }

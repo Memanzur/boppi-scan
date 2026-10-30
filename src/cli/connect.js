@@ -28,7 +28,7 @@ const fix = require('./fix');
 const remediate = require('./remediate');
 const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
-const { parseJson } = require('./platform');
+const { parseJson, renameRetry } = require('./platform');
 const updateNotice = require('./updateNotice');
 const { openRegular, acquireLock } = fix;
 
@@ -67,7 +67,7 @@ function writeOwnerOnly(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(temp, file);
+  renameRetry(temp, file);
 }
 
 function loadPairing(home) {

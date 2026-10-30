@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { validateConfigShape } = require('./configFiles');
-const { comparable, parseJson, projectKey } = require('./platform');
+const { comparable, parseJson, projectKey, renameRetry } = require('./platform');
 
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const MANIFEST_VERSION = 1;
@@ -191,7 +191,7 @@ function writeBackup({ file, home, now, bytes }) {
 function writeAtomic(file, data, mode = 0o600) {
   const temp = `${file}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
   fs.writeFileSync(temp, data, { mode, flag: 'wx' });
-  try { fs.renameSync(temp, file); } catch (error) { fs.rmSync(temp, { force: true }); throw error; }
+  try { renameRetry(temp, file); } catch (error) { fs.rmSync(temp, { force: true }); throw error; }
 }
 
 function manifestPath(home) { return path.join(backupDir(home), 'index.json'); }
@@ -214,7 +214,7 @@ function appendManifestEntry(home, entry) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(temp, file);
+  renameRetry(temp, file);
   return full;
 }
 
