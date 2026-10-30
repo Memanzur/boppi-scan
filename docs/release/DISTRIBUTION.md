@@ -14,7 +14,7 @@ files is a founder decision (see Blocked steps).
 | --- | --- |
 | `boppi-<v>.tgz` | `npm pack` output, the same package npm would publish |
 | `boppi-<v>-darwin-arm64` | standalone executable, ad-hoc codesigned |
-| `boppi-<v>-darwin-x64` | standalone executable, ad-hoc codesigned (see Known problems) |
+| `boppi-<v>-darwin-x64` | standalone executable, ad-hoc codesigned (run under Rosetta 2 only; see Known problems) |
 | `boppi-<v>-linux-x64` | standalone executable |
 | `boppi-<v>-win-x64.exe` | standalone executable (built here, not run here) |
 | `install.sh` | POSIX installer with the version and the release public key stamped in |
@@ -24,7 +24,7 @@ files is a founder decision (see Blocked steps).
 | `release.json` | manifest, schema `boppi-agent-release-v1` (not in `SHA256SUMS`; it records `SHA256SUMS`' own hash) |
 
 The executables are Node single executable applications on the official
-Node 25.8.0 runtime. Every file the npm package ships under `bin/` and `src/`,
+Node 26.13.0 runtime (the 26.x LTS line). Every file the npm package ships under `bin/` and `src/`,
 plus `package.json`, is embedded as an asset; `scripts/release/sea-main.js`
 loads those CommonJS files from the assets and runs `bin/boppi.js`, the same
 entry as `npx boppi`. Report scripts, styles, the logo and demo fixtures are
@@ -48,7 +48,7 @@ node scripts/release/build.mjs --key /path/outside/the/repo/boppi-release-test -
   `--ignore-scripts` and must list only `bin/`, `src/`, `README.md`,
   `LICENSE` and `package.json` (also `npm run release:check-pack`).
 - Node runtimes are pinned in `scripts/release/node-runtimes.json` by archive
-  sha256, taken from nodejs.org's `SHASUMS256.txt` for v25.8.0. An archive is
+  sha256, taken from nodejs.org's `SHASUMS256.txt` for v26.13.0. An archive is
   downloaded into `~/.cache/boppi-release/node-runtimes/` only when missing, and
   any archive whose sha256 differs is refused. Only the `node` binary is
   extracted, into a temporary folder, for every build. `release.json` records
@@ -176,34 +176,30 @@ Executed vs built:
 | Target | Status |
 | --- | --- |
 | darwin-arm64 | executed: install, version, scan, connect, push |
-| linux-x64 | executed in Docker (`--platform linux/amd64`, emulated): `--version` and `scan` work once `libatomic1` is installed; without it the loader stops (`libatomic.so.1` missing). The official Node 25 Linux build needs that library. |
-| darwin-x64 | built, crashes under Rosetta 2 (SIGSEGV in a dyld initializer). See Known problems. |
+| linux-x64 | executed in Docker (`--platform linux/amd64`, emulated, image `node:22`): `--version` and `scan` work where `libatomic1` is installed; on `node:22-bookworm-slim`, which lacks it, the loader stops (`libatomic.so.1` missing) and `install.sh` removes the program again with a libatomic1 hint. The official Node Linux build needs that library. |
+| darwin-x64 | Node 26.13.0 build executed under Rosetta 2 on Apple silicon: `--version` and `scan --html` work. The Node 25.8.0 build crashed there (SIGSEGV in a dyld initializer); see Known problems. Not yet run on an Intel Mac. |
 | win-x64 | built only; cannot run on this Mac |
 
 ## Known problems
 
-- **darwin-x64 does not start under Rosetta 2.** A one-line program built
-  with `--build-sea` on the official darwin-x64 Node 25.8.0 crashes the same
-  way, whether the arm64 or the x64 Node builds it and with or without a
-  signature; the unmodified x64 `node` runs fine. So the cause is Node's
-  Mach-O injection for x86_64 (or Rosetta's handling of it), not Boppi's code.
-  Not yet tried on a real Intel Mac. Do not host this file until it runs on
-  Intel hardware. If it is hosted and crashes, `install.sh` notices at the
-  `--version` step and removes it again.
+- **darwin-x64 has run only under Rosetta 2.** On Node 25.8.0, every
+  `--build-sea` executable for darwin-x64 (even a one-line program) crashed
+  under Rosetta 2. Re-pinned to Node 26.13.0, the same one-line program and the
+  real Agent both run there (`--version`, `scan --html`). It has not run on a
+  real Intel Mac. If it fails there, `install.sh` notices at the `--version`
+  step and removes it again, and the Cloud can withhold the download (its
+  per-target offer table, `lib/agent-release.ts`) and point Intel Macs at npx.
 - **Linux needs libatomic1.** Minimal images (Debian slim, some containers)
   lack it. Install it with the system package manager, or use `npx boppi`.
   Alpine (musl) is not supported by the official Node build.
-- **Node 25 is an odd-numbered Current line, not LTS, and by Node's published
-  schedule its support ended around June 2026 (odd lines get about eight
-  months).** That means no further security fixes for the runtime inside these
-  executables. It was chosen because it was the runtime already verified here
-  and its `--build-sea` builds every target from one Mac. Before hosting
-  anything, re-pin to a supported LTS line (Node 24, or 26 once it enters LTS)
-  and re-run `--check-reproducible`; if that line's `--build-sea` cannot build
-  other platforms, build each target on its own OS. Every Node security
-  release needs a new Agent build either way, because the runtime is inside
-  the executable. Check the current schedule at
-  https://github.com/nodejs/release#release-schedule before deciding.
+- **The runtime is Node 26.13.0, the 26.x LTS line (Lithium), pinned
+  2026-10-30.** The first builds used Node 25.8.0, an odd-numbered Current line
+  past its support window. Node 26's `--build-sea` still builds every target
+  from one Mac, and `--check-reproducible` passes on it. Every Node security
+  release needs a new Agent build, because the runtime is inside the
+  executable: update `node-runtimes.json` from that release's
+  `SHASUMS256.txt`, rebuild, re-sign, and re-sync the Cloud manifest. Check
+  https://github.com/nodejs/release#release-schedule for the line's end of life.
 
 ## Blocked steps (need the founder)
 

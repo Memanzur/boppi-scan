@@ -184,6 +184,9 @@ mv -f "$receipt.$$.tmp" "$receipt"
 if ! got=$("$target" --version 2>&1) || [ "$got" != "$BOPPI_VERSION" ]; then
   rm -f "$target" "$receipt"
   printf '%s' "$created" | while IFS= read -r c; do if [ -n "$c" ]; then rmdir "$c" 2>/dev/null || true; fi; done
+  case $got in
+    *libatomic*) fail "the installed program needs the libatomic1 system library, which this machine lacks; it was removed again. Install libatomic1 with your package manager and run install.sh again, or run: npx boppi@$BOPPI_VERSION" ;;
+  esac
   fail "the installed program did not report version $BOPPI_VERSION (got: $got); it was removed again."
 fi
 

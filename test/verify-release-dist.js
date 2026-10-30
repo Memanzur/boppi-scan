@@ -219,6 +219,16 @@ function listTree(dir) {
       await install(custom, ['--uninstall'], { BOPPI_INSTALL_DIR: customDir });
       ok('uninstall from BOPPI_INSTALL_DIR removes the folders it created', listTree(custom).length === 0, listTree(custom).join(','));
 
+      const noAtomic = path.join(work, 'release-no-libatomic');
+      fakeRelease(noAtomic, key);
+      fs.writeFileSync(path.join(noAtomic, asset.slice(1)), "#!/bin/sh\necho 'boppi: error while loading shared libraries: libatomic.so.1: cannot open shared object file' >&2\nexit 127\n", { mode: 0o755 });
+      node('sign.mjs', ['--key', key, '--dir', noAtomic]);
+      served = new Map(layout.listDir(noAtomic).map(name => [`/${name}`, fs.readFileSync(path.join(noAtomic, name))]));
+      const atomicHome = freshHome();
+      const atomic = await install(atomicHome, ['--base-url', base]);
+      served = new Map(original);
+      ok('a verified program that cannot load libatomic is removed again with a libatomic1 hint and the npx path', atomic.code !== 0 && /libatomic1/.test(atomic.stderr) && /npx boppi@/.test(atomic.stderr) && listTree(atomicHome).length === 0, `${atomic.all} left: ${listTree(atomicHome)}`);
+
       const refuses = async (label, setup, pattern) => {
         served = new Map(original);
         setup();
