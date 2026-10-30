@@ -12,6 +12,8 @@ const platform = require('../src/cli/platform');
 const fix = require('../src/cli/fix');
 const cursor = require('../src/cli/discovery/cursor');
 const builtinTools = require('../src/cli/builtinTools');
+const claudeCode = require('../src/cli/discovery/claudeCode');
+const remediate = require('../src/cli/remediate');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
@@ -36,9 +38,33 @@ try {
     write(path.join(home, '.cursor', 'mcp.json'), '{ not json');
     ok('invalid JSON is still reported as invalid JSON', fix.readClient(cursor.locate({ home, cwd: home }), home).files.find(f => f.scope === 'user').reason === 'invalid JSON');
     const settings = path.join(home, '.claude', 'settings.json');
-    write(settings, '﻿' + JSON.stringify({ permissions: { allow: ['Bash'] } }));
+    write(settings, '\ufeff' + JSON.stringify({ permissions: { allow: ['Bash'] } }));
     const perms = builtinTools.readPermissionSettings([{ path: settings, scope: 'user' }]);
     ok('Claude Code settings saved with a BOM are read', perms.entries[0].status === 'found' && perms.merged.allow.includes('Bash'), JSON.stringify(perms.entries[0]));
+  }
+
+  section('Claude Code local scope: the projects key is matched like Windows matches paths');
+  {
+    const home = path.join(root, 'cc-home');
+    const cwd = 'C:\\Users\\me\\proj';
+    const local = (projects, at = cwd) => {
+      write(path.join(home, '.claude.json'), JSON.stringify({ projects }));
+      return fix.readClient(claudeCode.locate({ home, cwd: at }), at);
+    };
+    const slash = local({ 'C:/Users/me/proj': { mcpServers: { slashkey: server } } });
+    ok('a key written with forward slashes is read for a backslash cwd', slash.servers.some(s => s.name === 'slashkey'), JSON.stringify(slash.servers));
+    ok('the server keeps the key the file uses, so a fix edits that entry', JSON.stringify((slash.servers.find(s => s.name === 'slashkey') || {}).keyPath) === JSON.stringify(['projects', 'C:/Users/me/proj', 'mcpServers', 'slashkey']));
+    ok('a lower-case drive letter matches', local({ 'c:\\Users\\me\\proj': { mcpServers: { lower: server } } }).servers.some(s => s.name === 'lower'));
+    const both = local({ 'C:/Users/me/proj': { mcpServers: { other: server } }, [cwd]: { mcpServers: { exact: server } } });
+    ok('an exact key wins over another spelling', both.servers.map(s => s.name).join() === 'exact', both.servers.map(s => s.name).join());
+    ok('the folder name itself still matches case-sensitively', !local({ 'C:/users/ME/proj': { mcpServers: { cased: server } } }).servers.length);
+    ok('a POSIX cwd is never matched loosely', !local({ '/Users/Me/proj': { mcpServers: { posix: server } } }, '/Users/me/proj').servers.length);
+    const malformed = local({ 'C:/Users/me/proj': { mcpServers: { bad: { command: 42 } } } });
+    ok('the matched block is shape-checked like an exact one', malformed.files[0].status === 'unreadable', JSON.stringify(malformed.files[0]));
+    write(path.join(home, '.claude.json'), JSON.stringify({ projects: { 'C:/Users/me/proj': { mcpServers: { slashkey: server } } } }));
+    const located = fix.locateServer(claudeCode.locate({ home, cwd }), 'slashkey', cwd);
+    const preview = remediate.previewEdit({ located, serverName: 'slashkey', cwd, recordsByName: new Map() });
+    ok('the fix preview shows the matched project block instead of hiding it', preview.diff.some(line => line.includes('"slashkey"')), JSON.stringify(preview.diff));
   }
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

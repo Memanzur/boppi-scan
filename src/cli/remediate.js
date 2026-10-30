@@ -8,7 +8,7 @@
 'use strict';
 const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
-const { parseJson } = require('./platform');
+const { parseJson, projectKey } = require('./platform');
 const fix = require('./fix');
 const plugins = require('./discovery/claudePlugins');
 const verify = require('./verify');
@@ -57,7 +57,7 @@ function projection(json, cwd, recordOf, prefix = []) {
   const out = {};
   for (const [key, value] of Object.entries(json)) {
     if (key === 'mcpServers' && isObject(value)) out[key] = projectServers(value, [...prefix, key], recordOf);
-    else if (key === 'projects' && isObject(value) && cwd) out[key] = Object.fromEntries(Object.entries(value).map(([project, body]) => [project, project === cwd && isObject(body) ? projection(body, null, recordOf, [...prefix, key, project]) : HIDDEN]));
+    else if (key === 'projects' && isObject(value) && cwd) out[key] = Object.fromEntries(Object.entries(value).map(([project, body]) => [project, project === projectKey(value, cwd) && isObject(body) ? projection(body, null, recordOf, [...prefix, key, project]) : HIDDEN]));
     else out[key] = HIDDEN;
   }
   return out;

@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { validateConfigShape } = require('./configFiles');
-const { parseJson } = require('./platform');
+const { parseJson, projectKey } = require('./platform');
 
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const MANIFEST_VERSION = 1;
@@ -35,6 +35,13 @@ function objectAt(json, keyPath) {
     node = node[key];
   }
   return isObject(node) ? node : null;
+}
+
+/** The block with a Claude Code local-scope path (projects/<cwd>/mcpServers) pointed at the key this file uses for cwd. */
+function localBlock(block, json) {
+  const [first, cwd, last] = block.keyPath;
+  if (first !== 'projects' || block.keyPath.length !== 3 || !isObject(json) || !isObject(json.projects)) return block;
+  return { ...block, keyPath: [first, projectKey(json.projects, cwd), last] };
 }
 
 function unreadableReason(error) {
@@ -68,7 +75,7 @@ function readClient(descriptor, cwd, overrides = new Map()) {
       json = overrides.has(resolved) ? overrides.get(resolved) : parseJson(fs.readFileSync(resolved));
       // plugin.json may point mcpServers at other files or bundles; that is not read, and saying so beats reporting no servers.
       if (file.pluginManifest && isObject(json) && hasOwn(json, 'mcpServers') && !isObject(json.mcpServers)) throw new Error('plugin_mcp_reference');
-      validateConfigShape(json, { source: descriptor.source, cwd });
+      validateConfigShape(json, { source: descriptor.source, cwd: projectKey(isObject(json) && json.projects, cwd) });
     } catch (error) {
       entry.status = 'unreadable';
       entry.reason = unreadableReason(error);
@@ -76,7 +83,7 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     }
     entry.status = 'found';
     documents.set(resolved, json);
-    for (const block of file.blocks) {
+    for (const block of file.blocks.map(b => localBlock(b, json))) {
       for (const [name, server] of Object.entries(objectAt(json, block.keyPath) || {})) {
         // A plugin's servers register as plugin:<plugin>:<server>, so that is their base label.
         const base = (block.labelPrefix || '') + name;
