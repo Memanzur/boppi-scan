@@ -360,19 +360,28 @@ async function main() {
   await cycle(h11, cloud11);
   cloud11.grant({ durationSeconds: 3600 });
   await cycle(h11, cloud11);
-  editStore(h11, s => { s.leases[0].localExpiresAt = new Date(Date.now() + 1500).toISOString(); });
   const watch = await new Promise(resolve => {
     const child = spawn(process.execPath, ['--require', PRELOAD, CLI, 'connect', 'run', '--watch', '--interval', '600', '--home', h11.home, '--cwd', h11.project, '--history-file', path.join(h11.home, 'h.json')], { env: { ...process.env, BOPPI_SCAN_PLATFORM: 'darwin', BOPPI_NO_UPDATE_NOTICE: '1' }, stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    child.stdout.on('data', d => { stdout += d; });
-    child.stderr.on('data', d => { stdout += d; });
+    const seen = { stdout: '', heldWhileWaiting: null, reverted: false, timedOut: false };
+    const finish = () => { clearTimeout(guard); child.kill('SIGINT'); };
+    // A deadline against a hang, not a timing assertion: a correct watch reverts within about a second of the edit.
+    const guard = setTimeout(() => { seen.timedOut = true; finish(); }, 60000);
+    const onData = d => {
+      seen.stdout += d;
+      if (seen.heldWhileWaiting === null && seen.stdout.includes('next poll in 600 s')) {
+        seen.heldWhileWaiting = Boolean(servers(h11).github);
+        const lease = leases(h11)[0];
+        jit.putLease(h11.home, Date.now(), { ...lease, localExpiresAt: new Date(Date.now() - 1000).toISOString() });
+      }
+      if (!seen.reverted && /jit \S+ +"github" on claude-code: local lease expired; entry removed from the configuration/.test(seen.stdout)) { seen.reverted = true; finish(); }
+    };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
     child.stdin.end();
-    const started = Date.now();
-    const timer = setInterval(() => {
-      if (!readJson(h11.config).mcpServers.github || Date.now() - started > 15000) { clearInterval(timer); setTimeout(() => { child.kill('SIGINT'); }, 200); resolve({ elapsed: Date.now() - started, stdout }); }
-    }, 100);
+    child.on('close', () => resolve(seen));
   });
-  ok('connect run --watch, with the workspace unreachable, removes the entry within about a second of the local expiry', !servers(h11).github && watch.elapsed < 6000 && leases(h11)[0].state === 'reverted');
+  ok('connect run --watch keeps the entry while the lease is live and is waiting for the next poll', watch.heldWhileWaiting === true);
+  ok('connect run --watch, with the workspace unreachable, removes the entry at the local expiry between polls (not at the next poll, 600 s away)', watch.reverted && !watch.timedOut && !servers(h11).github && leases(h11)[0].state === 'reverted');
 
   section('dark gate in boppi hook');
   const g = makeHome();
