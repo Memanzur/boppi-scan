@@ -156,6 +156,16 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
   const burst = server.requests.slice(n1);
   ok(`a burst of 20 writes coalesces into a few pushes (${burst.length})`, burst.length >= 1 && burst.length <= 5);
   ok('the last push carries the final state of the burst', burst.length && serverNames(burst[burst.length - 1].body).includes('burst19') && !serverNames(burst[burst.length - 1].body).includes('burst18'));
+  const desktop = path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  const desktopText = fs.readFileSync(desktop, 'utf8');
+  const n1b = server.requests.length;
+  fs.writeFileSync(desktop, '{"mcpServers": {');
+  await waitFor(() => readLog(liveLog).some(e => e.kind === 'hold' && e.reason.startsWith('stale:')), 8000);
+  await sleep(1500);
+  ok('while a client is held (unreadable config) nothing is pushed, the history rule', readLog(liveLog).some(e => e.kind === 'hold' && e.reason.startsWith('stale:')) && server.requests.length === n1b);
+  fs.writeFileSync(desktop, desktopText);
+  await sleep(2500);
+  ok('restoring the held file sends nothing (the posture equals the last push)', server.requests.length === n1b);
   live.child.kill('SIGINT');
   ok('Ctrl-C ends the process at once with exit 0 (the --duration timer does not hold it open)', await Promise.race([live.done, sleep(5000).then(() => 'timeout')]) === 0);
   ok('the stop line says only sanitized inventory metadata was sent', live.stdout().includes('only sanitized inventory metadata was sent, to'));
