@@ -8,8 +8,6 @@
  * loopback API to apply and roll back fixes.
  */
 'use strict';
-const fs = require('fs');
-const path = require('path');
 const { rankPredictions } = require('../predict');
 const { buildGraphView, capabilityLabel } = require('./graphData');
 const { builtinCapabilities, builtinResidualSentences } = require('../builtinTools');
@@ -18,11 +16,12 @@ const terminal = require('./terminal');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { findingBasis } = require('../findingBasis');
+const resources = require('../resources');
 
-const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
-const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
-const BRAND_STYLES = fs.readFileSync(path.join(__dirname, '../../design/report.css'), 'utf8');
-const BRAND_LOGO = fs.readFileSync(path.join(__dirname, '../../design/boppi-logo.png')).toString('base64');
+const CLIENT_SCRIPT = resources.read('src/cli/render/graphLayout.js', 'utf8') + '\n' + resources.read('src/cli/render/interactive.client.js', 'utf8');
+const BRAND_TOKENS = resources.read('src/design/tokens.css', 'utf8');
+const BRAND_STYLES = resources.read('src/design/report.css', 'utf8');
+const BRAND_LOGO = resources.read('src/design/boppi-logo.png').toString('base64');
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'";
 
 /** JSON safe inside a <script> element: no `<` (so no `</script` or `<!--`) and no line separators. */
@@ -381,7 +380,7 @@ ${evidenceGuide()}
 <script type="application/json" id="boppi-data">${embedJson(first)}</script>
 <script type="application/json" id="boppi-demo-data">${embedJson(bundle)}</script>
 <script>${CLIENT_SCRIPT}</script>
-<script>${fs.readFileSync(path.join(__dirname, 'demo.client.js'), 'utf8')}</script>
+<script>${resources.read('src/cli/render/demo.client.js', 'utf8')}</script>
 </body></html>`;
 }
 
