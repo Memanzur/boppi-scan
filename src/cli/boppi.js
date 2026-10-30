@@ -995,7 +995,7 @@ async function runPush(options) {
   const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   // Checked on the body exactly as it would be sent, before a dry run prints it or a request carries it.
   const unsafe = push.unsafeFields(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }));
-  if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe)}\n`); return 2; }
+  if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe, { fromFile: !!options.file })}\n`); return 2; }
   if (options.dryRun) {
     process.stdout.write(JSON.stringify(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }), null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);

@@ -18,7 +18,7 @@
   // model, export, history file, or verifier bundle.
   // Each token prefix must start the value or follow a non-alphanumeric character; without that boundary
   // ordinary package names such as desktop-commander ("sk" + 10 chars) were redacted as secrets.
-  const SENSITIVE_VALUE = /(?:bearer\s+|(?:^|[^A-Za-z0-9])(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
+  const SENSITIVE_VALUE = /(?:bearer\s+|(?:^|[^A-Za-z0-9])(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]*)/i;
   // Vendor formats without a short generic prefix, matched case-sensitively with their real lengths so
   // ordinary words that happen to start the same way are not caught.
   const VENDOR_TOKEN = /(?:^|[^A-Za-z0-9])(?:AIza[0-9A-Za-z_-]{30,}|glpat-[0-9A-Za-z_-]{20,}|gh[ousr]_[0-9A-Za-z]{30,}|npm_[0-9A-Za-z]{30,}|pypi-[0-9A-Za-z_-]{40,}|hf_[0-9A-Za-z]{30,}|xai-[0-9A-Za-z]{30,}|ya29\.[0-9A-Za-z_-]{20,}|dop_v1_[0-9a-f]{40,}|shp(?:at|ss|ca|pa)_[0-9a-fA-F]{32}|SG\.[0-9A-Za-z_-]{16,}\.[0-9A-Za-z_-]{16,}|whsec_[0-9A-Za-z+/=]{24,}|lin_api_[0-9A-Za-z]{30,}|ntn_[0-9A-Za-z]{30,}|secret_[0-9A-Za-z]{40,}|AccountKey=[0-9A-Za-z+/=]{40,}|-----BEGIN [A-Z ]*PRIVATE KEY)/;

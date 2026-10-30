@@ -54,7 +54,7 @@ for (const [label, plant] of Object.entries(PLANTS)) {
   const file = path.join(root, `edited-${label.replace(/\W+/g, '-')}.json`);
   fs.writeFileSync(file, JSON.stringify(doc));
   const r = cli(['push', '--file', file, '--dry-run', '--url', 'http://127.0.0.1:9']);
-  ok(`${label}: exit 2, refused, the token appears nowhere in the output`, r.status === 2 && r.stderr.includes('refused before sending') && !(r.stdout + r.stderr).includes(TOKEN.slice(4, 20)), `exit ${r.status}: ${r.stderr.trim().slice(0, 160)}`);
+  ok(`${label}: exit 2, refused as an edited file, the token appears nowhere in the output`, r.status === 2 && r.stderr.includes('refused before sending') && r.stderr.includes('instead of editing the file') && !(r.stdout + r.stderr).includes(TOKEN.slice(4, 20)), `exit ${r.status}: ${r.stderr.trim().slice(0, 160)}`);
 }
 
 section('a token in a field the re-sanitizer already scrubs is redacted, not refused');
@@ -65,6 +65,29 @@ section('a token in a field the re-sanitizer already scrubs is redacted, not ref
   fs.writeFileSync(file, JSON.stringify(doc));
   const r = cli(['push', '--file', file, '--dry-run', '--url', 'http://127.0.0.1:9']);
   ok('a server tool name: exit 0 with the value redacted and the token absent', r.status === 0 && r.stdout.includes('[redacted-sensitive-value]') && !(r.stdout + r.stderr).includes(TOKEN.slice(4, 20)), `exit ${r.status}`);
+}
+
+section('RT-11: a short JWT or a bare hex key in a name or a built-in tool is redacted on push --file');
+{
+  const SHAPES = { 'a short JWT': `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJxYSJ9.${'S'.repeat(43)}`, 'a 40-character hex key': 'f'.repeat(40), 'a 32-character hex key after a prefix': `dd${'0123456789abcdef'.repeat(2)}` };
+  const FIELDS = {
+    'an MCP server name': (doc, t) => { real(doc).mcpServers[0].name = t; },
+    'an agent name': (doc, t) => { real(doc).agents[0].name = t; },
+    'a built-in residual tool': (doc, t) => { doc.builtinResidual = [{ agentId: real(doc).agents[0].id, clientKey: 'cursor', exposureKeys: ['EP-A:x'], tools: ['terminal', t] }]; },
+  };
+  for (const [shape, value] of Object.entries(SHAPES)) for (const [field, plant] of Object.entries(FIELDS)) {
+    const doc = JSON.parse(JSON.stringify(original));
+    plant(doc, value);
+    const file = path.join(root, 'edited-name.json');
+    fs.writeFileSync(file, JSON.stringify(doc));
+    const r = cli(['push', '--file', file, '--dry-run', '--url', 'http://127.0.0.1:9']);
+    ok(`${shape} in ${field}: exit 0 and the value appears nowhere`, r.status === 0 && !(r.stdout + r.stderr).includes(value.slice(0, 20)), `exit ${r.status}: ${r.stderr.trim().slice(0, 160)}`);
+  }
+  const jwtHome = path.join(root, 'jwt-home');
+  fs.mkdirSync(path.join(jwtHome, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(jwtHome, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { [SHAPES['a short JWT']]: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
+  const live = spawnSync(process.execPath, [CLI, 'push', '--dry-run', '--url', 'http://127.0.0.1:9', '--home', jwtHome, '--cwd', jwtHome, '--no-color'], { encoding: 'utf8', env });
+  ok('a live scan with a JWT-shaped server name is refused with a remedy that fits a live scan', live.status === 2 && live.stderr.includes('rename that entry in its config file') && !live.stderr.includes('editing the file') && !(live.stdout + live.stderr).includes(SHAPES['a short JWT'].slice(0, 20)), live.stderr.trim().slice(0, 300));
 }
 
 section('controls');
