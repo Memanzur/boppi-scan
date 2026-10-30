@@ -255,7 +255,8 @@ Every row is a rescan of the configuration with that one edit applied. `breaks` 
 ```
 boppi connect pair --url https://app.boppi.io --code <pair-code> [--name <device name>]
 boppi connect status
-boppi connect run [--once] [--interval <s>] [--yes]
+boppi connect run [--once] [--interval <s>] [--watch] [--yes]
+boppi connect revert-grants
 boppi connect unpair
 ```
 
@@ -268,6 +269,14 @@ If a run ends after the edit is reported but before the workspace grades the res
 After a connector removal, `run` also offers rollback when the backup passes its integrity check and the configuration still matches the applied hash. Run from the same project folder as the removal. The dashboard's **Propose rollback** starts a separate preview, approval, and local confirmation. The terminal shows a sanitized restore diff; environment variable values stay hidden. Restoration checks both hashes again, atomically restores the entire original file, records a rollback manifest entry, and rescans. A verified rollback marks the original fix rolled back; its capabilities and potential exposure paths may return. Changed files, missing or modified backups, symlinks, and entries already restored are not offered for rollback.
 
 What `run` does with an approved proposal: it prints the exact sanitized preview in your terminal and asks for confirmation (`--yes` skips the question and the output says so; without a terminal and without `--yes` the proposal waits). Only then does it claim the proposal, lock the file, reopen it without following symlinks, compare the hash with the one the approver saw, copy the original to `~/.boppi/backups/` (mode 600), write the edit atomically, validate that only that entry changed, and record a manifest entry that `boppi rollback --id <id>` can restore. The workspace's acknowledgement is never printed as a fix: the output reads "reported, awaiting the workspace's rescan grade" until the rescan is graded, and a proposal becomes verified only when the rescan from this machine no longer carries the expected exposure keys. A proposal whose file changed, is a symlink, or was already applied here is refused without writing. A claim interrupted by a crash is reported on the next run from the local manifest, so the workspace never counts an edit this machine did not make.
+
+#### Just-in-time server grants
+
+A workspace member can ask for one server from the workspace's approved catalog in one client on a machine they paired, for a limited time (8 hours at most). Another admin approves it in the workspace. `connect run` then offers each client's user-scope file (Claude Desktop config, Claude Code `~/.claude.json`, Cursor `~/.cursor/mcp.json`) by fingerprint, hash and entry names. When a grant is approved for one of those files, `run` prints the exact entry (server, command, arguments, expiry, requester) and asks before it adds it (`--yes` skips the question). The entry is written exactly as `{ command, args }` at the top level of `mcpServers`. The write takes the same lock as a fix, refuses symlinks and refuses a name that already exists. It also backs up the file, writes atomically and reads the entry back against the hash the approver approved.
+
+Each grant leaves a lease in `~/.boppi/jit-leases.json` (owner-only). The lease expires at the earlier of the workspace expiry and the time the device measured, and a clock turned back never extends it. Every `boppi` command except `hook` removes expired entries first, with no network, and says so in one stderr line. `connect run --watch` stays in the foreground and removes each entry within a second of its expiry. `connect revert-grants` removes every granted entry now, offline. The next `connect run` rescans and reports each removal; the workspace marks a grant revoked only on that report. `connect status` lists the leases.
+
+What this proves and what it does not: Boppi reports an entry as configured while it is in the file, and as verified removed only when a rescan shows it gone. A client that is already running keeps a removed server until it restarts or reloads its MCP configuration. For Claude Code, an optional gate in `boppi hook` closes that window: `boppi settings --set jitGate=on` makes the hook deny a call to a granted server whose lease is not live, and deny every MCP call while the lease store is unreadable. The gate is off by default, Boppi never edits your Claude Code settings to wire the hook, and live Claude Code delivery of the deny answer has not been verified yet. Claude Desktop and Cursor have no such hook. `boppi uninstall` stops while a grant is still configured.
 
 ### Ask about a saved scan (local, read-only)
 
