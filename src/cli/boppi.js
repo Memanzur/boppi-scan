@@ -60,6 +60,7 @@ const rollback = require('./rollback');
 const hook = require('./hook');
 const settingsModule = require('./settings');
 const connect = require('./connect');
+const jit = require('./jit');
 const uninstallCommand = require('./uninstall');
 
 const VERSION = require('../../package.json').version;
@@ -94,7 +95,7 @@ function usage() {
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
     '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
     '  boppi uninstall               list everything Boppi stored under ~/.boppi and the Claude Code hook entries that run it, then delete ~/.boppi after you confirm (--yes, --dry-run; fix backups only with --include-backups)',
-    '  boppi connect pair|status|unpair|run|rotate  pair this machine with your workspace for dashboard-requested fixes; run pulls proposals, shows the exact sanitized preview here, and applies one only after you confirm; unpair revokes this device in the workspace and deletes the local pairing; rotate replaces the device credential (run does it when 7 days or less remain)',
+    '  boppi connect pair|status|unpair|run|rotate|revert-grants  pair this machine with your workspace for dashboard-requested fixes and just-in-time server grants; run pulls proposals and approved grants, shows the exact change here, and applies one only after you confirm; unpair revokes this device in the workspace and deletes the local pairing; rotate replaces the device credential (run does it when 7 days or less remain); revert-grants removes every granted server now, offline',
     '',
     'Push options (push, events push and connect are the only commands that use the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
@@ -118,7 +119,8 @@ function usage() {
     '  --name <name>       (pair) device name the workspace shows (default: this machine\'s hostname)',
     '  --once              (run) one poll cycle, then exit',
     '  --interval <s>      (run) seconds between polls (default 60, minimum 5)',
-    '  --yes               (run) apply approved proposals without the terminal confirmation; printed in the output when used.',
+    '  --watch             (run) between polls, wake every second and remove a just-in-time grant at its local expiry; foreground only, installs nothing',
+    '  --yes               (run) apply approved proposals and grants without the terminal confirmation; printed in the output when used.',
     '                      (pair) replace an existing pairing on this machine (the old device stays live in its workspace until revoked; unpair first to revoke it)',
     '',
     'rollback options:',
@@ -250,6 +252,7 @@ function parseArgs(argv) {
     else if (arg === '--print-config') options.printConfig = true;
     else if (arg === '--forget') options.forget = true;
     else if (arg === '--once') options.once = true;
+    else if (arg === '--watch') options.watch = true;
     else if (arg === '--disable') options.disable = true;
     else if (arg === '--enable') options.enable = true;
     else if (arg === '--all') options.all = true;
@@ -287,11 +290,13 @@ function parseArgs(argv) {
     if (process.env.BOPPI_DISCOVER_TIMEOUTS) { try { options.discoveryTimeouts = JSON.parse(process.env.BOPPI_DISCOVER_TIMEOUTS); } catch { throw new Error('BOPPI_DISCOVER_TIMEOUTS must be JSON'); } }
   }
   if (options.includeBackups && options.command !== 'uninstall') throw new Error('--include-backups is only accepted with uninstall');
+  if (options.watch && options.command !== 'connect') throw new Error('--watch is only accepted with connect run');
   if (options.command === 'connect' && !options.help && !options.version) {
     if (!options.subcommand) throw new Error(`connect requires one of: ${connect.SUBCOMMANDS.join(', ')}`);
     if (options.subcommand === 'pair' && (!options.url || !options.code)) throw new Error('connect pair requires --url <workspace> and --code <pair-code>');
     if (options.subcommand === 'run' && (!Number.isFinite(options.interval) || options.interval < 5)) throw new Error('--interval must be a number of seconds, at least 5');
     if (options.yes && !['run', 'pair'].includes(options.subcommand)) throw new Error('--yes is only accepted with connect run and connect pair');
+    if (options.watch && (options.subcommand !== 'run' || options.once)) throw new Error('--watch is only accepted with connect run, without --once');
     if (options.config) throw new Error('connect follows discovered client files; --config is not supported');
   }
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
@@ -1143,18 +1148,30 @@ async function run(argv) {
   return 0;
 }
 
-/** The command, then the stored update notice on stderr. A hook stays silent: Claude Code reads its output. */
+/**
+ * Expired just-in-time grants first (offline, one stderr line when anything
+ * was reverted), then the command, then the stored update notice on stderr.
+ * A hook does neither: it must answer fast and Claude Code reads its output.
+ */
 async function main(argv) {
+  let options = null;
+  try { options = parseArgs(argv); } catch (_) { /* usage error: default home */ }
+  const home = options ? options.home : process.env.BOPPI_SCAN_HOME || os.homedir();
+  const isHook = options ? options.command === 'hook' : argv[0] === 'hook';
+  if (!isHook) {
+    try {
+      const line = jit.enforcementLine(jit.enforceLeases(home));
+      if (line) process.stderr.write(line + '\n');
+    } catch (error) { process.stderr.write(`boppi: just-in-time lease check failed (${error && error.message}); the command runs anyway\n`); }
+  }
   const code = await run(argv);
-  if (argv[0] !== 'hook') {
-    let options = null;
-    try { options = parseArgs(argv); } catch (_) { /* usage error: default home */ }
+  if (!isHook) {
     const given = flag => argv.some(arg => arg === flag || arg.startsWith(`${flag}=`));
     const wsl = options && options.command === 'scan' && !options.config
       ? wslHint({ homeGiven: given('--home') || !!process.env.BOPPI_SCAN_HOME, platformGiven: given('--platform') || !!process.env.BOPPI_SCAN_PLATFORM })
       : null;
     if (wsl) process.stderr.write(`\n${wsl}\n`);
-    updateNotice.announce(options ? options.home : process.env.BOPPI_SCAN_HOME || os.homedir(), VERSION);
+    updateNotice.announce(home, VERSION);
   }
   return code;
 }
