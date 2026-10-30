@@ -175,10 +175,11 @@ async function runWatch(options, deps) {
   }
   const record = entry => { if (log !== null) fs.writeSync(log, JSON.stringify(entry) + '\n'); };
 
+  let pusher = null;
   const closeLog = () => { if (log !== null) { fs.closeSync(log); log = null; } };
+  const finish = code => { if (pusher) pusher.close(); closeLog(); return code; };
 
   let stopWatch = null;
-  let pusher = null;
   if (options.push) {
     const baseMs = Number(process.env.BOPPI_WATCH_PUSH_BACKOFF_MS) > 0 ? Number(process.env.BOPPI_WATCH_PUSH_BACKOFF_MS) : undefined;
     pusher = watchPush.createPusher({ home: options.home, ingestUrl: options.ingestUrl, token: options.token, once: options.once, baseMs },
@@ -187,17 +188,17 @@ async function runWatch(options, deps) {
   }
 
   const first = await deps.performScan(options);
-  if (first.failed) { err(`watch: scan failed: ${first.failed}`); closeLog(); return first.exitCode || 3; }
+  if (first.failed) { err(`watch: scan failed: ${first.failed}`); return finish(first.exitCode || 3); }
   let accepted = stateOf(first, wanted);
   for (const line of baselineLines(accepted, target, options, pusher && pusher.workspace)) out(line);
   record({ kind: 'baseline', at: accepted.at, clients: Object.keys(accepted.clients), files: target.files.map(f => f.path), directories: target.directories });
   if (pusher) {
     const flushed = await pusher.flush();
     const offered = flushed === 'revoked' ? 'revoked' : await pusher.offer(deps.ingestFor(first));
-    if (offered === 'revoked') { closeLog(); return 6; }
-    if (options.once) { closeLog(); return offered === 'unsafe' ? 2 : pusher.pending() ? 5 : 0; }
+    if (offered === 'revoked') return finish(6);
+    if (options.once) return finish(offered === 'unsafe' ? 2 : pusher.pending() ? 5 : 0);
   }
-  if (options.once) { closeLog(); return 0; }
+  if (options.once) return finish(0);
 
   let running = false, again = false, graceTimer = null, debounceTimer = null, stopped = false;
   const held = new Map();
@@ -257,13 +258,11 @@ async function runWatch(options, deps) {
       stopped = true;
       clearInterval(timer); clearTimeout(debounceTimer); clearTimeout(graceTimer); clearTimeout(durationTimer);
       for (const w of watchers) { try { w.close(); } catch { /* closed */ } }
-      if (pusher) pusher.close();
       const waiting = pusher ? pusher.pending() : 0;
       const sent = pusher ? `only sanitized inventory metadata was sent, to ${pusher.workspace}${waiting ? `; ${waiting} queued push${waiting === 1 ? '' : 'es'} will be sent on the next watch --push` : ''}` : 'nothing left this machine';
       out(`[${new Date().toISOString()}] stopped (${reason}); nothing was installed and ${sent}`);
       record({ kind: 'stopped', at: new Date().toISOString(), reason });
-      closeLog();
-      resolve(code);
+      resolve(finish(code));
     };
     stopWatch = stop;
     process.once('SIGINT', () => stop('Ctrl-C'));

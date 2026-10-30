@@ -953,7 +953,7 @@ function promptForToken() {
 /** The ingest inputs of a live scan, as boppi push and boppi watch --push both send them. */
 function scanIngestInput(scan) {
   const payload = exportPayload(scan);
-  return { inventory: payload.inventory.real, recognition: scan.recognition, snapshotAt: payload.exportedAt, collector: payload.collector, coverage: payload.coverage, builtinResidual: push.builtinResidualFromExport(payload) };
+  return { inventory: payload.inventory.real, recognition: scan.recognition, discovery: payload.discovery, snapshotAt: payload.exportedAt, collector: payload.collector, coverage: payload.coverage, builtinResidual: push.builtinResidualFromExport(payload) };
 }
 
 /** boppi push: scan (or load an export), map the real inventory to ingest records, send one snapshot. */
@@ -969,6 +969,7 @@ async function runPush(options) {
   let builtinResidual = null;
   let incomplete = [];
   let recognition = [];
+  let discovery = null;
   if (options.file) {
     // Re-sanitizing fingerprints any raw path an edited export carries; keyed, so the workspace cannot confirm a guess.
     useFingerprintKey(options.home);
@@ -979,6 +980,7 @@ async function runPush(options) {
     }
     inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
     recognition = Array.isArray(payload.recognition) ? payload.recognition : [];
+    discovery = payload.discovery || null;
     snapshotAt = typeof payload.exportedAt === 'string' ? payload.exportedAt : undefined;
     try { ({ collector, coverage, builtinResidual } = push.envelopeFromExport(payload)); } catch (error) {
       process.stderr.write(`push: ${error.message}\n`);
@@ -994,13 +996,13 @@ async function runPush(options) {
       process.stderr.write(`Scan failed: ${scan.failed}\n`);
       return scan.exitCode || 3;
     }
-    ({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual } = scanIngestInput(scan));
+    ({ inventory, recognition, discovery, snapshotAt, collector, coverage, builtinResidual } = scanIngestInput(scan));
     incomplete = scan.incomplete;
   }
 
   if (options.file) incomplete = (coverage?.clients || []).filter(client => ['unreadable', 'failed'].includes(client.status)).map(client => client.label);
 
-  const { records, snapshot, body, unsafe } = push.prepareIngest({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual, merge: options.merge, fromFile: !!options.file });
+  const { records, snapshot, body, unsafe } = push.prepareIngest({ inventory, recognition, discovery, snapshotAt, collector, coverage, builtinResidual, merge: options.merge, fromFile: !!options.file });
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be fully analyzed; whatever the unread files configure is missing from this push, which adds to the workspace without removing anything.\n`);

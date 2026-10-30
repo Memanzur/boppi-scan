@@ -128,16 +128,6 @@ function linuxGroupRunning(pgid, procRoot = '/proc') {
   return false;
 }
 
-/** Whether one process is running: it exists (EPERM means it does) and, on Linux, is not a zombie. */
-function processRunning(pid, { platform = process.platform, procRoot = '/proc' } = {}) {
-  try { process.kill(pid, 0); } catch (error) { if (error.code !== 'EPERM') return false; }
-  if (platform !== 'linux') return true;
-  try {
-    const stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
-    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
-  } catch { return true; }
-}
-
 /** End a Windows process and every process it started, while it is still alive to name them. True when taskkill succeeded. */
 function killTreeWindows(pid) {
   const taskkill = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe');
@@ -299,4 +289,4 @@ function runSession(plan, options = {}) {
   });
 }
 
-module.exports = { TIMEOUTS, PACKAGE_LAUNCHERS, PROTOCOL_VERSION, INHERITED_ENV, resolveProgram, fetchingSubcommand, launchPlan, runSession, shutdown, linuxGroupRunning, processRunning };
+module.exports = { TIMEOUTS, PACKAGE_LAUNCHERS, PROTOCOL_VERSION, INHERITED_ENV, resolveProgram, fetchingSubcommand, launchPlan, runSession, shutdown, linuxGroupRunning };

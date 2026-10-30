@@ -264,10 +264,10 @@ try {
     ok('a group whose members are all zombies has ended', !session.linuxGroupRunning(200, proc));
     ok('an unreadable /proc counts as running', session.linuxGroupRunning(200, path.join(root, 'no-proc')));
     stat(process.pid, 'self', 'Z', process.pid);
-    ok('processRunning: a zombie on Linux is gone', !session.processRunning(process.pid, { platform: 'linux', procRoot: proc }));
-    ok('processRunning: other platforms trust kill(pid, 0)', session.processRunning(process.pid, { platform: 'darwin', procRoot: proc }));
+    ok('processRunning: a zombie on Linux is gone', !platform.processRunning(process.pid, { platform: 'linux', procRoot: proc }));
+    ok('processRunning: other platforms trust kill(pid, 0)', platform.processRunning(process.pid, { platform: 'darwin', procRoot: proc }));
     stat(process.pid, 'self', 'R', process.pid);
-    ok('processRunning: a running process is running', session.processRunning(process.pid, { platform: 'linux', procRoot: proc }));
+    ok('processRunning: a running process is running', platform.processRunning(process.pid, { platform: 'linux', procRoot: proc }));
   }
 
   section('Discovery: ending a server on Windows ends what it started, or says it may not have');
