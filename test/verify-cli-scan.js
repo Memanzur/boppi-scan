@@ -146,12 +146,15 @@ function runCli(args, home) {
   ok('discovery file paths are ~-relative under the scanned home', exported.discovery.filesRead.every(f => f.startsWith('~/')) && exported.discovery.clients.every(c => c.files.every(f => f.path.startsWith('~/')) && (c.primaryPath === null || c.primaryPath.startsWith('~/'))));
   ok('the Claude Desktop config is listed by its ~ path', exported.discovery.filesRead.includes('~/Library/Application Support/Claude/claude_desktop_config.json'));
   ok('the export never contains the scanned home directory', !serialized.includes(home));
-  // Check exact JSON string values. A substring check falsely fails on CI
-  // where the username is "runner" and the fixture server is "code-runner".
-  const usernameJson = JSON.stringify(os.userInfo().username);
-  const leak = [os.homedir(), usernameJson].find(needle => serialized.includes(needle));
-  if (leak) console.log(`  leaked value ${JSON.stringify(leak)} near: ${serialized.slice(Math.max(0, serialized.indexOf(leak) - 120), serialized.indexOf(leak) + leak.length + 40)}`);
-  ok('the export never contains the real home directory or username', !leak);
+  // Match the username as a whole string value or path segment, never inside a word or an object key:
+  // CI's "runner" is inside the fixture server "code-runner", and the container user "node" is an export key.
+  const username = os.userInfo().username;
+  const segment = new RegExp(`(^|[\\\\/])${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([\\\\/]|$)`);
+  const values = [];
+  (function walk(value) { if (typeof value === 'string') values.push(value); else if (value && typeof value === 'object') Object.values(value).forEach(walk); })(exported);
+  const leak = values.find(value => value.includes(os.homedir()) || segment.test(value));
+  if (leak !== undefined) console.log(`  leaked value ${JSON.stringify(leak)}`);
+  ok('the export never contains the real home directory or username', leak === undefined);
   ok('discovery block has no mergedServers (raw config) payload', exported.discovery.clients.every(c => !('mergedServers' in c)));
 
   section('Deterministic identity across runs');
