@@ -17,6 +17,12 @@
  * hook that already opened the file keeps writing into the segment and no
  * line is lost. Retention deletes whole segments once every record in them
  * has expired. Design: docs/phase6/RUNTIME_COLLECTOR.md.
+ *
+ * One exception to "nothing on stdout", dark by default (D-34): with the
+ * setting jitGate on, a PreToolUse call to an MCP server that a
+ * just-in-time grant manages, and that has no live lease, gets Claude
+ * Code's documented deny answer on stdout (still exit 0), and an
+ * unreadable lease store denies every MCP call. jit.gateDecision decides.
  */
 'use strict';
 const fs = require('fs');
@@ -252,6 +258,16 @@ const PRINT_CONFIG_NOTE = [
   'If boppi is not on PATH for Claude Code, use the full path to the binary (`which boppi`) as the command.',
 ].join('\n');
 
+/** With the gate on: answer one PreToolUse payload with Claude Code's deny JSON when jit.gateDecision refuses it. A gate that cannot decide denies MCP calls. */
+function gate(home, raw) {
+  let payload;
+  try { payload = JSON.parse(raw); } catch { return; }
+  if (!payload || payload.hook_event_name !== 'PreToolUse' || typeof payload.tool_name !== 'string' || !payload.tool_name.startsWith('mcp__')) return;
+  let reason;
+  try { reason = require('./jit').gateDecision(home, payload.tool_name); } catch { reason = 'Boppi just-in-time gate: the lease check failed, so this MCP tool call is refused.'; }
+  if (reason) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } }) + '\n');
+}
+
 /** Entry point for every `boppi hook` invocation. Returns the exit code. */
 async function runHook(options, { fingerprint, keyedDigest, settings }) {
   if (options.install) {
@@ -268,8 +284,11 @@ async function runHook(options, { fingerprint, keyedDigest, settings }) {
   if (options.enable) { try { fs.unlinkSync(disabledFile(options.home)); } catch { /* was enabled */ } process.stderr.write('hook capture enabled.\n'); return 0; }
   if (options.forget) { const removed = forget(options.home); process.stderr.write(`removed ${removed} local event file${removed === 1 ? '' : 's'}. Remove the hook snippet from your Claude Code settings yourself to stop capture for good.\n`); return 0; }
   try {
-    if (fs.existsSync(disabledFile(options.home))) { await readStdin(); return 0; }
+    const disabled = fs.existsSync(disabledFile(options.home));
+    if (disabled && !settings.jitGate) { await readStdin(); return 0; }
     const { raw, reason } = await readStdin();
+    if (settings.jitGate) gate(options.home, raw);
+    if (disabled) return 0;
     if (raw === null) {
       if (reason) recordHealth(options.home, reason);
       else if (process.stdin.isTTY) process.stderr.write('boppi hook reads one Claude Code hook payload on stdin. Run `boppi hook --print-config` to see how to wire it up.\n');
