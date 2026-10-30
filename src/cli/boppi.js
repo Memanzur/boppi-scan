@@ -35,7 +35,7 @@ const plugins = require('./discovery/claudePlugins');
 const configFacts = require('./configFacts');
 const recognitionModule = require('./recognition');
 const predict = require('./predict');
-const narrowScope = require('./narrowScope');
+const narrowPlan = require('./narrowPlan');
 const verify = require('./verify');
 const overlayModule = require('./overlay');
 const overlayBundle = require('./overlayBundle');
@@ -815,25 +815,11 @@ function previewFor(scan, options, client, serverName, narrow = null) {
   return remediate.previewEdit({ located, serverName, cwd: options.cwd, recordsByName, narrow });
 }
 
-/**
- * The narrow_scope plan for fix --narrow: which argument, its replacement,
- * and the prediction from a rescan with the edited entry. Returns { error }
- * when the server has no single broad directory or the target is not narrower.
- */
+/** The narrow_scope plan for fix --narrow toward the folder it names, or { error }. */
 function planNarrow(scan, options, client) {
-  const entry = client.mergedServers[options.server];
-  const broad = narrowScope.broadDirectories(entry, options.home);
-  if (!broad.length) return { error: `"${options.server}" has no directory argument covering the home directory, a system root or a secrets folder, so there is nothing to narrow` };
-  if (broad.length > 1) return { error: `"${options.server}" has ${broad.length} broad directory arguments; --narrow edits one, so narrow this entry by hand or remove it` };
-  const [{ index, arg, label }] = broad;
   const to = path.resolve(options.cwd, options.narrow.startsWith('~/') ? path.join(options.home, options.narrow.slice(2)) : options.narrow);
-  const problem = narrowScope.targetProblem({ from: arg, to, home: options.home });
-  if (problem) return { error: `${problem}. --narrow needs an existing folder inside the one "${options.server}" has now` };
-  const server = scan.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === options.server);
-  const edit = narrowScope.describeEdit({ server: options.server, entry, index, to });
-  const prediction = server ? predict.predictNarrow({ client, inventory: scan.inventory, observedAt: scan.startedAt, home: options.home, overlay: scan.overlayModel, scannerVersion: scan.scannerVersion, server, edit, entry: narrowScope.narrowedEntry(entry, index, to) }) : null;
-  if (prediction) prediction.evidenceComplete = prediction.evidenceComplete && scan.traversal.complete === true;
-  return { narrow: { index, from: arg, to, prediction }, label };
+  const plan = narrowPlan.planFor(scan, options, client, options.server, to);
+  return plan.error ? plan : { narrow: { index: plan.index, from: plan.from, to: plan.to, prediction: plan.prediction }, label: plan.label };
 }
 
 /** boppi fix: preview, confirm, then run the staged removal and print each stage. */
@@ -1079,8 +1065,10 @@ async function run(argv) {
     report.policy = policyModule.evaluatePolicy(loaded, inventory, paths);
   }
 
+  // Narrow candidates hold the raw project folder, so only the terminal renderers get them; the report HTML and SARIF exports read does not.
+  const terminalOptions = ['scan', 'paths', 'plan'].includes(options.command) ? { ...options, narrowCandidates: narrowPlan.candidates(scan, options) } : options;
   if (options.command === 'plan') {
-    process.stdout.write(plan.renderPlan(report, options) + '\n');
+    process.stdout.write(plan.renderPlan(report, terminalOptions) + '\n');
     if (options.diff) process.stdout.write('\n' + renderPlanDiffs(scan, options) + '\n');
     if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
     if (options.json) {
@@ -1093,7 +1081,7 @@ async function run(argv) {
 
   report.historyChanges = writeHistory(scan, options.historyFile);
 
-  process.stdout.write(terminal.renderReport(report, options) + '\n');
+  process.stdout.write(terminal.renderReport(report, terminalOptions) + '\n');
   if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
 
   if (options.json) {

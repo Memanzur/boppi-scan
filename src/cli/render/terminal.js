@@ -7,6 +7,7 @@ const configFacts = require('../configFacts');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
 const { filesHolding } = require('../configFiles');
+const narrowPlan = require('../narrowPlan');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -330,6 +331,10 @@ function renderReport(report, options = {}) {
     const cost = disruptionSentence(top);
     if (cost) out('    ', s.dim('cost: '), cost);
     out('    ', s.dim('compare every candidate fix with '), s.bold('boppi plan'), s.dim(', apply one with '), s.bold(`boppi fix --server ${JSON.stringify(top.edit.server)}`));
+    for (const candidate of options.narrowCandidates || []) {
+      const { effect, command: narrowCommand } = narrowPlan.suggestion(candidate);
+      out('    ', s.dim(`or keep ${JSON.stringify(candidate.server)} and limit its folder access to this project (${effect}): `), s.bold(narrowCommand));
+    }
     const plan = report.remediationPlan;
     if (plan && plan.steps.length > 1) {
       out('  ', s.dim(`Full plan to break ${plan.breaksAll ? 'all' : `${plan.targetedExposures - plan.residualExposureKeys.length} of`} ${plan.targetedExposures} high-or-critical exposures, ${plan.steps.length} changes${plan.breaksAll ? '' : ` (${plan.residualExposureKeys.length} would remain)`}:`));

@@ -8,6 +8,7 @@ const { rankPredictions, loweredOf } = require('./predict');
 const { editFiles } = require('./configFiles');
 const { builtinResidualSentences } = require('./builtinTools');
 const { capabilityLossText } = require('./remediate');
+const narrowPlan = require('./narrowPlan');
 
 function pad(value, width) {
   const text = String(value ?? '');
@@ -84,6 +85,16 @@ function renderPlan(report, options = {}) {
     out(`    then: boppi fix --server ${JSON.stringify(row.prediction.edit.server)} --client ${row.prediction.client.key}${row.prediction.edit.action === 'move_server' ? '  (fix applies removals only; add the entry to the target by hand)' : ''}`);
   }
   if (rows.length > shown.length) out(`  ${rows.length - shown.length} more candidate${rows.length - shown.length === 1 ? '' : 's'} not shown; --json keeps every prediction.`);
+  const narrows = options.narrowCandidates || [];
+  if (narrows.length) {
+    out('');
+    out('NARROW  keep a server and limit its folder access to this project');
+    for (const candidate of narrows) {
+      const { effect, command } = narrowPlan.suggestion(candidate, { withClient: true });
+      out(`  narrow "${candidate.server}" on ${candidate.client.label}: ${effect}; the server keeps its tools`);
+      out(`    then: ${command}`);
+    }
+  }
   out('');
   out('Apply one edit, then boppi verify <export.json> grades the prediction against a fresh scan.');
   return lines.join('\n');

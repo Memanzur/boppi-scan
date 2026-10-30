@@ -1,12 +1,12 @@
 /**
  * boppi connect: dashboard-requested fixes. The connector pairs this machine
  * with one workspace, then pulls: it offers the removals the local plan
- * would make and intact backups it can restore (hashes, fingerprints, key
+ * would make, narrowings of a broad folder argument to the project folder it
+ * runs from, and intact backups it can restore (hashes, fingerprints, key
  * names, counts, versions; never a path, a file's contents or a preview),
  * reports previews for proposals the dashboard built from those offers,
- * and applies an approved removal or rollback only after showing the exact
- * sanitized preview here and getting local
- * confirmation. The workspace never pushes a command; every write goes
+ * and applies an approved removal, narrowing or rollback only after showing
+ * the exact sanitized preview here and getting local confirmation. The workspace never pushes a command; every write goes
  * through the fix.js primitives with a backup and a manifest entry, and the
  * workspace grades the result from a rescan, not from the acknowledgement.
  * An applied proposal the workspace has not graded yet comes back on every
@@ -26,6 +26,8 @@ const riskRubric = require('../engine/riskRubric');
 const scanner = require('../engine/localMcpScanner');
 const fix = require('./fix');
 const remediate = require('./remediate');
+const narrowPlan = require('./narrowPlan');
+const evidenceIdentity = require('./evidenceIdentity');
 const updateNotice = require('./updateNotice');
 const { openRegular, acquireLock } = fix;
 
@@ -122,22 +124,23 @@ function describeFailure(route, result) {
 
 function previewHashOf(text) { return fix.sha256(Buffer.from(text, 'utf8')); }
 
-/** A removal target as the connector sees it: the local file plus what the cloud may know about it. */
-function describeTarget({ options, scan, client, located, server }) {
+/** A removal target, or with candidate (narrowPlan.candidateFor) a narrow target, as the connector sees it: the local file plus what the cloud may know about it. */
+function describeTarget({ options, scan, client, located, server, candidate = null }) {
   const file = located.file;
   const opened = openRegular(file);
-  const base = { client: client.clientKey, project: scanner.pathFingerprint(path.resolve(options.cwd)), targetFile: scanner.pathFingerprint(file), server, file, ...opened };
+  const narrow = candidate ? { index: candidate.index, from: candidate.from, to: candidate.to } : null;
+  const base = { client: client.clientKey, project: scanner.pathFingerprint(path.resolve(options.cwd)), targetFile: scanner.pathFingerprint(file), server, file, located, ...(candidate ? { action: 'narrow_scope', candidate, narrow } : {}), ...opened };
   if (!opened.regularFile) return { ...base, configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
   let preview;
   try {
     const recordsByName = new Map(scan.inventory.mcpServers.filter(s => s.agentId === client.agentId).map(s => [s.name, s]));
-    preview = remediate.previewEdit({ located, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes });
+    preview = remediate.previewEdit({ located, serverName: server, cwd: options.cwd, recordsByName, bytes: opened.bytes, narrow });
   } catch (_) { return { ...base, regularFile: false, failureCode: 'other', configHash: EMPTY_HASH, previewHash: EMPTY_HASH }; }
   const previewText = remediate.renderPreview(preview);
   return { ...base, serverRecord: scan.inventory.mcpServers.find(s => s.agentId === client.agentId && s.name === server), preview, previewText, configHash: fix.sha256(opened.bytes), previewHash: previewHashOf(previewText) };
 }
 
-/** Every remove_server candidate the local plan predicts to close at least one path, with its file. */
+/** Every remove_server candidate the local plan predicts to close at least one path, then every narrow candidate toward this project folder, with its file. */
 function localTargets(scan, options) {
   const descriptors = fix.descriptorsFor(options);
   const out = [];
@@ -153,10 +156,28 @@ function localTargets(scan, options) {
       if (target.regularFile) out.push({ ...target, prediction });
     }
   }
+  for (const candidate of narrowPlan.candidates(scan, options)) {
+    const target = describeTarget({ options, scan, client: candidate.client, located: candidate.located, server: candidate.server, candidate });
+    if (target.regularFile) out.push({ ...target, prediction: candidate.prediction });
+  }
   return out;
 }
 
+/** Priorities a narrow lowers, as predict.js names them, capped like every offer list. */
+function loweredFields(lowered) { return lowered.slice(0, 64).map(step => ({ exposureKey: clip(step.exposureKey, 160), from: step.from, to: step.to })); }
+
 function toOffer(target, scannerVersion, computedAt) {
+  if (target.action === 'narrow_scope') {
+    return {
+      action: 'narrow_scope', client: target.client, project: target.project, targetFile: target.targetFile, server: clip(target.server, 128),
+      configHash: target.configHash, previewHash: target.previewHash,
+      argIndex: target.narrow.index, narrowFrom: target.candidate.edit.from, expectedIdentity: target.candidate.edit.expectedIdentity,
+      expectedExposureKeys: target.prediction.predictedEliminated.slice(0, 64).map(key => clip(key, 160)),
+      expectedLowered: loweredFields(target.prediction.predictedLowered || []),
+      capabilityLoss: [],
+      versions: versionsOf(scannerVersion), computedAt,
+    };
+  }
   return {
     client: target.client, project: target.project, targetFile: target.targetFile, server: clip(target.server, 128),
     configHash: target.configHash, previewHash: target.previewHash,
@@ -168,6 +189,7 @@ function toOffer(target, scannerVersion, computedAt) {
 }
 
 const sameList = (a, b) => Array.isArray(a) && Array.isArray(b) && JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+const sameLowered = (a, b) => Array.isArray(a) && Array.isArray(b) && sameList(a.map(step => JSON.stringify([step && step.exposureKey, step && step.from, step && step.to])), b.map(step => JSON.stringify([step && step.exposureKey, step && step.from, step && step.to])));
 
 /**
  * Whether a proposal binding is exactly one of this run's offers: same
@@ -177,10 +199,11 @@ const sameList = (a, b) => Array.isArray(a) && Array.isArray(b) && JSON.stringif
  */
 function offerMatches(offer, binding) {
   const action = binding.action;
-  if (action !== 'rollback' && action !== 'remove_server') return false;
+  if (action !== 'rollback' && action !== 'remove_server' && action !== 'narrow_scope') return false;
   if ((offer.action || 'remove_server') !== action) return false;
   for (const key of ['client', 'project', 'targetFile', 'server', 'configHash', 'previewHash']) if (offer[key] !== binding[key]) return false;
   if (action === 'rollback') return offer.backupManifestId === binding.backupManifestId;
+  if (action === 'narrow_scope' && !(offer.argIndex === binding.argIndex && offer.narrowFrom === binding.narrowFrom && offer.expectedIdentity === binding.expectedIdentity && sameLowered(offer.expectedLowered, binding.expectedLowered))) return false;
   return sameList(offer.expectedExposureKeys, binding.expectedExposureKeys) && sameList(offer.capabilityLoss, binding.capabilityLoss || []);
 }
 
@@ -209,14 +232,16 @@ function targetForBinding(options, scan, binding) {
   const located = locateBinding(options, binding);
   const client = scan.discovery.clients.find(c => c.clientKey === binding.client);
   if (!located || !client) return { client: binding.client, project: binding.project, targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'file_missing', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
-  return describeTarget({ options, scan, client, located, server: binding.server });
+  if (binding.action !== 'narrow_scope') return describeTarget({ options, scan, client, located, server: binding.server });
+  // A narrow is recomputed from the file and the project folder as they are now. Its preview names the argument and both folders by fingerprint, so any drift changes the preview hash; with no candidate the preview is a removal's, which never matches.
+  return describeTarget({ options, scan, client, located, server: binding.server, candidate: narrowPlan.candidateFor(scan, options, client, binding.server) });
 }
 
 /** Only a connector removal in the current scan scope can be restored. */
 function rollbackTarget(options, scan, binding) {
   const missing = { client: binding.client, project: scanner.pathFingerprint(path.resolve(options.cwd)), targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'backup_failed', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
   const entries = fix.readManifest(options.home).entries;
-  const entry = entries.find(e => e.id === binding.backupManifestId && e.action === 'remove_server' && e.proposalId);
+  const entry = entries.find(e => e.id === binding.backupManifestId && fix.FIX_ACTIONS.includes(e.action) && e.proposalId);
   const found = fileForBinding(options, binding);
   if (!entry || !found || entry.original !== found.file || entry.clientKey !== binding.client || entry.server !== binding.server
     || missing.project !== binding.project || (entry.project && entry.project !== binding.project)
@@ -235,19 +260,49 @@ function rollbackTarget(options, scan, binding) {
     const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === binding.client);
     const located = descriptor && fix.locateServer(descriptor, entry.server, options.cwd, new Map([[found.file, JSON.parse(backup.bytes.toString('utf8'))]]));
     if (!located || located.file !== found.file || (entry.keyPath && JSON.stringify(located.keyPath) !== JSON.stringify(entry.keyPath))) return base;
-    const preview = remediate.previewEdit({ located, serverName: entry.server, cwd: options.cwd, recordsByName, bytes: backup.bytes });
-    // Reverse both the operation signs and the old/new hunk coordinates.
-    preview.diff = preview.diff.map(line => line.startsWith('@@ ')
+    const narrow = entry.action === 'narrow_scope' ? narrowBack(located, entry, opened.bytes, recordsByName) : null;
+    if (entry.action === 'narrow_scope' && !narrow) return base;
+    const preview = remediate.previewEdit({ located, serverName: entry.server, cwd: options.cwd, recordsByName, bytes: backup.bytes, narrow });
+    // Reverse both the operation signs and the old/new hunk coordinates, then keep removed lines ahead of added ones in each run of changes.
+    preview.diff = reorderChanges(preview.diff.map(line => line.startsWith('@@ ')
       ? line.replace(/^@@ -(\d+,\d+) \+(\d+,\d+) @@$/, '@@ -$2 +$1 @@')
-      : line.startsWith('-') ? `+${line.slice(1)}` : line.startsWith('+') ? `-${line.slice(1)}` : line);
+      : line.startsWith('-') ? `+${line.slice(1)}` : line.startsWith('+') ? `-${line.slice(1)}` : line));
     const previewText = `  restore ${JSON.stringify(entry.server)} from the verified local backup\n${remediate.renderPreview(preview)}`;
     return { ...base, ...opened, action: 'rollback', entry, backupBytes: backup.bytes, preview, previewText, previewHash: previewHashOf(previewText) };
   } catch (_) { return base; }
 }
 
+function reorderChanges(lines) {
+  const out = [];
+  let run = [];
+  const flush = () => { out.push(...run.filter(l => l.startsWith('-')), ...run.filter(l => l.startsWith('+'))); run = []; };
+  for (const line of lines) {
+    if (/^[-+]/.test(line)) run.push(line);
+    else { flush(); out.push(line); }
+  }
+  flush();
+  return out;
+}
+
+/**
+ * The narrow a restore undoes, as previewEdit reads it from the backup: the
+ * backed-up argument becomes the one the file holds now. The server's record
+ * is shown with the backed-up arguments, since the scan saw the narrowed ones.
+ */
+function narrowBack(located, entry, currentBytes, recordsByName) {
+  const backed = fix.objectAt(located.json, located.keyPath.slice(0, -1));
+  const now = fix.objectAt(JSON.parse(currentBytes.toString('utf8')), located.keyPath.slice(0, -1));
+  const before = backed && backed[located.name], after = now && now[located.name];
+  const index = entry.argIndex;
+  if (!before || !after || !Array.isArray(before.args) || !Array.isArray(after.args) || typeof before.args[index] !== 'string' || typeof after.args[index] !== 'string') return null;
+  const record = recordsByName.get(entry.server);
+  if (record) recordsByName.set(entry.server, { ...record, arguments: scanner.sanitizeArguments(before.args) });
+  return { index, from: before.args[index], to: after.args[index] };
+}
+
 function rollbackTargets(scan, options) {
   const project = scanner.pathFingerprint(path.resolve(options.cwd));
-  return fix.readManifest(options.home).entries.filter(e => e.action === 'remove_server' && e.proposalId).map(entry => rollbackTarget(options, scan, {
+  return fix.readManifest(options.home).entries.filter(e => fix.FIX_ACTIONS.includes(e.action) && e.proposalId).map(entry => rollbackTarget(options, scan, {
     client: entry.clientKey, project, targetFile: scanner.pathFingerprint(entry.original), server: entry.server, backupManifestId: entry.id,
   })).filter(target => target.regularFile);
 }
@@ -256,26 +311,31 @@ function rollbackTargets(scan, options) {
 /** Take the per-file lock, or null when another live process holds it. A lock left by a dead process is cleared. */
 
 /**
- * Write one approved removal: lock the file, reopen it without following a
- * symlink, compare its hash with the binding at the write boundary, back it
- * up, replace it atomically, validate, record the manifest entry. Returns
- * what the applied report needs; a failure names one fixed code and leaves
- * the file as it was.
+ * Write one approved removal or narrow: lock the file, reopen it without
+ * following a symlink, compare its hash (and for a narrow, the narrow
+ * recomputed now and its preview) with the binding at the write boundary,
+ * back it up, replace it atomically, validate, record the manifest entry.
+ * The edit and its check are the ones boppi fix makes (remediate.editedJson,
+ * validateEdited). Returns what the applied report needs; a failure names
+ * one fixed code and leaves the file as it was.
  */
-function applyRemoval({ options, binding, proposalId, now }) {
+function applyEdit({ options, scan, binding, proposalId, now }) {
   const release = acquireLock(options.home, binding.targetFile);
   if (!release) return { ok: false, failureCode: 'lock_busy', hashAtWrite: EMPTY_HASH, regularFile: false };
   try {
-    const found = locateBinding(options, binding);
+    const narrowing = binding.action === 'narrow_scope';
+    const target = narrowing ? targetForBinding(options, scan, binding) : null;
+    const found = narrowing ? (target.file ? target.located : null) : locateBinding(options, binding);
     if (!found) return { ok: false, failureCode: 'file_missing', hashAtWrite: EMPTY_HASH, regularFile: false };
     const opened = openRegular(found.file);
     if (!opened.regularFile) return { ok: false, failureCode: opened.failureCode, hashAtWrite: EMPTY_HASH, regularFile: false };
     const hashAtWrite = fix.sha256(opened.bytes);
     const report = { hashAtWrite, regularFile: true };
     if (hashAtWrite !== binding.configHash) return { ok: false, failureCode: 'hash_changed', ...report };
+    if (narrowing && (!target.narrow || target.configHash !== hashAtWrite || target.previewHash !== binding.previewHash)) return { ok: false, failureCode: 'hash_changed', ...report };
     let edited;
-    try { edited = JSON.parse(opened.bytes.toString('utf8')); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
-    if (!fix.deleteAt(edited, found.keyPath)) return { ok: false, failureCode: 'other', ...report };
+    try { edited = remediate.editedJson(JSON.parse(opened.bytes.toString('utf8')), found.keyPath, narrowing ? target.narrow : null); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
+    if (!edited) return { ok: false, failureCode: 'other', ...report };
     let backup;
     try { backup = fix.writeBackup({ file: found.file, home: options.home, now, bytes: opened.bytes }); } catch (_) { return { ok: false, failureCode: 'backup_failed', ...report }; }
     const text = JSON.stringify(edited, null, 2) + '\n';
@@ -284,7 +344,7 @@ function applyRemoval({ options, binding, proposalId, now }) {
       return { ok: false, failureCode: error.code === 'EACCES' || error.code === 'EPERM' ? 'permission_denied' : 'other', ...report };
     }
     const written = fs.readFileSync(found.file);
-    const problem = remediate.validateEdited({ bytes: written, expected: edited, keyPath: found.keyPath });
+    const problem = remediate.validateEdited({ bytes: written, expected: edited, keyPath: found.keyPath, removed: !narrowing });
     if (problem) {
       fix.writeAtomic(found.file, opened.bytes, opened.mode);
       fs.rmSync(backup, { force: true });
@@ -293,7 +353,7 @@ function applyRemoval({ options, binding, proposalId, now }) {
     const appliedHash = fix.sha256(written);
     let entry;
     try {
-      entry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: found.file, clientKey: binding.client, server: binding.server, keyPath: found.keyPath, project: binding.project, action: 'remove_server', scanExport: null, backupHash: hashAtWrite, appliedHash, proposalId });
+      entry = fix.appendManifestEntry(options.home, { createdAt: stamp(), backup, original: found.file, clientKey: binding.client, server: binding.server, keyPath: found.keyPath, project: binding.project, action: narrowing ? 'narrow_scope' : 'remove_server', ...(narrowing ? { argIndex: target.narrow.index } : {}), scanExport: null, backupHash: hashAtWrite, appliedHash, proposalId });
     } catch (_) {
       fix.writeAtomic(found.file, opened.bytes, opened.mode);
       fs.rmSync(backup, { force: true });
@@ -334,13 +394,14 @@ function applyRollback({ options, scan, binding, proposalId }) {
 
 function manifestEntryFor(home, proposalId) { return fix.readManifest(home).entries.find(e => e.proposalId === proposalId) || null; }
 
-/** Exposure keys the rescan shows on the agent of one client, and the file's hash now. */
+/** Exposure keys the rescan shows on the agent of one client, the file's hash now, and the evidence identity of the bound server's entry (null when absent). */
 function rescanReport(scan, binding, options) {
   const client = scan.discovery.clients.find(c => c.clientKey === binding.client);
   const exposureKeys = client && client.agentId ? scan.paths.filter(p => p.agentId === client.agentId).map(p => clip(p.exposureKey, 160)) : [];
   const found = fileForBinding(options, binding);
   const opened = found ? openRegular(found.file) : { regularFile: false };
-  return { exposureKeys: exposureKeys.slice(0, 64), configHash: opened.regularFile ? fix.sha256(opened.bytes) : EMPTY_HASH };
+  const entry = client && client.mergedServers && Object.prototype.hasOwnProperty.call(client.mergedServers, binding.server) ? client.mergedServers[binding.server] : null;
+  return { exposureKeys: exposureKeys.slice(0, 64), configHash: opened.regularFile ? fix.sha256(opened.bytes) : EMPTY_HASH, serverIdentity: entry ? evidenceIdentity.digest('moved-server', entry) : null };
 }
 
 /** Everything a workspace cycle does, as a class of small steps so the terminal shows each honest state. */
@@ -389,9 +450,15 @@ class Cycle {
 
   async confirmLocally(proposal, target) {
     const b = proposal.binding;
-    this.out(`\n  ${proposal.id}  approved in ${this.pairing.workspaceName || 'the workspace'}${proposal.approvedAt ? ` at ${proposal.approvedAt}` : ''}: ${b.action === 'rollback' ? 'restore' : 'remove'} "${b.server}" ${b.action === 'rollback' ? 'to' : 'from'} ${b.client}`);
+    const verb = { rollback: 'restore', narrow_scope: 'narrow', remove_server: 'remove' }[b.action];
+    const preposition = { rollback: 'to', narrow_scope: 'on', remove_server: 'from' }[b.action];
+    this.out(`\n  ${proposal.id}  approved in ${this.pairing.workspaceName || 'the workspace'}${proposal.approvedAt ? ` at ${proposal.approvedAt}` : ''}: ${verb} "${b.server}" ${preposition} ${b.client}`);
     if (b.action === 'rollback') this.out('    restores the entire backed-up configuration; its capabilities and potential exposure paths may return');
-    else {
+    else if (b.action === 'narrow_scope') {
+      this.out(`    keeps the server and all its tools; its folder access ${target.narrow.from} becomes this project folder, ${target.narrow.to}`);
+      this.out(`    expected to close ${b.expectedExposureKeys.length} exposure path${b.expectedExposureKeys.length === 1 ? '' : 's'}${b.expectedExposureKeys.length ? `: ${b.expectedExposureKeys.join(', ')}` : ''}`);
+      if (b.expectedLowered.length) this.out(`    expected to lower ${b.expectedLowered.map(step => `${step.exposureKey} ${step.from} to ${step.to}`).join(', ')}`);
+    } else {
       this.out(`    expected to close ${b.expectedExposureKeys.length} exposure path${b.expectedExposureKeys.length === 1 ? '' : 's'}: ${b.expectedExposureKeys.join(', ')}`);
       this.out(`    the agent loses: ${remediate.capabilityLossText(b.capabilityLoss, target.serverRecord)}`);
     }
@@ -410,8 +477,10 @@ class Cycle {
     if (already) { this.out(`  ${proposal.id}  already applied on this machine as manifest ${already.id}; not applying again`); return; }
     if (b.expiresAt && Date.parse(b.expiresAt) < Date.now()) { this.out(`  ${proposal.id}  expired at ${b.expiresAt}; not claiming`); return; }
     const target = targetForBinding(this.options, scan, b);
-    const current = target.regularFile && target.configHash === b.configHash && target.previewHash === b.previewHash;
-    if (current && !offers.some(offer => offerMatches(offer, b))) {
+    const sameFile = target.regularFile && target.configHash === b.configHash;
+    const current = sameFile && target.previewHash === b.previewHash;
+    // The same bytes with a different preview (a narrow whose project folder changed) is not this run's offer either; claiming it would only strand the proposal.
+    if (sameFile && !offers.some(offer => offerMatches(offer, b))) {
       this.out(`  ${proposal.id}  refused (not_offered): "${clip(String(b.server), 128)}" on ${clip(String(b.client), 32)} is not a change this device offered in this run; not claimed, nothing written. Offers belong to the folder boppi connect run started in and to the file as it was; run it from the same folder as before, or let this run's fresh offer be proposed again`);
       return;
     }
@@ -427,7 +496,7 @@ class Cycle {
     this.claims.pending[proposal.id] = { nonce, targetFile: b.targetFile, client: b.client, server: b.server, claimedAt: stamp() };
     saveClaims(this.options.home, this.claims);
 
-    const applied = (b.action === 'rollback' ? applyRollback : applyRemoval)({ options: this.options, scan, binding: b, proposalId: proposal.id, now: stamp() });
+    const applied = (b.action === 'rollback' ? applyRollback : applyEdit)({ options: this.options, scan, binding: b, proposalId: proposal.id, now: stamp() });
     const body = { proposalId: proposal.id, nonce, hashAtWrite: applied.hashAtWrite, regularFile: applied.regularFile, ...(applied.ok ? { appliedHash: applied.appliedHash, backupManifestId: applied.backupManifestId } : { failureCode: applied.failureCode }) };
     const reported = await this.post('applied', body);
     if (applied.ok) this.out(b.action === 'rollback'
@@ -456,7 +525,9 @@ class Cycle {
     const remaining = Array.isArray(graded.body.remainingKeys) ? graded.body.remainingKeys : [];
     if (graded.body.state === 'verified') this.out(b.action === 'rollback'
       ? `    rescan graded verified: the configuration hash matches the restored backup; ${report.exposureKeys.length} potential exposure path${report.exposureKeys.length === 1 ? '' : 's'} reported on this agent`
-      : `    rescan graded verified: the server entry was observed absent from the scanned configuration and the expected paths no longer appear (${report.exposureKeys.length} exposure path${report.exposureKeys.length === 1 ? '' : 's'} remain on this agent)`);
+      : b.action === 'narrow_scope'
+        ? `    rescan graded verified: the server entry was observed narrowed to the predicted entry, and the expected paths no longer appear (${report.exposureKeys.length} exposure path${report.exposureKeys.length === 1 ? '' : 's'} remain on this agent; the device does not regrade lowered priorities here, boppi verify does)`
+        : `    rescan graded verified: the server entry was observed absent from the scanned configuration and the expected paths no longer appear (${report.exposureKeys.length} exposure path${report.exposureKeys.length === 1 ? '' : 's'} remain on this agent)`);
     else this.out(`    rescan graded ${graded.body.state || graded.status}${remaining.length ? `: ${remaining.length} expected exposure key${remaining.length === 1 ? '' : 's'} still present (${remaining.join(', ')})` : ''}`);
   }
 
@@ -482,7 +553,8 @@ class Cycle {
     if (!polled.ok) { this.err(describeFailure('poll', polled)); return 5; }
     const proposals = Array.isArray(polled.body.proposals) ? polled.body.proposals.filter(p => p && typeof p.id === 'string' && p.binding && typeof p.binding === 'object') : [];
     const rollbacks = offers.filter(o => o.action === 'rollback').length;
-    this.out(`BOPPI · CONNECT  ${scan.startedAt}  ${offers.length - rollbacks} removal offer(s), ${rollbacks} rollback offer(s) sent (hashes, fingerprints, key names, counts, versions; no paths or contents), ${proposals.length} proposal${proposals.length === 1 ? '' : 's'} returned`);
+    const narrows = offers.filter(o => o.action === 'narrow_scope').length;
+    this.out(`BOPPI · CONNECT  ${scan.startedAt}  ${offers.length - rollbacks - narrows} removal offer(s), ${narrows ? `${narrows} narrowing offer(s), ` : ''}${rollbacks} rollback offer(s) sent (hashes, fingerprints, key names, counts, versions; no paths or contents), ${proposals.length} proposal${proposals.length === 1 ? '' : 's'} returned`);
     for (const proposal of proposals.filter(p => p.state === 'proposed')) await this.reportPreview(proposal, scan);
     for (const proposal of proposals.filter(p => p.state === 'approved')) await this.execute(proposal, scan, offers);
     for (const proposal of proposals.filter(p => p.state === 'applied')) await this.gradeApplied(proposal, scan);
@@ -601,4 +673,4 @@ async function runConnect(options, deps) {
   }
 }
 
-module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, offerMatches, applyRemoval, runConnect };
+module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, offerMatches, applyEdit, runConnect };

@@ -70,7 +70,7 @@ function startWorkspace() {
     if (!offer) throw new Error(`no offer ${key}`);
     const id = crypto.randomUUID();
     const nonce = crypto.randomBytes(16).toString('hex');
-    ws.proposals.set(id, { id, state: 'proposed', approvedAt: null, rollbackOf, binding: { organizationId: 'org-1', deviceId: ws.device.id, client: offer.client, project: offer.project, targetFile: offer.targetFile, server: offer.server, action: offer.action || 'remove_server', configHash: offer.configHash, previewHash: offer.previewHash, versions: offer.versions, expectedExposureKeys: offer.expectedExposureKeys, capabilityLoss: offer.capabilityLoss, expiresAt: new Date(Date.now() + 86400000).toISOString(), nonce, ...(rollbackOf ? { backupManifestId: offer.backupManifestId, appliedHash: offer.configHash } : {}) }, nonce });
+    ws.proposals.set(id, { id, state: 'proposed', approvedAt: null, rollbackOf, binding: { organizationId: 'org-1', deviceId: ws.device.id, client: offer.client, project: offer.project, targetFile: offer.targetFile, server: offer.server, action: offer.action || 'remove_server', configHash: offer.configHash, previewHash: offer.previewHash, versions: offer.versions, expectedExposureKeys: offer.expectedExposureKeys, capabilityLoss: offer.capabilityLoss, expiresAt: new Date(Date.now() + 86400000).toISOString(), nonce, ...(rollbackOf ? { backupManifestId: offer.backupManifestId, appliedHash: offer.configHash } : {}), ...(offer.action === 'narrow_scope' ? { argIndex: offer.argIndex, narrowFrom: offer.narrowFrom, expectedIdentity: offer.expectedIdentity, expectedLowered: offer.expectedLowered } : {}) }, nonce });
     return id;
   };
   ws.proposeRollback = fixId => {
@@ -135,7 +135,8 @@ function startWorkspace() {
           if (ws.dropRescanOnce) { ws.dropRescanOnce = false; req.socket.destroy(); return; }
           if (!proposal || proposal.state !== 'applied') return reply(res, 409, { error: 'wrong_state' });
           const remainingKeys = proposal.binding.action === 'rollback' ? [] : proposal.binding.expectedExposureKeys.filter(key => (body.exposureKeys || []).includes(key));
-          proposal.state = body.configHash === proposal.appliedHash && sameVersions(body.versions) && !remainingKeys.length ? 'verified' : 'verification_failed';
+          const narrowed = proposal.binding.action !== 'narrow_scope' || body.serverIdentity === proposal.binding.expectedIdentity;
+          proposal.state = body.configHash === proposal.appliedHash && sameVersions(body.versions) && !remainingKeys.length && narrowed ? 'verified' : 'verification_failed';
           if (proposal.state === 'verified' && proposal.rollbackOf) ws.proposals.get(proposal.rollbackOf).state = 'rolled_back';
           return reply(res, 200, { state: proposal.state, remainingKeys });
         }
@@ -154,6 +155,131 @@ function startWorkspace() {
     });
   });
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve({ ...ws, server, url: `http://127.0.0.1:${server.address().port}`, ws })));
+}
+
+const NARROW_OFFER_KEYS = 'action,argIndex,capabilityLoss,client,computedAt,configHash,expectedExposureKeys,expectedIdentity,expectedLowered,narrowFrom,previewHash,project,server,targetFile,versions';
+
+/** AG-10 part 2: a narrow the workspace proposes from the device's offer, toward the project folder connect run starts in. */
+async function narrowCases(root) {
+  const home = path.join(root, 'narrow-home');
+  const project = path.join(home, 'PLANTED-narrow-target-zq7');
+  const other = path.join(home, 'PLANTED-other-project-zq7');
+  const outside = path.join(root, 'outside-home');
+  for (const dir of ['Library/Application Support/Claude', '.ssh', 'notes', path.basename(project), path.basename(other)]) fs.mkdirSync(path.join(home, dir), { recursive: true });
+  fs.mkdirSync(outside, { recursive: true });
+  const config = path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  fs.writeFileSync(config, JSON.stringify({ theme: 'keep-me', mcpServers: {
+    filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', home], env: { NODE_ENV: 'production' } },
+    fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
+  } }, null, 2));
+  const original = fs.readFileSync(config);
+  const manifestFile = path.join(home, '.boppi', 'backups', 'index.json');
+  const manifest = () => (fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')).entries : []);
+  const workspace = await startWorkspace();
+  const ws = workspace.ws;
+  const run = (args, cwd = project) => runCli(args, home, { BOPPI_TEST_CWD: cwd });
+  const narrowOffers = () => ws.byRoute('poll').at(-1).body.offers.filter(o => o.action === 'narrow_scope');
+  try {
+    await run(['connect', 'pair', '--url', workspace.url, '--code', PAIR_CODE]);
+
+    section('narrow offers (AG-10 part 2)');
+    const polled = await run(['connect', 'run', '--once']);
+    const body = JSON.stringify(ws.byRoute('poll').at(-1).body);
+    const [offer] = narrowOffers();
+    const removal = ws.byRoute('poll').at(-1).body.offers.find(o => !o.action && o.server === 'filesystem');
+    ok('connect run from a project folder inside the broad directory offers one narrow for that server and says so', polled.code === 0 && narrowOffers().length === 1 && offer.server === 'filesystem' && polled.stdout.includes('1 narrowing offer(s)'));
+    ok('the narrow offer carries exactly the contract fields', offer && Object.keys(offer).sort().join() === NARROW_OFFER_KEYS);
+    ok('argIndex, narrowFrom and expectedIdentity have the contract shapes', offer.argIndex === 2 && /^[A-Za-z0-9_]{16,80}$/.test(offer.narrowFrom) && /^evidence-v1:[0-9a-f]{64}$/.test(offer.expectedIdentity));
+    ok('it predicts closing or lowering something, keeps every tool, and names lowered steps as predict.js does', (offer.expectedExposureKeys.length || offer.expectedLowered.length) && offer.capabilityLoss.length === 0 && offer.expectedLowered.every(step => Object.keys(step).sort().join() === 'exposureKey,from,to' && ['critical', 'high', 'medium', 'low'].includes(step.from) && ['critical', 'high', 'medium', 'low'].includes(step.to)));
+    ok('the project is the fingerprint the removal offers use and the preview hash is the narrowed preview, not the removal one', removal && offer.project === removal.project && offer.targetFile === removal.targetFile && HEX64.test(offer.previewHash) && offer.previewHash !== removal.previewHash);
+    ok('no raw path anywhere in the poll body: not the project folder, not home, not a slash', !body.includes('PLANTED') && !body.includes(home) && !body.includes('/'));
+
+    const fromHome = await run(['connect', 'run', '--once'], home);
+    ok('no narrow offer when connect run starts in the home directory itself', fromHome.code === 0 && narrowOffers().length === 0);
+    await run(['connect', 'run', '--once'], outside);
+    ok('no narrow offer when the folder is not inside the broad directory', narrowOffers().length === 0);
+
+    const key = offerKey(offer);
+    section('only the narrow this device offered is executed');
+    for (const [label, mutate] of [
+      ['another argument index', b => { b.argIndex = 1; }],
+      ['another broad directory fingerprint', b => { b.narrowFrom = 'path_forged000000000000'; }],
+      ['another expected identity', b => { b.expectedIdentity = `evidence-v1:${'0'.repeat(64)}`; }],
+      ['hidden lowered priorities', b => { b.expectedLowered = b.expectedLowered.length ? [] : [{ exposureKey: 'EP-X', from: 'critical', to: 'low' }]; }],
+    ]) {
+      await run(['connect', 'run', '--once']);
+      const id = ws.propose(key);
+      mutate(ws.proposals.get(id).binding);
+      ws.approve(id);
+      const claims = ws.byRoute('claim').length;
+      const forged = await run(['connect', 'run', '--once', '--yes']);
+      ok(`${label}: refused as not_offered, never claimed, file and manifest untouched`, forged.stdout.includes(`${id}  refused (not_offered)`) && ws.byRoute('claim').length === claims && fs.readFileSync(config).equals(original) && manifest().length === 0);
+      ws.proposals.get(id).state = 'cancelled';
+    }
+    const binding = { ...offer };
+    ok('offerMatches accepts the exact narrow offer, lowered steps in any order', connect.offerMatches(offer, { ...binding, expectedLowered: [...offer.expectedLowered].reverse() }));
+    ok('offerMatches refuses a narrow offer bound as a removal and a removal bound as a narrow', !connect.offerMatches(offer, { ...binding, action: 'remove_server' }) && !connect.offerMatches(removal, { ...removal, action: 'narrow_scope' }));
+    ok('offerMatches refuses a changed lowered step', !offer.expectedLowered.length || !connect.offerMatches(offer, { ...binding, expectedLowered: offer.expectedLowered.map((step, i) => (i ? step : { ...step, to: step.to === 'low' ? 'medium' : 'low' })) }));
+
+    section('a narrow whose project folder or file changed');
+    await run(['connect', 'run', '--once']);
+    const moved = ws.propose(key);
+    ws.approve(moved);
+    const claimsBefore = ws.byRoute('claim').length;
+    const elsewhere = await run(['connect', 'run', '--once', '--yes'], other);
+    ok('run from another project folder: the same file, a different narrow, refused as not_offered and never claimed', elsewhere.stdout.includes(`${moved}  refused (not_offered)`) && ws.byRoute('claim').length === claimsBefore && fs.readFileSync(config).equals(original) && manifest().length === 0);
+    ws.proposals.get(moved).state = 'cancelled';
+    await run(['connect', 'run', '--once']);
+    const raced = ws.propose(key);
+    ws.approve(raced);
+    ws.onClaim = () => fs.appendFileSync(config, '\n');
+    const racedRun = await run(['connect', 'run', '--once', '--yes']);
+    ws.onClaim = null;
+    ok('a file changed after the claim is not written (hash_changed) and the other writer\'s bytes stand', racedRun.stdout.includes('not written (hash_changed)') && ws.byRoute('applied').at(-1).body.failureCode === 'hash_changed' && fs.readFileSync(config).equals(Buffer.concat([original, Buffer.from('\n')])) && manifest().length === 0);
+    fs.writeFileSync(config, original);
+    await run(['connect', 'run', '--once']);
+    const vanished = ws.propose(key);
+    ws.approve(vanished);
+    const aside = `${project}-aside`;
+    ws.onClaim = () => fs.renameSync(project, aside);
+    const vanishedRun = await run(['connect', 'run', '--once', '--yes']);
+    ws.onClaim = null;
+    fs.renameSync(aside, project);
+    ok('a project folder gone after the claim leaves no narrow to write: hash_changed, the server is neither narrowed nor removed', vanishedRun.stdout.includes('not written (hash_changed)') && fs.readFileSync(config).equals(original) && manifest().length === 0);
+
+    section('a narrow applied, rescanned and verified');
+    await run(['connect', 'run', '--once']);
+    const proposal = ws.propose(key);
+    await run(['connect', 'run', '--once']);
+    ok('the proposed narrow is previewed and matches', ws.proposals.get(proposal).state === 'previewed');
+    ws.approve(proposal);
+    const waiting = await run(['connect', 'run', '--once']);
+    ok('the local confirmation words the narrow with the real folders and waits without a terminal', waiting.stdout.includes(`narrow "filesystem" on claude-desktop`) && waiting.stdout.includes(`its folder access ${home} becomes this project folder, ${fs.realpathSync(project)}`) && waiting.stdout.includes('keeps the server and all its tools') && waiting.stdout.includes('waiting') && fs.readFileSync(config).equals(original));
+    const applied = await run(['connect', 'run', '--once', '--yes']);
+    const after = JSON.parse(fs.readFileSync(config, 'utf8'));
+    const entry = manifest().at(-1);
+    const report = ws.byRoute('applied').at(-1).body;
+    ok('only the directory argument became the project folder', JSON.stringify(after.mcpServers.filesystem.args) === JSON.stringify(['-y', '@modelcontextprotocol/server-filesystem', fs.realpathSync(project)]) && after.theme === 'keep-me' && after.mcpServers.filesystem.env.NODE_ENV === 'production' && JSON.stringify(after.mcpServers.fetch) === JSON.stringify({ command: 'uvx', args: ['mcp-server-fetch'] }));
+    ok('the manifest records a connector narrow_scope with its argument index, proposal and an exact backup', manifest().length === 1 && entry.action === 'narrow_scope' && entry.argIndex === 2 && entry.proposalId === proposal && fs.readFileSync(entry.backup).equals(original) && report.backupManifestId === entry.id);
+    const rescan = ws.byRoute('rescan').at(-1).body;
+    ok('the rescan carries the expected identity of the narrowed entry and the workspace verifies', rescan.proposalId === proposal && rescan.serverIdentity === offer.expectedIdentity && ws.proposals.get(proposal).state === 'verified');
+    ok('the verified sentence says the entry was observed narrowed, not absent', applied.stdout.includes('observed narrowed') && !applied.stdout.includes('observed absent'));
+
+    section('rollback of a connector narrow');
+    await run(['connect', 'run', '--once']);
+    const rollbackOffer = ws.byRoute('poll').at(-1).body.offers.find(o => o.action === 'rollback');
+    ok('the narrow manifest is offered for rollback without a path', rollbackOffer && rollbackOffer.backupManifestId === entry.id && !JSON.stringify(rollbackOffer).includes('/'));
+    const rollback = ws.proposeRollback(proposal);
+    await run(['connect', 'run', '--once']);
+    ws.approve(rollback);
+    const restoreWaiting = await run(['connect', 'run', '--once']);
+    const diff = restoreWaiting.stdout.split('\n').filter(line => /^\s+[-+]\s/.test(line));
+    ok('the restore preview changes one argument back, as fingerprints', restoreWaiting.stdout.includes('restore "filesystem" from the verified local backup') && diff.length === 2 && diff.every(line => /path_[0-9a-f]{16}/.test(line)) && diff[0].trim().startsWith('-') && diff[1].trim().startsWith('+'));
+    const restored = await run(['connect', 'run', '--once', '--yes']);
+    ok('the approved rollback restores the original bytes and verifies', restored.code === 0 && fs.readFileSync(config).equals(original) && ws.proposals.get(rollback).state === 'verified' && ws.proposals.get(proposal).state === 'rolled_back' && manifest().at(-1).restoredFrom === entry.id);
+  } finally {
+    workspace.server.close();
+  }
 }
 
 (async function main() {
@@ -287,6 +413,7 @@ function startWorkspace() {
     ok('the manifest entry names the proposal, the backup matches the original and is owner-only', entries[0].proposalId === applyProposal && entries[0].action === 'remove_server' && fs.readFileSync(entries[0].backup).equals(original) && (fs.statSync(entries[0].backup).mode & 0o777) === 0o600 && entries[0].backupHash === report.body.hashAtWrite);
     const rescan = ws.byRoute('rescan').at(-1);
     ok('the rescan report carries the remaining exposure keys of that agent and the file hash', rescan && rescan.body.proposalId === applyProposal && Array.isArray(rescan.body.exposureKeys) && rescan.body.exposureKeys.every(key => !ws.proposals.get(applyProposal).binding.expectedExposureKeys.includes(key)) && rescan.body.configHash === report.body.appliedHash && sameVersions(rescan.body.versions));
+    ok('a removal rescan reports the removed server\'s identity as null', rescan && rescan.body.serverIdentity === null);
     ok('the workspace verifies and the output never calls the acknowledgement a fix', ws.proposals.get(applyProposal).state === 'verified' && applied.stdout.includes("reported, awaiting the workspace's rescan grade") && applied.stdout.indexOf("awaiting the workspace's rescan grade") < applied.stdout.indexOf('rescan graded verified'));
     ok('the output names the undo command and prints no secret', applied.stdout.includes(`boppi rollback --id ${entries[0].id}`) && !applied.stdout.includes('SUPERSECRETVALUE'));
     const claims = JSON.parse(fs.readFileSync(connect.claimsFile(home), 'utf8'));
@@ -495,6 +622,7 @@ function startWorkspace() {
   } finally {
     workspace.server.close();
   }
+  await narrowCases(root);
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -328,4 +328,4 @@ function renderResult(result, indent = '  ') {
   return lines.join('\n');
 }
 
-module.exports = { capabilityLossText, previewEdit, renderPreview, validateEdited, lineDiff, hunks, projection, sanitizedEntry, outcome, runRemediation, renderStage, renderResult };
+module.exports = { capabilityLossText, editedJson, previewEdit, renderPreview, validateEdited, lineDiff, hunks, projection, sanitizedEntry, outcome, runRemediation, renderStage, renderResult };
