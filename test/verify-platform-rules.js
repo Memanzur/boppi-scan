@@ -14,6 +14,8 @@ const cursor = require('../src/cli/discovery/cursor');
 const builtinTools = require('../src/cli/builtinTools');
 const claudeCode = require('../src/cli/discovery/claudeCode');
 const remediate = require('../src/cli/remediate');
+const { scopeOf } = require('../src/cli/toolCategories');
+const narrowScope = require('../src/cli/narrowScope');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
@@ -65,6 +67,54 @@ try {
     const located = fix.locateServer(claudeCode.locate({ home, cwd }), 'slashkey', cwd);
     const preview = remediate.previewEdit({ located, serverName: 'slashkey', cwd, recordsByName: new Map() });
     ok('the fix preview shows the matched project block instead of hiding it', preview.diff.some(line => line.includes('"slashkey"')), JSON.stringify(preview.diff));
+  }
+
+  section('Path comparison: case-insensitive on win32, exact on POSIX');
+  {
+    ok('C:\\Users\\Me and c:/users/me are the same path on win32', platform.samePath('C:\\Users\\Me', 'c:/users/me', 'win32'));
+    ok('/Users/Me and /Users/me differ on POSIX', !platform.samePath('/Users/Me', '/Users/me', 'linux'));
+    ok('isInside ignores case on win32', platform.isInside('c:\\users\\ME\\code', 'C:\\Users\\me', 'win32'));
+    ok('isInside needs a separator, not a prefix', !platform.isInside('/home/u2', '/home/u', 'linux') && !platform.isInside('C:\\Users\\me2', 'C:\\Users\\me', 'win32'));
+    ok('a root contains every other path and not itself', platform.isInside('C:\\x', 'C:\\', 'win32') && platform.isInside('/x', '/', 'linux') && !platform.isInside('/', '/', 'linux'));
+  }
+
+  section('Scope grades on Windows and Linux');
+  {
+    const winHome = 'C:\\Users\\Me';
+    const grades = [
+      ['the home folder in another case is the home folder', scopeOf('c:\\users\\me', winHome, 'win32'), 'home'],
+      ['a dotfolder under the home folder in another case is a secrets folder', scopeOf('C:\\USERS\\ME\\.SSH', winHome, 'win32'), 'secrets'],
+      ['C:\\Users, above the home folder, is system-wide', scopeOf('C:\\Users', winHome, 'win32'), 'system'],
+      ['C:\\Windows is system-wide', scopeOf('C:\\Windows', winHome, 'win32'), 'system'],
+      ['D:\\Program Files (x86) is system-wide', scopeOf('d:\\Program Files (x86)', winHome, 'win32'), 'system'],
+      ['C:\\ProgramData is system-wide', scopeOf('C:\\ProgramData', winHome, 'win32'), 'system'],
+      ['a bare drive C: is the whole drive', scopeOf('C:', winHome, 'win32'), 'system'],
+      ['a folder elsewhere on the drive is not', scopeOf('C:\\data\\reports', winHome, 'win32'), 'other'],
+      ['/srv on Linux is system-wide', scopeOf('/srv', '/home/u', 'linux'), 'system'],
+      ['/mnt/c (a Windows drive under WSL) is system-wide', scopeOf('/mnt/c', '/home/u', 'linux'), 'system'],
+      ['/root is system-wide for another user', scopeOf('/root', '/home/u', 'linux'), 'system'],
+      ['/root is the home folder for root', scopeOf('/root', '/root', 'linux'), 'home'],
+      ['a USB stick under /media is a folder elsewhere', scopeOf('/media/u/stick', '/home/u', 'linux'), 'other'],
+      ['POSIX case still matters: /Home/U is not the home folder', scopeOf('/Home/U', '/home/u', 'linux'), 'other'],
+    ];
+    for (const [name, got, want] of grades) ok(name, got === want, `${got}, expected ${want}`);
+  }
+
+  section('Directory arguments written the Windows way');
+  {
+    const home = path.join(root, 'args-home');
+    for (const dir of ['.ssh', 'notes']) fs.mkdirSync(path.join(home, dir), { recursive: true });
+    const broad = args => narrowScope.broadDirectories({ command: 'node', args }, home).map(d => `${d.arg}=${d.grade}`).join(',');
+    ok('a bare ~ is the whole home folder', broad(['~']) === '~=home');
+    ok('~\\.ssh is a secrets folder', broad(['~\\.ssh']) === '~\\.ssh=secrets');
+    ok('%USERPROFILE% and %USERPROFILE%\\.ssh are read as the home folder', broad(['%USERPROFILE%', '%USERPROFILE%\\.ssh']) === '%USERPROFILE%=home,%USERPROFILE%\\.ssh=secrets');
+    ok('~\\notes is not broad', broad(['~\\notes']) === '');
+    ok('~other/x is someone else\'s home and is not expanded', platform.expandHomeArg('~other/x', home) === '~other/x');
+    ok('a bare drive C: expands to its root', platform.expandHomeArg('C:', home) === 'C:\\');
+    fs.mkdirSync(path.join(home, 'notes-old'));
+    fs.mkdirSync(path.join(home, 'notes', 'inbox'));
+    ok('narrowing to a sibling that only shares a name prefix is refused', /not inside/.test(narrowScope.targetProblem({ from: '~/notes', to: path.join(home, 'notes-old'), home }) || ''));
+    ok('narrowing to a folder inside is accepted', narrowScope.targetProblem({ from: '~\\notes', to: path.join(home, 'notes', 'inbox'), home }) === null);
   }
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

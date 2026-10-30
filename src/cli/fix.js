@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { validateConfigShape } = require('./configFiles');
-const { parseJson, projectKey } = require('./platform');
+const { comparable, parseJson, projectKey } = require('./platform');
 
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const MANIFEST_VERSION = 1;
@@ -65,8 +65,8 @@ function readClient(descriptor, cwd, overrides = new Map()) {
   const files = [], servers = [], documents = new Map(), taken = new Set(), seen = new Set();
   for (const file of descriptor.files) {
     const resolved = path.resolve(file.path);
-    if (seen.has(resolved)) continue; // user and project config can be the same file
-    seen.add(resolved);
+    if (seen.has(comparable(resolved))) continue; // user and project config can be the same file
+    seen.add(comparable(resolved));
     const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [], ...(file.plugin ? { plugin: file.plugin } : {}) };
     files.push(entry);
     if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;

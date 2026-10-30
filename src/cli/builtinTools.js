@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const models = require('../engine/models');
 const toolCategories = require('./toolCategories');
-const { parseJson } = require('./platform');
+const { comparable, parseJson } = require('./platform');
 
 // prompts: true means the tool asks before each use unless a rule or mode
 // says otherwise; false means it never asks (Read inside the working tree);
@@ -89,8 +89,8 @@ function readPermissionSettings(files) {
   let unreadable = 0;
   for (const file of files) {
     const resolved = path.resolve(file.path);
-    if (seen.has(resolved)) continue; // user and project settings are the same file when the scan runs from home
-    seen.add(resolved);
+    if (seen.has(comparable(resolved))) continue; // user and project settings are the same file when the scan runs from home
+    seen.add(comparable(resolved));
     const entry = { path: resolved, scope: file.scope, kind: 'settings', status: 'not_found', serverCount: 0 };
     if (fs.existsSync(resolved)) {
       try {

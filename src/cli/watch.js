@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const fix = require('./fix');
+const { samePath } = require('./platform');
 const { safeText } = require('./render/terminal');
 
 const DEBOUNCE_MS = 500;
@@ -207,7 +208,7 @@ async function runWatch(options, deps) {
     try {
       const watcher = fs.watch(dir, { persistent: true }, (eventType, filename) => {
         const changed = filename ? path.join(dir, String(filename)) : null;
-        if (changed && !target.files.some(f => f.path === changed)) return;
+        if (changed && !target.files.some(f => samePath(f.path, changed))) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => rescan('file event'), DEBOUNCE_MS);
       });

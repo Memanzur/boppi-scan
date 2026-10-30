@@ -19,7 +19,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { parseJson } = require('../platform');
+const { comparable, parseJson } = require('../platform');
 
 const isObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const NAME = /^[^\s@:/\\]{1,128}$/;
@@ -60,8 +60,8 @@ function enabledPlugins({ home, cwd }) {
   const out = new Map(), seen = new Set();
   for (const [file, source] of [[path.join(home, '.claude', 'settings.json'), 'user'], [path.join(cwd, '.claude', 'settings.json'), 'project'], [path.join(cwd, '.claude', 'settings.local.json'), 'local']]) {
     // Scanning from the home folder makes the user and project file the same file; it counts once, as user.
-    if (seen.has(path.resolve(file))) continue;
-    seen.add(path.resolve(file));
+    if (seen.has(comparable(file))) continue;
+    seen.add(comparable(file));
     const doc = readJson(file);
     if (!isObject(doc) || !isObject(doc.enabledPlugins)) continue;
     for (const [id, value] of Object.entries(doc.enabledPlugins)) if (typeof value === 'boolean') out.set(id, { enabled: value, source });

@@ -9,15 +9,12 @@
  */
 'use strict';
 const fs = require('fs');
-const path = require('path');
 const { scopeOf, SCOPE_LABEL } = require('./toolCategories');
 const evidenceIdentity = require('./evidenceIdentity');
 const { pathFingerprint } = require('../engine/localMcpScanner');
+const { samePath, isInside, DIRECTORY_ARG, expandHomeArg } = require('./platform');
 
 const BROAD = new Set(['system', 'home', 'secrets']);
-const DIRECTORY_ARG = /^(\/|~\/|[A-Za-z]:[\\/])/;
-
-const expandHome = (value, home) => (value.startsWith('~/') ? path.join(home, value.slice(2)) : value);
 const isDirectory = candidate => { try { return fs.statSync(candidate).isDirectory(); } catch (_) { return false; } };
 const real = candidate => { try { return fs.realpathSync(candidate); } catch (_) { return null; } };
 
@@ -26,7 +23,7 @@ function broadDirectories(entry, home) {
   const args = entry && Array.isArray(entry.args) ? entry.args : [];
   return args.flatMap((arg, index) => {
     if (typeof arg !== 'string' || !DIRECTORY_ARG.test(arg)) return [];
-    const absolute = expandHome(arg, home);
+    const absolute = expandHomeArg(arg, home);
     if (!isDirectory(absolute)) return [];
     const grade = scopeOf(absolute, home);
     return BROAD.has(grade) ? [{ index, arg, grade, label: SCOPE_LABEL[grade] }] : [];
@@ -39,13 +36,12 @@ function broadDirectories(entry, home) {
  * itself grade as broad: narrowing the home directory to ~/.ssh is not narrower.
  */
 function targetProblem({ from, to, home }) {
-  const fromReal = real(expandHome(from, home));
+  const fromReal = real(expandHomeArg(from, home));
   if (!isDirectory(to)) return `${to} is not an existing directory`;
   const toReal = real(to);
   if (!fromReal || !toReal) return 'the directories could not be resolved';
-  if (toReal === fromReal) return `${to} is the directory the server already has`;
-  const inside = fromReal === path.parse(fromReal).root ? toReal.startsWith(fromReal) : toReal.startsWith(fromReal + path.sep);
-  if (!inside) return `${to} is not inside the directory it would replace`;
+  if (samePath(toReal, fromReal)) return `${to} is the directory the server already has`;
+  if (!isInside(toReal, fromReal)) return `${to} is not inside the directory it would replace`;
   const grade = scopeOf(toReal, real(home) || home);
   if (BROAD.has(grade)) return `${to} is ${SCOPE_LABEL[grade]}, which is not narrower`;
   return null;
