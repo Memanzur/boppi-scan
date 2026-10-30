@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import platform from '../../test/helpers/platform.js';
 import { observe, propose, evaluate, review, publish, canonical, verifyBundle, receive, rollbackReceipt, rollback, validateCandidate, digest } from './pipeline.mjs';
 import { demonstrate } from './demo.mjs';
 const fixtures = JSON.parse(fs.readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8'));
@@ -107,6 +108,6 @@ test('real scanner consumes the distributed overlay only in shadow, with no perm
     assert.equal(result.selectedVersionAfterRollback, '0.0.1');
     assert(!fs.readdirSync(output).some(name => /private|secret/i.test(name)));
     assert.throws(() => demonstrate(output)); // wx never overwrites an earlier artifact.
-    for (const name of ['observations.json', 'bundle-0.0.1.json', 'fixture-trust-public-keys.json']) assert.equal(fs.statSync(path.join(output,name)).mode & 0o077, 0);
+    for (const name of ['observations.json', 'bundle-0.0.1.json', 'fixture-trust-public-keys.json']) assert(platform.ownerOnly(path.join(output,name)), name);
   } finally { fs.rmSync(output, { recursive:true, force:true }); }
 });

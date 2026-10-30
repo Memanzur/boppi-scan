@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ownerOnly, symlinkOrSkip } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 const { ALLOWED_METHODS } = require('../src/cli/discovery/recorder');
 const discover = require('../src/cli/discovery/discover');
@@ -72,7 +73,7 @@ const cacheFiles = home => fs.existsSync(discover.discoveryDir(home)) ? fs.readd
   ok('the record carries no params beyond method and id', rec.record.sent.every(entry => Object.keys(entry).sort().join() === 'at,id,method'));
   const files = cacheFiles(home);
   const cache = JSON.parse(fs.readFileSync(path.join(discover.discoveryDir(home), files[0]), 'utf8'));
-  ok('one cache file is written, owner-only, with the entry hash and the projection', files.length === 1 && (fs.statSync(path.join(discover.discoveryDir(home), files[0])).mode & 0o777) === 0o600 && cache.entryHash.length === 64 && cache.list.counts.kept === 40 && cache.maxAgeDays === 7);
+  ok('one cache file is written, owner-only, with the entry hash and the projection', files.length === 1 && ownerOnly(path.join(discover.discoveryDir(home), files[0])) && cache.entryHash.length === 64 && cache.list.counts.kept === 40 && cache.maxAgeDays === 7);
   ok('the cached launch is sanitized: the command is a basename and no env value is stored', cache.launch.command === path.basename(process.execPath) && !JSON.stringify(cache).includes('sekret-value-xyz') && cache.launch.envNames.join() === 'API_KEY');
   const entry = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8')).mcpServers.paged;
   ok('the cache is usable for the same entry and stale for a changed one or an old date', discover.cacheStatus(cache, entry).usable && !discover.cacheStatus(cache, { ...entry, args: [...entry.args, '--x'] }).usable && discover.cacheStatus(cache, entry, Date.parse(cache.discoveredAt) + 8 * 86400000).reason.includes('older than 7 days'));
@@ -141,8 +142,8 @@ const cacheFiles = home => fs.existsSync(discover.discoveryDir(home)) ? fs.readd
   const echoed = run(['--server', 'echo', '--yes'], home);
   const echoCache = cacheFiles(home).map(f => fs.readFileSync(path.join(discover.discoveryDir(home), f), 'utf8')).join('');
   ok('a server that echoes its env and secret arguments back is redacted on the terminal and in the cache', echoed.code === 0 && !echoed.stdout.includes('SECRET') && !echoCache.includes('SECRET') && echoCache.includes('[redacted]'));
-  ok('the record file is redacted too and written owner-only', (() => { const rec = path.join(root, 'echo.json'); fs.writeFileSync(rec, 'x', { mode: 0o644 }); const r = run(['--server', 'echo', '--yes', '--record', rec], home); return r.code === 0 && !fs.readFileSync(rec, 'utf8').includes('SECRET') && (fs.statSync(rec).mode & 0o077) === 0; })());
-  ok('a symlinked --record path is refused', (() => { const victim = path.join(root, 'victim.json'); fs.writeFileSync(victim, 'keep'); const link = path.join(root, 'link.json'); fs.symlinkSync(victim, link); const r = run(['--server', 'echo', '--yes', '--record', link], home); return r.code !== 0 && fs.readFileSync(victim, 'utf8') === 'keep'; })());
+  ok('the record file is redacted too and written owner-only', (() => { const rec = path.join(root, 'echo.json'); fs.writeFileSync(rec, 'x', { mode: 0o644 }); const r = run(['--server', 'echo', '--yes', '--record', rec], home); return r.code === 0 && !fs.readFileSync(rec, 'utf8').includes('SECRET') && ownerOnly(rec); })());
+  ok('a symlinked --record path is refused', (() => { const victim = path.join(root, 'victim.json'); fs.writeFileSync(victim, 'keep'); const link = path.join(root, 'link.json'); if (!symlinkOrSkip(victim, link, 'a symlinked --record path is refused')) return true; const r = run(['--server', 'echo', '--yes', '--record', link], home); return r.code !== 0 && fs.readFileSync(victim, 'utf8') === 'keep'; })());
   const rotatedConfig = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8'));
   rotatedConfig.mcpServers.echo.env.API_KEY = 'rotatedSECRET7value';
   fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify(rotatedConfig));

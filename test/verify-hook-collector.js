@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ownerOnly } = require('./helpers/platform');
 const { spawn, spawnSync } = require('child_process');
 const hook = require('../src/cli/hook');
 const events = require('../src/cli/events');
@@ -46,7 +47,7 @@ const cliHook = (home, input, args = []) => spawnSync(process.execPath, [CLI, 'h
   ok(`outcomes are modeled separately: ${JSON.stringify(counts)}`, counts.error > 0 && counts.failed > 0 && counts.interrupted > 0 && counts.denied > 0 && counts.ok > counts.error);
   ok('a denied call is never ok and an interrupted call is never failed', calls.every(c => c.outcome !== 'ok' || c.event !== 'PermissionDenied'));
   ok('the server source from the payload is kept (allowlisted) and durations are bounded numbers', calls.every(c => c.source === 'user') && calls.filter(c => c.durationMs === 12).length > 0);
-  ok('all records are owner-only files', hook.storedFiles(home).every(f => (fs.statSync(f).mode & 0o777) === 0o600));
+  ok('all records are owner-only files', hook.storedFiles(home).every(f => ownerOnly(f)));
 
   section('privacy canaries');
   const text = storedText(home);
@@ -128,7 +129,7 @@ const cliHook = (home, input, args = []) => spawnSync(process.execPath, [CLI, 'h
   const jsonFile = path.join(root, 'events.json');
   const written = spawnSync(process.execPath, [CLI, 'events', '--since', '3650', '--json', jsonFile, '--home', home], { encoding: 'utf8' });
   const exported = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
-  ok('--json writes the calls, orphans, summary, and gap counters to an owner-only file', written.status === 0 && exported.calls.length === 502 && exported.monitored.join() === 'claude-code' && (fs.statSync(jsonFile).mode & 0o777) === 0o600 && !fs.readFileSync(jsonFile, 'utf8').includes('CANARY'));
+  ok('--json writes the calls, orphans, summary, and gap counters to an owner-only file', written.status === 0 && exported.calls.length === 502 && exported.monitored.join() === 'claude-code' && ownerOnly(jsonFile) && !fs.readFileSync(jsonFile, 'utf8').includes('CANARY'));
   const badSince = spawnSync(process.execPath, [CLI, 'events', '--since', '0', '--home', home], { encoding: 'utf8' });
   ok('--since outside 1..3650 is rejected', badSince.status !== 0);
   const empty = spawnSync(process.execPath, [CLI, 'events', '--home', path.join(root, 'empty')], { encoding: 'utf8' });

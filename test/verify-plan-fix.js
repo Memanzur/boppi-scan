@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ownerOnly } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
@@ -109,10 +110,10 @@ function runCli(args, home, extra = {}) {
   ok('fix exits 0 when the prediction is CONFIRMED', applied.code === 0 && applied.stdout.includes('CONFIRMED'));
   ok('the server is gone and the rest of the file is intact', !after.mcpServers.fetch && after.mcpServers.filesystem && after.theme === 'keep-me');
   const backups = fs.readdirSync(path.join(home, '.boppi', 'backups')).filter(file => file.endsWith('.bak'));
-  ok('a backup of the original file was written with owner-only permissions', backups.length === 1 && fs.readFileSync(path.join(home, '.boppi', 'backups', backups[0]), 'utf8') === original && (fs.statSync(path.join(home, '.boppi', 'backups', backups[0])).mode & 0o777) === 0o600);
+  ok('a backup of the original file was written with owner-only permissions', backups.length === 1 && fs.readFileSync(path.join(home, '.boppi', 'backups', backups[0]), 'utf8') === original && ownerOnly(path.join(home, '.boppi', 'backups', backups[0])));
   const exportDir = path.join(home, '.boppi', 'fix-exports');
   const exports = fs.existsSync(exportDir) ? fs.readdirSync(exportDir).filter(f => f.startsWith('boppi-fix-') && f.endsWith('.json')) : [];
-  ok('the predictions used were saved under ~/.boppi with owner-only permissions', exports.length === 1 && Array.isArray(JSON.parse(fs.readFileSync(path.join(exportDir, exports[0]), 'utf8')).predictions) && (fs.statSync(path.join(exportDir, exports[0])).mode & 0o777) === 0o600 && applied.stdout.includes(exportDir));
+  ok('the predictions used were saved under ~/.boppi with owner-only permissions', exports.length === 1 && Array.isArray(JSON.parse(fs.readFileSync(path.join(exportDir, exports[0]), 'utf8')).predictions) && ownerOnly(path.join(exportDir, exports[0])) && applied.stdout.includes(exportDir));
   ok('fix leaves no predictions file in the project folder', !fs.readdirSync(home).some(f => f.startsWith('boppi-fix-')));
   ok('the fix output never prints secret values', !applied.stdout.includes('SUPERSECRETVALUE') && !applied.stderr.includes('SUPERSECRETVALUE'));
 

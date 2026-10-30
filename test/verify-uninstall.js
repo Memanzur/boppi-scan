@@ -116,7 +116,7 @@ const HOOK_SNIPPET = { hooks: { PreToolUse: [{ matcher: 'mcp__.*', hooks: [{ typ
   // The connector records backups under the resolved home (/private/tmp on macOS); --home may name a link to it.
   const realHome = makeHome(root, 'real-home');
   const aliasHome = path.join(root, 'alias-home');
-  fs.symlinkSync(realHome, aliasHome);
+  fs.symlinkSync(realHome, aliasHome, 'junction');
   const viaReal = await runCli(['fix', '--server', 'fetch', '--yes'], realHome);
   const realId = JSON.parse(fs.readFileSync(path.join(realHome, '.boppi', 'backups', 'index.json'), 'utf8')).entries.find(e => e.action === 'remove_server').id;
   const realBack = await runCli(['rollback', '--id', realId, '--yes'], realHome);
@@ -159,7 +159,7 @@ const HOOK_SNIPPET = { hooks: { PreToolUse: [{ matcher: 'mcp__.*', hooks: [{ typ
   fs.mkdirSync(target);
   fs.writeFileSync(path.join(target, 'keep.txt'), 'keep');
   fs.mkdirSync(linked);
-  fs.symlinkSync(target, path.join(linked, '.boppi'));
+  fs.symlinkSync(target, path.join(linked, '.boppi'), 'junction');
   const refused = await runCli(['uninstall', '--yes'], linked);
   ok('a linked ~/.boppi is refused (exit 2) and its target is untouched', refused.code === 2 && refused.stderr.includes('not a plain directory') && fs.readFileSync(path.join(target, 'keep.txt'), 'utf8') === 'keep' && fs.lstatSync(path.join(linked, '.boppi')).isSymbolicLink());
 

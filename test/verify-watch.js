@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ownerOnly, symlinkOrSkip } = require('./helpers/platform');
 const { spawn, spawnSync } = require('child_process');
 const watch = require('../src/cli/watch');
 
@@ -60,7 +61,7 @@ const holds = entries => entries.filter(e => e.kind === 'hold');
   const session = startWatch(home, ['--interval', '1', '--duration', '40', '--only', 'claude-code,claude-desktop'], logFile);
   const baseline = await waitFor(logFile, e => e.some(x => x.kind === 'baseline'), 15000);
   ok('baseline is logged with the watched files and directories', !baseline.timedOut && baseline.entries[0].files.includes(claudeJson) && baseline.entries[0].directories.includes(home));
-  ok('the log file is owner-only', (fs.statSync(logFile).mode & 0o077) === 0);
+  ok('the log file is owner-only', ownerOnly(logFile));
   ok('the watcher stays in the foreground (no detached process, parent is this test)', session.child.pid > 0 && !session.child.killed);
 
   fs.writeFileSync(claudeJson, JSON.stringify(RISKY));
@@ -187,13 +188,14 @@ const holds = entries => entries.filter(e => e.kind === 'hold');
   const world = path.join(root, 'world.log');
   fs.writeFileSync(world, 'old\n', { mode: 0o644 });
   const onceWorld = spawnSync(process.execPath, [CLI, 'watch', '--once', '--log', world, '--home', home2, '--cwd', home2, '--no-color', '--history-file', path.join(home2, 'h3.json')], { encoding: 'utf8' });
-  ok('an existing world-readable --log file becomes owner-only', onceWorld.status === 0 && (fs.statSync(world).mode & 0o077) === 0);
+  ok('an existing world-readable --log file becomes owner-only', onceWorld.status === 0 && ownerOnly(world));
   const victim = path.join(root, 'victim.txt');
   fs.writeFileSync(victim, 'keep\n');
   const link = path.join(root, 'link.log');
-  fs.symlinkSync(victim, link);
-  const onceLink = spawnSync(process.execPath, [CLI, 'watch', '--once', '--log', link, '--home', home2, '--cwd', home2, '--no-color', '--history-file', path.join(home2, 'h3.json')], { encoding: 'utf8' });
-  ok('a symlinked --log is refused and the target is untouched', onceLink.status === 2 && onceLink.stderr.includes('symbolic link') && fs.readFileSync(victim, 'utf8') === 'keep\n');
+  if (symlinkOrSkip(victim, link, 'a symlinked --log is refused')) {
+    const onceLink = spawnSync(process.execPath, [CLI, 'watch', '--once', '--log', link, '--home', home2, '--cwd', home2, '--no-color', '--history-file', path.join(home2, 'h3.json')], { encoding: 'utf8' });
+    ok('a symlinked --log is refused and the target is untouched', onceLink.status === 2 && onceLink.stderr.includes('symbolic link') && fs.readFileSync(victim, 'utf8') === 'keep\n');
+  }
   const tooLong = spawnSync(process.execPath, [CLI, 'watch', '--duration', '2500000', '--home', home2, '--cwd', home2], { encoding: 'utf8' });
   ok('--duration beyond the timer range is rejected instead of stopping at once', tooLong.status !== 0 && tooLong.stderr.includes('--duration'));
 

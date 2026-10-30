@@ -5,6 +5,7 @@ const { SEVERITY_RANK } = require('../src/cli/simulate');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ownerOnly } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
@@ -229,7 +230,7 @@ function runCli(args, home) {
   const outsideExport = JSON.parse(fs.readFileSync(outsideJson, 'utf8'));
   ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{16}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
   const keyFile = path.join(home, '.boppi', 'fingerprint-key');
-  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (fs.statSync(keyFile).mode & 0o777) === 0o600);
+  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && ownerOnly(keyFile));
   const otherHome = path.join(root, 'other-key-home');
   fs.mkdirSync(path.join(otherHome, '.cursor'), { recursive: true });
   fs.copyFileSync(path.join(home, '.cursor', 'mcp.json'), path.join(otherHome, '.cursor', 'mcp.json'));
