@@ -93,11 +93,11 @@ function usage() {
     '  boppi events push             send those metadata-only records to a workspace that allowed activity sync for this collector; --dry-run prints them',
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
-    '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing',
+    '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing; --push also sends a changed inventory to your workspace',
     '  boppi uninstall               list everything Boppi stored under ~/.boppi and the Claude Code hook entries that run it, then delete ~/.boppi after you confirm (--yes, --dry-run; fix backups only with --include-backups)',
     '  boppi connect pair|status|unpair|run|rotate|revert-grants  pair this machine with your workspace for dashboard-requested fixes and just-in-time server grants; run pulls proposals and approved grants, shows the exact change here, and applies one only after you confirm; unpair revokes this device in the workspace and deletes the local pairing; rotate replaces the device credential (run does it when 7 days or less remain); revert-grants removes every granted server now, offline',
     '',
-    'Push options (push, events push and connect are the only commands that use the network):',
+    'Push options (push, events push, connect and watch --push are the only commands that use the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
     '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN; or omit it and paste when prompted',
     '  --file <scan.json>  push an earlier --json export instead of scanning now',
@@ -148,7 +148,9 @@ function usage() {
     '  --interval <s>      periodic rescan interval in seconds (default 60, minimum 1)',
     '  --duration <s>      stop after this many seconds (default: until Ctrl-C)',
     '  --once              print the baseline and exit',
-    '  --log <file>        append one JSON line per baseline, change, hold, and stop (owner-only file)',
+    '  --log <file>        append one JSON line per baseline, change, hold, push, and stop (owner-only file)',
+    '  --push              off unless given: send the inventory boppi push sends when, and only when, it changed (--url and --token or BOPPI_TOKEN as for push);',
+    '                      unsent pushes wait in ~/.boppi/watch-push/ (owner-only); with --once exits 5 when queued, 6 when the token is refused',
     '',
     'discover options:',
     '  --server <name>     the MCP server entry to start (as boppi scan names it); remote (url) entries and package-fetching launchers (npx, uvx, docker) are refused',
@@ -252,6 +254,7 @@ function parseArgs(argv) {
     else if (arg === '--print-config') options.printConfig = true;
     else if (arg === '--forget') options.forget = true;
     else if (arg === '--once') options.once = true;
+    else if (arg === '--push') options.push = true;
     else if (arg === '--watch') options.watch = true;
     else if (arg === '--disable') options.disable = true;
     else if (arg === '--enable') options.enable = true;
@@ -282,7 +285,12 @@ function parseArgs(argv) {
     if (!Number.isFinite(options.interval) || options.interval < 1) throw new Error('--interval must be a number of seconds, at least 1');
     if (!Number.isFinite(options.duration) || options.duration < 0 || options.duration > 2000000) throw new Error('--duration must be a number of seconds up to 2000000 (about 23 days)');
     if (options.config) throw new Error('watch follows discovered client files; --config is not supported');
+    if (options.push) {
+      if (!options.token && !process.stdin.isTTY) throw new Error('watch --push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
+      options.ingestUrl = push.resolveIngestUrl(options.url);
+    }
   }
+  if (options.push && options.command !== 'watch') throw new Error('--push is only accepted with watch; to send one scan, run boppi push');
   if (options.command === 'discover' && !options.help && !options.version) {
     if (!options.server && !(options.forget && options.all)) throw new Error('discover requires --server <name> (or --forget --all)');
     if (options.all && !options.forget) throw new Error('--all is only accepted with --forget; discovery starts one server per run');
@@ -942,6 +950,12 @@ function promptForToken() {
   });
 }
 
+/** The ingest inputs of a live scan, as boppi push and boppi watch --push both send them. */
+function scanIngestInput(scan) {
+  const payload = exportPayload(scan);
+  return { inventory: payload.inventory.real, recognition: scan.recognition, snapshotAt: payload.exportedAt, collector: payload.collector, coverage: payload.coverage, builtinResidual: push.builtinResidualFromExport(payload) };
+}
+
 /** boppi push: scan (or load an export), map the real inventory to ingest records, send one snapshot. */
 async function runPush(options) {
   if (!options.dryRun && !options.token) {
@@ -980,29 +994,21 @@ async function runPush(options) {
       process.stderr.write(`Scan failed: ${scan.failed}\n`);
       return scan.exitCode || 3;
     }
-    const payload = exportPayload(scan);
-    inventory = payload.inventory.real;
-    snapshotAt = payload.exportedAt;
-    collector = payload.collector;
-    coverage = payload.coverage;
-    builtinResidual = push.builtinResidualFromExport(payload);
+    ({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual } = scanIngestInput(scan));
     incomplete = scan.incomplete;
-    recognition = scan.recognition;
   }
 
   if (options.file) incomplete = (coverage?.clients || []).filter(client => ['unreadable', 'failed'].includes(client.status)).map(client => client.label);
 
-  const records = options.file ? push.resanitizeRecords(push.toRecords(inventory, recognition)) : push.toRecords(inventory, recognition);
+  const { records, snapshot, body, unsafe } = push.prepareIngest({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual, merge: options.merge, fromFile: !!options.file });
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be fully analyzed; whatever the unread files configure is missing from this push, which adds to the workspace without removing anything.\n`);
 
-  const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   // Checked on the body exactly as it would be sent, before a dry run prints it or a request carries it.
-  const unsafe = push.unsafeFields(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }));
   if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe, { fromFile: !!options.file })}\n`); return 2; }
   if (options.dryRun) {
-    process.stdout.write(JSON.stringify(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }), null, 2) + '\n');
+    process.stdout.write(JSON.stringify(body, null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
     return 0;
   }
@@ -1055,7 +1061,17 @@ async function run(argv) {
   if (options.command === 'push') return runPush(options);
   if (options.command === 'fix') return runFix(options);
   if (options.command === 'events') return options.subcommand === 'push' ? eventsCommand.runEventsPush(options, { promptForToken }) : eventsCommand.runEvents(options);
-  if (options.command === 'watch') return watchCommand.runWatch({ ...options, only: options.only ? options.only.map(v => ONLY_ALIASES[v] || v) : null }, { performScan, writeHistory });
+  if (options.command === 'watch') {
+    if (options.push && !options.token) {
+      options.token = await promptForToken();
+      if (!options.token) { process.stderr.write('watch: no token entered\n'); return 2; }
+    }
+    return watchCommand.runWatch({ ...options, only: options.only ? options.only.map(v => ONLY_ALIASES[v] || v) : null }, {
+      performScan, writeHistory,
+      ingestFor: scan => push.prepareIngest(scanIngestInput(scan)),
+      fetchImpl: updateNotice.watching(options.home, globalThis.fetch),
+    });
+  }
   if (options.command === 'discover') return discoverCommand.runDiscover({ ...options, clientKey: options.client ? ONLY_ALIASES[options.client] : null }, { discover, confirm: fix.confirm, version: VERSION });
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
   if (options.command === 'uninstall') return uninstallCommand.runUninstall(options);

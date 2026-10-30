@@ -299,14 +299,30 @@ function ingestBody({ records, snapshot, snapshotAt, collector, coverage, builti
   return { records, ...(snapshot ? { snapshot: true, ...(snapshotAt ? { snapshot_at: snapshotAt } : {}) } : {}), ...(collector ? { collector } : {}), ...(coverage ? { coverage } : {}), ...(builtinResidual ? { builtin_residual: builtinResidual } : {}) };
 }
 
-async function postBatch({ ingestUrl, token, records, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl }) {
+/**
+ * The records an inventory maps to, whether they go as a snapshot, the exact
+ * request body, and the fields of that body that must not be sent. One place
+ * for boppi push and boppi watch --push, so both send the same body for the
+ * same scan. fromFile re-runs the sanitizers on an export the user may have
+ * edited.
+ */
+function prepareIngest({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual, merge = false, fromFile = false }) {
+  const mapped = toRecords(inventory, recognition);
+  const records = fromFile ? resanitizeRecords(mapped) : mapped;
+  const snapshot = !merge && completeCoverage(coverage) && records.length <= SNAPSHOT_MAX;
+  const body = ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual });
+  return { records, snapshot, body, unsafe: unsafeFields(body) };
+}
+
+/** POST one prepared ingest body. Resolves to { ok, status, body, retryAfter? } or { ok: false, networkError }. */
+async function postBody({ ingestUrl, token, body: requestBody, fetchImpl }) {
   let response;
   try {
     response = await fetchImpl(ingestUrl.toString(), {
       method: 'POST',
       redirect: 'error',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' },
-      body: JSON.stringify(ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual })),
+      body: JSON.stringify(requestBody),
     });
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
@@ -332,7 +348,7 @@ async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, co
   if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
   let ingested = 0;
   for (const batch of batches) {
-    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, snapshotAt, collector, coverage, builtinResidual, fetchImpl });
+    const result = await postBody({ ingestUrl, token, body: ingestBody({ records: batch, snapshot, snapshotAt, collector, coverage, builtinResidual }), fetchImpl });
     if (!result.ok) return result;
     ingested += Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : batch.length;
   }
@@ -366,4 +382,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, unsafeFields, describeUnsafe, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, EVENTS_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resanitizeRecords, coverageFromDiscovery, collectorEnvelope, completeCoverage, envelopeFromExport, builtinResidualFromExport, ingestBody, prepareIngest, postBody, unsafeFields, describeUnsafe, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };

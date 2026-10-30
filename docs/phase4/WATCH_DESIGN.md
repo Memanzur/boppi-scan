@@ -1,6 +1,6 @@
 # Phase 4: foreground `boppi watch` and retirement semantics
 
-Status: implemented 2026-10-23 as `src/cli/watch.js` (slice P4-1) with the retirement rules below (slice P4-2). Foreground only. Nothing is installed, no background service exists, no cloud push or heartbeat is sent; those are separate opt-ins the founder has not authorized (ledger P4-4). Soak and burst measurements against the roadmap budget are slice P4-3.
+Status: implemented 2026-10-23 as `src/cli/watch.js` (slice P4-1) with the retirement rules below (slice P4-2). Foreground only. Nothing is installed, no background service exists, and no heartbeat is sent. Cloud push exists only behind the explicit `--push` flag, built dark per D-21: `docs/monitoring/WATCH_PUSH.md`. Soak and burst measurements against the roadmap budget are slice P4-3.
 
 ## What it does
 
