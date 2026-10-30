@@ -171,6 +171,14 @@ signal, not a security control.
 - `test/verify-release-dist.js` (in `npm test`) runs a small fake release
   through signing, verification and `install.sh` (sh and dash) in seconds.
 
+Node 26.13.0 re-pin (2026-10-30): `build.mjs --check-reproducible` on
+commit `dbdecc4` built every file twice byte-identical (10 files, `SHA256SUMS`
+sha256 `10d1de118a60b5729432db7812faf41ad55ca66615881bf1499af8511160b463`,
+test key `SHA256:eUcwFRxX0YtF/BsmseIFanA8eHKNu/kiLJ7ZV6VlIyY`). Documentation-only
+commits after it change `release.json`'s commit, not the files. The full customer
+journey (install.sh, pair from the dashboard, push, unpair, uninstall) is
+`apps/control-plane/scripts/verify-agent-install-journey.mjs` in the Cloud repo.
+
 Executed vs built:
 
 | Target | Status |
