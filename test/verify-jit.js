@@ -69,6 +69,7 @@ function fakeCloud({ jitMissing = false } = {}) {
     const route = new URL(url).pathname.replace('/api/connector/', '');
     const body = JSON.parse(init.body);
     cloud.requests.push({ route, body });
+    if (cloud.refuse && cloud.refuse(route)) return reply(401, { error: 'device_revoked' });
     const g = body.grantId ? cloud.grants.get(body.grantId) : null;
     const serverNow = new Date(cloud.now()).toISOString();
     if (g && ['approved', 'applying', 'active'].includes(g.state) && Date.parse(g.expiresAt) <= cloud.now()) g.state = g.state === 'approved' ? 'lapsed' : 'revoking';
@@ -302,6 +303,20 @@ async function main() {
   ok('the reverse (lease reverted, entry still in the file): the next invocation removes the entry', !servers(h7).github && reverse.stderr.includes('"github"'));
   await cycle(h7, cloud7);
   ok('and reports the hash of the file it actually wrote, which the workspace verifies', cloud7.grants.get(id7).state === 'revoked' && cloud7.byRoute('jit/revoked')[0].body.revertedHash === sha(fs.readFileSync(h7.config)));
+
+  section('A device the workspace refuses removes its granted entries');
+  for (const [label, refuse] of [['every route refused (device revoked or person deprovisioned)', () => true], ['only jit/poll refused', route => route === 'jit/poll']]) {
+    const hr = makeHome();
+    const cloudR = fakeCloud();
+    await cycle(hr, cloudR);
+    const idR = cloudR.grant();
+    await cycle(hr, cloudR);
+    const held = JSON.stringify(servers(hr).github) === JSON.stringify(ENTRY);
+    cloudR.refuse = refuse;
+    const refused = await cycle(hr, cloudR);
+    ok(`${label}: the granted entry is removed in the same run and the lease is reverted`, held && !servers(hr).github && leases(hr).find(l => l.grantId === idR).state !== 'active' && refused.stdout.includes('no longer accepts this device'));
+    ok(`${label}: the run still reports the refusal`, refused.code !== 0);
+  }
 
   section('Cloud revoking triggers an immediate revert');
   const h8 = makeHome();

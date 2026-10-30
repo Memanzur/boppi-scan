@@ -364,6 +364,7 @@ async function runCycle({ options, pairing, deps, post, describe, out, err, vers
   const offered = targets(options, scan.startedAt);
   const polled = await post('jit/poll', { targets: offered.map(({ file, ...wire }) => wire), versions });
   if (polled.status === 404) { out('  jit: this workspace does not offer just-in-time grants (HTTP 404 on jit/poll); skipped'); return problems; }
+  if (polled.status === 401) { err(`  jit: ${describe('jit/poll', polled)}`); return problems + 1 + revertForRefusedDevice(home, clock(), out, err); }
   if (!polled.ok) { err(`  jit: ${describe('jit/poll', polled)}`); return problems + 1; }
   const serverNow = typeof polled.body.serverNow === 'string' && !Number.isNaN(Date.parse(polled.body.serverNow)) ? polled.body.serverNow : null;
   const grants = Array.isArray(polled.body.grants) ? polled.body.grants.filter(g => isObject(g) && typeof g.id === 'string' && typeof g.state === 'string') : [];
@@ -502,6 +503,18 @@ function runRevertGrants(options, out, err) {
   return result.failed.length ? 3 : 0;
 }
 
+/**
+ * A workspace that refuses this device's credential (revoked, unpaired, its person deprovisioned) can no longer
+ * vouch for any grant, so every entry a lease holds is removed now, offline. Returns the number of failures.
+ */
+function revertForRefusedDevice(home, now, out, err) {
+  const result = enforceLeases(home, now, { all: true });
+  if (result.storeError) { err(`  jit: the lease store ${storeFile(home)} is unreadable (${result.storeError}); granted entries could not be removed. Run boppi connect revert-grants once it is repaired`); return 1; }
+  for (const lease of result.reverted) out(`  jit ${lease.grantId}  "${lease.server}" on ${lease.client}: the workspace no longer accepts this device; entry ${lease.removed ? 'removed from' : 'already absent from'} the configuration (a client already running keeps it until restart)`);
+  for (const { lease, failureCode } of result.failed) err(`  jit ${lease.grantId}  "${lease.server}" on ${lease.client}: the workspace no longer accepts this device, but the entry was not removed (${failureCode}); the lease is kept. Run boppi connect revert-grants`);
+  return result.failed.length;
+}
+
 /** The earliest local expiry among leases that hold an entry, in ms, or null. */
 function nextExpiry(home) {
   const read = readStore(home);
@@ -510,4 +523,4 @@ function nextExpiry(home) {
   return times.length ? Math.min(...times) : null;
 }
 
-module.exports = { SCHEMA_VERSION, LEASE_STATES, HARD_CAP_MS, CLOSED_KEEP, storeFile, readStore, entryHash, effectiveNow, localExpiry, validBinding, targets, applyGrant, revertLease, enforceLeases, enforcementLine, gateDecision, renderLeases, runCycle, runRevertGrants, nextExpiry, putLease };
+module.exports = { SCHEMA_VERSION, LEASE_STATES, HARD_CAP_MS, CLOSED_KEEP, storeFile, readStore, entryHash, effectiveNow, localExpiry, validBinding, targets, applyGrant, revertLease, enforceLeases, enforcementLine, gateDecision, renderLeases, runCycle, runRevertGrants, revertForRefusedDevice, nextExpiry, putLease };

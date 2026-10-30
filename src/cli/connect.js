@@ -578,7 +578,10 @@ class Cycle {
     const scan = await this.deps.performScan(this.options);
     if (scan.failed) { this.err(`Scan failed: ${scan.failed}`); return scan.exitCode || 3; }
     const code = await this.remediate(scan);
-    if (this.credentialRefused) return code;
+    if (this.credentialRefused) {
+      const failed = jit.revertForRefusedDevice(this.options.home, this.deps.now ? this.deps.now() : Date.now(), this.out, this.err);
+      return failed ? 3 : code;
+    }
     const jitProblems = await jit.runCycle({ options: this.options, pairing: this.pairing, deps: this.deps, post: (route, body) => request({ url: this.pairing.url, credential: this.pairing.credential, route, body, fetchImpl: this.deps.fetchImpl }), describe: describeFailure, out: this.out, err: this.err, versions: this.versions, scan });
     return code || (jitProblems ? 5 : 0);
   }
