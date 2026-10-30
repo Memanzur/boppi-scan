@@ -28,6 +28,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { renameRetry } = require('./platform');
 
 const SCHEMA = 2;
 const EVENT_KEYS = Object.freeze(['schema', 'id', 'at', 'event', 'kind', 'server', 'source', 'tool', 'session', 'invocation', 'cwd', 'outcome', 'durationMs']);
@@ -120,7 +121,7 @@ function recordHealth(home, reason, extra = {}) {
       const kept = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-HEALTH_KEEP_LINES).join('\n') + '\n';
       const temp = `${file}.${process.pid}.tmp`;
       fs.writeFileSync(temp, kept, { mode: 0o600 });
-      fs.renameSync(temp, file);
+      renameRetry(temp, file);
     }
   } catch { /* best effort */ }
 }
@@ -195,7 +196,7 @@ function rotate(home, retentionDays) {
   if (!due) return;
   withLock(home, () => {
     try { if (fs.statSync(file).size === 0) return; } catch { return; }
-    fs.renameSync(file, freeSegmentName(home, Date.now()));
+    renameRetry(file, freeSegmentName(home, Date.now()));
     const segments = segmentFiles(home);
     for (const segment of segments) { const newest = lastLineAt(segment); if (newest !== null && newest < cutoff) { try { fs.unlinkSync(segment); } catch { /* gone */ } } }
     const remaining = segmentFiles(home);

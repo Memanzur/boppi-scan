@@ -7,7 +7,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const projection = require('./projection');
 const { createRecorder } = require('./recorder');
 
@@ -27,7 +27,21 @@ function fetchingSubcommand(command, args) {
   if (base === 'deno' && first === 'run' && list.slice(1).some(a => /^(npm:|jsr:|https?:\/\/)/i.test(a))) return 'deno run <remote module>';
   return null;
 }
-const INHERITED_ENV = Object.freeze(['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'SystemRoot', 'USERPROFILE']);
+/**
+ * The variables a discovered server inherits from Boppi's environment, by
+ * platform: enough to find its runtime and its own config and temp folders,
+ * never a token. Windows programs need their system and profile folders,
+ * PATHEXT and COMSPEC; Linux programs read the XDG folders. Display and
+ * session-bus variables are left out: a server being listed has no need to
+ * open windows or reach the keyring.
+ */
+const BASE_ENV = ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL'];
+const INHERITED_ENV = Object.freeze({
+  darwin: Object.freeze(BASE_ENV),
+  linux: Object.freeze([...BASE_ENV, 'USER', 'LOGNAME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_STATE_HOME', 'XDG_RUNTIME_DIR']),
+  win32: Object.freeze([...BASE_ENV, 'SystemRoot', 'SystemDrive', 'windir', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'USERNAME', 'APPDATA', 'LOCALAPPDATA', 'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'CommonProgramFiles', 'PATHEXT', 'COMSPEC', 'OS', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS']),
+});
+const inheritedNames = platform => INHERITED_ENV[platform] || INHERITED_ENV.linux;
 const PROTOCOL_VERSION = '2025-11-25';
 
 const WINDOWS_PATHEXT = '.COM;.EXE;.BAT;.CMD';
@@ -82,43 +96,95 @@ function launchPlan(entry, { cwd, platform = process.platform, env: environment 
   if (/\.(cmd|bat)$/i.test(program)) return { refused: `"${path.basename(program)}" is a .cmd or .bat launcher, which needs a shell to run; Boppi never starts servers through a shell. Point the entry at the program itself (for example node.exe and the script it runs) and rescan.` };
   const args = Array.isArray(entry.args) ? entry.args.filter(a => typeof a === 'string') : [];
   const env = {};
-  for (const key of INHERITED_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];
+  for (const key of inheritedNames(platform)) if (process.env[key] !== undefined) env[key] = process.env[key];
+  const inherited = Object.keys(env);
   const envNames = [];
   if (entry.env && typeof entry.env === 'object' && !Array.isArray(entry.env)) {
     for (const [key, value] of Object.entries(entry.env)) if (typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) { env[key] = value; envNames.push(key); }
   }
   delete env.BOPPI_TOKEN;
-  return { program, command: entry.command, args, cwd, env, envNames: envNames.sort() };
+  return { program, command: entry.command, args, cwd, env, envNames: envNames.sort(), inherited };
 }
 
 function processExited(child) { return child.exitCode !== null || child.signalCode !== null; }
-/** Signal the whole process group (the server and anything it started), falling back to the child alone. */
-function signal(child, name) {
-  if (process.platform !== 'win32' && child.pid) { try { process.kill(-child.pid, name); return; } catch { /* group gone or not a leader */ } }
-  try { child.kill(name); } catch { /* gone */ }
+
+/**
+ * Whether a process group on Linux still has a member that is not a zombie.
+ * An exited process stays in the table (state Z) until its parent reaps it,
+ * and in a container whose PID 1 never reaps, kill(-pgid, 0) keeps
+ * succeeding for a group that has finished. Unreadable /proc counts as running.
+ */
+function linuxGroupRunning(pgid, procRoot = '/proc') {
+  let names;
+  try { names = fs.readdirSync(procRoot); } catch { return true; }
+  for (const name of names) {
+    if (!/^\d+$/.test(name)) continue;
+    let stat;
+    try { stat = fs.readFileSync(path.join(procRoot, name, 'stat'), 'utf8'); } catch { continue; }
+    // pid (comm) state ppid pgrp ...; comm may hold spaces and parentheses, so read after the last ')'.
+    const [state, , pgrp] = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+    if (Number(pgrp) === pgid && state !== 'Z') return true;
+  }
+  return false;
 }
 
-/** True while any process in the child's group is alive (the group outlives a leader that exited and left children). */
-function groupAlive(child) {
-  if (process.platform === 'win32' || !child.pid) return false;
-  try { process.kill(-child.pid, 0); return true; } catch { return false; }
+/** Whether one process is running: it exists (EPERM means it does) and, on Linux, is not a zombie. */
+function processRunning(pid, { platform = process.platform, procRoot = '/proc' } = {}) {
+  try { process.kill(pid, 0); } catch (error) { if (error.code !== 'EPERM') return false; }
+  if (platform !== 'linux') return true;
+  try {
+    const stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
+    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
+  } catch { return true; }
+}
+
+/** End a Windows process and every process it started, while it is still alive to name them. True when taskkill succeeded. */
+function killTreeWindows(pid) {
+  const taskkill = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe');
+  return spawnSync(taskkill, ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore', shell: false }).status === 0;
+}
+
+const HOST = Object.freeze({ platform: process.platform, killTree: killTreeWindows, groupRunning: linuxGroupRunning });
+
+/**
+ * Signal the whole process group (the server and anything it started),
+ * falling back to the child alone. Windows has no process groups and no
+ * graceful signal, so both rungs end the tree with taskkill /T /F.
+ * Returns whether the whole tree was reached.
+ */
+function signal(child, name, host = HOST) {
+  if (host.platform === 'win32') {
+    if (child.pid && !processExited(child) && host.killTree(child.pid)) return true;
+  } else if (child.pid) { try { process.kill(-child.pid, name); return true; } catch { /* group gone or not a leader */ } }
+  try { child.kill(name); } catch { /* gone */ }
+  return false;
+}
+
+/** True while any process in the child's group is running (the group outlives a leader that exited and left children). Never true on Windows, which cannot tell. */
+function groupAlive(child, host = HOST) {
+  if (host.platform === 'win32' || !child.pid) return false;
+  try { process.kill(-child.pid, 0); } catch { return false; }
+  return host.platform !== 'linux' || host.groupRunning(child.pid);
 }
 
 /**
  * Close stdin, then SIGTERM, then SIGKILL, each after its wait. When the
  * server exits but left processes behind in its group, they get the same
  * ladder. Resolves with how the process ended and whether anything it
- * started was still running.
+ * started was still running. On Windows a server that exits on its own
+ * leaves no way to find what it started, so childrenUnchecked says so.
  */
-function shutdown(child, timeouts) {
+function shutdown(child, timeouts, host = HOST) {
   return new Promise(resolve => {
-    let forced = null;
+    let forced = null, treeEnded = false;
+    const force = name => { forced = name; treeEnded = signal(child, name, host) || treeEnded; };
+    const unchecked = () => (host.platform === 'win32' && !treeEnded ? { childrenUnchecked: true } : {});
     const finish = () => {
-      if (!groupAlive(child)) return resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child), leftoverSignalled: false });
-      signal(child, 'SIGTERM');
+      if (!groupAlive(child, host)) return resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child), leftoverSignalled: false, ...unchecked() });
+      signal(child, 'SIGTERM', host);
       setTimeout(() => {
-        if (groupAlive(child)) signal(child, 'SIGKILL');
-        setTimeout(() => resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child), leftoverSignalled: true, leftoverStillRunning: groupAlive(child) }), 200);
+        if (groupAlive(child, host)) signal(child, 'SIGKILL', host);
+        setTimeout(() => resolve({ exitCode: child.exitCode, signal: child.signalCode, forced, mayStillBeRunning: !processExited(child), leftoverSignalled: true, leftoverStillRunning: groupAlive(child, host) }), 200);
       }, timeouts.termMs);
     };
     if (processExited(child)) return finish();
@@ -126,10 +192,10 @@ function shutdown(child, timeouts) {
     try { child.stdin.end(); } catch { /* already closed */ }
     setTimeout(() => {
       if (processExited(child)) return;
-      forced = 'SIGTERM'; signal(child, 'SIGTERM');
+      force('SIGTERM');
       setTimeout(() => {
         if (processExited(child)) return;
-        forced = 'SIGKILL'; signal(child, 'SIGKILL');
+        force('SIGKILL');
         setTimeout(() => { if (!processExited(child)) finish(); }, timeouts.killMs);
       }, timeouts.termMs);
     }, timeouts.closeMs);
@@ -233,4 +299,4 @@ function runSession(plan, options = {}) {
   });
 }
 
-module.exports = { TIMEOUTS, PACKAGE_LAUNCHERS, PROTOCOL_VERSION, resolveProgram, fetchingSubcommand, launchPlan, runSession, shutdown };
+module.exports = { TIMEOUTS, PACKAGE_LAUNCHERS, PROTOCOL_VERSION, INHERITED_ENV, resolveProgram, fetchingSubcommand, launchPlan, runSession, shutdown, linuxGroupRunning, processRunning };

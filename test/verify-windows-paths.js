@@ -9,6 +9,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { WINDOWS, skip } = require('./helpers/platform');
 const session = require('../src/cli/discovery/session');
 const claudeDesktop = require('../src/cli/discovery/claudeDesktop');
 
@@ -30,7 +31,9 @@ ok('PATH is split on ";" on win32', session.resolveProgram('python', root, { pla
 ok('a name that already has an extension is used as is', session.resolveProgram('python.exe', root, { platform: 'win32', env: winEnv }) === path.join(binB, 'python.exe'));
 ok('a missing program is still not found', session.resolveProgram('ruby', root, { platform: 'win32', env: winEnv }) === null);
 ok('PATHEXT defaults to the Windows set when unset', session.resolveProgram('node', root, { platform: 'win32', env: { PATH: binA } }) === path.join(binA, 'node.EXE'));
-ok('on darwin the same file without an execute bit is not a program', session.resolveProgram('node.EXE', root, { platform: 'darwin', env: { PATH: binA } }) === null);
+// Windows reports every existing file as executable (X_OK acts as F_OK), so only a POSIX host can show the refusal.
+if (WINDOWS) skip('on darwin the same file without an execute bit is not a program', 'X_OK is F_OK on Windows');
+else ok('on darwin the same file without an execute bit is not a program', session.resolveProgram('node.EXE', root, { platform: 'darwin', env: { PATH: binA } }) === null);
 
 console.log('── Launchers that need a shell are refused clearly ──');
 const cmd = session.launchPlan({ command: 'mytool' }, { cwd: root, platform: 'win32', env: winEnv });

@@ -11,12 +11,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { WINDOWS, skip } = require('./helpers/platform');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
 
 const repo = path.join(__dirname, '..');
-const action = fs.readFileSync(path.join(repo, 'action.yml'), 'utf8').split('\n');
+const action = fs.readFileSync(path.join(repo, 'action.yml'), 'utf8').split(/\r?\n/);
 const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
 
 /** The indented block under the line matching `header`, dedented. */
@@ -58,6 +59,12 @@ for (const line of action) {
   const value = line.match(/^    default: ?(.*)$/);
   if (current && value) defaults[current] = value[1] === "''" ? '' : value[1];
   if (/^outputs:/.test(line)) break;
+}
+
+if (WINDOWS) {
+  skip('the action step runs under bash with a stand-in npx', 'needs bash and a POSIX PATH; the action runs on Linux and macOS runners');
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
 }
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-action-'));

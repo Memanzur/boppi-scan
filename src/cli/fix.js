@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { validateConfigShape } = require('./configFiles');
+const { comparable, parseJson, projectKey, renameRetry } = require('./platform');
 
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const MANIFEST_VERSION = 1;
@@ -36,9 +37,17 @@ function objectAt(json, keyPath) {
   return isObject(node) ? node : null;
 }
 
+/** The block with a Claude Code local-scope path (projects/<cwd>/mcpServers) pointed at the key this file uses for cwd. */
+function localBlock(block, json) {
+  const [first, cwd, last] = block.keyPath;
+  if (first !== 'projects' || block.keyPath.length !== 3 || !isObject(json) || !isObject(json.projects)) return block;
+  return { ...block, keyPath: [first, projectKey(json.projects, cwd), last] };
+}
+
 function unreadableReason(error) {
   if (error.code === 'EACCES' || error.code === 'EPERM') return 'permission denied';
   if (error.code === 'EISDIR') return 'this is a directory, not a config file';
+  if (error.message === 'utf16_config') return 'saved as UTF-16; save it as UTF-8 and rescan';
   if (error.message === 'plugin_mcp_reference') return 'mcpServers names a file, bundle or URL, which Boppi does not read yet';
   return error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
 }
@@ -56,17 +65,17 @@ function readClient(descriptor, cwd, overrides = new Map()) {
   const files = [], servers = [], documents = new Map(), taken = new Set(), seen = new Set();
   for (const file of descriptor.files) {
     const resolved = path.resolve(file.path);
-    if (seen.has(resolved)) continue; // user and project config can be the same file
-    seen.add(resolved);
+    if (seen.has(comparable(resolved))) continue; // user and project config can be the same file
+    seen.add(comparable(resolved));
     const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [], ...(file.plugin ? { plugin: file.plugin } : {}) };
     files.push(entry);
     if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;
     let json, malformed;
     try {
-      json = overrides.has(resolved) ? overrides.get(resolved) : JSON.parse(fs.readFileSync(resolved, 'utf8'));
+      json = overrides.has(resolved) ? overrides.get(resolved) : parseJson(fs.readFileSync(resolved));
       // plugin.json may point mcpServers at other files or bundles; that is not read, and saying so beats reporting no servers.
       if (file.pluginManifest && isObject(json) && hasOwn(json, 'mcpServers') && !isObject(json.mcpServers)) throw new Error('plugin_mcp_reference');
-      malformed = new Set(validateConfigShape(json, { source: descriptor.source, cwd }).map(keyPath => JSON.stringify(keyPath)));
+      malformed = new Set(validateConfigShape(json, { source: descriptor.source, cwd: projectKey(isObject(json) && json.projects, cwd) }).map(keyPath => JSON.stringify(keyPath)));
     } catch (error) {
       entry.status = 'unreadable';
       entry.reason = unreadableReason(error);
@@ -74,7 +83,7 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     }
     entry.status = 'found';
     documents.set(resolved, json);
-    for (const block of file.blocks) {
+    for (const block of file.blocks.map(b => localBlock(b, json))) {
       for (const [name, server] of Object.entries(objectAt(json, block.keyPath) || {})) {
         if (malformed.has(JSON.stringify([...block.keyPath, name]))) continue;
         // A plugin's servers register as plugin:<plugin>:<server>, so that is their base label.
@@ -184,7 +193,7 @@ function writeBackup({ file, home, now, bytes }) {
 function writeAtomic(file, data, mode = 0o600) {
   const temp = `${file}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
   fs.writeFileSync(temp, data, { mode, flag: 'wx' });
-  try { fs.renameSync(temp, file); } catch (error) { fs.rmSync(temp, { force: true }); throw error; }
+  try { renameRetry(temp, file); } catch (error) { fs.rmSync(temp, { force: true }); throw error; }
 }
 
 function manifestPath(home) { return path.join(backupDir(home), 'index.json'); }
@@ -207,7 +216,7 @@ function appendManifestEntry(home, entry) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(temp, file);
+  renameRetry(temp, file);
   return full;
 }
 

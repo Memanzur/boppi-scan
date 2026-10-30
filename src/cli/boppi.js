@@ -44,6 +44,7 @@ const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
 const updateNotice = require('./updateNotice');
+const { wslHint } = require('./platform');
 const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
@@ -1153,9 +1154,10 @@ async function run(argv) {
  * A hook does neither: it must answer fast and Claude Code reads its output.
  */
 async function main(argv) {
-  let home = process.env.BOPPI_SCAN_HOME || os.homedir();
-  let isHook = argv[0] === 'hook';
-  try { const parsed = parseArgs(argv); home = parsed.home; isHook = parsed.command === 'hook'; } catch (_) { /* usage error: default home */ }
+  let options = null;
+  try { options = parseArgs(argv); } catch (_) { /* usage error: default home */ }
+  const home = options ? options.home : process.env.BOPPI_SCAN_HOME || os.homedir();
+  const isHook = options ? options.command === 'hook' : argv[0] === 'hook';
   if (!isHook) {
     try {
       const line = jit.enforcementLine(jit.enforceLeases(home));
@@ -1163,7 +1165,14 @@ async function main(argv) {
     } catch (error) { process.stderr.write(`boppi: just-in-time lease check failed (${error && error.message}); the command runs anyway\n`); }
   }
   const code = await run(argv);
-  if (!isHook) updateNotice.announce(home, VERSION);
+  if (!isHook) {
+    const given = flag => argv.some(arg => arg === flag || arg.startsWith(`${flag}=`));
+    const wsl = options && options.command === 'scan' && !options.config
+      ? wslHint({ homeGiven: given('--home') || !!process.env.BOPPI_SCAN_HOME, platformGiven: given('--platform') || !!process.env.BOPPI_SCAN_PLATFORM })
+      : null;
+    if (wsl) process.stderr.write(`\n${wsl}\n`);
+    updateNotice.announce(home, VERSION);
+  }
   return code;
 }
 

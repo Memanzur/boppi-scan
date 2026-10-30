@@ -8,6 +8,7 @@
 'use strict';
 const { SEVERITY_RANK } = require('./simulate');
 const fs = require('fs');
+const { parseJson, projectKey } = require('./platform');
 const fix = require('./fix');
 const plugins = require('./discovery/claudePlugins');
 const verify = require('./verify');
@@ -57,7 +58,7 @@ function projection(json, cwd, recordOf, prefix = []) {
   const out = {};
   for (const [key, value] of Object.entries(json)) {
     if (key === 'mcpServers' && isObject(value)) out[key] = projectServers(value, [...prefix, key], recordOf);
-    else if (key === 'projects' && isObject(value) && cwd) out[key] = Object.fromEntries(Object.entries(value).map(([project, body]) => [project, project === cwd && isObject(body) ? projection(body, null, recordOf, [...prefix, key, project]) : HIDDEN]));
+    else if (key === 'projects' && isObject(value) && cwd) out[key] = Object.fromEntries(Object.entries(value).map(([project, body]) => [project, project === projectKey(value, cwd) && isObject(body) ? projection(body, null, recordOf, [...prefix, key, project]) : HIDDEN]));
     else out[key] = HIDDEN;
   }
   return out;
@@ -140,7 +141,7 @@ function editedJson(json, keyPath, narrow) {
  * and throws when those bytes no longer hold the entry.
  */
 function previewEdit({ located, serverName, cwd, recordsByName, bytes = fs.readFileSync(located.file), narrow = null }) {
-  const json = JSON.parse(bytes.toString('utf8'));
+  const json = parseJson(bytes);
   const raw = (fix.objectAt(json, located.keyPath.slice(0, -1)) || {})[located.name];
   if (!isObject(raw)) throw new Error(`${JSON.stringify(serverName)} is no longer in ${located.file}`);
   const recordOf = keyPath => recordsByName.get(located.labels.get(JSON.stringify(keyPath)));

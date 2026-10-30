@@ -23,6 +23,7 @@ const fix = require('./fix');
 const { homeFlag } = require('./shell');
 const connect = require('./connect');
 const jit = require('./jit');
+const { claudeConfigDir, parseJson } = require('./platform');
 
 const BOPPI_HOOK = /(^|[\s/\\"'])boppi(\.js|\.cmd)?["']?\s+hook(\s|$)/;
 const EXPLAINED = Object.freeze({
@@ -103,7 +104,7 @@ function liveFixes(home) {
 
 /** Claude Code settings files Boppi's hook snippet may have been pasted into. */
 function settingsFiles(home, cwd) {
-  const candidates = [path.join(home, '.claude', 'settings.json'), path.join(home, '.claude', 'settings.local.json')];
+  const candidates = [path.join(claudeConfigDir(home), 'settings.json'), path.join(claudeConfigDir(home), 'settings.local.json')];
   if (path.resolve(cwd) !== path.resolve(home)) candidates.push(path.join(cwd, '.claude', 'settings.json'), path.join(cwd, '.claude', 'settings.local.json'));
   return candidates;
 }
@@ -115,7 +116,7 @@ function findHookEntries(home, cwd) {
     let text;
     try { text = fs.readFileSync(file, 'utf8'); } catch (_) { continue; }
     let json;
-    try { json = JSON.parse(text); } catch (_) { if (/boppi/.test(text)) unreadable.push(file); continue; }
+    try { json = parseJson(text); } catch (_) { if (/boppi/.test(text)) unreadable.push(file); continue; }
     const hooks = json && typeof json.hooks === 'object' && json.hooks ? json.hooks : {};
     for (const [event, groups] of Object.entries(hooks)) {
       if (!Array.isArray(groups)) continue;
@@ -170,7 +171,7 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   const state = inventory(options.home);
   if (state.refused) { process.stderr.write(`uninstall: ${state.refused}\n`); return 2; }
   const hooks = findHookEntries(options.home, options.cwd);
-  const pairing = connect.loadPairing(options.home);
+  const pairing = connect.loadPairing(options.home, { allowExposed: true });
   process.stdout.write(renderPlan(state, hooks, pairing, options) + '\n');
   if (!state.exists) return 0;
   if (options.dryRun) { process.stdout.write('Dry run: nothing removed.\n'); return 0; }

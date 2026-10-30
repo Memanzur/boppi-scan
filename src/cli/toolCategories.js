@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { samePath, isInside } = require('./platform');
 
 // Exact tool names from the catalog and common servers, mapped to engine categories.
 const TOOL_TABLE = Object.freeze({
@@ -104,21 +105,29 @@ const SCOPE_LABEL = Object.freeze({
 });
 const SECRET_NAMES = new Set(['.ssh', '.aws', '.gnupg', '.gpg', '.kube', '.docker', '.config', '.azure', '.gcloud', '.boppi', '.claude', '.cursor', '.netrc', 'secrets', 'credentials', 'keys', '.password-store', '.1password']);
 const SOURCE_MARKERS = ['.git', 'package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle', 'Gemfile', 'composer.json', '.hg'];
-const SYSTEM_ROOTS = new Set(['/', '/etc', '/usr', '/var', '/opt', '/bin', '/sbin', '/lib', '/private', '/users', '/home', '/system', '/library', '/applications', '/volumes']);
+const SYSTEM_ROOTS = new Set(['/', '/etc', '/usr', '/var', '/opt', '/bin', '/sbin', '/lib', '/private', '/users', '/home', '/system', '/library', '/applications', '/volumes', '/srv', '/mnt', '/media', '/root', '/proc', '/sys', '/dev', '/boot', '/run']);
+
+// Each Windows drive's own system folders, and each drive WSL mounts at /mnt/<letter>; compared lower-cased.
+const SYSTEM_PATTERNS = [/^[a-z]:\\(windows|program files|program files \(x86\)|programdata)$/, /^\/mnt\/[a-z]$/];
 
 function exists(candidate) { try { fs.statSync(candidate); return true; } catch (_) { return false; } }
 
-/** Coarse grade of one existing directory argument, computed from the path and the directory's contents, never kept with the path. */
-function scopeOf(directory, home) {
-  const root = path.resolve(home || os.homedir());
-  const resolved = path.resolve(directory);
+/**
+ * Coarse grade of one existing directory argument, computed from the path and the directory's contents, never kept with the path.
+ * platform picks the path rules (win32 ignores case); it defaults to this host.
+ */
+function scopeOf(directory, home, platform = process.platform) {
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const root = paths.resolve(home || os.homedir());
+  // A bare drive (C:) names the whole drive, not the current folder on it.
+  const resolved = paths.resolve(/^[A-Za-z]:$/.test(directory) ? `${directory}\\` : directory);
   const lower = resolved.toLowerCase();
-  if (resolved === root) return 'home';
-  if (/^[A-Za-z]:\\?$/.test(resolved) || SYSTEM_ROOTS.has(lower) || (root.startsWith(resolved + path.sep) && resolved !== root)) return 'system';
-  const underHome = resolved.startsWith(root + path.sep);
-  const segments = (underHome ? resolved.slice(root.length + 1) : resolved).split(path.sep).filter(Boolean);
+  if (samePath(resolved, root, platform)) return 'home';
+  if (/^[A-Za-z]:\\?$/.test(resolved) || SYSTEM_ROOTS.has(lower) || SYSTEM_PATTERNS.some(pattern => pattern.test(lower)) || isInside(root, resolved, platform)) return 'system';
+  const underHome = isInside(resolved, root, platform);
+  const segments = (underHome ? resolved.slice(root.length + 1) : resolved).split(paths.sep).filter(Boolean);
   if (segments.some(segment => SECRET_NAMES.has(segment.toLowerCase()) || (underHome && segment.startsWith('.')))) return 'secrets';
-  if (SOURCE_MARKERS.some(marker => exists(path.join(resolved, marker)))) return 'source';
+  if (SOURCE_MARKERS.some(marker => exists(paths.join(resolved, marker)))) return 'source';
   return 'other';
 }
 

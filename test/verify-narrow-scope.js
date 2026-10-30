@@ -24,7 +24,7 @@ const home = path.join(root, 'home');
 const outside = path.join(root, 'outside');
 for (const dir of ['.cursor', 'notes', '.ssh', 'code/app/.git']) fs.mkdirSync(path.join(home, dir), { recursive: true });
 fs.mkdirSync(outside);
-fs.symlinkSync(outside, path.join(home, 'escape'));
+fs.symlinkSync(outside, path.join(home, 'escape'), 'junction');
 const config = path.join(home, '.cursor', 'mcp.json');
 const write = servers => { const text = JSON.stringify({ theme: 'keep-me', mcpServers: servers }, null, 2); fs.writeFileSync(config, text); return text; };
 const fsEntry = dirs => ({ command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', ...dirs], env: { NODE_ENV: 'production' } });

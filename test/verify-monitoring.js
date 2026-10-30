@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ownerOnly } = require('./helpers/platform');
 const { spawnSync } = require('child_process');
 const hook = require('../src/cli/hook');
 const settings = require('../src/cli/settings');
@@ -34,12 +35,12 @@ const input = JSON.stringify({ hook_event_name: 'PostToolUse', tool_name: 'mcp__
 const child = spawnSync(process.execPath, [cli, 'hook', '--home', home], { input, encoding: 'utf8' });
 ok('actual hook command records no payload content and emits no stdout', child.status === 0 && child.stdout === '' && !fs.readFileSync(hook.eventsFile(home), 'utf8').includes('PRIVATE'));
 const file = hook.eventsFile(home);
-ok('writes owner-only event storage', (fs.statSync(file).mode & 0o777) === 0o600);
+ok('writes owner-only event storage', ownerOnly(file));
 fs.writeFileSync(file, JSON.stringify({ at: '2020-01-01T00:00:00.000Z', event: 'old' }) + '\n');
 hook.append(home, record, 30);
 const segments = hook.segmentFiles(home);
 const stored = hook.storedFiles(home).map(f => fs.readFileSync(f, 'utf8')).join('');
-ok('an active file whose oldest record expired is rotated into an owner-only segment, never rewritten in place', segments.length === 1 && !fs.existsSync(file) && (fs.statSync(segments[0]).mode & 0o777) === 0o600 && stored.includes('2020-01-01'));
+ok('an active file whose oldest record expired is rotated into an owner-only segment, never rewritten in place', segments.length === 1 && !fs.existsSync(file) && ownerOnly(segments[0]) && stored.includes('2020-01-01'));
 ok('the timeline drops expired records and keeps the sanitized one', (() => { const read = events.readEvents(home, { sinceDays: 30 }); return read.records.length === 1 && read.expired === 1 && !stored.includes('PRIVATE'); })());
 fs.writeFileSync(file, JSON.stringify({ at: '2020-01-02T00:00:00.000Z', event: 'old' }) + '\n');
 hook.rotate(home, 30);
