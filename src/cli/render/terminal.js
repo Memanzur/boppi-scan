@@ -241,6 +241,8 @@ function renderReport(report, options = {}) {
       for (const item of unknownServers) {
         const server = report.inventory.mcpServers.find(m => m.id === item.serverId);
         out('  ', s.bold(safeText(item.server)), s.dim(` · ${item.clientLabel} · `), safeText(recognition.launchSummary(item, server)), s.dim(` · ${safeText(item.reasons.join(', '))}`));
+        const facts = recognition.analysisSentence(item);
+        if (facts) out(s.dim(`      ${safeText(facts)}`));
       }
       out(s.dim(`  ${recognition.ADVICE}`));
     }

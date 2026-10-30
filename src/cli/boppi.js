@@ -625,7 +625,7 @@ async function performScan(options) {
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
       client.agentId = scannerResult.agent.id;
-      recognition.push(...recognitionModule.describeClient({ clientKey: client.clientKey, label: client.label, mergedServers: client.mergedServers, inferenceByServer, records: scannerResult.records }));
+      recognition.push(...recognitionModule.describeClient({ clientKey: client.clientKey, label: client.label, mergedServers: client.mergedServers, inferenceByServer, records: scannerResult.records, home: options.home }));
       providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer, builtin: client.builtin || null }));
     } catch (error) {
       const hint = /secret material/.test(error.message) ? '. Move that value into an environment variable the server reads and rescan; Boppi never records the value itself' : '';

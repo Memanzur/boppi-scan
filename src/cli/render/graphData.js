@@ -159,6 +159,7 @@ function buildGraphView(report) {
       if (known) {
         const pin = known.pin === 'unpinned' ? ' · unpinned: runs whatever version is published at its next launch' : known.pin === 'pinned' ? ` · pinned ${known.identity.version}` : '';
         evidence.push({ title: 'Recognition', detail: known.recognized ? `recognized (${recognition.launchSummary(known, server)})${pin}` : `unrecognized: ${known.reasons.join(', ')} (${recognition.launchSummary(known, server)})${pin}. Boppi cannot tell what this server can do; it is in no path, which is not the same as safe.` });
+        if (known.analysis) evidence.push({ title: 'Launch facts', detail: recognition.analysisSentence(known) });
       }
     } else if (node.entityType === 'permission') {
       const permission = permissionById.get(node.recordId);

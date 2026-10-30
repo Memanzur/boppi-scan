@@ -60,7 +60,7 @@ function renderSarif(report, options = {}) {
       addRule('BOPPI-UNRECOGNIZED', 'unrecognized_server', 'Unrecognized MCP server', 'The server matched no catalog entry, name rule, url, directory argument, or declared capability, so the scan cannot tell what it can do. It is in no exposure path, which is not the same as safe.', recognition.ADVICE, 'medium');
       results.push({
         ruleId: 'BOPPI-UNRECOGNIZED', level: 'warning',
-        message: { text: `Server "${item.server}" on ${item.clientLabel} is unrecognized (${item.reasons.join(', ')}). ${recognition.ADVICE}` },
+        message: { text: `Server "${item.server}" on ${item.clientLabel} is unrecognized (${item.reasons.join(', ')}). ${[recognition.analysisSentence(item), recognition.ADVICE].filter(Boolean).join(' ')}` },
         locations: [{ physicalLocation: { artifactLocation: { uri } } }],
         partialFingerprints: { boppiRecognition: `unrecognized:${item.client}:${item.server}` },
         properties: { severity: 'medium', agent: item.clientLabel, launcher: item.launcher },
