@@ -324,6 +324,7 @@ function incomparable(previous, current) {
   if (!previous.complete) return 'the earlier scan was incomplete';
   if (!current.complete) return 'this scan is incomplete (a file could not be read or the path search hit its limit)';
   if (previous.scope !== current.scope) return `the scans cover different scopes (${previous.scope} vs ${current.scope})`;
+  if (previous.pathFingerprints !== current.pathFingerprints) return 'path fingerprints changed format in this Boppi version, so path ids are not comparable; this scan starts a new baseline';
   if (!previous.coverageIdentity || !current.coverageIdentity) return 'the scan coverage identity is unknown (older history)';
   if (previous.coverageIdentity !== current.coverageIdentity) return 'the selected clients, configuration files, project, platform or analysis inputs changed';
   if (previous.engineVersion !== current.engineVersion || previous.rubricVersion !== current.rubricVersion) return 'the engine or risk rubric changed between the scans';
@@ -351,6 +352,7 @@ function historyEntry(scan, changes = null) {
     rubricVersion: riskRubric.RUBRIC_VERSION,
     scope: scan.scope,
     coverageIdentity: scan.coverageIdentity,
+    pathFingerprints: fingerprint.FORMAT,
     complete: scanComplete(scan),
     agents: counts.agents.length,
     mcpServers: counts.mcpServers.length,
@@ -414,6 +416,7 @@ function recordVerification(file, scan, result) {
     rubricVersion: riskRubric.RUBRIC_VERSION,
     scope: scan.scope,
     coverageIdentity: scan.coverageIdentity,
+    pathFingerprints: fingerprint.FORMAT,
     complete: scanComplete(scan),
     summary: result.summary,
     confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
@@ -780,6 +783,8 @@ async function runVerify(options) {
     process.stderr.write(`Scan failed: ${scan.failed}\n`);
     return scan.exitCode || 3;
   }
+  // An export from a release with legacy fingerprints names this machine's agents by their old ids.
+  previous = fingerprint.upgradeExport(previous, scan.discovery.clients);
   const result = verify.resolveAll(previous, scan, { explicitConfig: !!options.config });
   process.stdout.write(verify.renderTable(result, options.color) + '\n');
   recordVerification(options.historyFile, scan, result);
