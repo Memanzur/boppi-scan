@@ -19,12 +19,13 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { parseJson } = require('../platform');
 
 const isObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const NAME = /^[^\s@:/\\]{1,128}$/;
 
 function readJson(file) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return undefined; }
+  try { return parseJson(fs.readFileSync(file)); } catch (_) { return undefined; }
 }
 
 /**

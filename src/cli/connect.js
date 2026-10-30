@@ -28,6 +28,7 @@ const fix = require('./fix');
 const remediate = require('./remediate');
 const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
+const { parseJson } = require('./platform');
 const updateNotice = require('./updateNotice');
 const { openRegular, acquireLock } = fix;
 
@@ -334,7 +335,7 @@ function applyEdit({ options, scan, binding, proposalId, now }) {
     if (hashAtWrite !== binding.configHash) return { ok: false, failureCode: 'hash_changed', ...report };
     if (narrowing && (!target.narrow || target.configHash !== hashAtWrite || target.previewHash !== binding.previewHash)) return { ok: false, failureCode: 'hash_changed', ...report };
     let edited;
-    try { edited = remediate.editedJson(JSON.parse(opened.bytes.toString('utf8')), found.keyPath, narrowing ? target.narrow : null); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
+    try { edited = remediate.editedJson(parseJson(opened.bytes), found.keyPath, narrowing ? target.narrow : null); } catch (_) { return { ok: false, failureCode: 'other', ...report }; }
     if (!edited) return { ok: false, failureCode: 'other', ...report };
     let backup;
     try { backup = fix.writeBackup({ file: found.file, home: options.home, now, bytes: opened.bytes }); } catch (_) { return { ok: false, failureCode: 'backup_failed', ...report }; }

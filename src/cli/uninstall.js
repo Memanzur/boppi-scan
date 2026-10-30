@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const fix = require('./fix');
 const connect = require('./connect');
+const { parseJson } = require('./platform');
 
 const BOPPI_HOOK = /(^|[\s/\\"'])boppi(\.js|\.cmd)?["']?\s+hook(\s|$)/;
 const EXPLAINED = Object.freeze({
@@ -104,7 +105,7 @@ function findHookEntries(home, cwd) {
     let text;
     try { text = fs.readFileSync(file, 'utf8'); } catch (_) { continue; }
     let json;
-    try { json = JSON.parse(text); } catch (_) { if (/boppi/.test(text)) unreadable.push(file); continue; }
+    try { json = parseJson(text); } catch (_) { if (/boppi/.test(text)) unreadable.push(file); continue; }
     const hooks = json && typeof json.hooks === 'object' && json.hooks ? json.hooks : {};
     for (const [event, groups] of Object.entries(hooks)) {
       if (!Array.isArray(groups)) continue;

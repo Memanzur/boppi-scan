@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const models = require('../engine/models');
 const toolCategories = require('./toolCategories');
+const { parseJson } = require('./platform');
 
 // prompts: true means the tool asks before each use unless a rule or mode
 // says otherwise; false means it never asks (Read inside the working tree);
@@ -93,7 +94,7 @@ function readPermissionSettings(files) {
     const entry = { path: resolved, scope: file.scope, kind: 'settings', status: 'not_found', serverCount: 0 };
     if (fs.existsSync(resolved)) {
       try {
-        const json = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+        const json = parseJson(fs.readFileSync(resolved));
         const block = json && typeof json.permissions === 'object' && json.permissions && !Array.isArray(json.permissions) ? json.permissions : {};
         const allow = stringList(block.allow);
         const deny = stringList(block.deny);
@@ -110,6 +111,7 @@ function readPermissionSettings(files) {
         entry.status = 'unreadable';
         entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
           : error.code === 'EISDIR' ? 'this is a directory, not a settings file'
+          : error.message === 'utf16_config' ? 'saved as UTF-16; save it as UTF-8 and rescan'
           : 'invalid JSON';
         unreadable += 1;
       }

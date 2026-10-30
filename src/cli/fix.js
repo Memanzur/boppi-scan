@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { validateConfigShape } = require('./configFiles');
+const { parseJson } = require('./platform');
 
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const MANIFEST_VERSION = 1;
@@ -39,6 +40,7 @@ function objectAt(json, keyPath) {
 function unreadableReason(error) {
   if (error.code === 'EACCES' || error.code === 'EPERM') return 'permission denied';
   if (error.code === 'EISDIR') return 'this is a directory, not a config file';
+  if (error.message === 'utf16_config') return 'saved as UTF-16; save it as UTF-8 and rescan';
   if (error.message === 'plugin_mcp_reference') return 'mcpServers names a file, bundle or URL, which Boppi does not read yet';
   return error.message === 'invalid_config_shape' ? 'unsupported configuration shape' : 'invalid JSON';
 }
@@ -63,7 +65,7 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;
     let json;
     try {
-      json = overrides.has(resolved) ? overrides.get(resolved) : JSON.parse(fs.readFileSync(resolved, 'utf8'));
+      json = overrides.has(resolved) ? overrides.get(resolved) : parseJson(fs.readFileSync(resolved));
       // plugin.json may point mcpServers at other files or bundles; that is not read, and saying so beats reporting no servers.
       if (file.pluginManifest && isObject(json) && hasOwn(json, 'mcpServers') && !isObject(json.mcpServers)) throw new Error('plugin_mcp_reference');
       validateConfigShape(json, { source: descriptor.source, cwd });
