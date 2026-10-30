@@ -22,6 +22,7 @@ const path = require('path');
 const fix = require('./fix');
 const { homeFlag } = require('./shell');
 const connect = require('./connect');
+const jit = require('./jit');
 
 const BOPPI_HOOK = /(^|[\s/\\"'])boppi(\.js|\.cmd)?["']?\s+hook(\s|$)/;
 const EXPLAINED = Object.freeze({
@@ -30,6 +31,7 @@ const EXPLAINED = Object.freeze({
   'fingerprint-key': 'fingerprint key',
   'connector.json': 'workspace pairing and device credential',
   'connector-claims.json': 'connector claims',
+  'jit-leases.json': 'just-in-time grant leases',
   'update-notice.json': 'update notice',
   'events.jsonl': 'hook events',
   backups: 'fix backups',
@@ -69,7 +71,14 @@ function inventory(home) {
     return { name: entry.name, what: known ? EXPLAINED[known] : 'other Boppi file', ...size };
   }).sort((a, b) => a.name.localeCompare(b.name));
   const backups = rows.find(row => row.name === 'backups');
-  return { dir, exists: true, rows, backupFiles: backups ? backups.files : 0, liveFixes: backups ? liveFixes(home) : [] };
+  return { dir, exists: true, rows, backupFiles: backups ? backups.files : 0, liveFixes: backups ? liveFixes(home) : [], liveGrants: liveGrants(home) };
+}
+
+/** Leases whose server entry may still be in a client file: deleting the store would leave it there for good. An unreadable store counts as one. */
+function liveGrants(home) {
+  const read = jit.readStore(home);
+  if (!read.ok) return [{ server: null, client: null }];
+  return read.store.leases.filter(l => l.state === 'applying' || l.state === 'active').map(l => ({ server: l.server, client: l.client }));
 }
 
 /**
@@ -84,7 +93,8 @@ function liveFixes(home) {
   const live = fixes.filter(e => !restored.has(e.id)).map(e => ({ id: e.id, server: e.server, original: e.original }));
   // Records may hold the resolved path (/private/tmp) while --home names a link to it (/tmp); compare real paths.
   const real = file => { try { return fs.realpathSync(file); } catch (_) { return path.resolve(file); } };
-  const known = new Set(fixes.map(e => e.backup && real(e.backup)));
+  // A just-in-time grant's backup is accounted for by its lease, which liveGrants guards.
+  const known = new Set(manifest.entries.filter(e => fix.FIX_ACTIONS.includes(e.action) || e.action === 'jit_grant').map(e => e.backup && real(e.backup)));
   let files = [];
   try { files = fs.readdirSync(path.join(boppiDir(home), 'backups')).filter(name => name.endsWith('.bak')); } catch (_) { /* no backups dir */ }
   for (const name of files) if (!known.has(real(path.join(boppiDir(home), 'backups', name)))) live.push({ id: null, server: null, original: name });
@@ -137,7 +147,12 @@ function renderPlan(state, hooks, pairing, options) {
   } else if (live.length) {
     lines.push(`  includes the backups of ${live.length} fix${live.length === 1 ? '' : 'es'} still applied: after this, boppi rollback cannot restore ${live.length === 1 ? 'it' : 'them'}.`);
   } else if (state.backupFiles) {
-    lines.push('  includes backups of fixes already rolled back; nothing is left to restore from them.');
+    lines.push('  includes backups of fixes already rolled back (or of just-in-time grants); nothing is left to restore from them.');
+  }
+  const grants = state.liveGrants || [];
+  if (grants.length) {
+    lines.push(`  stops here: ${grants[0].server === null ? 'the just-in-time lease store is unreadable, so granted servers may still be configured' : `${grants.length} just-in-time grant${grants.length === 1 ? ' is' : 's are'} still configured (${grants.map(g => `"${g.server}" in ${g.client}`).join(', ')})`}; deleting the leases would leave ${grants.length === 1 ? 'it' : 'them'} in place for good.`);
+    lines.push(`  Run boppi connect revert-grants${homeFlag(options)} first.`);
   }
   if (pairing) lines.push(`  pairing: deletes the device credential for ${pairing.url} without contacting it. Run boppi connect unpair first to revoke "${pairing.deviceName || pairing.deviceId}" in the workspace too; otherwise it stays listed until revoked on the Collectors page.`);
   if (options.historyFile && path.resolve(options.historyFile) !== path.join(state.dir, 'history.json')) lines.push(`  not touched: --history-file ${options.historyFile} (outside ${state.dir}); delete it yourself if you want it gone.`);
@@ -159,6 +174,7 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   process.stdout.write(renderPlan(state, hooks, pairing, options) + '\n');
   if (!state.exists) return 0;
   if (options.dryRun) { process.stdout.write('Dry run: nothing removed.\n'); return 0; }
+  if ((state.liveGrants || []).length) { process.stderr.write('uninstall: not removed. Revert the just-in-time grants listed above first.\n'); return 2; }
   if ((state.liveFixes || []).length && !options.includeBackups) { process.stderr.write('uninstall: not removed. Roll back the fixes listed above, or pass --include-backups to keep them and delete their backups.\n'); return 2; }
   if (!options.yes) {
     if (!process.stdin.isTTY) { process.stderr.write('uninstall: not removed. Pass --yes to remove without a terminal confirmation.\n'); return 2; }
@@ -170,4 +186,4 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   return 0;
 }
 
-module.exports = { BOPPI_HOOK, inventory, liveFixes, settingsFiles, findHookEntries, renderPlan, runUninstall };
+module.exports = { BOPPI_HOOK, inventory, liveFixes, liveGrants, settingsFiles, findHookEntries, renderPlan, runUninstall };

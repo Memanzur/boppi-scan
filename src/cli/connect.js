@@ -15,7 +15,8 @@
  * Local state, all under <home>/.boppi, owner-only:
  *   connector.json         { url, deviceId, organizationId, credential, credentialExpiresAt, workspaceName, deviceName, pairedAt }
  *   connector-claims.json  { pending: { [proposalId]: { nonce, targetFile, client, server, claimedAt } }, consumed: [nonce] }
- *   locks/<targetFile>.lock  held while one proposal writes that file
+ *   locks/<targetFile>.lock  held while one proposal or grant writes that file
+ *   jit-leases.json        just-in-time grant leases (jit.js)
  */
 'use strict';
 const fs = require('fs');
@@ -31,11 +32,12 @@ const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
 const updateNotice = require('./updateNotice');
 const { homeFlag } = require('./shell');
+const jit = require('./jit');
 const { openRegular, acquireLock } = fix;
 
 const SCHEMA_VERSION = 1;
-const ROUTES = Object.freeze({ pair: '/api/connector/pair', poll: '/api/connector/poll', preview: '/api/connector/preview', claim: '/api/connector/claim', applied: '/api/connector/applied', rescan: '/api/connector/rescan', rotate: '/api/connector/rotate', unpair: '/api/connector/unpair' });
-const SUBCOMMANDS = Object.freeze(['pair', 'status', 'unpair', 'run', 'rotate']);
+const ROUTES = Object.freeze({ pair: '/api/connector/pair', poll: '/api/connector/poll', preview: '/api/connector/preview', claim: '/api/connector/claim', applied: '/api/connector/applied', rescan: '/api/connector/rescan', rotate: '/api/connector/rotate', unpair: '/api/connector/unpair', 'jit/poll': '/api/connector/jit/poll', 'jit/claim': '/api/connector/jit/claim', 'jit/applied': '/api/connector/jit/applied', 'jit/revoked': '/api/connector/jit/revoked' });
+const SUBCOMMANDS = Object.freeze(['pair', 'status', 'unpair', 'run', 'rotate', 'revert-grants']);
 // connect run rotates the device credential once it has this long left.
 const ROTATE_WITHIN_MS = 7 * 24 * 60 * 60 * 1000;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -555,10 +557,18 @@ class Cycle {
     await this.gradeRescan(proposal, scan);
   }
 
+  /** Remediation, then just-in-time grants. A refused remediation poll does not skip the grants, whose expiry matters more. */
   async run() {
     await this.reconcilePending();
     const scan = await this.deps.performScan(this.options);
     if (scan.failed) { this.err(`Scan failed: ${scan.failed}`); return scan.exitCode || 3; }
+    const code = await this.remediate(scan);
+    if (this.credentialRefused) return code;
+    const jitProblems = await jit.runCycle({ options: this.options, pairing: this.pairing, deps: this.deps, post: (route, body) => request({ url: this.pairing.url, credential: this.pairing.credential, route, body, fetchImpl: this.deps.fetchImpl }), describe: describeFailure, out: this.out, err: this.err, versions: this.versions, scan });
+    return code || (jitProblems ? 5 : 0);
+  }
+
+  async remediate(scan) {
     const offers = [...rollbackTargets(scan, this.options), ...localTargets(scan, this.options)].slice(0, OFFER_MAX).map(target => toOffer(target, this.deps.version, scan.startedAt));
     const polled = await this.post('poll', { offers });
     if (!polled.ok) { this.err(describeFailure('poll', polled)); return 5; }
@@ -599,7 +609,7 @@ async function runPair(options, deps, out, err) {
 }
 
 function renderStatus(options, pairing) {
-  if (!pairing) return `Not paired. ${pairingFile(options.home)} does not exist; boppi connect pair --url <workspace> --code <code> creates it.`;
+  if (!pairing) return [`Not paired. ${pairingFile(options.home)} does not exist; boppi connect pair --url <workspace> --code <code> creates it.`, ...jit.renderLeases(options.home)].join('\n');
   const expired = pairing.credentialExpiresAt && Date.parse(pairing.credentialExpiresAt) < Date.now();
   return [
     `BOPPI · CONNECT  paired (credential not shown)`,
@@ -609,7 +619,8 @@ function renderStatus(options, pairing) {
     `  paired at:  ${pairing.pairedAt || '?'}`,
     `  credential: expires ${pairing.credentialExpiresAt || 'unknown'}${expired ? ' (expired; pair again)' : ''}${pairing.rotatedAt ? `, rotated ${pairing.rotatedAt}` : ''}; connect run rotates it when 7 days or less remain, boppi connect rotate does it now`,
     `  pending:    ${Object.keys(loadClaims(options.home).pending).length} unanswered claim(s)`,
-    'Status reads the local file only; nothing was sent.',
+    ...jit.renderLeases(options.home),
+    'Status reads the local files only; nothing was sent.',
   ].join('\n');
 }
 
@@ -667,6 +678,7 @@ async function runConnect(options, deps) {
   if (options.subcommand === 'pair') return runPair(options, deps, out, err);
   const pairing = loadPairing(options.home);
   if (options.subcommand === 'status') { out(renderStatus(options, pairing)); return 0; }
+  if (options.subcommand === 'revert-grants') return jit.runRevertGrants(options, out, err);
   if (options.subcommand === 'unpair') return runUnpair(options, pairing, deps, out, err);
   if (!pairing) { err(`connect ${options.subcommand}: not paired. ${renderStatus(options, null)}`); return 2; }
   try { pairing.url = resolveWorkspaceUrl(pairing.url); } catch (error) { err(`connect ${options.subcommand}: refusing the stored workspace URL: ${error.message}`); return 2; }
@@ -679,8 +691,22 @@ async function runConnect(options, deps) {
     if (options.once) return code;
     if (code === 5 && cycle.credentialRefused) { err('  stopping: the workspace refuses this device, so polling again cannot succeed.'); return 5; }
     updateNotice.announce(options.home, deps.version, err);
-    out(`  next poll in ${options.interval} s (Ctrl-C stops; nothing is applied without confirmation here)`);
-    await sleep(options.interval * 1000);
+    out(`  next poll in ${options.interval} s (Ctrl-C stops; nothing is applied without confirmation here${options.watch ? '; just-in-time grants are removed at their local expiry meanwhile' : ''})`);
+    if (options.watch) await watchExpiries(options, options.interval * 1000, out, err);
+    else await sleep(options.interval * 1000);
+  }
+}
+
+/** Between polls, wake every second (or at the next local expiry, if sooner) and revert what expired, offline. */
+async function watchExpiries(options, total, out, err) {
+  const until = Date.now() + total;
+  while (Date.now() < until) {
+    const next = jit.nextExpiry(options.home);
+    const toNext = next !== null && next > Date.now() ? next - Date.now() + 5 : 1000;
+    await sleep(Math.max(10, Math.min(1000, until - Date.now(), toNext)));
+    const result = jit.enforceLeases(options.home);
+    for (const lease of result.reverted) out(`  jit ${lease.grantId}  "${lease.server}" on ${lease.client}: local lease expired; entry ${lease.removed ? 'removed from' : 'already absent from'} the configuration (a client already running keeps it until restart); reported on the next poll`);
+    for (const { lease, failureCode } of result.failed) err(`  jit ${lease.grantId}  "${lease.server}" on ${lease.client}: expired but not removed (${failureCode}); retried in a second`);
   }
 }
 
