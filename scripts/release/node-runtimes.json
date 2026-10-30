@@ -1,0 +1,11 @@
+{
+  "comment": "Official Node.js runtimes embedded in the standalone Agent. sha256 values are from https://nodejs.org/dist/v25.8.0/SHASUMS256.txt; build.mjs refuses any archive whose sha256 differs.",
+  "version": "25.8.0",
+  "baseUrl": "https://nodejs.org/dist/v25.8.0/",
+  "targets": {
+    "darwin-arm64": { "os": "darwin", "arch": "arm64", "archive": "node-v25.8.0-darwin-arm64.tar.gz", "sha256": "75ff6fd07e0a85fb4d2529f6189c996014b1d3d83180c31e65feb2b3eaeec5d9", "binary": "node-v25.8.0-darwin-arm64/bin/node" },
+    "darwin-x64": { "os": "darwin", "arch": "x64", "archive": "node-v25.8.0-darwin-x64.tar.gz", "sha256": "03fb559600c3ede0228d8b588ac6ad8b7b2cd0bac9422b56e7e2ef7f5c11b67c", "binary": "node-v25.8.0-darwin-x64/bin/node" },
+    "linux-x64": { "os": "linux", "arch": "x64", "archive": "node-v25.8.0-linux-x64.tar.xz", "sha256": "f0a38698e3a49105f7323b6bda8f70d864ce853da17c6260a5e1798234d0f87d", "binary": "node-v25.8.0-linux-x64/bin/node" },
+    "win-x64": { "os": "win32", "arch": "x64", "archive": "node-v25.8.0-win-x64.zip", "sha256": "5744746371a417179a701044739b5fa2b3164e943aa57f86059fb312f8032e86", "binary": "node-v25.8.0-win-x64/node.exe" }
+  }
+}
