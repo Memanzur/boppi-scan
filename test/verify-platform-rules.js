@@ -208,6 +208,28 @@ try {
     }
   }
 
+  section('WSL: a hint toward the Windows profile');
+  {
+    const wsl2 = { platform: 'linux', release: '5.15.153.1-microsoft-standard-WSL2', env: {} };
+    ok('WSL is detected from the kernel release', platform.isWsl(wsl2));
+    ok('WSL is detected from WSL_DISTRO_NAME', platform.isWsl({ platform: 'linux', release: '6.8.0-45-generic', env: { WSL_DISTRO_NAME: 'Ubuntu' } }));
+    ok('plain Linux and macOS are not WSL', !platform.isWsl({ platform: 'linux', release: '6.8.0-45-generic', env: {} }) && !platform.isWsl({ platform: 'darwin', release: '25.4.0', env: { WSL_DISTRO_NAME: 'x' } }));
+    const hint = platform.wslHint({}, wsl2);
+    ok('the hint names the flags to scan the Windows side', /--home \/mnt\/c\/Users\/<you> --platform win32/.test(hint || ''), hint);
+    ok('no hint once --home or --platform is given', platform.wslHint({ homeGiven: true }, wsl2) === null && platform.wslHint({ platformGiven: true }, wsl2) === null);
+    if (process.platform !== 'linux') skip('boppi scan prints the WSL hint', 'needs a Linux host');
+    else {
+      const home = path.join(root, 'wsl-home');
+      fs.mkdirSync(home);
+      const env = { ...process.env };
+      delete env.BOPPI_SCAN_HOME; delete env.BOPPI_SCAN_PLATFORM;
+      const plain = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'boppi.js'), 'scan', '--cwd', home, '--no-color', '--history-file', path.join(root, 'wsl-history.json')], { encoding: 'utf8', env: { ...env, HOME: home, WSL_DISTRO_NAME: 'Ubuntu' } });
+      ok('boppi scan inside WSL prints the hint on stderr', plain.stderr.includes('Running inside WSL'), plain.stderr.slice(0, 300));
+      const withHome = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'boppi.js'), 'scan', '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(root, 'wsl-history.json')], { encoding: 'utf8', env: { ...env, WSL_DISTRO_NAME: 'Ubuntu' } });
+      ok('and not once --home is given', !withHome.stderr.includes('Running inside WSL'));
+    }
+  }
+
   section('Discovery: the environment a server inherits, by platform');
   {
     const bin = path.join(root, 'bin');
