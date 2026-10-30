@@ -942,6 +942,12 @@ function promptForToken() {
   });
 }
 
+/** The ingest inputs of a live scan, as boppi push and boppi watch --push both send them. */
+function scanIngestInput(scan) {
+  const payload = exportPayload(scan);
+  return { inventory: payload.inventory.real, recognition: scan.recognition, snapshotAt: payload.exportedAt, collector: payload.collector, coverage: payload.coverage, builtinResidual: push.builtinResidualFromExport(payload) };
+}
+
 /** boppi push: scan (or load an export), map the real inventory to ingest records, send one snapshot. */
 async function runPush(options) {
   if (!options.dryRun && !options.token) {
@@ -980,29 +986,21 @@ async function runPush(options) {
       process.stderr.write(`Scan failed: ${scan.failed}\n`);
       return scan.exitCode || 3;
     }
-    const payload = exportPayload(scan);
-    inventory = payload.inventory.real;
-    snapshotAt = payload.exportedAt;
-    collector = payload.collector;
-    coverage = payload.coverage;
-    builtinResidual = push.builtinResidualFromExport(payload);
+    ({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual } = scanIngestInput(scan));
     incomplete = scan.incomplete;
-    recognition = scan.recognition;
   }
 
   if (options.file) incomplete = (coverage?.clients || []).filter(client => ['unreadable', 'failed'].includes(client.status)).map(client => client.label);
 
-  const records = options.file ? push.resanitizeRecords(push.toRecords(inventory, recognition)) : push.toRecords(inventory, recognition);
+  const { records, snapshot, body, unsafe } = push.prepareIngest({ inventory, recognition, snapshotAt, collector, coverage, builtinResidual, merge: options.merge, fromFile: !!options.file });
   const summary = push.counts(inventory);
   const described = `${plural(summary.agents, 'agent')}, ${plural(summary.mcpServers, 'MCP server')}, ${plural(summary.permissions, 'permission')}${summary.integrations ? `, ${plural(summary.integrations, 'integration')}` : ''}`;
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be fully analyzed; whatever the unread files configure is missing from this push, which adds to the workspace without removing anything.\n`);
 
-  const snapshot = !options.merge && push.completeCoverage(coverage) && records.length <= push.SNAPSHOT_MAX;
   // Checked on the body exactly as it would be sent, before a dry run prints it or a request carries it.
-  const unsafe = push.unsafeFields(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }));
   if (unsafe.length) { process.stderr.write(`${push.describeUnsafe(unsafe, { fromFile: !!options.file })}\n`); return 2; }
   if (options.dryRun) {
-    process.stdout.write(JSON.stringify(push.ingestBody({ records, snapshot, snapshotAt, collector, coverage, builtinResidual }), null, 2) + '\n');
+    process.stdout.write(JSON.stringify(body, null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
     return 0;
   }
