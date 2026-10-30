@@ -25,13 +25,19 @@ const ENV = { BOPPI_TOKEN: '', BOPPI_SCAN_PLATFORM: 'darwin', BOPPI_WATCH_PUSH_B
 
 /** A stand-in ingest endpoint: records every POST; respond(n, body) scripts the answer. */
 function ingest() {
-  const self = { requests: [], respond: () => ({ status: 200 }), port: 0, server: null };
+  const self = { requests: [], heartbeats: [], heartbeatStatus: 200, respond: () => ({ status: 200 }), port: 0, server: null };
   self.listen = (port = 0) => new Promise((resolve, reject) => {
     self.server = http.createServer((req, res) => {
       let raw = '';
       req.on('data', d => { raw += d; });
       req.on('end', () => {
         const body = JSON.parse(raw);
+        if (req.url.endsWith('/heartbeat')) {
+          self.heartbeats.push({ authorization: req.headers.authorization, url: req.url, body });
+          res.writeHead(self.heartbeatStatus, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ ok: self.heartbeatStatus === 200 }));
+          return;
+        }
         const n = self.requests.push({ authorization: req.headers.authorization, url: req.url, body });
         const { status = 200, json, headers = {} } = self.respond(n, body) || {};
         res.writeHead(status, { 'content-type': 'application/json', ...headers });
@@ -229,6 +235,7 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
   const revokeEntries = readLog(revokeLog);
   ok('the log ends with push revoked then stopped', revokeEntries.slice(-2).map(e => e.kind === 'push' ? e.outcome : e.kind).join() === 'revoked,stopped');
   ok('the session says why on stderr', session.stderr().includes('no longer accepts this collector token'));
+  ok('a session stopped by a refused token does not try to sign off', !readLog(revokeLog).slice(-1).some(e => e.kind === 'heartbeat' && e.mode === 'manual'));
   server.respond = () => ({ status: 200 });
 
   section('409 stale_snapshot and 422 drop the entry and continue');
@@ -361,6 +368,30 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
     ok('four sessions racing on one home: at least one runs, the rest are refused with exit 2', racers.some(r => r.code === 0) && racers.every(r => r.code === 0 || (r.code === 2 && r.stderr.includes('another boppi watch --push'))));
     ok('the queue survives the race intact', Array.isArray(readQueue(lockHome)));
   }
+
+  section('check-ins: continuous while watching, manual on a deliberate stop, nothing else sent');
+  server.respond = () => ({ status: 200 });
+  server.heartbeats.length = 0;
+  const beatHome = makeHome(root, 'beat');
+  const beatLog = path.join(root, 'beat.log');
+  const oneShot = await once(server, beatHome, beatLog);
+  ok('--once is a one-off push and sends no check-in', oneShot.code === 0 && server.heartbeats.length === 0);
+  const timed = await cli(['watch', '--push', '--interval', '1', '--duration', '2', '--url', server.url(), '--token', TOKEN, '--log', beatLog], beatHome);
+  const beats = server.heartbeats.slice();
+  ok('a watching session checks in as continuous, then signs off as manual when it stops', timed.code === 0 && beats.map(b => b.body.mode).join() === 'continuous,manual');
+  ok('a check-in goes to /api/ingest/heartbeat with the collector token', beats.every(b => b.url === '/api/ingest/heartbeat' && b.authorization === `Bearer ${TOKEN}`));
+  ok('a check-in carries only the mode and its interval', beats.every(b => Object.keys(b.body).sort().join() === 'intervalSeconds,mode' && b.body.intervalSeconds === watchPush.HEARTBEAT_SECONDS));
+  ok('check-ins are logged without the token', readLog(beatLog).filter(e => e.kind === 'heartbeat').length === 2 && !fs.readFileSync(beatLog, 'utf8').includes(TOKEN));
+  server.heartbeats.length = 0;
+  server.heartbeatStatus = 503;
+  const failing = await cli(['watch', '--push', '--interval', '1', '--duration', '2', '--url', server.url(), '--token', TOKEN, '--log', beatLog], beatHome);
+  server.heartbeatStatus = 200;
+  ok('a failed check-in is reported once and the watcher keeps running', failing.code === 0 && (failing.stdout.match(/check-in failed \(HTTP 503\)/g) || []).length === 1 && failing.stdout.includes('stopped (2 s elapsed)'));
+  ok('the failure says what the workspace will show', failing.stdout.includes('the workspace will show this machine as stopped until one succeeds'));
+  server.heartbeats.length = 0;
+  const unpushedBeat = await cli(['watch', '--interval', '1', '--duration', '1'], beatHome);
+  ok('watch without --push never checks in', unpushedBeat.code === 0 && server.heartbeats.length === 0);
+  ok('the heartbeat URL keeps the ingest origin and drops any query', watchPush.heartbeatUrl(new URL('https://app.example.test/api/ingest/?x=1')).toString() === 'https://app.example.test/api/ingest/heartbeat');
 
   section('pure rules');
   const body = { records: [{ kind: 'agent', b: 1, a: 2 }], snapshot: true, snapshot_at: 'T1' };

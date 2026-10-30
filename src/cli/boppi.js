@@ -51,6 +51,7 @@ const sarif = require('./render/sarif');
 const fix = require('./fix');
 const discoverCommand = require('./discovery/discover');
 const watchCommand = require('./watch');
+const monitorCommand = require('./monitor');
 const eventsCommand = require('./events');
 const evidence = require('./evidence');
 const demo = require('./demo');
@@ -65,14 +66,14 @@ const uninstallCommand = require('./uninstall');
 
 const VERSION = require('../../package.json').version;
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect', 'overlay', 'uninstall']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'rollback', 'verify', 'history', 'push', 'demo', 'hook', 'settings', 'discover', 'watch', 'events', 'ask', 'connect', 'overlay', 'uninstall', 'monitor']);
 const OVERLAY_SUBCOMMANDS = ['verify', 'status', 'rollback', 'reset'];
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|overlay|history|push|demo|hook|settings|discover|watch|events|ask|connect|uninstall] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|rollback|verify|overlay|history|push|demo|hook|settings|discover|watch|events|ask|connect|monitor|uninstall] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -93,11 +94,12 @@ function usage() {
     '  boppi events push             send those metadata-only records to a workspace that allowed activity sync for this collector; --dry-run prints them',
     '  boppi settings                show local privacy settings; --set key=value changes one setting',
     '  boppi discover --server <name> start one configured stdio MCP server with your consent, ask it only for its tool list, store the list locally; never during a scan',
-    '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing; --push also sends a changed inventory to your workspace',
+    '  boppi watch                   stay in the foreground, rescan when a config or settings file changes (and every 60 s), print what changed; installs nothing; --push also sends a changed inventory to your workspace and checks in every 5 minutes so it shows monitoring on',
     '  boppi uninstall               list everything Boppi stored under ~/.boppi and the Claude Code hook entries that run it, then delete ~/.boppi after you confirm (--yes, --dry-run; fix backups only with --include-backups)',
+    '  boppi monitor enable|status|disable  continuous monitoring as a background service (macOS): enable asks, then installs one per-user LaunchAgent that runs watch --push at login with the token in an owner-only file; status shows it and the last check-in; disable removes it',
     '  boppi connect pair|status|unpair|run|rotate|revert-grants  pair this machine with your workspace for dashboard-requested fixes and just-in-time server grants; run pulls proposals and approved grants, shows the exact change here, and applies one only after you confirm; unpair revokes this device in the workspace and deletes the local pairing; rotate replaces the device credential (run does it when 7 days or less remain); revert-grants removes every granted server now, offline',
     '',
-    'Push options (push, events push, connect and watch --push are the only commands that use the network):',
+    'Push options (push, events push, connect, watch --push and monitor are the only commands that use the network):',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
     '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN; or omit it and paste when prompted',
     '  --file <scan.json>  push an earlier --json export instead of scanning now',
@@ -116,7 +118,7 @@ function usage() {
     'connect options:',
     '  --url <workspace>   (pair) workspace origin, https unless localhost; stored in ~/.boppi/connector.json with the device credential (owner-only)',
     '  --code <pair-code>  (pair) one-time code from the Collectors page',
-    '  --name <name>       (pair) device name the workspace shows (default: this machine\'s hostname)',
+    '  --name <name>       (pair) device name the workspace shows (default: Mac, Windows PC or Linux computer plus 4 random characters; the hostname is never sent)',
     '  --once              (run) one poll cycle, then exit',
     '  --interval <s>      (run) seconds between polls (default 60, minimum 5)',
     '  --watch             (run) between polls, wake every second and remove a just-in-time grant at its local expiry; foreground only, installs nothing',
@@ -262,6 +264,7 @@ function parseArgs(argv) {
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else if (options.command === 'overlay' && options.subcommand === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else if (options.command === 'connect' && !options.subcommand && connect.SUBCOMMANDS.includes(arg)) options.subcommand = arg;
+    else if (options.command === 'monitor' && !options.subcommand && monitorCommand.SUBCOMMANDS.includes(arg)) options.subcommand = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (askRequested && options.command !== 'ask') throw new Error('ask does not accept a second command');
@@ -289,6 +292,12 @@ function parseArgs(argv) {
       if (!options.token && !process.stdin.isTTY) throw new Error('watch --push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
       options.ingestUrl = push.resolveIngestUrl(options.url);
     }
+  }
+  if (options.command === 'monitor' && !options.help && !options.version) {
+    if (!options.subcommand) throw new Error('monitor requires one of: enable, disable, status');
+    if (options.yes && options.subcommand !== 'enable') throw new Error('--yes is only accepted with monitor enable');
+    if (options.subcommand === 'enable' || options.subcommand === 'run') options.ingestUrl = push.resolveIngestUrl(options.url);
+    if (options.subcommand === 'enable' && !options.yes && !process.stdin.isTTY) throw new Error('monitor enable asks before installing anything: run it in a terminal, or pass --yes');
   }
   if (options.push && options.command !== 'watch') throw new Error('--push is only accepted with watch; to send one scan, run boppi push');
   if (options.command === 'discover' && !options.help && !options.version) {
@@ -1078,6 +1087,17 @@ async function run(argv) {
       performScan, writeHistory,
       ingestFor: scan => push.prepareIngest(scanIngestInput(scan)),
       fetchImpl: updateNotice.watching(options.home, globalThis.fetch),
+    });
+  }
+  if (options.command === 'monitor') {
+    return monitorCommand.runMonitor({ ...options, only: null }, {
+      out: line => process.stdout.write(line + '\n'), err: line => process.stderr.write(line + '\n'),
+      confirm: fix.confirm, promptForToken,
+      runWatch: watchOptions => watchCommand.runWatch(watchOptions, {
+        performScan, writeHistory,
+        ingestFor: scan => push.prepareIngest(scanIngestInput(scan)),
+        fetchImpl: updateNotice.watching(options.home, globalThis.fetch),
+      }),
     });
   }
   if (options.command === 'discover') return discoverCommand.runDiscover({ ...options, clientKey: options.client ? ONLY_ALIASES[options.client] : null }, { discover, confirm: fix.confirm, version: VERSION });

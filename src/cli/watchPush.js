@@ -322,4 +322,22 @@ function createPusher({ home, ingestUrl, token, once = false, baseMs = BACKOFF.b
   return { open, offer, flush, close, workspace, pending: () => mine().length, isRevoked: () => revoked };
 }
 
-module.exports = { QUEUE_CAPS, BACKOFF, PRIVACY_LINE, storeDir, canonical, digestOf, tokenTag, classify, retryDelay, applyCaps, writeAtomic, readStore, lockSession, loadQueue, saveQueue, loadState, createPusher };
+/** Seconds between check-ins while watching with --push; the workspace reads three missed ones as "stopped". */
+const HEARTBEAT_SECONDS = 300;
+
+function heartbeatUrl(ingestUrl) {
+  const url = new URL(ingestUrl.toString());
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/heartbeat`;
+  url.search = '';
+  return url;
+}
+
+/**
+ * Tell the workspace this collector is watching (continuous) or has stopped on purpose (manual). Only the mode
+ * and the interval are sent. Never throws: resolves to { ok } or the failure, which callers report once.
+ */
+async function sendHeartbeat({ ingestUrl, token, mode, intervalSeconds = HEARTBEAT_SECONDS, fetchImpl = globalThis.fetch }) {
+  return push.postBody({ ingestUrl: heartbeatUrl(ingestUrl), token, body: { mode, intervalSeconds }, fetchImpl });
+}
+
+module.exports = { HEARTBEAT_SECONDS, heartbeatUrl, sendHeartbeat, QUEUE_CAPS, BACKOFF, PRIVACY_LINE, storeDir, canonical, digestOf, tokenTag, classify, retryDelay, applyCaps, writeAtomic, readStore, lockSession, loadQueue, saveQueue, loadState, createPusher };

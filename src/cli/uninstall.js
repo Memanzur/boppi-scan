@@ -26,6 +26,7 @@ const { homeFlag } = require('./shell');
 const connect = require('./connect');
 const jit = require('./jit');
 const { claudeConfigDir, parseJson } = require('./platform');
+const monitor = require('./monitor');
 
 const BOPPI_HOOK = /(^|[\s/\\"'])boppi(\.js|\.cmd)?["']?\s+hook(\s|$)/;
 const EXPLAINED = Object.freeze({
@@ -44,6 +45,7 @@ const EXPLAINED = Object.freeze({
   demo: 'demo sandbox',
   locks: 'locks',
   bin: 'the standalone Boppi program and its install receipt (install.sh)',
+  monitor: 'background monitoring token, state and logs',
 });
 
 function boppiDir(home) { return path.join(home, '.boppi'); }
@@ -176,6 +178,8 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
   const hooks = findHookEntries(options.home, options.cwd);
   const pairing = connect.loadPairing(options.home, { allowExposed: true });
   process.stdout.write(renderPlan(state, hooks, pairing, options) + '\n');
+  const service = fs.existsSync(monitor.agentFile(options.home)) ? monitor.agentFile(options.home) : null;
+  if (service) process.stdout.write(`Also removes the background monitoring service ${service} (boppi monitor enable installed it) and unloads it.\n`);
   if (!state.exists) return 0;
   if (options.dryRun) { process.stdout.write('Dry run: nothing removed.\n'); return 0; }
   if ((state.liveGrants || []).length) { process.stderr.write('uninstall: not removed. Revert the just-in-time grants listed above first.\n'); return 2; }
@@ -184,6 +188,7 @@ async function runUninstall(options, { confirm = fix.confirm } = {}) {
     if (!process.stdin.isTTY) { process.stderr.write('uninstall: not removed. Pass --yes to remove without a terminal confirmation.\n'); return 2; }
     if (!(await confirm(`Delete ${state.dir}? [y/N] `))) { process.stdout.write('Not removed.\n'); return 2; }
   }
+  if (service) monitor.disableService(options.home);
   fs.rmSync(state.dir, { recursive: true, force: true });
   if (fs.existsSync(state.dir)) { process.stderr.write(`uninstall: ${state.dir} is still there; check its permissions.\n`); return 3; }
   process.stdout.write(`Removed ${state.dir}.${hooks.found.length ? ` Remove the ${hooks.found.length} hook entr${hooks.found.length === 1 ? 'y' : 'ies'} listed above.` : ''}\n`);

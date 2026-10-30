@@ -151,7 +151,7 @@ function baselineLines(state, target, options, workspace) {
     `BOPPI · WATCH  ${clients.length} client${clients.length === 1 ? '' : 's'}${options.only ? ` (--only ${options.only.join(',')})` : ''} · ${target.files.length} files in ${target.directories.length} watched director${target.directories.length === 1 ? 'y' : 'ies'} · rescan every ${options.interval} s${options.duration ? ` for ${options.duration} s` : ''}`,
     `  baseline: ${servers} MCP server${servers === 1 ? '' : 's'}, ${paths} exposure path${paths === 1 ? '' : 's'} at ${state.at}`,
     workspace
-      ? `  foreground only: nothing is installed; Ctrl-C stops. --push is on: when the inventory changes, what boppi push sends goes to ${workspace}. ${watchPush.PRIVACY_LINE} Nothing else leaves this machine. A closed path here is an observation, not a verified fix.`
+      ? `  foreground only: nothing is installed; Ctrl-C stops. --push is on: when the inventory changes, what boppi push sends goes to ${workspace}. ${watchPush.PRIVACY_LINE} Every ${watchPush.HEARTBEAT_SECONDS / 60} minutes it also checks in (the words "continuous" and the interval, nothing else) so the workspace can show monitoring on. Nothing else leaves this machine. A closed path here is an observation, not a verified fix.`
       : '  foreground only: nothing is installed, nothing leaves this machine; Ctrl-C stops. A closed path here is an observation, not a verified fix.',
   ];
 }
@@ -251,18 +251,36 @@ async function runWatch(options, deps) {
   }
   const timer = setInterval(() => rescan('periodic'), Math.max(1, options.interval) * 1000);
 
+  // Check-ins tell the workspace this machine is still watching even when nothing changed.
+  let heartbeatTimer = null, heartbeatFailing = false;
+  const heartbeatSeconds = Number(process.env.BOPPI_WATCH_HEARTBEAT_SECONDS) >= 60 ? Number(process.env.BOPPI_WATCH_HEARTBEAT_SECONDS) : watchPush.HEARTBEAT_SECONDS;
+  const checkIn = async mode => {
+    const result = await watchPush.sendHeartbeat({ ingestUrl: options.ingestUrl, token: options.token, mode, intervalSeconds: heartbeatSeconds, fetchImpl: deps.fetchImpl });
+    record({ kind: 'heartbeat', at: new Date().toISOString(), mode, ok: !!result.ok, status: result.status || null });
+    if (!result.ok && !heartbeatFailing) out(`[${new Date().toISOString()}] check-in failed (${result.status ? `HTTP ${result.status}` : result.networkError}); the workspace will show this machine as stopped until one succeeds`);
+    if (result.ok && heartbeatFailing) out(`[${new Date().toISOString()}] check-in succeeded again; the workspace shows monitoring on`);
+    heartbeatFailing = !result.ok;
+    return result;
+  };
+  if (pusher) {
+    await checkIn('continuous');
+    heartbeatTimer = setInterval(() => { if (!stopped) checkIn('continuous'); }, heartbeatSeconds * 1000);
+  }
+
   return new Promise(resolve => {
     let durationTimer = null;
     const stop = (reason, code = 0) => {
       if (stopped) return;
       stopped = true;
-      clearInterval(timer); clearTimeout(debounceTimer); clearTimeout(graceTimer); clearTimeout(durationTimer);
+      clearInterval(timer); clearInterval(heartbeatTimer); clearTimeout(debounceTimer); clearTimeout(graceTimer); clearTimeout(durationTimer);
       for (const w of watchers) { try { w.close(); } catch { /* closed */ } }
       const waiting = pusher ? pusher.pending() : 0;
       const sent = pusher ? `only sanitized inventory metadata was sent, to ${pusher.workspace}${waiting ? `; ${waiting} queued push${waiting === 1 ? '' : 'es'} will be sent on the next watch --push` : ''}` : 'nothing left this machine';
       out(`[${new Date().toISOString()}] stopped (${reason}); nothing was installed and ${sent}`);
       record({ kind: 'stopped', at: new Date().toISOString(), reason });
-      resolve(finish(code));
+      // A deliberate stop says so, so the workspace shows "manual", not "stopped". A revoked token cannot check in.
+      const signOff = pusher && code !== 6 ? Promise.race([checkIn('manual'), new Promise(r => setTimeout(r, 3000))]) : Promise.resolve();
+      signOff.then(() => resolve(finish(code)));
     };
     stopWatch = stop;
     process.once('SIGINT', () => stop('Ctrl-C'));

@@ -54,6 +54,7 @@ const SUITES = [
   'verify-brand-design.js',
   'verify-catalog.js',
   'verify-monitoring.js',
+  'verify-monitor-service.js',
   'verify-demo.js',
   'verify-demo-client.js',
   'verify-cli-scan.js',
