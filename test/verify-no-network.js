@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Every command except a real push, a real events push, a connect run, and a consented discover must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
+/** Every command except a real push, a real events push, a connect run, watch --push, and a consented discover must run with no socket, DNS lookup, fetch, or child process. Proven by preloading hooks that record and refuse each attempt. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -106,6 +106,10 @@ function makeHome(root) {
   ok('uninstall deletes ~/.boppi, pairing included, without network access', uninstalled.code === 0 && uninstalled.attempts.length === 0 && !fs.existsSync(path.join(home, '.boppi')));
   const watchOnce = run(['watch', '--once', '--only', 'claude-code']);
   ok('watch --once starts no process and touches no network', watchOnce.code === 0 && watchOnce.attempts.length === 0 && watchOnce.stdout.includes('BOPPI · WATCH'));
+  const watchUnpushed = run(['watch', '--once', '--url', 'http://127.0.0.1:1', '--token', 'bpc_test_token_value'], { BOPPI_TOKEN: 'bpc_test_token_value' });
+  ok('watch over full discovery with --url and a token, but no --push, touches no network', watchUnpushed.code === 0 && watchUnpushed.attempts.length === 0 && watchUnpushed.stdout.includes('nothing leaves this machine'));
+  const watchPushed = run(['watch', '--push', '--once', '--url', 'http://127.0.0.1:1', '--token', 'bpc_test_token_value'], { BOPPI_WATCH_PUSH_BACKOFF_MS: '1' });
+  ok('watch --push reaches only fetch and queues when refused (positive control, exit 5)', watchPushed.code === 5 && watchPushed.attempts.length > 0 && watchPushed.attempts.every(a => a === 'fetch'));
   const forgetAll = run(['discover', '--forget', '--all']);
   ok('discover --forget --all starts no process and touches no network', forgetAll.code === 0 && forgetAll.attempts.length === 0);
   const refusedLauncher = run(['discover', '--server', 'fetch', '--yes', '--only', 'claude-desktop']);

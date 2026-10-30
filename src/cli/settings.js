@@ -15,6 +15,8 @@ const SPECS = Object.freeze({
   telemetry: { default: false, parse: parseBoolean, describe: 'boolean' },
   cloudSync: { default: false, parse: parseBoolean, describe: 'boolean' },
   retentionDays: { default: 30, parse: value => parseInteger(value, 1, 3650), describe: 'integer 1..3650' },
+  // D-34: the deny-capable PreToolUse gate for just-in-time servers in boppi hook; off unless a person turns it on here.
+  jitGate: { default: false, parse: value => parseBoolean(value === 'on' ? true : value === 'off' ? false : value), describe: 'on or off' },
 });
 
 function parseBoolean(value) {

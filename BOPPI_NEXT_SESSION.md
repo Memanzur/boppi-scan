@@ -1,3 +1,7 @@
+# Current integration handoff — 2026-10-30 UTC
+
+Read `/Users/melodymanzur/Desktop/Boppi-auto/docs/handoffs/BOPPI_CODEX_HANDOFF_2026-10-30.md` first. Active Agent integration is `boppi-scan-codex-enterprise`, branch codex/enterprise-recovery-2026-10-29, implementation 362fee9 (JIT + platform), full npm test 60/60. Primary scanner remains implementation 7f69ed9. Cloud integration HEAD 9682cf9 has an unfinished MFA merge that must be preserved. Distribution is next and remains incomplete on the original dist branches. No push, publication, hosted changes or real-device operations are authorized. Older checkpoint entries below are historical.
+
 # Current checkpoint (read first) — updated 2026-10-28 00:18 MDT
 
 Melody's standing instruction (2026-10-27): the Mac restarts unexpectedly, so work in small verified milestones, commit each locally, and keep this file current. At the start of every session:
