@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const push = require('./push');
-const { openNoFollow, renameRetry } = require('./platform');
+const { openNoFollow, renameRetry, exclusiveLock } = require('./platform');
 
 const QUEUE_CAPS = Object.freeze({ entries: 20, ageMs: 24 * 60 * 60 * 1000, bytes: 8 * 1024 * 1024 });
 const BACKOFF = Object.freeze({ baseMs: 2000, capMs: 5 * 60 * 1000, onceRetries: 2, onceDelayMs: 500 });
@@ -132,6 +132,21 @@ const validQueue = q => q && q.schemaVersion === 1 && Array.isArray(q.entries)
   && q.entries.every(e => e && ENTRY_KEYS.every(k => typeof e[k] === 'string') && Number.isFinite(Date.parse(e.queuedAt)) && e.body && typeof e.body === 'object' && Array.isArray(e.body.records));
 const validState = s => s && s.schemaVersion === 1 && s.pushed && typeof s.pushed === 'object' && !Array.isArray(s.pushed);
 
+/**
+ * One watch --push per home: the queue and sent digests are read once at
+ * start and written whole, so a second session would overwrite the first's.
+ * Returns a release function; throws EBUSY naming the live holder.
+ */
+function lockSession(home) {
+  const file = path.join(ensureDir(home), 'session.lock');
+  const release = exclusiveLock(file);
+  if (release) return release;
+  let holder = null;
+  try { holder = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* still being written */ }
+  const who = holder && Number.isInteger(holder.pid) ? ` (process ${holder.pid}, started ${holder.startedAt})` : '';
+  throw refuse('EBUSY', `another boppi watch --push${who} is already using ${storeDir(home)}. Only one runs per home at a time: stop it first, or let it keep pushing.`);
+}
+
 function loadQueue(home, warn) { return (readStore(home, 'queue.json', validQueue, warn) || { entries: [] }).entries; }
 function saveQueue(home, entries) { writeAtomic(path.join(ensureDir(home), 'queue.json'), JSON.stringify({ schemaVersion: 1, entries }) + '\n'); }
 function loadState(home, warn) { return (readStore(home, 'state.json', validState, warn) || { pushed: {} }).pushed; }
@@ -164,6 +179,7 @@ function createPusher({ home, ingestUrl, token, once = false, baseMs = BACKOFF.b
   let flushing = null;
   let revoked = false;
   let unreachable = false;
+  let unlock = null;
 
   const mine = () => queue.filter(entry => entry.origin === origin);
   const log = (outcome, entry, extra = {}) => record({ kind: 'push', at: stamp(), outcome, digest: entry ? entry.digest : null, ...extra, queued: mine().length });
@@ -179,6 +195,7 @@ function createPusher({ home, ingestUrl, token, once = false, baseMs = BACKOFF.b
   }
 
   function open() {
+    unlock = lockSession(home);
     queue = loadQueue(home, err);
     pushed = loadState(home, err);
     if (queue.length) persistQueue();
@@ -294,9 +311,15 @@ function createPusher({ home, ingestUrl, token, once = false, baseMs = BACKOFF.b
     return flush();
   }
 
-  function close() { clearTimeout(retryTimer); retryTimer = null; }
+  function close() {
+    clearTimeout(retryTimer); retryTimer = null;
+    const release = unlock;
+    unlock = null;
+    // A send in flight still writes the queue when it settles, so the lock is held until then.
+    if (release) { if (flushing) flushing.finally(release); else release(); }
+  }
 
   return { open, offer, flush, close, workspace, pending: () => mine().length, isRevoked: () => revoked };
 }
 
-module.exports = { QUEUE_CAPS, BACKOFF, PRIVACY_LINE, storeDir, canonical, digestOf, tokenTag, classify, retryDelay, applyCaps, writeAtomic, readStore, loadQueue, saveQueue, loadState, createPusher };
+module.exports = { QUEUE_CAPS, BACKOFF, PRIVACY_LINE, storeDir, canonical, digestOf, tokenTag, classify, retryDelay, applyCaps, writeAtomic, readStore, lockSession, loadQueue, saveQueue, loadState, createPusher };

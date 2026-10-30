@@ -16,7 +16,7 @@ const models = require('../../engine/models');
 const scanner = require('../../engine/localMcpScanner');
 const session = require('./session');
 const { ALLOWED_METHODS } = require('./recorder');
-const { openNoFollow, ownerOnlyNote } = require('../platform');
+const { openNoFollow, ownerOnlyNote, exclusiveLock } = require('../platform');
 
 const CACHE_SCHEMA_VERSION = 1;
 const MAX_AGE_DAYS = 7;
@@ -114,33 +114,10 @@ function consentText({ client, serverName, launch, inherited = [] }) {
   ].join('\n');
 }
 
-const LOCK_SETTLE_MS = 5000;
-
-/**
- * One discovery of a given server at a time across Boppi processes. The lock
- * file is created exclusively, so two processes cannot both take it. A lock
- * whose holder has exited (or is a zombie) is removed and taken once more;
- * an empty or unreadable one younger than a few seconds belongs to a process
- * still writing it. Returns a release function, or null when held.
- */
+/** One discovery of a given server at a time across Boppi processes; null while another process holds it. */
 function acquireLock(home, serverId) {
   ensureDir(home);
-  const file = lockPath(home, serverId);
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), { mode: 0o600, flag: 'wx' });
-      return () => { try { fs.unlinkSync(file); } catch { /* already gone */ } };
-    } catch (error) { if (error.code !== 'EEXIST') throw error; }
-    let held = null;
-    try { held = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* empty or unreadable */ }
-    if (held && Number.isInteger(held.pid)) {
-      if (held.pid !== process.pid && session.processRunning(held.pid)) return null;
-    } else {
-      try { if (Date.now() - fs.statSync(file).mtimeMs < LOCK_SETTLE_MS) return null; } catch { /* removed meanwhile */ }
-    }
-    fs.rmSync(file, { force: true });
-  }
-  return null;
+  return exclusiveLock(lockPath(home, serverId));
 }
 
 /** Write a user-named file without following a symlink and leave it owner-only even if it existed. */
