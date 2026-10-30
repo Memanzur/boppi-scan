@@ -97,10 +97,10 @@ function sanitizedLaunch(plan, entry) {
   };
 }
 
-function consentText({ client, serverName, launch }) {
+function consentText({ client, serverName, launch, inherited = [] }) {
   const envLine = launch.envNames.length
     ? `  env:      ${launch.envNames.length} variable${launch.envNames.length === 1 ? '' : 's'} from the entry (${launch.envNames.join(', ')}); the process receives their values, Boppi never prints or stores them`
-    : '  env:      none set by the entry; the process inherits PATH, HOME, TMPDIR, and locale only';
+    : `  env:      none set by the entry; the process inherits only ${inherited.length ? inherited.join(', ') : 'nothing'} from your environment`;
   return [
     `BOPPI · DISCOVER  "${serverName}" from ${client.label}`,
     `  launch:   ${launch.command}${launch.args.length ? ' ' + launch.args.join(' ') : ''}`,
@@ -110,22 +110,37 @@ function consentText({ client, serverName, launch }) {
     `  never:    ${NEVER_SENT.join(', ')}`,
     '  stores:   tool names, titles, parameter names, annotations, and a 160-character description excerpt; never a parameter value, a default, or an example',
     '  effects:  starting the program itself may have effects Boppi cannot see (a server can act on start). Boppi makes that visible, not safe.',
-    `  shutdown: stdin closed, then SIGTERM after 2 s, then SIGKILL after 2 s more; time limits ${session.TIMEOUTS.initializeMs / 1000} s to initialize, ${session.TIMEOUTS.pageMs / 1000} s per page, ${session.TIMEOUTS.sessionMs / 1000} s in all`,
+    `  shutdown: ${process.platform === 'win32' ? 'stdin closed, then after 2 s the program and everything it started are ended (taskkill /T /F), again after 2 s more if needed' : 'stdin closed, then SIGTERM after 2 s, then SIGKILL after 2 s more'}; time limits ${session.TIMEOUTS.initializeMs / 1000} s to initialize, ${session.TIMEOUTS.pageMs / 1000} s per page, ${session.TIMEOUTS.sessionMs / 1000} s in all`,
   ].join('\n');
 }
 
-function processAlive(pid) { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } }
+const LOCK_SETTLE_MS = 5000;
 
-/** One discovery of a given server at a time across Boppi processes. Returns a release function, or null when another live process holds the lock. */
+/**
+ * One discovery of a given server at a time across Boppi processes. The lock
+ * file is created exclusively, so two processes cannot both take it. A lock
+ * whose holder has exited (or is a zombie) is removed and taken once more;
+ * an empty or unreadable one younger than a few seconds belongs to a process
+ * still writing it. Returns a release function, or null when held.
+ */
 function acquireLock(home, serverId) {
   ensureDir(home);
   const file = lockPath(home, serverId);
-  try {
-    const held = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (held && Number.isInteger(held.pid) && held.pid !== process.pid && processAlive(held.pid)) return null;
-  } catch { /* no lock or unreadable: replace it */ }
-  fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), { mode: 0o600 });
-  return () => { try { fs.unlinkSync(file); } catch { /* already gone */ } };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), { mode: 0o600, flag: 'wx' });
+      return () => { try { fs.unlinkSync(file); } catch { /* already gone */ } };
+    } catch (error) { if (error.code !== 'EEXIST') throw error; }
+    let held = null;
+    try { held = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* empty or unreadable */ }
+    if (held && Number.isInteger(held.pid)) {
+      if (held.pid !== process.pid && session.processRunning(held.pid)) return null;
+    } else {
+      try { if (Date.now() - fs.statSync(file).mtimeMs < LOCK_SETTLE_MS) return null; } catch { /* removed meanwhile */ }
+    }
+    fs.rmSync(file, { force: true });
+  }
+  return null;
 }
 
 /** Write a user-named file without following a symlink and leave it owner-only even if it existed. */
@@ -233,7 +248,7 @@ function summaryLines(result, serverName, cacheFile) {
     lines.push(`FAILED      "${serverName}" could not be started: ${result.reason}`);
   }
   const proc = result.process;
-  if (proc) lines.push(`  process:  ${proc.pid ? `pid ${proc.pid}, ` : ''}${proc.mayStillBeRunning ? 'STILL RUNNING after SIGKILL; check it yourself' : proc.forced ? `ended by ${proc.forced}` : 'exited on its own'}${proc.stderrLines ? `, ${proc.stderrLines} stderr line${proc.stderrLines === 1 ? '' : 's'} ignored` : ''}, ${result.durationMs} ms`);
+  if (proc) lines.push(`  process:  ${proc.pid ? `pid ${proc.pid}, ` : ''}${proc.mayStillBeRunning ? 'STILL RUNNING after SIGKILL; check it yourself' : proc.forced ? `ended by ${proc.forced}` : 'exited on its own'}${proc.childrenUnchecked ? '; anything it started may still be running (Windows does not let Boppi check)' : ''}${proc.stderrLines ? `, ${proc.stderrLines} stderr line${proc.stderrLines === 1 ? '' : 's'} ignored` : ''}, ${result.durationMs} ms`);
   lines.push(`  sent:     ${result.methods.join(', ')}${result.violations.length ? ` (VIOLATION: ${result.violations.join(', ')})` : ''}`);
   return lines;
 }
@@ -268,7 +283,7 @@ async function runDiscover(options, deps) {
     return 2;
   }
   const launch = sanitizedLaunch(plan, entry);
-  out(consentText({ client, serverName: options.server, launch }));
+  out(consentText({ client, serverName: options.server, launch, inherited: plan.inherited }));
   if (!options.yes) {
     if (!process.stdin.isTTY) { err('discover: not started. Pass --yes to start without a terminal confirmation.'); return 2; }
     const approved = await deps.confirm('Start this program now? [y/N] ');

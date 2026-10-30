@@ -18,7 +18,10 @@ const { scopeOf } = require('../src/cli/toolCategories');
 const narrowScope = require('../src/cli/narrowScope');
 const { WINDOWS, skip, symlinkOrSkip } = require('./helpers/platform');
 const connect = require('../src/cli/connect');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
+const { EventEmitter } = require('events');
+const session = require('../src/cli/discovery/session');
+const discover = require('../src/cli/discovery/discover');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
@@ -28,6 +31,7 @@ const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-platfo
 const write = (file, bytes) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes); };
 const server = { command: 'node', args: ['server.js'] };
 
+(async () => {
 try {
   section('Config text: a UTF-8 byte order mark is read, UTF-16 is named');
   {
@@ -181,9 +185,119 @@ try {
       ok('boppi connect stops with exit 2 and says why', status.status === 2 && /other accounts on this machine can read it/.test(status.stderr), status.stderr);
     }
   }
+
+  section('Discovery: the environment a server inherits, by platform');
+  {
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'tool.exe'), '');
+    const saved = { APPDATA: process.env.APPDATA, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, BOPPI_TOKEN: process.env.BOPPI_TOKEN };
+    Object.assign(process.env, { APPDATA: 'C:\\Users\\me\\AppData\\Roaming', XDG_CONFIG_HOME: '/home/u/.config', BOPPI_TOKEN: 'never' });
+    try {
+      const win = session.launchPlan({ command: path.join(bin, 'tool.exe') }, { cwd: root, platform: 'win32', env: { PATH: bin } });
+      const linux = session.launchPlan({ command: process.execPath }, { cwd: root, platform: 'linux' });
+      const mac = session.launchPlan({ command: process.execPath }, { cwd: root, platform: 'darwin' });
+      ok('a Windows server keeps APPDATA', win.env && win.env.APPDATA === process.env.APPDATA, JSON.stringify(win.refused || win.inherited));
+      ok('a Linux server keeps XDG_CONFIG_HOME and not APPDATA', linux.env.XDG_CONFIG_HOME === '/home/u/.config' && !('APPDATA' in linux.env));
+      ok('macOS keeps the short list', !('APPDATA' in mac.env) && !('XDG_CONFIG_HOME' in mac.env) && 'PATH' in mac.env);
+      ok('BOPPI_TOKEN is never inherited', [win, linux, mac].every(plan => !plan.env || !('BOPPI_TOKEN' in plan.env)));
+      ok('the plan names what it inherited, for the consent text', mac.inherited.includes('PATH') && !mac.inherited.includes('BOPPI_TOKEN'));
+      ok('the Windows list carries PATHEXT, COMSPEC and the system folders', ['PATHEXT', 'COMSPEC', 'SystemRoot', 'windir', 'LOCALAPPDATA', 'ProgramData'].every(name => session.INHERITED_ENV.win32.includes(name)));
+    } finally {
+      for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    }
+  }
+
+  section('Discovery: a zombie has exited (Linux)');
+  {
+    const proc = path.join(root, 'proc');
+    const stat = (pid, comm, state, pgrp) => write(path.join(proc, String(pid), 'stat'), `${pid} (${comm}) ${state} 1 ${pgrp} ${pgrp} 0 -1 4194560`);
+    stat(100, 'node', 'S', 100);
+    stat(101, 'odd) name (Z', 'Z', 100);
+    stat(200, 'server', 'Z', 200);
+    stat(201, 'child', 'Z', 200);
+    ok('a group with one running member is running', session.linuxGroupRunning(100, proc));
+    ok('a group whose members are all zombies has ended', !session.linuxGroupRunning(200, proc));
+    ok('an unreadable /proc counts as running', session.linuxGroupRunning(200, path.join(root, 'no-proc')));
+    stat(process.pid, 'self', 'Z', process.pid);
+    ok('processRunning: a zombie on Linux is gone', !session.processRunning(process.pid, { platform: 'linux', procRoot: proc }));
+    ok('processRunning: other platforms trust kill(pid, 0)', session.processRunning(process.pid, { platform: 'darwin', procRoot: proc }));
+    stat(process.pid, 'self', 'R', process.pid);
+    ok('processRunning: a running process is running', session.processRunning(process.pid, { platform: 'linux', procRoot: proc }));
+  }
+
+  section('Discovery: ending a server on Windows ends what it started, or says it may not have');
+  {
+    const fakeChild = ({ exitsOnStdinEnd }) => {
+      const child = new EventEmitter();
+      Object.assign(child, { pid: 4242, exitCode: null, signalCode: null });
+      child.exit = () => { if (child.exitCode === null) { child.exitCode = 0; child.emit('exit'); } };
+      child.stdin = { end: () => { if (exitsOnStdinEnd) setImmediate(child.exit); } };
+      child.kill = () => { setImmediate(child.exit); return true; };
+      return child;
+    };
+    const timeouts = { closeMs: 20, termMs: 20, killMs: 20 };
+    const host = treeResult => {
+      const killed = [];
+      return { killed, platform: 'win32', groupRunning: () => true, killTree: pid => { killed.push(pid); return treeResult; } };
+    };
+    {
+      const child = fakeChild({ exitsOnStdinEnd: false }), windows = host(true);
+      const pending = session.shutdown(child, timeouts, windows);
+      setTimeout(() => { if (windows.killed.length) child.exit(); }, 40);
+      const result = await pending;
+      ok('a server that ignores stdin is ended with taskkill /T on its pid', windows.killed.join() === '4242' && result.forced === 'SIGTERM' && !result.childrenUnchecked, JSON.stringify(result));
+    }
+    {
+      const child = fakeChild({ exitsOnStdinEnd: true }), windows = host(true);
+      const result = await session.shutdown(child, timeouts, windows);
+      ok('a server that exits on its own leaves its children unchecked, and the result says so', !windows.killed.length && result.forced === null && result.childrenUnchecked === true, JSON.stringify(result));
+    }
+    {
+      const child = fakeChild({ exitsOnStdinEnd: false }), windows = host(false);
+      const result = await session.shutdown(child, timeouts, windows);
+      ok('when taskkill fails the server alone is killed and its children are unchecked', windows.killed.length >= 1 && result.childrenUnchecked === true, JSON.stringify(result));
+    }
+    const render = discover.consentText({ client: { label: 'Cursor' }, serverName: 'x', launch: { command: 'node', args: [], cwd: root, envNames: [] }, inherited: ['PATH', 'APPDATA'] });
+    ok('the consent text lists the variables the process inherits', render.includes('inherits only PATH, APPDATA from your environment'));
+  }
+
+  section('Discovery lock: taken by exactly one process');
+  {
+    const home = path.join(root, 'lock-home');
+    const release = discover.acquireLock(home, 'srv');
+    const file = path.join(discover.discoveryDir(home), '.lock-srv');
+    ok('the first caller takes the lock', typeof release === 'function' && fs.existsSync(file));
+    release();
+    const sleeper = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
+    try {
+      fs.writeFileSync(file, JSON.stringify({ pid: sleeper.pid }));
+      ok('a lock held by another running process is respected', discover.acquireLock(home, 'srv') === null);
+    } finally { sleeper.kill('SIGKILL'); }
+    await new Promise(resolve => sleeper.once('exit', resolve));
+    const stale = discover.acquireLock(home, 'srv');
+    ok('a lock whose holder exited is taken over', typeof stale === 'function');
+    stale();
+    fs.writeFileSync(file, '');
+    ok('an empty lock that is still being written is respected', discover.acquireLock(home, 'srv') === null);
+    fs.utimesSync(file, new Date(Date.now() - 60000), new Date(Date.now() - 60000));
+    const old = discover.acquireLock(home, 'srv');
+    ok('an empty lock left by a crash is taken over', typeof old === 'function');
+    old();
+    const startAt = Date.now() + 1500;
+    const racer = `const d = require(${JSON.stringify(require.resolve('../src/cli/discovery/discover'))}); while (Date.now() < ${startAt}); const r = d.acquireLock(${JSON.stringify(home)}, 'race'); console.log(r ? 'took' : 'held'); setTimeout(() => {}, 1500);`;
+    const outputs = await Promise.all(Array.from({ length: 8 }, () => new Promise(resolve => {
+      const child = spawn(process.execPath, ['-e', racer], { stdio: ['ignore', 'pipe', 'inherit'] });
+      let out = '';
+      child.stdout.on('data', chunk => { out += chunk; });
+      child.on('exit', () => resolve(out.trim()));
+    })));
+    ok('eight processes racing for one lock: exactly one takes it', outputs.filter(o => o === 'took').length === 1, outputs.join(','));
+  }
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+})();
