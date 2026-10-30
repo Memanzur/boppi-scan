@@ -133,7 +133,7 @@ function renderChange(change, at) {
   if (change.serversAdded.length) lines.push(`  servers:  added ${change.serversAdded.map(safeText).join(', ')}`);
   if (change.serversRemoved.length) lines.push(`  servers:  removed ${change.serversRemoved.map(safeText).join(', ')}`);
   for (const p of change.opened) lines.push(`  opened:   ${pathLabel(p.key)} ${p.severity}`);
-  for (const p of change.closed) lines.push(`  closed:   ${pathLabel(p.key)} ${p.severity} (observed by rescan, not a verified fix; boppi verify grades a prediction)`);
+  for (const p of change.closed) lines.push(`  closed:   ${pathLabel(p.key)} ${p.severity} (absent on rescan of the configuration, not a verified fix; boppi verify grades a prediction)`);
   for (const p of change.raised) lines.push(`  raised:   ${pathLabel(p.key)} ${p.from} to ${p.to}`);
   for (const p of change.lowered) lines.push(`  lowered:  ${pathLabel(p.key)} ${p.from} to ${p.to}`);
   return lines;

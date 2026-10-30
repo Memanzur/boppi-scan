@@ -206,5 +206,5 @@
     return incoming;
   }
 
-  return { RUBRIC_VERSION, STRENGTH, BRANCH_LABEL, assessPath, assessBranch, buildIncoming };
+  return { RUBRIC_VERSION, STRENGTH, BRANCH_LABEL, BASIS_TEXT, assessPath, assessBranch, buildIncoming };
 });

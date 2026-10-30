@@ -215,7 +215,7 @@ function disputedNextStep(status, resolutions) {
   const disputed = resolutions.filter(r => r.status === STATUS.CONTRADICTED || r.status === STATUS.PARTIAL);
   const versionChanged = disputed.some(r => r.flags.includes('engine_changed') || r.flags.includes('rubric_changed'));
   if (versionChanged) return 'The engine or risk rubric changed since this prediction was made, so the difference may be the model rather than the fix. Run boppi scan --json for a fresh prediction and verify against that; no issue is needed.';
-  if (disputed.every(r => !(r.predicted.eliminated || []).length)) return 'The predicted drop in priority was not observed. The configuration may have changed since the prediction (a server added or a setting changed). Run boppi scan --json again for a fresh prediction; a contradiction fixture was written in case you want to report it.';
+  if (disputed.every(r => !(r.predicted.eliminated || []).length)) return 'The predicted drop in priority did not show up on rescan. The configuration may have changed since the prediction (a server added or a setting changed). Run boppi scan --json again for a fresh prediction; a contradiction fixture was written in case you want to report it.';
   return status === STATUS.CONTRADICTED
     ? 'The fix did not remove the predicted paths. A contradiction fixture was written; attach it to an issue so the engine can be corrected.'
     : 'The fix did less than predicted. A contradiction fixture was written; attach it to an issue so the engine can be corrected.';
@@ -283,8 +283,8 @@ function renderTable(result, useColor) {
     return { status: r.status, agent: r.client.label, edit: editLabel(r), outcome: `${r.predicted.eliminated.length} of ${total} closed${loweredText(lowered)} / ${observed}`, reason: [r.reason, ...r.flags].filter(Boolean).map(describeReason).join('; ') };
   });
   const width = key => Math.max(key.length, ...rows.map(row => row[key].length)) + 2;
-  const widths = { status: width('status'), agent: width('agent'), edit: width('edit'), outcome: Math.max('predicted vs observed'.length, ...rows.map(row => row.outcome.length)) + 2 };
-  lines.push(pad('status', widths.status) + pad('agent', widths.agent) + pad('edit', widths.edit) + pad('predicted vs observed', widths.outcome) + 'reason');
+  const widths = { status: width('status'), agent: width('agent'), edit: width('edit'), outcome: Math.max('predicted vs rescan'.length, ...rows.map(row => row.outcome.length)) + 2 };
+  lines.push(pad('status', widths.status) + pad('agent', widths.agent) + pad('edit', widths.edit) + pad('predicted vs rescan', widths.outcome) + 'reason');
   for (const row of rows) {
     const statusText = useColor ? color(tint[row.status], pad(row.status, widths.status)) : pad(row.status, widths.status);
     lines.push(statusText + pad(row.agent, widths.agent) + pad(row.edit, widths.edit) + pad(row.outcome, widths.outcome) + row.reason);

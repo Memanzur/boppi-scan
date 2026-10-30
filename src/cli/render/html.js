@@ -17,6 +17,7 @@ const recognition = require('../recognition');
 const terminal = require('./terminal');
 const evidence = require('../evidence');
 const securityGraph = require('../../engine/securityGraph');
+const { findingBasis } = require('../findingBasis');
 
 const CLIENT_SCRIPT = fs.readFileSync(path.join(__dirname, 'graphLayout.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'interactive.client.js'), 'utf8');
 const BRAND_TOKENS = fs.readFileSync(path.join(__dirname, '../../design/tokens.css'), 'utf8');
@@ -313,7 +314,7 @@ ${graphSection(view)}
     <thead><tr><th>Severity</th><th>Rule</th><th>Agent</th><th>Finding</th><th>Suggested fix</th></tr></thead>
     <tbody>${openFindings.length ? openFindings.map(f => `
       <tr><td>${sevBadge(f.severity)}</td><td>${esc(f.ruleId)}</td><td>${esc(agentName(f.agentId))}</td>
-      <td><b>${esc(f.title)}</b><div class="muted small">${esc(f.description)}</div></td><td class="small">${esc(f.recommendation)}</td></tr>`).join('')
+      <td><b>${esc(f.title)}</b><div class="muted small">${esc(f.description)}</div>${(b => `<div class="small"><b>Based on:</b> ${esc(b.basedOn)}</div><div class="small"><b>Not checked:</b> ${esc(b.notChecked)}</div>`)(findingBasis(f, inventory.permissions))}</td><td class="small">${esc(f.recommendation)}</td></tr>`).join('')
       : '<tr><td colspan="5" class="muted">No rule-engine findings from the evidenced inventory.</td></tr>'}</tbody>
   </table></div>
 
