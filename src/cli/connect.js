@@ -32,6 +32,7 @@ const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
 const { ownerOnlyNote, parseJson, renameRetry } = require('./platform');
 const updateNotice = require('./updateNotice');
+const agentRequest = require('./agentRequest');
 const { homeFlag } = require('./shell');
 const jit = require('./jit');
 const { openRegular, acquireLock } = fix;
@@ -112,19 +113,21 @@ async function request({ url, credential, route, body, fetchImpl = globalThis.fe
     response = await fetchImpl(`${url}${ROUTES[route]}`, {
       method: 'POST',
       redirect: 'error',
-      headers: { 'content-type': 'application/json', 'user-agent': 'boppi-cli', ...(credential ? { authorization: `Bearer ${credential}` } : {}) },
+      headers: agentRequest.agentHeaders(credential ? { authorization: `Bearer ${credential}` } : {}),
       body: JSON.stringify(body),
     });
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
   }
   const parsed = await response.json().catch(() => ({}));
-  return { ok: response.ok, status: response.status, body: parsed };
+  return { ok: response.ok, status: response.status, body: parsed, origin: url };
 }
 
 function describeFailure(route, result) {
   if (result.networkError) return `could not reach the workspace for ${route}: ${result.networkError}`;
   const code = result.body && result.body.error ? result.body.error : 'unknown error';
+  const outdated = agentRequest.describeOutdated(result);
+  if (outdated) return `the workspace refused ${route} (HTTP 426: agent_outdated): ${outdated}`;
   const wait = Number(result.body && result.body.retryAfterSeconds);
   if (result.status === 429) return `the workspace refused ${route} (HTTP 429: ${code}): this device made too many calls; retry in ${Number.isInteger(wait) && wait > 0 ? `${wait} seconds` : 'a few minutes'}. boppi does not retry on its own`;
   if (result.status === 401 && route === 'pair') return `the workspace refused the pairing code (HTTP 401: ${code}): it is wrong, already used, or older than ten minutes. Create a new code on the Collectors page and run boppi connect pair again`;
@@ -441,6 +444,7 @@ class Cycle {
     const result = await request({ url: this.pairing.url, credential: this.pairing.credential, route, body, fetchImpl: this.deps.fetchImpl });
     if (!result.ok) this.problems += 1;
     if (result.status === 401) this.credentialRefused = true;
+    if (result.status === agentRequest.OUTDATED_STATUS) this.outdated = true;
     return result;
   }
 
@@ -581,7 +585,7 @@ class Cycle {
 
   async remediate(scan) {
     const offers = [...rollbackTargets(scan, this.options), ...localTargets(scan, this.options)].slice(0, OFFER_MAX).map(target => toOffer(target, this.deps.version, scan.startedAt));
-    const polled = await this.post('poll', { offers });
+    const polled = await this.post('poll', { versions: this.versions, offers });
     if (!polled.ok) { this.err(describeFailure('poll', polled)); return 5; }
     const proposals = Array.isArray(polled.body.proposals) ? polled.body.proposals.filter(p => p && typeof p.id === 'string' && p.binding && typeof p.binding === 'object') : [];
     const rollbacks = offers.filter(o => o.action === 'rollback').length;
@@ -703,6 +707,7 @@ async function runConnect(options, deps) {
     const code = await cycle.run();
     if (options.once) return code;
     if (code === 5 && cycle.credentialRefused) { err('  stopping: the workspace refuses this device, so polling again cannot succeed.'); return 5; }
+    if (code === 5 && cycle.outdated) { err('  stopping: the workspace requires a newer Agent, so polling again cannot succeed.'); return 5; }
     updateNotice.announce(options.home, deps.version, err);
     out(`  next poll in ${options.interval} s (Ctrl-C stops; nothing is applied without confirmation here${options.watch ? '; just-in-time grants are removed at their local expiry meanwhile' : ''})`);
     if (options.watch) await watchExpiries(options, options.interval * 1000, out, err);
@@ -723,4 +728,4 @@ async function watchExpiries(options, total, out, err) {
   }
 }
 
-module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, rollbackTargets, toOffer, offerMatches, applyEdit, applyRollback, rescanReport, runConnect };
+module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, request, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, rollbackTargets, toOffer, offerMatches, applyEdit, applyRollback, rescanReport, runConnect };

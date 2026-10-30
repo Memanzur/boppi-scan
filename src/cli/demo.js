@@ -17,12 +17,12 @@ const path = require('path');
 const scenarios = require('../demo/scenarios');
 const { buildGraphView } = require('./render/graphData');
 const html = require('./render/html');
+const resources = require('./resources');
 const { shellPath, homeFlag } = require('./shell');
 
-const FIXTURE_DIR = path.join(__dirname, '..', 'demo');
 
 function sandboxDir(home) { return path.join(home, '.boppi', 'demo'); }
-function fixtureText(scenario) { return fs.readFileSync(path.join(FIXTURE_DIR, scenario.file), 'utf8'); }
+function fixtureText(scenario) { return resources.read(`src/demo/${scenario.file}`, 'utf8'); }
 
 function reportFrom(scan, version) {
   return {

@@ -360,7 +360,7 @@ Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action 
 
 ### Updates and removal
 
-Boppi never checks npm for updates. Your workspace's answers to `push`, `events push` and `connect` carry the oldest Boppi version it supports; Boppi stores the last value per workspace in `~/.boppi/update-notice.json` (owner-only) and, when you are older, prints one line on stderr after a command, also offline: `Update: <workspace> asks for Boppi <version> or newer; ... Run: npm install -g boppi@latest`. It never changes an exit code and never prints from `boppi hook`. `NO_UPDATE_NOTIFIER=1` or `BOPPI_NO_UPDATE_NOTICE=1` silences it.
+Boppi never checks npm for updates. Your workspace's answers to `push`, `events push` and `connect` carry the oldest Boppi version it supports; Boppi stores the last value per workspace in `~/.boppi/update-notice.json` (owner-only) and, when you are older, prints one line on stderr after a command, also offline: `Update: <workspace> asks for Boppi <version> or newer; ... Run: npx boppi@<version>` (the standalone executable instead says to rerun the installer from the workspace's Get the Agent page, `<workspace>/dashboard/get-agent`). Every request to a workspace sends `Boppi-Agent-Version: <version>` and `user-agent: boppi-cli/<version>`; a workspace that requires a newer Agent answers HTTP 426, and `push`, `events push` and `connect` print its sentence with the same upgrade line and exit 5. The version is a compatibility signal, not a security control. The notice itself never changes an exit code and never prints from `boppi hook`. `NO_UPDATE_NOTIFIER=1` or `BOPPI_NO_UPDATE_NOTICE=1` silences it.
 
 `boppi uninstall` lists everything Boppi stored under `~/.boppi` (history, settings, fingerprint key, hook events, pairing, stored tool lists, overlay state, demo sandbox, fix exports, backups) and every Claude Code hook entry that runs `boppi hook`, with its file and location, then deletes `~/.boppi` after you confirm (`--yes` without a terminal, `--dry-run` to only list). While a fix is still applied its backup is the only way back, so uninstall stops, lists each such fix with its `boppi rollback --id <id>` command, and removes nothing until you roll them back or add `--include-backups` (keeps the fixes, deletes their backups). Backups of fixes already rolled back do not hold it up. It does not edit your Claude Code settings: remove the listed hook entries yourself, or the next MCP call recreates the events file. It does not contact the workspace: run `boppi connect unpair` first to revoke a paired device there. Remove the program with `npm uninstall -g boppi`.
 
@@ -425,6 +425,8 @@ Not discovered yet: Claude Desktop extensions (`.mcpb`, formerly `.dxt`). They a
 - Security reports: see [SECURITY.md](SECURITY.md).
 
 ## Development
+
+Standalone executables, the signed checksum list and `install.sh`: `docs/release/DISTRIBUTION.md` (`npm run release:build`, `npm run release:verify`). Nothing is hosted yet.
 
 Release candidate: `npm run release-candidate` packs the tarball, installs it into a throwaway prefix, runs the beta journey (version, scan, demo, plan, fix, verify, rollback, uninstall) on a synthetic home, and writes `CANDIDATE.json` plus the tarball to `~/Desktop/Boppi-candidate-<version>` (`--out <dir>` to change). It publishes nothing.
 

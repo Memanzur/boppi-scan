@@ -11,6 +11,7 @@
 
 const scanner = require('../engine/localMcpScanner');
 const { BUILTIN_TOOLS } = require('./builtinTools');
+const agentRequest = require('./agentRequest');
 
 const DEFAULT_WORKSPACE_URL = 'https://app.boppi.io';
 const EVENTS_PATH = '/api/events';
@@ -321,7 +322,7 @@ async function postBody({ ingestUrl, token, body: requestBody, fetchImpl }) {
     response = await fetchImpl(ingestUrl.toString(), {
       method: 'POST',
       redirect: 'error',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' },
+      headers: agentRequest.agentHeaders({ authorization: `Bearer ${token}` }),
       body: JSON.stringify(requestBody),
     });
   } catch (error) {
@@ -329,7 +330,7 @@ async function postBody({ ingestUrl, token, body: requestBody, fetchImpl }) {
   }
   const body = await response.json().catch(() => ({}));
   const retryAfter = response.headers && typeof response.headers.get === 'function' ? Number(response.headers.get('retry-after')) : NaN;
-  return { ok: response.ok, status: response.status, body, ...(Number.isFinite(retryAfter) ? { retryAfter } : {}) };
+  return { ok: response.ok, status: response.status, body, origin: ingestUrl.origin, ...(Number.isFinite(retryAfter) ? { retryAfter } : {}) };
 }
 
 /**
@@ -358,12 +359,13 @@ async function pushRecords({ ingestUrl, token, records, snapshot, snapshotAt, co
 const FAILURE_HINT = Object.freeze({
   401: 'The token was rejected. Copy a fresh one from the Collectors page (tokens are shown once, and revoked tokens stop working immediately).',
   413: 'The request body is too large. Scan fewer clients with --only and push each separately.',
-  422: 'The workspace rejected the record shape. Update the scanner (npx boppi@latest) and try again.',
+  422: 'The workspace rejected the record shape. Install the Agent version your workspace names on its Get the Agent page and try again.',
   503: 'The workspace is temporarily unavailable. Retry in a minute.',
 });
 
 /** Hints keyed by the ingest contract's error code; the code, not the message text, identifies the case. */
 const CODE_HINT = Object.freeze({
+  agent_outdated: (body, result) => agentRequest.upgradeLine(result.origin, body.minimumVersion),
   events_consent_required: () => 'The workspace has not allowed activity sync for this collector. A workspace owner or security admin can allow it under the collector on the Collectors page; inventory sync consent does not cover activity.',
   stale_snapshot: body => `The workspace already holds a snapshot from this machine taken at ${body.serverSnapshotAt || 'an unknown time'}. Run boppi push without --file to send a fresh scan.`,
   rate_limited: (body, result) => {

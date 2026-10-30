@@ -82,7 +82,7 @@ const SUITES = [
   'verify-ask.js', '../research/intelligence/pipeline.test.mjs', '../research/intelligence/heldout.test.mjs',
   'verify-live-check-fixture.js', 'verify-report-a11y.js', 'verify-review-findings.js', 'verify-beta-blockers.js', 'verify-config-shapes.js',
   'verify-same-name-servers.js', 'verify-safe-writes.js', 'verify-overlay-bundle.js', 'verify-claude-plugins.js', 'verify-config-facts.js', 'verify-windows-paths.js', 'verify-action-pin.js', 'verify-update-notice.js', 'verify-uninstall.js', 'verify-secret-redaction.js', 'verify-narrow-scope.js', 'verify-discovery-integrity.js', 'verify-push-unsafe-fields.js', 'verify-push-scope.js', 'verify-capability-loss-wording.js', 'verify-overlay-epochs.js', 'verify-evidence-labels.js',
-  'verify-fingerprint-hmac.js', 'verify-jit.js',
+  'verify-fingerprint-hmac.js', 'verify-agent-handshake.js', 'verify-release-dist.js', 'verify-jit.js',
 ];
 
 const print = fingerprint();

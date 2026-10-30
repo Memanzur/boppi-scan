@@ -5,3 +5,4 @@ export.json
 .DS_Store
 __pycache__/
 .test-state/
+dist/

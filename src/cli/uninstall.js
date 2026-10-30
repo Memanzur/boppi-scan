@@ -14,7 +14,9 @@
  * files and prints each hook entry that runs `boppi hook`, with its location,
  * because a left-over entry recreates <home>/.boppi on the next MCP call.
  * It never contacts the workspace: `boppi connect unpair` revokes a paired
- * device there. The program itself goes with `npm uninstall -g boppi`.
+ * device there. The program itself goes with `npm uninstall -g boppi`, or,
+ * for the standalone executable, with this directory when install.sh put it in
+ * <home>/.boppi/bin (otherwise `sh install.sh --uninstall`).
  */
 'use strict';
 const fs = require('fs');
@@ -41,6 +43,7 @@ const EXPLAINED = Object.freeze({
   intelligence: 'overlay state',
   demo: 'demo sandbox',
   locks: 'locks',
+  bin: 'the standalone Boppi program and its install receipt (install.sh)',
 });
 
 function boppiDir(home) { return path.join(home, '.boppi'); }
@@ -162,7 +165,7 @@ function renderPlan(state, hooks, pairing, options) {
     for (const hook of hooks.found) lines.push(`    ${hook.file}  ${hook.at}  "${hook.command}"`);
   } else lines.push('  Claude Code settings: no `boppi hook` entry found in the user or project settings files.');
   for (const file of hooks.unreadable) lines.push(`  could not parse ${file}; it mentions boppi, so check its hooks by hand.`);
-  lines.push('  The program itself: npm uninstall -g boppi (or delete the folder you unpacked it into).');
+  lines.push(`  The program itself: npm uninstall -g boppi. A standalone install in ${path.join(state.dir, 'bin')} goes with ${state.dir}; one elsewhere goes with sh install.sh --uninstall.`);
   return lines.join('\n');
 }
 

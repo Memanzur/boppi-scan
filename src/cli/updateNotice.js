@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const { renameRetry } = require('./platform');
+const agentRequest = require('./agentRequest');
 
 const HEADER = 'boppi-agent-minimum';
 const RELEASE = /^(\d{1,6})\.(\d{1,6})\.(\d{1,6})$/;
@@ -96,7 +97,7 @@ function pending(home, installed, env = process.env) {
     if (!highest || isOlder(highest.minimum, entry.minimum)) highest = { origin, minimum: entry.minimum };
   }
   if (!highest) return null;
-  return `Update: ${highest.origin} asks for Boppi ${highest.minimum} or newer; this is ${installed}. Run: npm install -g boppi@latest`;
+  return `Update: ${highest.origin} asks for Boppi ${highest.minimum} or newer; this is ${installed}. ${agentRequest.upgradeLine(highest.origin, highest.minimum)}`;
 }
 
 const announced = new Set();

@@ -79,7 +79,8 @@ const noticeLines = text => text.split('\n').filter(line => line.startsWith('Upd
   const pushed = await runCli(['push', '--url', higher.url, '--token', 'bpc_good'], home);
   await higher.close();
   ok('the push itself succeeds with exit 0', pushed.code === 0, `exit ${pushed.code}: ${pushed.stderr}`);
-  ok('the notice names the workspace, both versions and the command, once, on stderr', noticeLines(pushed.stderr).length === 1 && noticeLines(pushed.stderr)[0] === `Update: ${higher.url} asks for Boppi 9.0.0 or newer; this is ${VERSION}. Run: npm install -g boppi@latest`, pushed.stderr);
+  ok('the notice names the workspace, both versions and the command, once, on stderr', noticeLines(pushed.stderr).length === 1 && noticeLines(pushed.stderr)[0] === `Update: ${higher.url} asks for Boppi 9.0.0 or newer; this is ${VERSION}. Run: npx boppi@9.0.0 (or install the current Agent from ${higher.url}/dashboard/get-agent).`, pushed.stderr);
+  ok('the notice never says npm install -g or @latest', !/npm install -g|@latest/.test(pushed.stderr), pushed.stderr);
   ok('stdout carries no notice', !pushed.stdout.includes('Update: '));
   ok('only the ingest route was contacted', higher.requests.length > 0 && higher.requests.every(url => url === '/api/ingest'), higher.requests.join(','));
   const file = updateNotice.noticeFile(home);

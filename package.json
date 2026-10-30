@@ -39,6 +39,10 @@
     "release-candidate": "node scripts/release-candidate.js",
     "verify-versions": "node scripts/verify-versions.js",
     "intelligence:demo": "node research/intelligence/demo.mjs",
-    "verify:intelligence": "node --test research/intelligence/pipeline.test.mjs research/intelligence/heldout.test.mjs && node research/intelligence/heldout.mjs --check"
+    "verify:intelligence": "node --test research/intelligence/pipeline.test.mjs research/intelligence/heldout.test.mjs && node research/intelligence/heldout.mjs --check",
+    "release:build": "node scripts/release/build.mjs",
+    "release:verify": "node scripts/release/verify-release.mjs",
+    "release:sign": "node scripts/release/sign.mjs",
+    "release:check-pack": "node scripts/release/check-pack.mjs"
   }
 }
