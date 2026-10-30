@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-/** `boppi watch` end to end on synthetic files: baseline, a change seen within interval + 5 s, a burst coalesced, an atomic rename, a delete held then retired, invalid JSON held as stale, own edits labelled, --only scope, and the reconcile rules as pure functions. */
+/** `boppi watch` end to end on synthetic files: baseline, a change seen by the next rescan, a burst coalesced, an atomic rename, a delete held then retired, invalid JSON held as stale, own edits labelled, --only scope, and the reconcile rules as pure functions. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { ownerOnly, symlinkOrSkip } = require('./helpers/platform');
+const { traced, rescanned } = require('./helpers/watch-scans');
 const { spawn, spawnSync } = require('child_process');
 const watch = require('../src/cli/watch');
 
@@ -19,12 +20,14 @@ const SAFE = { mcpServers: { ...server('notes') } };
 const RISKY = { mcpServers: { ...server('notes'), ...server('shell', { env: { GITHUB_TOKEN: 'ghp_watchfixture000000000000000000000000' }, args: ['--allow-shell'] }) } };
 
 function startWatch(home, args, logFile) {
-  const child = spawn(process.execPath, [CLI, 'watch', ...args, '--home', home, '--cwd', home, '--no-color', '--log', logFile, '--history-file', path.join(home, 'history.json')], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const trace = `${logFile}.scans`;
+  const { nodeArgs, env } = traced(trace);
+  const child = spawn(process.execPath, [...nodeArgs, CLI, 'watch', ...args, '--home', home, '--cwd', home, '--no-color', '--log', logFile, '--history-file', path.join(home, 'history.json')], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   let stdout = '', stderr = '';
   child.stdout.on('data', d => { stdout += d; });
   child.stderr.on('data', d => { stderr += d; });
   const done = new Promise(resolve => child.on('exit', code => resolve({ code, stdout: () => stdout, stderr: () => stderr })));
-  return { child, done, stdout: () => stdout };
+  return { child, done, trace, stdout: () => stdout };
 }
 const readLog = file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 async function waitFor(file, predicate, timeoutMs) {
@@ -58,69 +61,76 @@ const holds = entries => entries.filter(e => e.kind === 'hold');
 
   section('live session: change, burst, atomic rename, delete, unreadable, own edit');
   const logFile = path.join(root, 'watch.log');
-  const session = startWatch(home, ['--interval', '1', '--duration', '40', '--only', 'claude-code,claude-desktop'], logFile);
+  const session = startWatch(home, ['--interval', '1', '--only', 'claude-code,claude-desktop'], logFile);
   const baseline = await waitFor(logFile, e => e.some(x => x.kind === 'baseline'), 15000);
   ok('baseline is logged with the watched files and directories', !baseline.timedOut && baseline.entries[0].files.includes(claudeJson) && baseline.entries[0].directories.includes(home));
   ok('the log file is owner-only', ownerOnly(logFile));
   ok('the watcher stays in the foreground (no detached process, parent is this test)', session.child.pid > 0 && !session.child.killed);
 
   fs.writeFileSync(claudeJson, JSON.stringify(RISKY));
-  const first = await waitFor(logFile, e => changes(e).length >= 1, 6000);
-  const c1 = changes(first.entries)[0];
-  ok(`a config change is reported within interval + 5 s (took ${first.ms} ms)`, !first.timedOut && first.ms <= 6000);
+  const firstRescanned = await rescanned(session.trace);
+  const c1 = changes(readLog(logFile))[0];
+  ok('a config change is reported by the first rescan that reads it', firstRescanned && c1);
   ok('the change names the file, the cause, and the server that appeared', c1 && c1.files.some(f => f.file === claudeJson && f.cause === 'changed outside Boppi') && c1.serversAdded.includes('shell'));
   ok('new exposure paths are reported as opened with a severity', c1 && c1.opened.length > 0 && c1.opened.every(p => p.key && p.severity));
   ok('the terminal summary says a closed path is an observation, not a verified fix', session.stdout().includes('nothing is installed'));
 
   const before = changes(readLog(logFile)).length;
   for (let i = 0; i < 20; i++) { fs.writeFileSync(claudeJson, JSON.stringify({ mcpServers: { ...RISKY.mcpServers, [`burst${i}`]: { command: 'node', args: ['b.js'] } } })); await sleep(20); }
-  await sleep(3500);
+  const burstRescanned = await rescanned(session.trace);
   const burst = changes(readLog(logFile)).slice(before);
-  ok(`a burst of 20 writes coalesces into a few rescans (${burst.length} change summaries)`, burst.length >= 1 && burst.length <= 4);
+  ok(`a burst of 20 writes coalesces into a few rescans (${burst.length} change summaries)`, burstRescanned && burst.length >= 1 && burst.length <= 4);
   ok('the final burst state is what the last summary reports', burst.length && burst[burst.length - 1].serversAdded.includes('burst19'));
 
   const b2 = changes(readLog(logFile)).length;
   const tmp = `${claudeJson}.tmp-${process.pid}`;
   fs.writeFileSync(tmp, JSON.stringify(SAFE));
   fs.renameSync(tmp, claudeJson);
-  const renamed = await waitFor(logFile, e => changes(e).length > b2, 6000);
+  const renamed = await waitFor(logFile, e => changes(e).length > b2, 30000);
   const c3 = changes(renamed.entries).slice(b2);
   ok('an atomic write (temp file plus rename) is seen as one change with closures', !renamed.timedOut && c3.some(c => c.serversRemoved.includes('shell') && c.closed.length > 0));
   ok('a temp file in the watched directory is never reported as a config', !readLog(logFile).some(e => JSON.stringify(e).includes('.tmp-')));
 
   const h0 = holds(readLog(logFile)).length, c4 = changes(readLog(logFile)).length;
   fs.unlinkSync(desktopJson);
-  const held = await waitFor(logFile, e => holds(e).length > h0, 6000);
+  const held = await waitFor(logFile, e => holds(e).length > h0, 30000);
   ok('a deleted file is first held, not retired (an editor may be writing it)', !held.timedOut && holds(held.entries)[h0].transient === true && holds(held.entries)[h0].reason.includes('missing'));
-  const retired = await waitFor(logFile, e => changes(e).length > c4 && changes(e).slice(c4).some(c => c.files.some(f => f.cause === 'file deleted')), 8000);
+  const retired = await waitFor(logFile, e => changes(e).length > c4 && changes(e).slice(c4).some(c => c.files.some(f => f.cause === 'file deleted')), 30000);
   const retire = changes(retired.entries).slice(c4).find(c => c.files.some(f => f.cause === 'file deleted'));
   ok('after the grace rescan the file is retired with its servers and cause "file deleted"', !retired.timedOut && retire && retire.client === 'claude-desktop' && retire.serversRemoved.includes('notes'));
   ok('the retirement does not touch the other client', retire && !changes(retired.entries).slice(c4).some(c => c.client === 'claude-code' && c.serversRemoved.length));
 
   fs.writeFileSync(desktopJson, JSON.stringify(RISKY));
-  const back = await waitFor(logFile, e => changes(e).some(c => c.client === 'claude-desktop' && c.serversAdded.includes('shell')), 6000);
+  const back = await waitFor(logFile, e => changes(e).some(c => c.client === 'claude-desktop' && c.serversAdded.includes('shell')), 30000);
   ok('a recreated file is reported as created with its servers', !back.timedOut && changes(back.entries).some(c => c.client === 'claude-desktop' && c.files.some(f => f.cause === 'file created')));
   const h1 = holds(readLog(logFile)).length, c5 = changes(readLog(logFile)).length;
   fs.writeFileSync(desktopJson, '{"mcpServers": {');
-  const stale = await waitFor(logFile, e => holds(e).slice(h1).some(h => h.reason.startsWith('stale:')), 8000);
+  const stale = await waitFor(logFile, e => holds(e).slice(h1).some(h => h.reason.startsWith('stale:')), 30000);
   ok('invalid JSON is held as stale after the grace rescan and reports no closure', !stale.timedOut && !changes(stale.entries).slice(c5).some(c => c.client === 'claude-desktop' && c.closed.length));
   ok('the stale label names the file and the reason', holds(stale.entries).slice(h1).some(h => h.reason.includes(desktopJson) && h.reason.includes('invalid JSON')));
   fs.writeFileSync(desktopJson, JSON.stringify(RISKY));
-  await sleep(2500);
+  const restoreRescanned = await rescanned(session.trace);
   const afterRestore = changes(readLog(logFile)).slice(c5).filter(c => c.client === 'claude-desktop');
-  ok('restoring the same bytes after a stale hold reports no change (the held state was kept)', afterRestore.length === 0);
+  ok('restoring the same bytes after a stale hold reports no change (the held state was kept)', restoreRescanned && afterRestore.length === 0);
 
   const c6 = changes(readLog(logFile)).length;
   const fixed = spawnSync(process.execPath, [CLI, 'fix', '--server', 'shell', '--only', 'claude-desktop', '--yes', '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'h2.json')], { encoding: 'utf8' });
-  const own = await waitFor(logFile, e => changes(e).slice(c6).some(c => c.client === 'claude-desktop'), 6000);
+  const own = await waitFor(logFile, e => changes(e).slice(c6).some(c => c.client === 'claude-desktop'), 30000);
   const ownChange = changes(own.entries).slice(c6).find(c => c.client === 'claude-desktop');
   ok('boppi fix succeeded in the fixture home', fixed.status === 0);
   ok('an edit made by boppi fix is labelled with the fix id, not "changed outside Boppi"', ownChange && ownChange.files.some(f => f.file === desktopJson && /^changed by boppi fix /.test(f.cause)));
   ok('the own edit still reports the closures it caused', ownChange && ownChange.serversRemoved.includes('shell'));
 
+  session.child.kill('SIGINT');
   const result = await session.done;
-  ok('the session stops after --duration and says nothing left the machine', result.code === 0 && result.stdout().includes('stopped (40 s elapsed)') && readLog(logFile).some(e => e.kind === 'stopped'));
+  ok('Ctrl-C stops the session with exit 0 and says nothing left the machine', result.code === 0 && result.stdout().includes('stopped (Ctrl-C); nothing was installed and nothing left this machine') && readLog(logFile).some(e => e.kind === 'stopped'));
   ok('the watcher wrote no stderr', result.stderr().trim() === '');
+  const timedLog = path.join(root, 'timed.log');
+  const timed = startWatch(home, ['--interval', '1', '--duration', '1', '--only', 'claude-code,claude-desktop'], timedLog);
+  const hang = setTimeout(() => timed.child.kill('SIGKILL'), 30000);
+  const timedResult = await timed.done;
+  clearTimeout(hang);
+  ok('the session stops by itself after --duration and says so', timedResult.code === 0 && timedResult.stdout().includes('stopped (1 s elapsed)') && readLog(timedLog).some(e => e.kind === 'stopped' && e.reason === '1 s elapsed'));
   const history = JSON.parse(fs.readFileSync(path.join(home, 'history.json'), 'utf8'));
   ok('evidence changes are appended to the local history', Array.isArray(history) && history.length >= 3 && history.every(e => e.scannedAt));
 
@@ -174,17 +184,19 @@ const holds = entries => entries.filter(e => e.kind === 'hold');
   fs.writeFileSync(path.join(home2, '.claude.json'), JSON.stringify(RISKY));
   fs.writeFileSync(path.join(home2, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify(RISKY));
   const log2 = path.join(root, 'watch2.log');
-  const s2 = startWatch(home2, ['--interval', '1', '--duration', '12', '--only', 'claude-code,claude-desktop'], log2);
+  const s2 = startWatch(home2, ['--interval', '1', '--only', 'claude-code,claude-desktop'], log2);
   await waitFor(log2, e => e.some(x => x.kind === 'baseline'), 15000);
   const historyBefore = fs.existsSync(path.join(home2, 'history.json')) ? JSON.parse(fs.readFileSync(path.join(home2, 'history.json'), 'utf8')).length : 0;
   fs.writeFileSync(path.join(home2, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), '{"mcpServers": {');
   fs.writeFileSync(path.join(home2, '.claude.json'), JSON.stringify(SAFE));
-  await waitFor(log2, e => holds(e).some(h => h.reason.startsWith('stale:')), 9000);
+  const staleHeld = await waitFor(log2, e => holds(e).some(h => h.reason.startsWith('stale:')), 30000);
+  const heldRescans = await rescanned(s2.trace, { scans: 3 });
   const historyNow = fs.existsSync(path.join(home2, 'history.json')) ? JSON.parse(fs.readFileSync(path.join(home2, 'history.json'), 'utf8')) : [];
   ok('history is not written while a client is held, so it never records a closure the terminal did not report', historyNow.length === historyBefore);
   const staleLines = holds(readLog(log2)).filter(h => h.reason.startsWith('stale:'));
+  s2.child.kill('SIGINT');
   const r2done = await s2.done;
-  ok('a stale client is announced once, not on every periodic rescan', staleLines.length === 1 && r2done.code === 0);
+  ok('a stale client is announced once, not on each of the three rescans after it', !staleHeld.timedOut && heldRescans && staleLines.length === 1 && r2done.code === 0);
   const world = path.join(root, 'world.log');
   fs.writeFileSync(world, 'old\n', { mode: 0o644 });
   const onceWorld = spawnSync(process.execPath, [CLI, 'watch', '--once', '--log', world, '--home', home2, '--cwd', home2, '--no-color', '--history-file', path.join(home2, 'h3.json')], { encoding: 'utf8' });

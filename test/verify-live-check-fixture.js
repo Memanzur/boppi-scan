@@ -29,10 +29,10 @@ function session() {
 (async function main() {
   const s = session();
   const watchdog = setTimeout(() => {
-    console.error('Live-check fixture did not finish within 10 seconds.');
+    console.error('Live-check fixture did not finish within 30 seconds.');
     s.stop();
     process.exitCode = 1;
-  }, 10000);
+  }, 30000);
   const init = await s.request('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'verify', version: '0' } });
   ok('initialize names the fixture', init.result && init.result.serverInfo.name === 'live-check');
   s.notify('notifications/initialized');

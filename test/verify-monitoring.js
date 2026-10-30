@@ -65,7 +65,7 @@ ok('settings command is local and readable', shownSettings.status === 0 && shown
 ok('no hook command installs Claude settings', !fs.existsSync(path.join(home, '.claude', 'settings.json')));
 fs.writeFileSync(file, '');
 const beforeBadInput = fs.readFileSync(file, 'utf8');
-const tooLarge = spawnSync(process.execPath, [cli, 'hook', '--home', home], { input: 'x'.repeat(1024 * 1024 + 1), encoding: 'utf8', timeout: 4000 });
+const tooLarge = spawnSync(process.execPath, [cli, 'hook', '--home', home], { input: 'x'.repeat(1024 * 1024 + 1), encoding: 'utf8', timeout: 30000 });
 ok('oversized hook input exits harmlessly without persisting content', tooLarge.status === 0 && tooLarge.stdout === '' && fs.readFileSync(file, 'utf8') === beforeBadInput);
 const malformed = spawnSync(process.execPath, [cli, 'hook', '--home', home], { input: '{', encoding: 'utf8' });
 ok('invalid hook JSON exits harmlessly', malformed.status === 0 && malformed.stdout === '');

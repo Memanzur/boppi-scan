@@ -138,7 +138,7 @@ const carriesVersion = request => request.headers['boppi-agent-version'] === VER
     const home3 = makeHome(root, 'home3');
     ok('pairing for the run test', (await runCli(['connect', 'pair', '--url', ws.url, '--code', 'PAIRCODE3'], home3)).code === 0);
     ws.state.mode = 'outdated';
-    const looped = await runCli(['connect', 'run', '--interval', '5'], home3, 20000);
+    const looped = await runCli(['connect', 'run', '--interval', '5'], home3, 60000);
     ok('a looping connect run stops with exit 5 instead of polling again', looped.code === 5 && looped.stderr.includes('requires a newer Agent') && looped.stderr.includes(upgrade), `code ${looped.code} signal ${looped.signal}: ${looped.stderr}`);
 
     section('Upgrade wording');

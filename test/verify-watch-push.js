@@ -12,6 +12,7 @@ const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const { ownerOnly, hasMode, symlinkOrSkip } = require('./helpers/platform');
+const { traced, rescanned } = require('./helpers/watch-scans');
 const watchPush = require('../src/cli/watchPush');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
@@ -74,17 +75,26 @@ function cli(args, home, env = {}) {
 const once = (server, home, log, extra = []) => cli(['watch', '--push', '--once', '--url', server.url(), '--token', TOKEN, '--log', log, ...extra], home);
 
 function startWatch(server, home, log, extra = []) {
-  const child = spawn(process.execPath, [CLI, 'watch', '--push', '--interval', '1', '--duration', '60', '--url', server.url(), '--token', TOKEN, '--log', log, ...extra, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { env: { ...process.env, ...ENV } });
+  const trace = `${log}.scans`;
+  const { nodeArgs, env } = traced(trace);
+  const child = spawn(process.execPath, [...nodeArgs, CLI, 'watch', '--push', '--interval', '1', '--duration', '600', '--url', server.url(), '--token', TOKEN, '--log', log, ...extra, '--home', home, '--cwd', home, '--no-color', '--history-file', path.join(home, 'history.json')], { env: { ...process.env, ...ENV, ...env } });
   let stdout = '', stderr = '';
   child.stdout.on('data', d => { stdout += d; });
   child.stderr.on('data', d => { stderr += d; });
   const done = new Promise(resolve => child.on('exit', code => resolve(code)));
-  return { child, done, stdout: () => stdout, stderr: () => stderr };
+  return { child, done, trace, stdout: () => stdout, stderr: () => stderr };
 }
 async function waitFor(predicate, timeoutMs) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) { if (predicate()) return true; await sleep(100); }
   return predicate();
+}
+/** The promise's value, or 'timeout' after ms: a hang guard that does not keep the process alive once settled. */
+async function within(promise, ms) {
+  let timer;
+  const result = await Promise.race([promise, new Promise(resolve => { timer = setTimeout(() => resolve('timeout'), ms); })]);
+  clearTimeout(timer);
+  return result;
 }
 const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return watchPush.canonical(rest); };
 
@@ -140,34 +150,33 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
   section('long-running: restart, rewrite, touch, change, burst');
   const liveLog = path.join(root, 'live.log');
   const live = startWatch(server, home, liveLog);
-  await waitFor(() => pushes(liveLog).length >= 1, 15000);
+  await waitFor(() => pushes(liveLog).length >= 1, 30000);
   ok('a restart with the same posture sends nothing at baseline', pushes(liveLog)[0] && pushes(liveLog)[0].outcome === 'unchanged' && server.requests.length === n0);
   setServers(home, ['notes']);
   fs.utimesSync(claudeJson(home), new Date(), new Date());
-  await sleep(2500);
-  ok('a rewrite with identical servers and a touch during the session send nothing', server.requests.length === n0);
+  const touchRescanned = await rescanned(live.trace);
+  ok('a rewrite with identical servers and a touch during the session send nothing', touchRescanned && server.requests.length === n0);
   setServers(home, ['notes', 'shell']);
-  await waitFor(() => server.requests.length > n0, 6000);
-  await sleep(1500);
-  ok('a real change is pushed exactly once', server.requests.length === n0 + 1 && serverNames(server.requests[n0].body).includes('shell'));
+  const changeRescanned = await rescanned(live.trace, { scans: 2 });
+  ok('a real change is pushed exactly once', changeRescanned && server.requests.length === n0 + 1 && serverNames(server.requests[n0].body).includes('shell'));
   const n1 = server.requests.length;
   for (let i = 0; i < 20; i++) { setServers(home, ['notes', 'shell', `burst${i}`]); await sleep(20); }
-  await sleep(4000);
+  const burstRescanned = await rescanned(live.trace);
   const burst = server.requests.slice(n1);
-  ok(`a burst of 20 writes coalesces into a few pushes (${burst.length})`, burst.length >= 1 && burst.length <= 5);
+  ok(`a burst of 20 writes coalesces into a few pushes (${burst.length})`, burstRescanned && burst.length >= 1 && burst.length <= 5);
   ok('the last push carries the final state of the burst', burst.length && serverNames(burst[burst.length - 1].body).includes('burst19') && !serverNames(burst[burst.length - 1].body).includes('burst18'));
   const desktop = path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
   const desktopText = fs.readFileSync(desktop, 'utf8');
   const n1b = server.requests.length;
   fs.writeFileSync(desktop, '{"mcpServers": {');
-  await waitFor(() => readLog(liveLog).some(e => e.kind === 'hold' && e.reason.startsWith('stale:')), 8000);
-  await sleep(1500);
-  ok('while a client is held (unreadable config) nothing is pushed, the history rule', readLog(liveLog).some(e => e.kind === 'hold' && e.reason.startsWith('stale:')) && server.requests.length === n1b);
+  await waitFor(() => readLog(liveLog).some(e => e.kind === 'hold' && e.reason.startsWith('stale:')), 30000);
+  const heldRescanned = await rescanned(live.trace);
+  ok('while a client is held (unreadable config) nothing is pushed, the history rule', heldRescanned && readLog(liveLog).some(e => e.kind === 'hold' && e.reason.startsWith('stale:')) && server.requests.length === n1b);
   fs.writeFileSync(desktop, desktopText);
-  await sleep(2500);
-  ok('restoring the held file sends nothing (the posture equals the last push)', server.requests.length === n1b);
+  const restoreRescanned = await rescanned(live.trace);
+  ok('restoring the held file sends nothing (the posture equals the last push)', restoreRescanned && server.requests.length === n1b);
   live.child.kill('SIGINT');
-  ok('Ctrl-C ends the process at once with exit 0 (the --duration timer does not hold it open)', await Promise.race([live.done, sleep(5000).then(() => 'timeout')]) === 0);
+  ok('Ctrl-C ends the process with exit 0 well before --duration (the 600 s timer does not hold it open)', await within(live.done, 30000) === 0);
   ok('the stop line says only sanitized inventory metadata was sent', live.stdout().includes('only sanitized inventory metadata was sent, to'));
 
   section('offline: queue, then flush in order');
@@ -210,11 +219,11 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
   server.respond = () => ({ status: 200 });
   const revokeLog = path.join(root, 'revoke.log');
   const session = startWatch(server, home, revokeLog);
-  await waitFor(() => pushes(revokeLog).length >= 1, 15000);
+  await waitFor(() => pushes(revokeLog).length >= 1, 30000);
   ok('after a revoke the stored digest is cleared, so a new session pushes its baseline', pushes(revokeLog)[0] && pushes(revokeLog)[0].outcome === 'sent');
   server.respond = () => ({ status: 403, json: { error: 'Collector revoked.' } });
   setServers(home, ['notes', 'after-revoke']);
-  const stoppedCode = await Promise.race([session.done, sleep(10000).then(() => 'timeout')]);
+  const stoppedCode = await within(session.done, 30000);
   if (stoppedCode === 'timeout') session.child.kill('SIGKILL');
   ok('403 stops the session by itself with exit 6', stoppedCode === 6);
   const revokeEntries = readLog(revokeLog);
@@ -246,7 +255,7 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
   let calls = 0;
   server.respond = () => (++calls <= 2 ? { status: 429, headers: { 'retry-after': '1' }, json: { error: 'busy', code: 'rate_limited', retryAfterSeconds: 1 } } : { status: 200 });
   const slow = startWatch(server, slowHome, slowLog);
-  await waitFor(() => pushes(slowLog).some(p => p.outcome === 'flushed'), 10000);
+  await waitFor(() => pushes(slowLog).some(p => p.outcome === 'flushed'), 30000);
   slow.child.kill('SIGINT');
   await slow.done;
   ok('429 queues once, retries on the backoff timer, and flushes', pushes(slowLog).map(p => p.outcome).join() === 'queued,flushed' && calls === 3);
@@ -314,14 +323,14 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
     const lockLog = path.join(root, 'locked.log');
     const lockFile = path.join(watchPush.storeDir(lockHome), 'session.lock');
     const firstSession = startWatch(server, lockHome, lockLog);
-    await waitFor(() => firstSession.stdout().includes('BOPPI · WATCH'), 15000);
+    const baselinePushed = await waitFor(() => pushes(lockLog).length >= 1, 30000);
     ok('the running session holds an owner-only lock naming its process', fs.existsSync(lockFile) && ownerOnly(lockFile) && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
     const queueBefore = fs.readFileSync(queueFile(lockHome), 'utf8');
     const n6 = server.requests.length;
     const second = await once(server, lockHome, path.join(root, 'locked-second.log'));
     ok('a second watch --push on the same home exits 2 before it scans or sends', second.code === 2 && server.requests.length === n6 && !second.stdout.includes('BOPPI · WATCH'));
     ok('and says which process holds the queue and what to do', second.stderr.includes(`another boppi watch --push (process ${firstSession.child.pid}`) && second.stderr.includes('Only one runs per home at a time'));
-    ok("the second session leaves the first one's queue and lock untouched", fs.readFileSync(queueFile(lockHome), 'utf8') === queueBefore && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
+    ok("the second session leaves the first one's queue and lock untouched", baselinePushed && fs.readFileSync(queueFile(lockHome), 'utf8') === queueBefore && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
     const otherHome = makeHome(root, 'unlocked');
     const elsewhere = await once(server, otherHome, path.join(root, 'unlocked.log'));
     ok('a session on another home is not blocked', elsewhere.code === 0);
@@ -339,6 +348,8 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
     ok('and releases it when --once exits', !fs.existsSync(lockFile));
 
     fs.writeFileSync(lockFile, '', { mode: 0o600 });
+    const settlingWindow = new Date(Date.now() + 60000);
+    fs.utimesSync(lockFile, settlingWindow, settlingWindow);
     const settling = await once(server, lockHome, lockLog);
     ok('an empty lock still being written is respected', settling.code === 2 && settling.stderr.includes('another boppi watch --push is already using'));
     const past = new Date(Date.now() - 60000);

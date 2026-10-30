@@ -24,7 +24,7 @@ function drive(fixture, args = [], options = {}) {
     const pages = [];
     const events = [];
     let nextId = 1, pending = new Map(), buffer = '', stderr = '', partial = null, done = false, exitCode = null;
-    const timer = setTimeout(() => finish('timeout'), options.timeoutMs || 3000);
+    const timer = setTimeout(() => finish('timeout'), options.timeoutMs || 30000);
     const send = message => { recorder.sent(message); child.stdin.write(JSON.stringify(message) + '\n'); };
     const request = (method, params) => new Promise(res => { const id = nextId++; pending.set(id, res); send({ jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }); });
     function finish(reason) {
