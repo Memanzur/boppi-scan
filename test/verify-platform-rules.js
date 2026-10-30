@@ -22,6 +22,7 @@ const { spawn, spawnSync } = require('child_process');
 const { EventEmitter } = require('events');
 const session = require('../src/cli/discovery/session');
 const discover = require('../src/cli/discovery/discover');
+const claudeDesktop = require('../src/cli/discovery/claudeDesktop');
 
 let passed = 0, failed = 0;
 function ok(name, condition, detail) { if (condition) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`); } }
@@ -183,6 +184,27 @@ try {
       ok('the Windows rules do not read POSIX modes', connect.loadPairing(home, { platform: 'win32' }).deviceId === 'dev-1');
       const status = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'boppi.js'), 'connect', 'status', '--home', home], { encoding: 'utf8' });
       ok('boppi connect stops with exit 2 and says why', status.status === 2 && /other accounts on this machine can read it/.test(status.stderr), status.stderr);
+    }
+  }
+
+  section('Config locations moved by XDG_CONFIG_HOME and CLAUDE_CONFIG_DIR');
+  {
+    const live = os.homedir(), other = path.join(root, 'other-home');
+    const saved = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR };
+    const xdg = path.join(root, 'xdg'), ccd = path.join(root, 'claude-dir');
+    Object.assign(process.env, { XDG_CONFIG_HOME: xdg, CLAUDE_CONFIG_DIR: ccd });
+    try {
+      const desktop = home => claudeDesktop.locate({ home, platform: 'linux' }).files[0].path;
+      ok('Claude Desktop on Linux reads $XDG_CONFIG_HOME/Claude for the live user', desktop(live) === path.join(xdg, 'Claude', 'claude_desktop_config.json'), desktop(live));
+      ok('--home of another folder reads that folder\'s ~/.config', desktop(other) === path.join(other, '.config', 'Claude', 'claude_desktop_config.json'));
+      const code = home => claudeCode.locate({ home, cwd: other });
+      ok('Claude Code reads $CLAUDE_CONFIG_DIR/.claude.json for the live user', code(live).files[0].path === path.join(ccd, '.claude.json'));
+      ok('and its user settings from $CLAUDE_CONFIG_DIR/settings.json', code(live).settingsFiles[0].path === path.join(ccd, 'settings.json'));
+      ok('--home of another folder reads <home>/.claude.json and <home>/.claude', code(other).files[0].path === path.join(other, '.claude.json') && code(other).settingsFiles[0].path === path.join(other, '.claude', 'settings.json'));
+      ok('a relative value is ignored', platform.liveEnv('X', live, { X: 'relative/dir' }) === null);
+      ok('the macOS location ignores XDG', claudeDesktop.locate({ home: live, platform: 'darwin' }).files[0].path.includes(path.join('Library', 'Application Support')));
+    } finally {
+      for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
     }
   }
 

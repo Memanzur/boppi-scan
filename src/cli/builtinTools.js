@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const models = require('../engine/models');
 const toolCategories = require('./toolCategories');
-const { comparable, parseJson } = require('./platform');
+const { claudeConfigDir, comparable, parseJson } = require('./platform');
 
 // prompts: true means the tool asks before each use unless a rule or mode
 // says otherwise; false means it never asks (Read inside the working tree);
@@ -53,7 +53,7 @@ const WORKING_SCOPE_LABEL = Object.freeze({
 /** Claude Code permission settings files, lowest precedence first. Managed (machine-wide) settings are not read. */
 function claudeCodeSettingsFiles({ home, cwd }) {
   return [
-    { path: path.join(home, '.claude', 'settings.json'), scope: 'user' },
+    { path: path.join(claudeConfigDir(home), 'settings.json'), scope: 'user' },
     { path: path.join(cwd, '.claude', 'settings.json'), scope: 'project' },
     { path: path.join(cwd, '.claude', 'settings.local.json'), scope: 'local' },
   ];

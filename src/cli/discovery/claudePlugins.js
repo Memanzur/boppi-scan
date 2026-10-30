@@ -19,7 +19,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { comparable, parseJson } = require('../platform');
+const { claudeConfigDir, comparable, parseJson } = require('../platform');
 
 const isObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const NAME = /^[^\s@:/\\]{1,128}$/;
@@ -58,7 +58,7 @@ function readInstalls(root) {
 /** enabledPlugins from the user, project and local settings files, later files winning, as Claude Code merges them. Managed settings are not read here. */
 function enabledPlugins({ home, cwd }) {
   const out = new Map(), seen = new Set();
-  for (const [file, source] of [[path.join(home, '.claude', 'settings.json'), 'user'], [path.join(cwd, '.claude', 'settings.json'), 'project'], [path.join(cwd, '.claude', 'settings.local.json'), 'local']]) {
+  for (const [file, source] of [[path.join(claudeConfigDir(home), 'settings.json'), 'user'], [path.join(cwd, '.claude', 'settings.json'), 'project'], [path.join(cwd, '.claude', 'settings.local.json'), 'local']]) {
     // Scanning from the home folder makes the user and project file the same file; it counts once, as user.
     if (seen.has(comparable(file))) continue;
     seen.add(comparable(file));
@@ -75,7 +75,7 @@ function enabledPlugins({ home, cwd }) {
  * Each file is readOnly and carries the plugin it belongs to.
  */
 function pluginFiles({ home, cwd, pluginRoot = null }) {
-  const root = path.resolve(pluginRoot || path.join(home, '.claude', 'plugins'));
+  const root = path.resolve(pluginRoot || path.join(claudeConfigDir(home), 'plugins'));
   const { entry, installs } = readInstalls(root);
   const enabled = enabledPlugins({ home, cwd });
   const files = [];

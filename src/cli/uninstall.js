@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const fix = require('./fix');
 const connect = require('./connect');
-const { parseJson } = require('./platform');
+const { claudeConfigDir, parseJson } = require('./platform');
 
 const BOPPI_HOOK = /(^|[\s/\\"'])boppi(\.js|\.cmd)?["']?\s+hook(\s|$)/;
 const EXPLAINED = Object.freeze({
@@ -93,7 +93,7 @@ function liveFixes(home) {
 
 /** Claude Code settings files Boppi's hook snippet may have been pasted into. */
 function settingsFiles(home, cwd) {
-  const candidates = [path.join(home, '.claude', 'settings.json'), path.join(home, '.claude', 'settings.local.json')];
+  const candidates = [path.join(claudeConfigDir(home), 'settings.json'), path.join(claudeConfigDir(home), 'settings.local.json')];
   if (path.resolve(cwd) !== path.resolve(home)) candidates.push(path.join(cwd, '.claude', 'settings.json'), path.join(cwd, '.claude', 'settings.local.json'));
   return candidates;
 }

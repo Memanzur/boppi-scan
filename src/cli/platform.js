@@ -109,6 +109,27 @@ function expandHomeArg(value, home) {
   return value;
 }
 
+/**
+ * A variable that moves a client's config (APPDATA, XDG_CONFIG_HOME,
+ * CLAUDE_CONFIG_DIR), honored only when the scan reads the live user's
+ * home: it belongs to that user, and --home of another folder reads that
+ * folder's default locations. null when unset, relative, or not live.
+ */
+function liveEnv(name, home, env = process.env) {
+  const value = env[name];
+  return value && path.isAbsolute(value) && samePath(home, os.homedir()) ? value : null;
+}
+
+/** Claude Code's user config folder: $CLAUDE_CONFIG_DIR for the live user, else <home>/.claude. */
+function claudeConfigDir(home, env = process.env) {
+  return liveEnv('CLAUDE_CONFIG_DIR', home, env) || path.join(home, '.claude');
+}
+
+/** Claude Code's global config file: .claude.json in $CLAUDE_CONFIG_DIR for the live user, else in <home>. */
+function claudeJsonPath(home, env = process.env) {
+  return path.join(liveEnv('CLAUDE_CONFIG_DIR', home, env) || home, '.claude.json');
+}
+
 /** How a file Boppi writes for the user alone is protected here. Windows has no file modes; the file inherits its folder's ACL and Boppi does not narrow it. */
 function ownerOnlyNote(platform = process.platform) {
   return platform === 'win32' ? 'protected only by your Windows profile folder\'s permissions; Boppi does not narrow them' : 'owner-only';
@@ -125,4 +146,4 @@ function wslHint(options, probe) {
   return 'Running inside WSL: this scans the Linux home. Claude Desktop and Cursor on Windows keep their configs in the Windows profile; to scan those, add --home /mnt/c/Users/<you> --platform win32.';
 }
 
-module.exports = { comparable, samePath, isInside, projectKey, parseJson, renameRetry, RENAME_RETRY, openNoFollow, DIRECTORY_ARG, expandHomeArg, ownerOnlyNote, isWsl, wslHint };
+module.exports = { liveEnv, claudeConfigDir, claudeJsonPath, comparable, samePath, isInside, projectKey, parseJson, renameRetry, RENAME_RETRY, openNoFollow, DIRECTORY_ARG, expandHomeArg, ownerOnlyNote, isWsl, wslHint };
