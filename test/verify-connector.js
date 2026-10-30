@@ -625,6 +625,8 @@ async function narrowCases(root) {
     ws.device = null;
     const replaced = await runCli(['connect', 'pair', '--url', workspace.url, '--code', PAIR_CODE, '--yes'], home);
     ok('--yes replaces an existing pairing and drops the old device\'s claims', replaced.code === 0 && readPairing().deviceId === ws.device.id && readPairing().deviceId !== stale.deviceId && !fs.existsSync(connect.claimsFile(home)), replaced.stderr);
+    const defaultName = ws.byRoute('pair').at(-1).body.device.name;
+    ok('without --name the device is named by platform, never by hostname', /^Mac [0-9a-f]{4}$/.test(defaultName) && defaultName !== require('os').hostname() && replaced.stdout.includes('Pass --name to choose a name'), defaultName);
   } finally {
     workspace.server.close();
   }

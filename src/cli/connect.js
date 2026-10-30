@@ -20,7 +20,7 @@
  */
 'use strict';
 const fs = require('fs');
-const os = require('os');
+const crypto = require('crypto');
 const path = require('path');
 const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
@@ -53,6 +53,7 @@ const WAITING = "reported, awaiting the workspace's rescan grade";
 const clip = (value, max) => String(value).slice(0, max);
 const stamp = () => new Date().toISOString();
 
+const PLATFORM_LABEL = Object.freeze({ darwin: 'Mac', win32: 'Windows PC', linux: 'Linux computer' });
 function versionsOf(scannerVersion) { return { scanner: clip(scannerVersion, 32), engine: models.ENGINE_VERSION, rubric: riskRubric.RUBRIC_VERSION }; }
 
 /** The workspace origin. https, or http only to this machine; no credentials, no path. */
@@ -611,7 +612,8 @@ async function runPair(options, deps, out, err) {
     err(`connect pair: this machine is already paired with ${existing.workspaceName || existing.url} as "${existing.deviceName || existing.deviceId}". Run boppi connect unpair first (it revokes that device there), or add --yes to replace it here only (the old device stays listed and usable in that workspace until someone revokes it).`);
     return 2;
   }
-  const deviceName = clip(options.name || os.hostname() || 'this machine', 64);
+  // The hostname often carries the owner's name, so it is never sent unless the person passes it with --name.
+  const deviceName = clip(options.name || `${PLATFORM_LABEL[options.platform] || 'Computer'} ${crypto.randomBytes(2).toString('hex')}`, 64);
   const device = { name: deviceName, platform: clip(options.platform, 16), versions: versionsOf(deps.version) };
   const result = await request({ url, route: 'pair', body: { code: options.code, device }, fetchImpl: deps.fetchImpl });
   if (!result.ok) { err(`connect pair: ${describeFailure('pair', result)}`); return 5; }
@@ -621,6 +623,7 @@ async function runPair(options, deps, out, err) {
   writeOwnerOnly(pairingFile(options.home), pairing);
   // Claims and consumed nonces belong to the old device; carrying them over would mis-grade or refuse its proposals.
   if (existing) fs.rmSync(claimsFile(options.home), { force: true });
+  if (!options.name) out(`Named this device "${deviceName}" in the workspace. Pass --name to choose a name; the computer's own name is not sent.`);
   out(`Paired with ${pairing.workspaceName || url} as "${deviceName}". Stored in ${pairingFile(options.home)} (${ownerOnlyNote()}): url, device id, organization id, credential (expires ${pairing.credentialExpiresAt || 'unknown'}).`);
   out(`The workspace now knows: device name, platform ${device.platform}, scanner ${device.versions.scanner}, engine ${device.versions.engine}, rubric ${device.versions.rubric}. No path was sent.`);
   out('boppi connect run pulls fix proposals from the workspace; nothing is applied without local confirmation on this machine.');
