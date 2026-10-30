@@ -415,6 +415,8 @@ Not discovered yet: Claude Desktop extensions (`.mcpb`, formerly `.dxt`). They a
 
 ## Development
 
+Standalone executables, the signed checksum list and `install.sh`: `docs/release/DISTRIBUTION.md` (`npm run release:build`, `npm run release:verify`). Nothing is hosted yet.
+
 Release candidate: `npm run release-candidate` packs the tarball, installs it into a throwaway prefix, runs the beta journey (version, scan, demo, plan, fix, verify, rollback, uninstall) on a synthetic home, and writes `CANDIDATE.json` plus the tarball to `~/Desktop/Boppi-candidate-<version>` (`--out <dir>` to change). It publishes nothing.
 
 ```
