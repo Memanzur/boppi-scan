@@ -13,6 +13,7 @@ const fs = require('fs');
 const hook = require('./hook');
 const push = require('./push');
 const updateNotice = require('./updateNotice');
+const agentRequest = require('./agentRequest');
 
 /** What `boppi events push` sends per record: the stored metadata keys and nothing else. */
 const PUSH_KEYS = Object.freeze(['id', 'at', 'event', 'kind', 'server', 'source', 'tool', 'session', 'invocation', 'cwd', 'outcome', 'durationMs']);
@@ -170,12 +171,12 @@ async function pushEvents({ eventsUrl: url, token, events, fetchImpl = globalThi
     const batch = events.slice(start, start + PUSH_BATCH);
     let response;
     try {
-      response = await fetchImpl(url.toString(), { method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' }, body: JSON.stringify({ events: batch }) });
+      response = await fetchImpl(url.toString(), { method: 'POST', redirect: 'error', headers: agentRequest.agentHeaders({ authorization: `Bearer ${token}` }), body: JSON.stringify({ events: batch }) });
     } catch (error) {
       return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
     }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) return { ok: false, status: response.status, body };
+    if (!response.ok) return { ok: false, status: response.status, body, origin: new URL(url.toString()).origin };
     accepted += Number.isFinite(body.accepted) ? body.accepted : 0;
     received += Number.isFinite(body.received) ? body.received : batch.length;
   }
