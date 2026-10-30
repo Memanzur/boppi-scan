@@ -151,7 +151,7 @@ function baselineLines(state, target, options, workspace) {
     `BOPPI · WATCH  ${clients.length} client${clients.length === 1 ? '' : 's'}${options.only ? ` (--only ${options.only.join(',')})` : ''} · ${target.files.length} files in ${target.directories.length} watched director${target.directories.length === 1 ? 'y' : 'ies'} · rescan every ${options.interval} s${options.duration ? ` for ${options.duration} s` : ''}`,
     `  baseline: ${servers} MCP server${servers === 1 ? '' : 's'}, ${paths} exposure path${paths === 1 ? '' : 's'} at ${state.at}`,
     workspace
-      ? `  foreground only: nothing is installed; Ctrl-C stops. --push is on: when the posture changes, the inventory boppi push sends goes to ${workspace}. ${watchPush.PRIVACY_LINE} Nothing else leaves this machine.`
+      ? `  foreground only: nothing is installed; Ctrl-C stops. --push is on: when the inventory changes, what boppi push sends goes to ${workspace}. ${watchPush.PRIVACY_LINE} Nothing else leaves this machine. A closed path here is an observation, not a verified fix.`
       : '  foreground only: nothing is installed, nothing leaves this machine; Ctrl-C stops. A closed path here is an observation, not a verified fix.',
   ];
 }
