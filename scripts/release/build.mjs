@@ -117,7 +117,8 @@ function buildExecutable({ builder, runtime, stage, assets, output, work, target
   fs.writeFileSync(listFile, JSON.stringify(assets));
   assetMap['boppi-assets.json'] = listFile;
   const config = {
-    main: path.join(stage, 'scripts', 'release', 'sea-main.js'),
+    // Relative to the build folder (the cwd below): Node embeds the main script's path as given, and a temp path would make every build differ.
+    main: path.relative(work, path.join(stage, 'scripts', 'release', 'sea-main.js')).split(path.sep).join('/'),
     executable: runtime,
     output,
     disableExperimentalSEAWarning: true,
