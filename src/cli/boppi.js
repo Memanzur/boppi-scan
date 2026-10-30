@@ -506,7 +506,7 @@ function discover(options) {
     for (const entry of read.files) {
       if (entry.status === 'not_found') continue;
       filesRead.add(entry.path);
-      if (entry.status === 'found' && !client.primaryPath) client.primaryPath = entry.path;
+      if ((entry.status === 'found' || entry.serverCount) && !client.primaryPath) client.primaryPath = entry.path;
     }
     if (descriptor.pluginIndex && descriptor.pluginIndex.status !== 'not_found') {
       filesRead.add(descriptor.pluginIndex.path);

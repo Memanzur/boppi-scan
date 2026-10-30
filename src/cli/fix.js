@@ -61,12 +61,12 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0, servers: [], ...(file.plugin ? { plugin: file.plugin } : {}) };
     files.push(entry);
     if (!overrides.has(resolved) && !fs.existsSync(resolved)) continue;
-    let json;
+    let json, malformed;
     try {
       json = overrides.has(resolved) ? overrides.get(resolved) : JSON.parse(fs.readFileSync(resolved, 'utf8'));
       // plugin.json may point mcpServers at other files or bundles; that is not read, and saying so beats reporting no servers.
       if (file.pluginManifest && isObject(json) && hasOwn(json, 'mcpServers') && !isObject(json.mcpServers)) throw new Error('plugin_mcp_reference');
-      validateConfigShape(json, { source: descriptor.source, cwd });
+      malformed = new Set(validateConfigShape(json, { source: descriptor.source, cwd }).map(keyPath => JSON.stringify(keyPath)));
     } catch (error) {
       entry.status = 'unreadable';
       entry.reason = unreadableReason(error);
@@ -76,6 +76,7 @@ function readClient(descriptor, cwd, overrides = new Map()) {
     documents.set(resolved, json);
     for (const block of file.blocks) {
       for (const [name, server] of Object.entries(objectAt(json, block.keyPath) || {})) {
+        if (malformed.has(JSON.stringify([...block.keyPath, name]))) continue;
         // A plugin's servers register as plugin:<plugin>:<server>, so that is their base label.
         const base = (block.labelPrefix || '') + name;
         let label = base;
@@ -87,6 +88,7 @@ function readClient(descriptor, cwd, overrides = new Map()) {
       }
     }
     entry.serverCount = entry.servers.length;
+    if (malformed.size) Object.assign(entry, { status: 'unreadable', reason: `${malformed.size} server entr${malformed.size === 1 ? 'y has' : 'ies have'} an unsupported shape and ${malformed.size === 1 ? 'was' : 'were'} skipped`, skipped: malformed.size });
   }
   return { files, servers, documents };
 }

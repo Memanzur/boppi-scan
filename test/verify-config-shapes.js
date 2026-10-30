@@ -22,6 +22,13 @@ try {
   const scan=run(home,['scan','--only','claude-desktop']);const h=read(path.join(home,'.boppi/history.json')).filter(x=>x.kind!=='verification').at(-1);
   ok('invalid shape '+i+' is incomplete and history is withheld',scan.status===4 && h.complete===false && !!h.changes.withheld && !scan.stdout.includes('BOPPI_SHAPE_SECRET_CANARY'));
  }
+ write(file,{mcpServers:{...servers,odd:'BOPPI_SHAPE_SECRET_CANARY'}});const partial=path.join(tmp,'partial.json');const partialScan=run(home,['scan','--only','claude-desktop','--json',partial]);
+ const partialFile=read(partial).discovery.clients.find(c=>c.clientKey==='claude-desktop').files[0];
+ ok('one malformed entry keeps the other servers in the scan',partialScan.status===4 && JSON.stringify(read(partial).inventory.real.mcpServers.map(s=>s.name).sort())==='["fetch","filesystem"]' && read(partial).predictions.some(p=>p.edit.server==='fetch'));
+ ok('the file with the skipped entry stays unreadable evidence and the skipped value is never shown',partialFile.status==='unreadable' && partialFile.skipped===1 && partialScan.stdout.includes('2 servers read; incomplete (1 server entry has an unsupported shape and was skipped)') && !partialScan.stdout.includes('BOPPI_SHAPE_SECRET_CANARY') && !JSON.stringify(read(partial)).includes('BOPPI_SHAPE_SECRET_CANARY'));
+ ok('plan names the partly read file as where to remove a server it read',run(home,['plan','--only','claude-desktop']).stdout.includes(`in ${file}: delete the key mcpServers."fetch"`));
+ const partialPush=run(home,['push','--dry-run','--only','claude-desktop']);
+ ok('a push of a partly read file merges instead of replacing',partialPush.status===0 && !partialPush.stdout.includes('"snapshot": true') && partialPush.stdout.includes('"fetch"') && partialPush.stderr.includes('Scan incomplete'));
  write(file,{mcpServers:{filesystem:servers.filesystem}});const verified=path.join(tmp,'positive.json');run(home,['verify',baseline,'--only','claude-desktop','--json',verified]);
  ok('a genuine removal from a valid object is still confirmed',read(verified).resolutions.some(r=>r.edit.server==='fetch'&&r.status==='CONFIRMED'));
  write(file,{mcpServers:{}});ok('a valid empty map is supported',run(home,['scan','--only','claude-desktop']).status===0);

@@ -181,7 +181,7 @@ function renderReport(report, options = {}) {
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
       const status = file.status === 'found'
         ? (file.kind === 'settings' ? settingsStatus(file) : file.kind === 'plugin-index' ? `${file.installs} installed plugin${file.installs === 1 ? '' : 's'}` : `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`)
-        : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
+        : file.status === 'unreadable' ? (file.serverCount ? `${file.serverCount} server${file.serverCount === 1 ? '' : 's'} read; incomplete (${file.reason})` : `could not be scanned (${file.reason || 'invalid JSON'})`) : 'not found';
       out(mark, pad(client.label, labelWidth), pad(file.path, 64), '  ', s.dim(status));
     }
     if (client.scanError) out(s.red('  ! '), pad(client.label, labelWidth), s.red(`analysis failed (${client.scanError}) · this client is missing from every section below`));
