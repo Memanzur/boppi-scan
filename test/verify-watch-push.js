@@ -323,14 +323,14 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
     const lockLog = path.join(root, 'locked.log');
     const lockFile = path.join(watchPush.storeDir(lockHome), 'session.lock');
     const firstSession = startWatch(server, lockHome, lockLog);
-    await waitFor(() => firstSession.stdout().includes('BOPPI · WATCH'), 15000);
+    const baselinePushed = await waitFor(() => pushes(lockLog).length >= 1, 30000);
     ok('the running session holds an owner-only lock naming its process', fs.existsSync(lockFile) && ownerOnly(lockFile) && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
     const queueBefore = fs.readFileSync(queueFile(lockHome), 'utf8');
     const n6 = server.requests.length;
     const second = await once(server, lockHome, path.join(root, 'locked-second.log'));
     ok('a second watch --push on the same home exits 2 before it scans or sends', second.code === 2 && server.requests.length === n6 && !second.stdout.includes('BOPPI · WATCH'));
     ok('and says which process holds the queue and what to do', second.stderr.includes(`another boppi watch --push (process ${firstSession.child.pid}`) && second.stderr.includes('Only one runs per home at a time'));
-    ok("the second session leaves the first one's queue and lock untouched", fs.readFileSync(queueFile(lockHome), 'utf8') === queueBefore && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
+    ok("the second session leaves the first one's queue and lock untouched", baselinePushed && fs.readFileSync(queueFile(lockHome), 'utf8') === queueBefore && JSON.parse(fs.readFileSync(lockFile, 'utf8')).pid === firstSession.child.pid);
     const otherHome = makeHome(root, 'unlocked');
     const elsewhere = await once(server, otherHome, path.join(root, 'unlocked.log'));
     ok('a session on another home is not blocked', elsewhere.code === 0);
@@ -348,6 +348,8 @@ const withoutTime = body => { const { snapshot_at: _at, ...rest } = body; return
     ok('and releases it when --once exits', !fs.existsSync(lockFile));
 
     fs.writeFileSync(lockFile, '', { mode: 0o600 });
+    const settlingWindow = new Date(Date.now() + 60000);
+    fs.utimesSync(lockFile, settlingWindow, settlingWindow);
     const settling = await once(server, lockHome, lockLog);
     ok('an empty lock still being written is respected', settling.code === 2 && settling.stderr.includes('another boppi watch --push is already using'));
     const past = new Date(Date.now() - 60000);
