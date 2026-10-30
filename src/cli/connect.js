@@ -25,6 +25,7 @@ const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
 const scanner = require('../engine/localMcpScanner');
 const fix = require('./fix');
+const fingerprint = require('./fingerprint');
 const remediate = require('./remediate');
 const narrowPlan = require('./narrowPlan');
 const evidenceIdentity = require('./evidenceIdentity');
@@ -207,13 +208,17 @@ function offerMatches(offer, binding) {
   return sameList(offer.expectedExposureKeys, binding.expectedExposureKeys) && sameList(offer.capabilityLoss, binding.capabilityLoss || []);
 }
 
-/** The local file a binding's target fingerprint names, among the files a scan with these options reads, or null. */
+/**
+ * The local file a binding's target fingerprint names, among the files a scan with these options reads, or null.
+ * A binding from before the upgrade to HMAC fingerprints names it in the legacy form; `format` says which.
+ */
 function fileForBinding(options, binding) {
   for (const descriptor of fix.descriptorsFor(options)) {
     if (descriptor.clientKey !== binding.client) continue;
     for (const file of descriptor.files) {
       const resolved = path.resolve(file.path);
-      if (scanner.pathFingerprint(resolved) === binding.targetFile) return { file: resolved, scope: file.scope };
+      const format = fingerprint.formatOf(binding.targetFile, resolved);
+      if (format) return { file: resolved, scope: file.scope, format };
     }
   }
   return null;
@@ -223,7 +228,7 @@ function fileForBinding(options, binding) {
 function locateBinding(options, binding) {
   const descriptor = fix.descriptorsFor(options).find(d => d.clientKey === binding.client);
   const located = descriptor ? fix.locateServer(descriptor, binding.server, options.cwd) : null;
-  return located && scanner.pathFingerprint(located.file) === binding.targetFile ? located : null;
+  return located && fingerprint.formatOf(binding.targetFile, located.file) ? located : null;
 }
 
 /** Recompute a proposal's target from the file as it is now. A target with no local file reports as missing. */
@@ -239,12 +244,12 @@ function targetForBinding(options, scan, binding) {
 
 /** Only a connector removal in the current scan scope can be restored. */
 function rollbackTarget(options, scan, binding) {
-  const missing = { client: binding.client, project: scanner.pathFingerprint(path.resolve(options.cwd)), targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'backup_failed', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
+  const missing = { client: binding.client, project: binding.project, targetFile: binding.targetFile, server: binding.server, file: null, regularFile: false, failureCode: 'backup_failed', configHash: EMPTY_HASH, previewHash: EMPTY_HASH };
   const entries = fix.readManifest(options.home).entries;
   const entry = entries.find(e => e.id === binding.backupManifestId && fix.FIX_ACTIONS.includes(e.action) && e.proposalId);
   const found = fileForBinding(options, binding);
   if (!entry || !found || entry.original !== found.file || entry.clientKey !== binding.client || entry.server !== binding.server
-    || missing.project !== binding.project || (entry.project && entry.project !== binding.project)
+    || fingerprint.formatOf(binding.project, path.resolve(options.cwd)) !== found.format || (entry.project && entry.project !== binding.project)
     || entries.some(e => e.restoredFrom === entry.id)) return missing;
   const opened = openRegular(found.file);
   if (!opened.regularFile) return { ...missing, file: found.file, failureCode: opened.failureCode };
@@ -300,11 +305,15 @@ function narrowBack(located, entry, currentBytes, recordsByName) {
   return { index, from: before.args[index], to: after.args[index] };
 }
 
+/** Rollback offers. A fix recorded before the upgrade to HMAC fingerprints is offered in the legacy form its workspace proposal was bound with. */
 function rollbackTargets(scan, options) {
-  const project = scanner.pathFingerprint(path.resolve(options.cwd));
-  return fix.readManifest(options.home).entries.filter(e => fix.FIX_ACTIONS.includes(e.action) && e.proposalId).map(entry => rollbackTarget(options, scan, {
-    client: entry.clientKey, project, targetFile: scanner.pathFingerprint(entry.original), server: entry.server, backupManifestId: entry.id,
-  })).filter(target => target.regularFile);
+  const cwd = path.resolve(options.cwd);
+  return fix.readManifest(options.home).entries.filter(e => fix.FIX_ACTIONS.includes(e.action) && e.proposalId).map(entry => {
+    const format = fingerprint.formatOf(entry.project, cwd) || 'current';
+    return rollbackTarget(options, scan, {
+      client: entry.clientKey, project: fingerprint.inFormat(format, cwd), targetFile: fingerprint.inFormat(format, entry.original), server: entry.server, backupManifestId: entry.id,
+    });
+  }).filter(target => target.regularFile);
 }
 
 
@@ -394,11 +403,12 @@ function applyRollback({ options, scan, binding, proposalId }) {
 
 function manifestEntryFor(home, proposalId) { return fix.readManifest(home).entries.find(e => e.proposalId === proposalId) || null; }
 
-/** Exposure keys the rescan shows on the agent of one client, the file's hash now, and the evidence identity of the bound server's entry (null when absent). */
+/** Exposure keys the rescan shows on the agent of one client, in the agent id space of the binding, the file's hash now, and the evidence identity of the bound server's entry (null when absent). */
 function rescanReport(scan, binding, options) {
   const client = scan.discovery.clients.find(c => c.clientKey === binding.client);
-  const exposureKeys = client && client.agentId ? scan.paths.filter(p => p.agentId === client.agentId).map(p => clip(p.exposureKey, 160)) : [];
   const found = fileForBinding(options, binding);
+  const agentId = client && (found && found.format === 'legacy' ? fingerprint.legacyAgentId(client) : client.agentId);
+  const exposureKeys = agentId ? scan.paths.filter(p => p.agentId === client.agentId).map(p => clip(p.exposureKey.replace(client.agentId, agentId), 160)) : [];
   const opened = found ? openRegular(found.file) : { regularFile: false };
   const entry = client && client.mergedServers && Object.prototype.hasOwnProperty.call(client.mergedServers, binding.server) ? client.mergedServers[binding.server] : null;
   return { exposureKeys: exposureKeys.slice(0, 64), configHash: opened.regularFile ? fix.sha256(opened.bytes) : EMPTY_HASH, serverIdentity: entry ? evidenceIdentity.digest('moved-server', entry) : null };
@@ -673,4 +683,4 @@ async function runConnect(options, deps) {
   }
 }
 
-module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, toOffer, offerMatches, applyEdit, runConnect };
+module.exports = { SUBCOMMANDS, ROUTES, ROTATE_WITHIN_MS, rotationDue, rotateCredential, resolveWorkspaceUrl, pairingFile, claimsFile, loadPairing, loadClaims, versionsOf, openRegular, localTargets, rollbackTargets, toOffer, offerMatches, applyEdit, applyRollback, rescanReport, runConnect };

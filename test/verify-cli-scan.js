@@ -97,7 +97,7 @@ function runCli(args, home) {
   const predictions = exported.predictions;
   const PREDICTION_FIELDS = ['schemaVersion', 'predictionId', 'engineVersion', 'scannerVersion', 'createdAt', 'client', 'agentId', 'configFingerprint', 'edit', 'serverId', 'before', 'predictedEliminated', 'predictedSurviving', 'inventoryHash'];
   ok('export carries predictions', Array.isArray(predictions) && predictions.length > 0);
-  ok('every prediction has the documented shape', predictions.every(p => PREDICTION_FIELDS.every(f => f in p) && p.schemaVersion === 1 && p.engineVersion === engineVersion && p.scannerVersion === exported.generatedBy.split('/')[1] && ['remove_server', 'move_server'].includes(p.edit.action) && typeof p.edit.server === 'string' && /^path_[0-9a-f]{16}$/.test(p.configFingerprint) && /^inventory_[0-9a-f]{16}$/.test(p.inventoryHash)));
+  ok('every prediction has the documented shape', predictions.every(p => PREDICTION_FIELDS.every(f => f in p) && p.schemaVersion === 1 && p.engineVersion === engineVersion && p.scannerVersion === exported.generatedBy.split('/')[1] && ['remove_server', 'move_server'].includes(p.edit.action) && typeof p.edit.server === 'string' && /^path_[0-9a-f]{32}$/.test(p.configFingerprint) && /^inventory_[0-9a-f]{16}$/.test(p.inventoryHash)));
   ok('every prediction states what the agent would lose, from the inventory', predictions.every(p => p.disruption && Array.isArray(p.disruption.lost) && Array.isArray(p.disruption.kept)));
   const removals = predictions.filter(p => p.edit.action === 'remove_server');
   const moves = predictions.filter(p => p.edit.action === 'move_server');
@@ -227,7 +227,7 @@ function runCli(args, home) {
   const outsideJson = path.join(root, 'outside-export.json');
   runCli(['scan', '--config', outsideHome, '--source', 'cursor', '--json', outsideJson, '--quiet'], home);
   const outsideExport = JSON.parse(fs.readFileSync(outsideJson, 'utf8'));
-  ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{16}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
+  ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{32}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
   const keyFile = path.join(home, '.boppi', 'fingerprint-key');
   ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (fs.statSync(keyFile).mode & 0o777) === 0o600);
   const otherHome = path.join(root, 'other-key-home');

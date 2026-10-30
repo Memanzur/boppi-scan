@@ -37,16 +37,18 @@
     if (!Array.isArray(value)) fail(`${field} must be an array`);
     return value.filter(v => typeof v === 'string' && v.trim()).map(v => text(v, field, 240));
   }
-  // Fingerprints are keyed with a per-machine secret when the CLI provides
-  // one, so a common path such as a home directory cannot be recovered by
-  // hashing guesses. Without a key (engine tests, legacy callers) they fall
-  // back to the unkeyed form.
-  let fingerprintKey = '';
-  function setFingerprintKey(key) { fingerprintKey = typeof key === 'string' ? key : ''; }
+  // The CLI injects a keyed fingerprint (HMAC under a per-machine secret), so a
+  // path can be neither recovered from its fingerprint nor forged next to it.
+  // The engine also runs in the browser and the Cloud, so it holds no crypto
+  // of its own. Without one (engine tests, the Cloud re-fingerprinting a raw
+  // path it was sent) fingerprints fall back to the unkeyed form.
+  let keyedFingerprint = null;
+  function setFingerprinter(fingerprint) { keyedFingerprint = typeof fingerprint === 'function' ? fingerprint : null; }
   function pathFingerprint(value) {
     if (typeof value !== 'string' || !value.trim()) return null;
-    return models.stableId('path', fingerprintKey ? [fingerprintKey, value.trim()] : [value.trim()]);
+    return keyedFingerprint ? keyedFingerprint(value.trim()) : models.stableId('path', [value.trim()]);
   }
+  function localAgentId(source, identity) { return models.stableId('agent', ['local-mcp', source, identity]); }
   function sanitizeEndpoint(value) {
     if (value == null || value === '') return null;
     const raw = text(value, 'endpoint', 1000);
@@ -82,7 +84,7 @@
     for (const ch of value) counts[ch] = (counts[ch] || 0) + 1;
     return Object.values(counts).reduce((sum, n) => sum - (n / value.length) * Math.log2(n / value.length), 0);
   }
-  const OWN_FINGERPRINT = /^path_[0-9a-f]{16}$/;
+  const OWN_FINGERPRINT = /^path_(?:[0-9a-f]{16}|[0-9a-f]{32})$/;
   /**
    * A key with no recognizable prefix (an AWS secret, a hex API key, a random token after "key-"):
    * a 16+ character run mixing letters and digits with high entropy, or a 32+ character base64 run
@@ -156,7 +158,7 @@
     const observedAt = input.observedAt || new Date().toISOString();
     const source = { id:spec.id, type:'local-mcp', evidenceClass:'observed', name:spec.name, observedAt, evidenceRef:'explicit local configuration scan' };
     const agent = models.createAgent({
-      id:models.stableId('agent', ['local-mcp', input.source, configPath || input.agentName || spec.agentName]),
+      id:localAgentId(input.source, configPath || input.agentName || spec.agentName),
       providerAgentId:models.stableId('local-mcp-agent', [input.source, configPath || input.agentName || spec.agentName]),
       name:typeof input.agentName === 'string' && input.agentName.trim() ? input.agentName.trim() : spec.agentName,
       vendor:spec.vendor, type:spec.type, status:'active', deviceId:typeof input.deviceId === 'string' ? input.deviceId : null,
@@ -195,5 +197,5 @@
     if (!raw || !SOURCE_SPECS[raw.sourceId] || raw.consentRecorded !== true) fail('raw scan result lacks consent and source provenance');
     return { agent:raw.agent, mcpServers:raw.records || [], diagnostics:raw.diagnostics || [], source:raw.source, sourceId:raw.sourceId, dryRun:raw.dryRun !== false, consentRecorded:true };
   }
-  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, isSecretShaped, pathFingerprint, setFingerprintKey };
+  return { id:'local-mcp-companion', version:'1.1.0', name:'Local MCP configuration scanner', supportedSources:Object.keys(SOURCE_SPECS), scanConfig, normalize, sanitizeEndpoint, sanitizeCommand, sanitizeArguments, sanitizeEnv, isSecretShaped, pathFingerprint, setFingerprinter, localAgentId };
 });

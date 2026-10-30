@@ -16,6 +16,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const evidenceIdentity = require('./evidenceIdentity');
+const fingerprint = require('./fingerprint');
 
 const models = require('../engine/models');
 const riskRubric = require('../engine/riskRubric');
@@ -323,6 +324,7 @@ function incomparable(previous, current) {
   if (!previous.complete) return 'the earlier scan was incomplete';
   if (!current.complete) return 'this scan is incomplete (a file could not be read or the path search hit its limit)';
   if (previous.scope !== current.scope) return `the scans cover different scopes (${previous.scope} vs ${current.scope})`;
+  if (previous.pathFingerprints !== current.pathFingerprints) return 'path fingerprints changed format in this Boppi version, so path ids are not comparable; this scan starts a new baseline';
   if (!previous.coverageIdentity || !current.coverageIdentity) return 'the scan coverage identity is unknown (older history)';
   if (previous.coverageIdentity !== current.coverageIdentity) return 'the selected clients, configuration files, project, platform or analysis inputs changed';
   if (previous.engineVersion !== current.engineVersion || previous.rubricVersion !== current.rubricVersion) return 'the engine or risk rubric changed between the scans';
@@ -350,6 +352,7 @@ function historyEntry(scan, changes = null) {
     rubricVersion: riskRubric.RUBRIC_VERSION,
     scope: scan.scope,
     coverageIdentity: scan.coverageIdentity,
+    pathFingerprints: fingerprint.FORMAT,
     complete: scanComplete(scan),
     agents: counts.agents.length,
     mcpServers: counts.mcpServers.length,
@@ -413,6 +416,7 @@ function recordVerification(file, scan, result) {
     rubricVersion: riskRubric.RUBRIC_VERSION,
     scope: scan.scope,
     coverageIdentity: scan.coverageIdentity,
+    pathFingerprints: fingerprint.FORMAT,
     complete: scanComplete(scan),
     summary: result.summary,
     confirmedEliminatedKeys: [...new Set(confirmedKeys)].sort(),
@@ -485,6 +489,13 @@ function loadFingerprintKey(home) {
     fs.writeFileSync(file, key + '\n', { mode: 0o600 });
   } catch (_) { /* read-only home: the key lives for this process only */ }
   return key;
+}
+
+/** Key path fingerprints and evidence identities with this machine's secret. */
+function useFingerprintKey(home) {
+  const key = loadFingerprintKey(home);
+  fingerprint.useKey(key);
+  evidenceIdentity.setKey(key);
 }
 
 /** Discover config files per client. Missing files are reported, never errors. */
@@ -580,9 +591,7 @@ function alignFindings(inventory, paths) {
 
 /** Discover, scan, and analyze. Returns everything a renderer or the verifier needs and writes nothing. */
 async function performScan(options) {
-  const fingerprintKey = loadFingerprintKey(options.home);
-  scanner.setFingerprintKey(fingerprintKey);
-  evidenceIdentity.setKey(fingerprintKey);
+  useFingerprintKey(options.home);
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
 
@@ -774,6 +783,8 @@ async function runVerify(options) {
     process.stderr.write(`Scan failed: ${scan.failed}\n`);
     return scan.exitCode || 3;
   }
+  // An export from a release with legacy fingerprints names this machine's agents by their old ids.
+  previous = fingerprint.upgradeExport(previous, scan.discovery.clients);
   const result = verify.resolveAll(previous, scan, { explicitConfig: !!options.config });
   process.stdout.write(verify.renderTable(result, options.color) + '\n');
   recordVerification(options.historyFile, scan, result);
@@ -937,6 +948,8 @@ async function runPush(options) {
   let incomplete = [];
   let recognition = [];
   if (options.file) {
+    // Re-sanitizing fingerprints any raw path an edited export carries; keyed, so the workspace cannot confirm a guess.
+    useFingerprintKey(options.home);
     let payload;
     try { payload = JSON.parse(fs.readFileSync(options.file, 'utf8')); } catch (error) {
       process.stderr.write(`push: cannot read ${options.file}: ${error.message}\n`);
@@ -1039,7 +1052,11 @@ async function run(argv) {
   if (options.command === 'demo') return demo.runDemo(options, { run, performScan, version: VERSION });
   if (options.command === 'uninstall') return uninstallCommand.runUninstall(options);
   if (options.command === 'connect') return connect.runConnect(options, { performScan, confirm: fix.confirm, version: VERSION });
-  if (options.command === 'rollback') return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
+  if (options.command === 'rollback') {
+    // The file lock is named by the keyed fingerprint, as fix and the connector name it.
+    useFingerprintKey(options.home);
+    return rollback.runRollback(options, { rescan: performScan, recordScan: scan => writeHistory(scan, options.historyFile), summaryLine: terminal.summaryLine });
+  }
 
   const scan = await performScan(options);
   if (scan.failed) {
