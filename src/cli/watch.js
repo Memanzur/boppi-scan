@@ -1,8 +1,10 @@
 /**
  * Foreground configuration watcher. Rescans with the passive scanner when a
  * watched configuration or settings file changes, or on a timer, and prints
- * what changed in the evidence. Nothing is installed and nothing leaves the
- * machine. Retirement rules: docs/phase4/WATCH_DESIGN.md.
+ * what changed in the evidence. Nothing is installed. Nothing leaves the
+ * machine unless --push is given; then a changed posture is sent as the
+ * sanitized inventory boppi push sends (watchPush.js). Retirement rules:
+ * docs/phase4/WATCH_DESIGN.md; push: docs/monitoring/WATCH_PUSH.md.
  */
 'use strict';
 const fs = require('fs');
@@ -10,6 +12,7 @@ const path = require('path');
 const fix = require('./fix');
 const { samePath, openNoFollow } = require('./platform');
 const { safeText } = require('./render/terminal');
+const watchPush = require('./watchPush');
 
 const DEBOUNCE_MS = 500;
 const GRACE_MS = 2000;
@@ -140,20 +143,29 @@ function renderChange(change, at) {
   return lines;
 }
 
-function baselineLines(state, target, options) {
+function baselineLines(state, target, options, workspace) {
   const clients = Object.values(state.clients);
   const servers = clients.reduce((n, c) => n + c.servers.length, 0);
   const paths = clients.reduce((n, c) => n + Object.keys(c.paths).length, 0);
   return [
     `BOPPI · WATCH  ${clients.length} client${clients.length === 1 ? '' : 's'}${options.only ? ` (--only ${options.only.join(',')})` : ''} · ${target.files.length} files in ${target.directories.length} watched director${target.directories.length === 1 ? 'y' : 'ies'} · rescan every ${options.interval} s${options.duration ? ` for ${options.duration} s` : ''}`,
     `  baseline: ${servers} MCP server${servers === 1 ? '' : 's'}, ${paths} exposure path${paths === 1 ? '' : 's'} at ${state.at}`,
-    '  foreground only: nothing is installed, nothing leaves this machine; Ctrl-C stops. A closed path here is an observation, not a verified fix.',
+    workspace
+      ? `  foreground only: nothing is installed; Ctrl-C stops. --push is on: when the posture changes, the inventory boppi push sends goes to ${workspace}. ${watchPush.PRIVACY_LINE} Nothing else leaves this machine.`
+      : '  foreground only: nothing is installed, nothing leaves this machine; Ctrl-C stops. A closed path here is an observation, not a verified fix.',
   ];
 }
 
-/** The command. deps: performScan(options), writeHistory(scan, file). */
+/**
+ * The command. deps: performScan(options), writeHistory(scan, file), and with
+ * --push: ingestFor(scan) (push.prepareIngest of the scan), fetchImpl.
+ * Exit: 0, 2 bad --log or push store, 3 scan failed; with --push --once also
+ * 5 queued (workspace unreachable) and 6 token refused; 6 also ends a
+ * long-running session whose token was refused.
+ */
 async function runWatch(options, deps) {
   const out = text => process.stdout.write(text + '\n');
+  const err = text => process.stderr.write(text + '\n');
   const wanted = options.only ? new Set(options.only) : null;
   const target = targets(options);
   let log = null;
@@ -163,17 +175,35 @@ async function runWatch(options, deps) {
   }
   const record = entry => { if (log !== null) fs.writeSync(log, JSON.stringify(entry) + '\n'); };
 
+  const closeLog = () => { if (log !== null) { fs.closeSync(log); log = null; } };
+
+  let stopWatch = null;
+  let pusher = null;
+  if (options.push) {
+    const baseMs = Number(process.env.BOPPI_WATCH_PUSH_BACKOFF_MS) > 0 ? Number(process.env.BOPPI_WATCH_PUSH_BACKOFF_MS) : undefined;
+    pusher = watchPush.createPusher({ home: options.home, ingestUrl: options.ingestUrl, token: options.token, once: options.once, baseMs },
+      { out, err, record, fetchImpl: deps.fetchImpl, onRevoked: () => { if (stopWatch) stopWatch('collector token refused', 6); } });
+    try { pusher.open(); } catch (error) { err(`watch: cannot use the push queue: ${error.message}`); closeLog(); return 2; }
+  }
+
   const first = await deps.performScan(options);
-  if (first.failed) { process.stderr.write(`watch: scan failed: ${first.failed}\n`); return first.exitCode || 3; }
+  if (first.failed) { err(`watch: scan failed: ${first.failed}`); closeLog(); return first.exitCode || 3; }
   let accepted = stateOf(first, wanted);
-  for (const line of baselineLines(accepted, target, options)) out(line);
+  for (const line of baselineLines(accepted, target, options, pusher && pusher.workspace)) out(line);
   record({ kind: 'baseline', at: accepted.at, clients: Object.keys(accepted.clients), files: target.files.map(f => f.path), directories: target.directories });
-  if (options.once) { if (log !== null) fs.closeSync(log); return 0; }
+  if (pusher) {
+    const flushed = await pusher.flush();
+    const offered = flushed === 'revoked' ? 'revoked' : await pusher.offer(deps.ingestFor(first));
+    if (offered === 'revoked') { closeLog(); return 6; }
+    if (options.once) { closeLog(); return offered === 'unsafe' ? 2 : pusher.pending() ? 5 : 0; }
+  }
+  if (options.once) { closeLog(); return 0; }
 
   let running = false, again = false, graceTimer = null, debounceTimer = null, stopped = false;
   const held = new Map();
   const announced = new Set();
   const rescan = async why => {
+    if (stopped) return;
     if (running) { again = true; return; }
     running = true;
     try {
@@ -197,6 +227,8 @@ async function runWatch(options, deps) {
       }
       // History takes the raw scan, so it is written only when every client was accepted; a held client would otherwise record a closure the terminal never reported.
       if (!result.hold.length && result.changes.some(c => !c.sameEvidence)) { try { deps.writeHistory(scan, options.historyFile); } catch { /* read-only home */ } }
+      // Same rule for the workspace: a held client would push a closure the terminal never reported.
+      if (pusher && !result.hold.length) await pusher.offer(deps.ingestFor(scan), { quiet: !result.changes.length });
     } finally {
       running = false;
       if (again) { again = false; rescan('queued'); }
@@ -219,19 +251,24 @@ async function runWatch(options, deps) {
   const timer = setInterval(() => rescan('periodic'), Math.max(1, options.interval) * 1000);
 
   return new Promise(resolve => {
-    const stop = reason => {
+    let durationTimer = null;
+    const stop = (reason, code = 0) => {
       if (stopped) return;
       stopped = true;
-      clearInterval(timer); clearTimeout(debounceTimer); clearTimeout(graceTimer);
+      clearInterval(timer); clearTimeout(debounceTimer); clearTimeout(graceTimer); clearTimeout(durationTimer);
       for (const w of watchers) { try { w.close(); } catch { /* closed */ } }
-      out(`[${new Date().toISOString()}] stopped (${reason}); nothing was installed and nothing left this machine`);
+      if (pusher) pusher.close();
+      const waiting = pusher ? pusher.pending() : 0;
+      const sent = pusher ? `only sanitized inventory metadata was sent, to ${pusher.workspace}${waiting ? `; ${waiting} queued push${waiting === 1 ? '' : 'es'} will be sent on the next watch --push` : ''}` : 'nothing left this machine';
+      out(`[${new Date().toISOString()}] stopped (${reason}); nothing was installed and ${sent}`);
       record({ kind: 'stopped', at: new Date().toISOString(), reason });
-      if (log !== null) fs.closeSync(log);
-      resolve(0);
+      closeLog();
+      resolve(code);
     };
+    stopWatch = stop;
     process.once('SIGINT', () => stop('Ctrl-C'));
     process.once('SIGTERM', () => stop('SIGTERM'));
-    if (options.duration) setTimeout(() => stop(`${options.duration} s elapsed`), options.duration * 1000);
+    if (options.duration) durationTimer = setTimeout(() => stop(`${options.duration} s elapsed`), options.duration * 1000);
   });
 }
 
