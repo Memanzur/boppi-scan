@@ -1,10 +1,12 @@
 /**
  * boppi push: send one scan's sanitized inventory to a Boppi workspace.
  *
- * This is the only command in the package that uses the network. It maps the
+ * `push` and `watch` are the only commands that use the network. Both map the
  * scanner's inventory onto the control plane's public ingest contract
- * (one record per agent, integration, permission, and MCP server) and POSTs
- * the batch as a snapshot with a collector bearer token.
+ * (one record per agent, integration, permission, and MCP server) and POST
+ * the batch with a collector bearer token. `watch` also sends
+ * expected_interval_seconds. One-shot push does not. Local history is not a
+ * record and is never included.
  */
 'use strict';
 
@@ -104,13 +106,20 @@ function counts(inventory) {
   };
 }
 
-async function postBatch({ ingestUrl, token, records, snapshot, fetchImpl }) {
+/** JSON body for one ingest request. The interval is included only when a caller passes it. */
+function requestBody({ records, snapshot, expectedIntervalSeconds }) {
+  const body = snapshot ? { records, snapshot: true } : { records };
+  if (Number.isInteger(expectedIntervalSeconds)) body.expected_interval_seconds = expectedIntervalSeconds;
+  return body;
+}
+
+async function postBatch({ ingestUrl, token, records, snapshot, expectedIntervalSeconds, fetchImpl }) {
   let response;
   try {
     response = await fetchImpl(ingestUrl.toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'user-agent': 'boppi-cli' },
-      body: JSON.stringify(snapshot ? { records, snapshot: true } : { records }),
+      body: JSON.stringify(requestBody({ records, snapshot, expectedIntervalSeconds })),
     });
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
@@ -125,13 +134,13 @@ async function postBatch({ ingestUrl, token, records, snapshot, fetchImpl }) {
  * in MERGE_BATCH-sized requests. Resolves to { ok, ingested } or the first
  * failed batch: { ok: false, status, body } or { ok: false, networkError }.
  */
-async function pushRecords({ ingestUrl, token, records, snapshot, fetchImpl = globalThis.fetch }) {
+async function pushRecords({ ingestUrl, token, records, snapshot, expectedIntervalSeconds, fetchImpl = globalThis.fetch }) {
   if (typeof fetchImpl !== 'function') throw new Error('this Node version has no fetch(); Node 18 or newer is required');
   const batches = snapshot ? [records] : [];
   if (!snapshot) for (let start = 0; start < records.length; start += MERGE_BATCH) batches.push(records.slice(start, start + MERGE_BATCH));
   let ingested = 0;
   for (const batch of batches) {
-    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, fetchImpl });
+    const result = await postBatch({ ingestUrl, token, records: batch, snapshot, expectedIntervalSeconds, fetchImpl });
     if (!result.ok) return result;
     ingested += Number.isFinite(result.body && result.body.ingested) ? result.body.ingested : batch.length;
   }
@@ -153,4 +162,4 @@ function describeFailure(result) {
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resolveIngestUrl, workspaceUrl, counts, requestBody, pushRecords, describeFailure };

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `boppi watch`: foreground loop that repeats a local scan and push until Ctrl+C. The default interval is 15 minutes. Intervals shorter than 60 seconds are rejected. The ingest body includes `expected_interval_seconds` only when watch sends it. One-shot `boppi` and `boppi push` are unchanged and omit that field. `~/.boppi/history.json` is not uploaded. Watch does not protect the machine or observe agent activity.
+
 ## 0.2.0
 
 The free beta release.

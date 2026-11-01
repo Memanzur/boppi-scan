@@ -95,6 +95,8 @@ function startWorkspace() {
   ok('plain http to a remote host exits 2', badUrl.code === 2 && badUrl.stderr.includes('https'));
   const dry = runCli(['push', '--dry-run', '--url', 'http://localhost:1'], home);
   ok('--dry-run needs no token, prints the records, and sends nothing', dry.code === 0 && dry.stdout.includes('"records"') && dry.stdout.includes('Nothing was sent'));
+  const dryBody = JSON.parse(dry.stdout.slice(0, dry.stdout.lastIndexOf('}') + 1));
+  ok('one-shot dry-run does not include expected_interval_seconds', !Object.prototype.hasOwnProperty.call(dryBody, 'expected_interval_seconds'));
   const dryFile = runCli(['push', '--dry-run', '--file', exportPath], home);
   ok('--file pushes an earlier export without rescanning', dryFile.code === 0 && JSON.parse(dryFile.stdout.slice(0, dryFile.stdout.lastIndexOf('}') + 1)).records.length === records.length);
   const badFile = runCli(['push', '--dry-run', '--file', path.join(root, 'missing.json')], home);
@@ -109,10 +111,11 @@ function startWorkspace() {
     ok('exactly one POST to /api/ingest', workspace.requests.length === 1 && request.method === 'POST' && request.url === '/api/ingest');
     ok('token travels as a bearer header, never in the body', request.authorization === 'Bearer bpc_good' && !JSON.stringify(request.body).includes('bpc_good'));
     ok('body is a snapshot of the mapped records', request.contentType === 'application/json' && request.body.snapshot === true && request.body.records.length === records.length);
+    ok('one-shot push does not send expected_interval_seconds', !Object.prototype.hasOwnProperty.call(request.body, 'expected_interval_seconds'));
     ok('output tells the user what is and is not sent', good.stdout.includes('Only sanitized inventory metadata is sent'));
 
     const merged = await runCliAsync(['push', '--url', workspace.url, '--merge', '--token', 'bpc_good'], home);
-    ok('--merge sends without the snapshot flag', merged.code === 0 && workspace.requests[1].body.snapshot === undefined);
+    ok('--merge sends without the snapshot flag', merged.code === 0 && workspace.requests[1].body.snapshot === undefined && !Object.prototype.hasOwnProperty.call(workspace.requests[1].body, 'expected_interval_seconds'));
     const bigInventory = { agents: [{ id: 'agent_big', name: 'Big', source: { evidenceClass: 'observed' } }], permissions: Array.from({ length: 2500 }, (_, i) => ({ id: `perm_${i}`, agentId: 'agent_big', rawPermission: `grant ${i}`, normalizedCategory: 'read_files', accessLevel: 'broad', normalizationConfidence: 0.7, source: { evidenceClass: 'inferred' } })) };
     const before = workspace.requests.length;
     const big = await push.pushRecords({ ingestUrl: push.resolveIngestUrl(workspace.url), token: 'bpc_good', records: push.toRecords(bigInventory), snapshot: false, fetchImpl: fetch });

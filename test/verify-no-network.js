@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-/** Every command except a real push must run with no socket, DNS lookup, or fetch. Proven by preloading hooks that record and refuse each attempt. */
+/** Every command except a real push or watch must run with no socket, DNS lookup, or fetch. Proven by preloading hooks that record and refuse each attempt. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
 let passed = 0, failed = 0;
@@ -40,13 +40,36 @@ function makeHome(root) {
   return home;
 }
 
-(function main() {
+(async function main() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-no-network-'));
   const home = makeHome(root);
   const preload = path.join(root, 'preload.js');
   fs.writeFileSync(preload, PRELOAD);
   const log = path.join(root, 'attempts.log');
   const history = path.join(root, 'history.json');
+
+  function runSignal(args, stopWhen, extraEnv = {}) {
+    return new Promise(resolve => {
+      fs.writeFileSync(log, '');
+      const child = spawn(process.execPath, ['--require', preload, CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--history-file', history], {
+        env: { ...process.env, BOPPI_NET_LOG: log, BOPPI_SCAN_PLATFORM: 'darwin', BOPPI_TOKEN: '', ...extraEnv },
+      });
+      let stdout = '', stderr = '';
+      let stopping = false;
+      const timer = setTimeout(() => child.kill('SIGKILL'), 20000);
+      const maybeStop = () => {
+        if (stopping || !stopWhen(stdout, stderr)) return;
+        stopping = true;
+        child.kill('SIGINT');
+      };
+      child.stdout.on('data', d => { stdout += d; maybeStop(); });
+      child.stderr.on('data', d => { stderr += d; maybeStop(); });
+      child.on('close', code => {
+        clearTimeout(timer);
+        resolve({ code, stdout, stderr, attempts: fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) });
+      });
+    });
+  }
   const exportPath = path.join(root, 'export.json');
 
   function run(args, extraEnv = {}) {
@@ -75,7 +98,20 @@ function makeHome(root) {
 
   const real = run(['push', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1']);
   ok('a real push does reach the network hook, so the hooks are live (positive control)', real.attempts.length > 0 && real.attempts.every(a => a === 'fetch'));
-  ok('a real push is the only command that attempted the network', real.code !== 0);
+  ok('a real push exits because the hook refused the request', real.code !== 0);
+
+  const watchDry = await runSignal(
+    ['watch', '--dry-run', '--interval', '60', '--url', 'http://127.0.0.1:1'],
+    stdout => stdout.includes('Nothing was sent'),
+  );
+  ok('watch --dry-run prints a payload and makes no network attempt', watchDry.code === 0 && watchDry.stdout.includes('"records"') && watchDry.attempts.length === 0);
+  ok('watch --dry-run names the interval and does not claim the machine is protected', watchDry.stdout.includes('expected_interval_seconds') && watchDry.stdout.includes('does not protect the machine') && !/protected/i.test(watchDry.stdout + watchDry.stderr));
+
+  const watchReal = await runSignal(
+    ['watch', '--interval', '60', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1'],
+    (stdout, stderr) => stderr.includes('Could not reach') || stdout.includes('Next scan'),
+  );
+  ok('a real watch reaches the network hook and then stops on Ctrl+C', watchReal.attempts.length > 0 && watchReal.attempts.every(a => a === 'fetch') && watchReal.code === 0);
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
