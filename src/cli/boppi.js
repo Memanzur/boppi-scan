@@ -4,8 +4,9 @@
  *
  * One command that discovers local AI agent MCP configurations, runs the
  * existing Boppi engine unchanged (scanner → risk engine → security graph →
- * exposure paths), and reports what your AI agents can reach. Everything runs
- * on this machine; nothing is transmitted anywhere.
+ * exposure paths), and reports what your AI agents can reach. Local commands
+ * transmit nothing. `boppi push` and `boppi watch` send one scan's sanitized
+ * inventory only when you run them.
  *
  * Consent model: invoking this CLI is the explicit consent. Every file read
  * is listed at the end of the run so consent is inspectable.
@@ -33,6 +34,7 @@ const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
 const html = require('./render/html');
 const push = require('./push');
+const watch = require('./watch');
 const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
@@ -41,13 +43,13 @@ const fix = require('./fix');
 const VERSION = require('../../package.json').version;
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'watch']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|watch] [options]',
     '',
     '  boppi scan                     discover local AI agent configs, scan, print the full report',
     '  boppi agents                   inventory table only',
@@ -56,14 +58,16 @@ function usage() {
     '  boppi fix --server <name>      remove one server entry from its config file (backup first), then rescan and grade the prediction',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
-    '  boppi push                     scan, then send the sanitized inventory to your Boppi workspace',
+    '  boppi push                     scan once, then send the sanitized inventory to your Boppi workspace',
+    '  boppi watch                    foreground loop: scan and push until Ctrl+C (default every 15 minutes)',
     '',
-    'Push options (the only command that uses the network):',
+    'Push and watch are the commands that use the network:',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
     '  --token <token>     collector token from the Collectors page; or set BOPPI_TOKEN; or omit it and paste when prompted',
-    '  --file <scan.json>  push an earlier --json export instead of scanning now',
+    '  --file <scan.json>  push an earlier --json export instead of scanning now (push only; watch always scans)',
     '  --dry-run           print the records that would be sent, send nothing',
     '  --merge             add to the workspace without removing records absent from this scan',
+    '  --interval <dur>    watch only. Pause between cycles: seconds, or 60s / 15m / 1h (default 15m, minimum 60s)',
     '',
     'fix options:',
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
@@ -87,8 +91,9 @@ function usage() {
     '  --history-file <file>  local-only scan history file (default: <scan home>/.boppi/history.json)',
     '  --version, -v       print the version and exit',
     '',
-    'Privacy: runs 100% locally. Reads only MCP configuration metadata; secret values,',
-    'file contents, and raw path names are never collected. Every file read is listed.',
+    'Privacy: local commands never use the network. push and watch send one scan\'s sanitized',
+    'inventory only. Secret values, file contents, raw paths, and ~/.boppi/history.json are',
+    'never uploaded. Watch repeats that scan; it does not protect the machine. Every file read is listed.',
   ].join('\n');
 }
 
@@ -101,8 +106,9 @@ function parseArgs(argv) {
     input: null, contradictionsDir: null, historyFile: null,
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
+    interval: null,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--interval']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -133,6 +139,7 @@ function parseArgs(argv) {
       else if (arg === '--sarif') options.sarif = value;
       else if (arg === '--policy') options.policy = value;
       else if (arg === '--client') options.client = value;
+      else if (arg === '--interval') options.interval = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
@@ -142,8 +149,13 @@ function parseArgs(argv) {
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
-  if (options.command === 'push' && !options.help && !options.version) {
-    if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error('push needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted');
+  if (options.interval != null && options.command !== 'watch') throw new Error('--interval is only valid with boppi watch');
+  if (options.command === 'watch' && !options.help && !options.version) {
+    if (options.file) throw new Error('watch scans this machine on each cycle and does not take --file');
+    options.intervalSeconds = watch.parseInterval(options.interval);
+  }
+  if ((options.command === 'push' || options.command === 'watch') && !options.help && !options.version) {
+    if (!options.dryRun && !options.token && !process.stdin.isTTY) throw new Error(`${options.command} needs a collector token: pass --token <token>, set BOPPI_TOKEN, or run it in a terminal to be prompted`);
     options.ingestUrl = push.resolveIngestUrl(options.url);
   }
   if (!SUPPORTED_PLATFORMS.has(options.platform)) throw new Error(`--platform must be one of: ${[...SUPPORTED_PLATFORMS].join(', ')}`);
@@ -595,11 +607,16 @@ function promptForToken() {
   });
 }
 
-/** boppi push: scan (or load an export), map the real inventory to ingest records, send one snapshot. */
-async function runPush(options) {
+/**
+ * One scan (or one --file export) and one push. Returns { code, status }.
+ * `expectedIntervalSeconds` is set only by watch; one-shot push leaves it unset
+ * so the payload has no expected_interval_seconds field. History is not read.
+ */
+async function executePush(options) {
+  const label = options.command === 'watch' ? 'watch' : 'push';
   if (!options.dryRun && !options.token) {
     options.token = await promptForToken();
-    if (!options.token) { process.stderr.write('push: no token entered\n'); return 2; }
+    if (!options.token) { process.stderr.write(`${label}: no token entered\n`); return { code: 2 }; }
   }
   let inventory;
   let incomplete = [];
@@ -607,18 +624,18 @@ async function runPush(options) {
     let payload;
     try { payload = JSON.parse(fs.readFileSync(options.file, 'utf8')); } catch (error) {
       process.stderr.write(`push: cannot read ${options.file}: ${error.message}\n`);
-      return 2;
+      return { code: 2 };
     }
     inventory = payload.inventory && payload.inventory.real ? payload.inventory.real : payload.inventory;
     if (!inventory || !Array.isArray(inventory.agents)) {
       process.stderr.write(`push: ${options.file} has no inventory; it must be a --json export from boppi scan\n`);
-      return 2;
+      return { code: 2 };
     }
   } else {
     const scan = await performScan(options);
     if (scan.failed) {
       process.stderr.write(`Scan failed: ${scan.failed}\n`);
-      return scan.exitCode || 3;
+      return { code: scan.exitCode || 3 };
     }
     inventory = exportPayload(scan).inventory.real;
     incomplete = scan.incomplete;
@@ -630,13 +647,15 @@ async function runPush(options) {
   if (incomplete.length) process.stderr.write(`Scan incomplete: ${incomplete.join(', ')} could not be analyzed and are missing from this push.\n`);
 
   if (options.dryRun) {
-    process.stdout.write(JSON.stringify({ records }, null, 2) + '\n');
+    const preview = { records };
+    if (Number.isInteger(options.expectedIntervalSeconds)) preview.expected_interval_seconds = options.expectedIntervalSeconds;
+    process.stdout.write(JSON.stringify(preview, null, 2) + '\n');
     process.stdout.write(`Dry run: ${plural(records.length, 'record')} (${described}) mapped. Nothing was sent.\n`);
-    return 0;
+    return { code: 0 };
   }
   if (!records.length) {
     process.stdout.write('Nothing to push: no AI agent configuration was found on this machine.\n');
-    return 0;
+    return { code: 0 };
   }
 
   const snapshot = !options.merge && records.length <= push.SNAPSHOT_MAX;
@@ -645,13 +664,74 @@ async function runPush(options) {
   process.stdout.write('Only sanitized inventory metadata is sent: no secret values, file contents, or raw paths.\n');
   if (!options.merge && !snapshot) process.stderr.write(`More than ${push.SNAPSHOT_MAX} records: pushing without snapshot cleanup, so records absent from this scan stay in the workspace.\n`);
 
-  const result = await push.pushRecords({ ingestUrl: options.ingestUrl, token: options.token, records, snapshot });
+  const result = await push.pushRecords({
+    ingestUrl: options.ingestUrl,
+    token: options.token,
+    records,
+    snapshot,
+    expectedIntervalSeconds: options.expectedIntervalSeconds,
+  });
   if (!result.ok) {
     process.stderr.write(`${push.describeFailure(result)}\n`);
-    return 5;
+    return { code: 5, status: result.status };
   }
   process.stdout.write(`Done. ${plural(result.ingested, 'record')} ingested. Open ${workspace}/dashboard to see this machine in the workspace graph.\n`);
-  return incomplete.length ? 4 : 0;
+  return { code: incomplete.length ? 4 : 0 };
+}
+
+/** boppi push: one scan, one payload, then exit. Never sends expected_interval_seconds. */
+async function runPush(options) {
+  const outcome = await executePush(options);
+  return outcome.code;
+}
+
+/**
+ * boppi watch: the same scan and push, in the foreground, until Ctrl+C.
+ * The current cycle finishes. A second Ctrl+C exits immediately.
+ * A rejected token stops the loop; other push failures are reported and retried
+ * on the next interval. Local history is not uploaded.
+ */
+async function runWatch(options) {
+  const stop = new AbortController();
+  let sigints = 0;
+  let fatal = null;
+  const onSigint = () => {
+    sigints += 1;
+    if (sigints > 1) {
+      process.stderr.write('\nExiting now.\n');
+      process.exit(130);
+    }
+    process.stderr.write('\nStopping after this cycle. Press Ctrl+C again to exit now.\n');
+    stop.abort();
+  };
+  // Keep this object across cycles so a prompted token is reused and the interval
+  // stays on the payload. One-shot push never sets expectedIntervalSeconds.
+  options.expectedIntervalSeconds = options.intervalSeconds;
+  process.on('SIGINT', onSigint);
+  try {
+    process.stdout.write(watch.intro(options.intervalSeconds) + '\n\n');
+    await watch.repeat({
+      intervalSeconds: options.intervalSeconds,
+      signal: stop.signal,
+      sleep: async (ms, signal) => {
+        if (signal && signal.aborted) return;
+        process.stdout.write(`Next scan in ${watch.formatInterval(options.intervalSeconds)}. Ctrl+C stops.\n`);
+        await watch.delay(ms, signal);
+      },
+      runOnce: async () => {
+        const outcome = await executePush(options);
+        if (outcome.code === 2 || outcome.status === 401) {
+          fatal = outcome.code === 2 ? 2 : 5;
+          stop.abort();
+        }
+      },
+    });
+    if (fatal != null) return fatal;
+    process.stdout.write('Stopped.\n');
+    return 0;
+  } finally {
+    process.off('SIGINT', onSigint);
+  }
 }
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
@@ -667,6 +747,7 @@ async function run(argv) {
   if (options.command === 'history') { process.stdout.write(renderHistory(options.historyFile) + '\n'); return 0; }
   if (options.command === 'verify') return runVerify(options);
   if (options.command === 'push') return runPush(options);
+  if (options.command === 'watch') return runWatch(options);
   if (options.command === 'fix') return runFix(options);
 
   const scan = await performScan(options);

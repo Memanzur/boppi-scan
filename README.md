@@ -27,7 +27,7 @@ Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), gener
 npx boppi push
 ```
 
-It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` is the only command that uses the network, and it sends only the sanitized inventory of one scan (see [What leaves the machine](#what-leaves-the-machine)).
+It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` and `watch` are the commands that use the network. `push` sends the sanitized inventory of one scan and exits. `watch` repeats that same scan and push in the foreground until you press Ctrl+C, every 15 minutes by default. Intervals shorter than 60 seconds are rejected. Watch adds `expected_interval_seconds` to the payload so the workspace knows the cadence; a one-shot push does not. Neither command uploads `~/.boppi/history.json`. Watch does not protect the machine, and it does not observe what agents do at runtime (see [What leaves the machine](#what-leaves-the-machine)).
 
 ## What you see
 
@@ -147,7 +147,8 @@ boppi plan                     compare every candidate fix side by side and prin
 boppi fix --server <name>      remove one server entry from its config file (backup first), rescan, grade
 boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
 boppi history                  recent local scan summaries, what changed, and verified exposure reduction
-boppi push                     scan, then send the sanitized inventory to your Boppi workspace
+boppi push                     scan once, then send the sanitized inventory to your Boppi workspace
+boppi watch                    repeat that scan and push in the foreground until Ctrl+C
 
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
@@ -164,12 +165,13 @@ boppi push                     scan, then send the sanitized inventory to your B
 --contradictions-dir <dir>  where verify writes boppi-contradiction-<id>.json (default: cwd)
 --history-file <file>       where scan keeps its sanitized history (default: ~/.boppi/history.json)
 
-push only:
+push and watch (the commands that use the network):
 --url <workspace>   workspace origin or ingest URL (default https://app.boppi.io)
 --token <token>     collector token; or set BOPPI_TOKEN; or omit it and paste when prompted (hidden input)
---file <scan.json>  push an earlier --json export instead of scanning now
+--file <scan.json>  push an earlier --json export instead of scanning now (push only; watch always scans)
 --dry-run           print the records that would be sent, send nothing
 --merge             add to the workspace without removing records absent from this scan
+--interval <dur>    watch only. Pause between cycles: 900, 60s, 15m, or 1h (default 15m, minimum 60s)
 
 fix only:
 --server <name>     the server entry to remove, as boppi scan names it
@@ -215,6 +217,8 @@ A `boppi.policy.json` in the working directory (or `--policy <file>`) turns conf
 
 `boppi push` sends a full snapshot by default: records from that collector's earlier pushes that are absent from this scan are removed in the workspace, so a machine that gets fixed shows up fixed. `--merge` adds without removing and sends in batches of 1000.
 
+`boppi watch` runs that same push in a loop in the foreground. The first cycle starts immediately, then it waits the interval (15 minutes unless you pass `--interval`) and scans again. Ctrl+C finishes the current cycle and exits; a second Ctrl+C exits immediately. A rejected collector token stops the loop. Other push failures are printed and the next cycle still runs. The payload is the sanitized inventory plus `expected_interval_seconds`. It is not a daemon, it does not protect the machine, and it does not watch runtime activity. If the process is not running, nothing is sent.
+
 Arguments in a server entry are redacted before they leave: anything that looks like a credential, anything after a flag whose name says credential (`--api-key x`, `--token x`, `-p x`), and the value side of `--key=...` or `NAME_PASSWORD=...`.
 
 Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan failed, 4 a client could not be analyzed, 5 the workspace rejected or could not receive a push.
@@ -245,13 +249,13 @@ Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action 
 
 ## What leaves the machine
 
-Nothing, unless you run `boppi push`.
+Nothing, unless you run `boppi push` or `boppi watch`.
 
 The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
 This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push` is allowed to reach the network, and the same check confirms that it does.
 
-`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi push --dry-run` prints the exact payload without sending it. No other command makes a network request.
+`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi watch` sends that same inventory on a repeating foreground schedule and adds `expected_interval_seconds` (the pause between cycles, in seconds). One-shot `push` does not send that field. `~/.boppi/history.json` is local scan history and is never uploaded. `boppi push --dry-run` and `boppi watch --dry-run` print the payload without sending it. No other command makes a network request.
 
 If a server entry contains something that looks like a secret in a place the scanner cannot redact, the scanner refuses that client's config and prints the reason instead of a result. Move the secret into an environment variable the server reads and rescan.
 
