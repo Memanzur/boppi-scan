@@ -90,6 +90,14 @@ function renderHtml(report) {
     <div class="kv muted small">${esc(coverageNote)} A clean result is not proof that the environment is safe.</div>
   </div>
 
+  <h2>Credential names</h2>
+  <div class="card">
+    <div class="kv muted">Values are never collected.</div>
+    ${((report.credentialNames || []).map(entry => `<div class="kv">${esc(entry.name)} <span class="muted">present in ${esc(entry.where)}</span></div>`).join(''))
+      || ((report.inlineCredentials || []).length ? '' : '<div class="kv muted">No provider key names in the environment or the checked dotfiles.</div>')}
+    ${(report.inlineCredentials || []).map(entry => `<div class="kv">Plaintext credential in ${esc(entry.label)} / ${esc(entry.server)} <span class="muted">${esc(entry.names)} (value redacted)</span></div>`).join('')}
+  </div>
+
   <h2>Discovered MCP servers and capabilities</h2>
   <div class="table-scroll"><table>
     <thead><tr><th>Server</th><th>Agent</th><th>Supported capabilities</th></tr></thead>

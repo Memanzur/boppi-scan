@@ -54,6 +54,10 @@ function startWorkspace() {
       res.setHeader('content-type', 'application/json');
       if (token === 'bpc_good') { res.writeHead(200); res.end(JSON.stringify({ ingested: parsed.records.length, requestId: 'req-1' })); }
       else if (token === 'bpc_down') { res.writeHead(503); res.end(JSON.stringify({ error: 'Ingest is temporarily unavailable. Retry in a minute.', requestId: 'req-2' })); }
+      else if (token === 'bpc_vercel') {
+        res.writeHead(401, { 'content-type': 'text/html' });
+        res.end('<!DOCTYPE html><html><head><title>Authentication Required</title></head><body><h1>Protected deployment</h1><p>This deployment is protected by Vercel.</p></body></html>');
+      }
       else { res.writeHead(401); res.end(JSON.stringify({ error: 'Invalid or revoked collector token.', requestId: 'req-3' })); }
     });
   });
@@ -121,6 +125,8 @@ function startWorkspace() {
 
     const rejected = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_bad'], home);
     ok('a rejected token exits 5 with the server message and a hint', rejected.code === 5 && rejected.stderr.includes('HTTP 401') && rejected.stderr.includes('Invalid or revoked') && rejected.stderr.includes('Collectors page'));
+    const protectedDeployment = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_vercel'], home);
+    ok('a Vercel Protected deployment page is not described as a rejected token', protectedDeployment.code === 5 && protectedDeployment.stderr.includes('behind Vercel protection') && !protectedDeployment.stderr.includes('The token was rejected'));
     const down = await runCliAsync(['push', '--url', workspace.url, '--token', 'bpc_down'], home);
     ok('a 503 exits 5 and suggests retrying', down.code === 5 && down.stderr.includes('HTTP 503') && down.stderr.includes('Retry'));
   } finally {

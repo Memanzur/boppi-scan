@@ -1,0 +1,14 @@
+name: Local
+version: 1.0.0
+schema: v1
+mcpServers:
+  - name: filesystem
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+  - name: fetch
+    url: "https://example.test/mcp"
+  - name: turned-off
+    enabled: false
+    command: nope

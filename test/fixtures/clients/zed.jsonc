@@ -1,0 +1,12 @@
+{
+  // Zed context servers
+  "context_servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+    },
+    "fetch": {
+      "url": "https://example.test/mcp",
+    },
+  },
+}

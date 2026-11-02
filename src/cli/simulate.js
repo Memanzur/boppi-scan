@@ -9,6 +9,7 @@ const scanner = require('../engine/localMcpScanner');
 const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const { inferCapabilities } = require('./knownServers');
+const { inlineCredentialLabels } = require('./discovery/secrets');
 const { createConfigProvider } = require('./provider');
 const overlayModule = require('./overlay');
 
@@ -20,6 +21,15 @@ function enrich(mergedServers, home, overlay = null) {
   for (const [name, server] of Object.entries(mergedServers || {})) {
     if (!server || typeof server !== 'object' || Array.isArray(server)) continue;
     const inference = inferCapabilities(name, server, { home });
+    const inline = inlineCredentialLabels(server);
+    if (inline.length) {
+      if (!inference.capabilities.includes('credential_access')) inference.capabilities.push('credential_access');
+      inference.inferences.push({
+        capabilities: ['credential_access'],
+        label: 'Plaintext credential in the MCP config (value redacted)',
+        matched: inline.join(', '),
+      });
+    }
     inferenceByServer[name] = inference;
     overlayByServer[name] = overlayModule.matchClaims(overlay, name, server);
     mcpServers[name] = {

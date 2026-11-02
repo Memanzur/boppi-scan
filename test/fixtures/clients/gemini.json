@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"] },
+    "fetch": { "httpUrl": "https://example.test/mcp" }
+  }
+}

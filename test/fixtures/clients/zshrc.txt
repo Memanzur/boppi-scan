@@ -1,0 +1,4 @@
+export ANTHROPIC_API_KEY="sk-ant-dotenvplaintextvalue123456"
+export GROQ_API_KEY=
+export MISTRAL_API_KEY=changeme
+export UNRELATED=hello

@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "should-not-see": { "command": "npx", "args": ["-y", "mcp-server-fetch"], "url": "https://example.test/trap" }
+  }
+}

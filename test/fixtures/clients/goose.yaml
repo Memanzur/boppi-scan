@@ -1,0 +1,16 @@
+extensions:
+  developer:
+    type: builtin
+    name: developer
+    enabled: true
+    timeout: 300
+  fetch:
+    type: streamable_http
+    name: fetch
+    enabled: true
+    uri: "https://example.test/mcp"
+  turned-off:
+    type: stdio
+    name: turned-off
+    enabled: false
+    cmd: npx

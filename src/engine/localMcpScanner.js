@@ -11,6 +11,26 @@
     'claude-desktop': Object.freeze({ id:'local-mcp-claude-desktop', name:'Claude Desktop MCP configuration', vendor:'Anthropic', type:'ai_assistant', agentName:'Claude Desktop' }),
     'claude-code': Object.freeze({ id:'local-mcp-claude-code', name:'Claude Code MCP configuration', vendor:'Anthropic', type:'coding_agent', agentName:'Claude Code' }),
     'cursor': Object.freeze({ id:'local-mcp-cursor', name:'Cursor MCP configuration', vendor:'Anysphere', type:'coding_agent', agentName:'Cursor' }),
+    'vscode': Object.freeze({ id:'local-mcp-vscode', name:'VS Code MCP configuration', vendor:'Microsoft', type:'coding_agent', agentName:'VS Code' }),
+    'copilot': Object.freeze({ id:'local-mcp-copilot', name:'GitHub Copilot MCP configuration', vendor:'GitHub', type:'coding_agent', agentName:'GitHub Copilot' }),
+    'windsurf': Object.freeze({ id:'local-mcp-windsurf', name:'Windsurf MCP configuration', vendor:'Cognition', type:'coding_agent', agentName:'Windsurf' }),
+    'cline': Object.freeze({ id:'local-mcp-cline', name:'Cline MCP configuration', vendor:'Cline', type:'coding_agent', agentName:'Cline' }),
+    'roo': Object.freeze({ id:'local-mcp-roo', name:'Roo Code MCP configuration', vendor:'Roo Code', type:'coding_agent', agentName:'Roo Code' }),
+    'continue': Object.freeze({ id:'local-mcp-continue', name:'Continue MCP configuration', vendor:'Continue', type:'coding_agent', agentName:'Continue' }),
+    'zed': Object.freeze({ id:'local-mcp-zed', name:'Zed MCP configuration', vendor:'Zed', type:'coding_agent', agentName:'Zed' }),
+    'gemini-cli': Object.freeze({ id:'local-mcp-gemini-cli', name:'Gemini CLI MCP configuration', vendor:'Google', type:'coding_agent', agentName:'Gemini CLI' }),
+    'codex': Object.freeze({ id:'local-mcp-codex', name:'Codex CLI MCP configuration', vendor:'OpenAI', type:'coding_agent', agentName:'Codex CLI' }),
+    'amazon-q': Object.freeze({ id:'local-mcp-amazon-q', name:'Amazon Q Developer MCP configuration', vendor:'Amazon', type:'coding_agent', agentName:'Amazon Q' }),
+    'jetbrains': Object.freeze({ id:'local-mcp-jetbrains', name:'JetBrains AI MCP configuration', vendor:'JetBrains', type:'coding_agent', agentName:'JetBrains' }),
+    'goose': Object.freeze({ id:'local-mcp-goose', name:'Goose extension configuration', vendor:'Block', type:'coding_agent', agentName:'Goose' }),
+    'lmstudio': Object.freeze({ id:'local-mcp-lmstudio', name:'LM Studio MCP configuration', vendor:'LM Studio', type:'ai_assistant', agentName:'LM Studio' }),
+    'chatgpt-app': Object.freeze({ id:'local-app-chatgpt', name:'ChatGPT desktop app', vendor:'OpenAI', type:'ai_assistant', agentName:'ChatGPT' }),
+    'claude-app': Object.freeze({ id:'local-app-claude', name:'Claude desktop app', vendor:'Anthropic', type:'ai_assistant', agentName:'Claude' }),
+    'copilot-app': Object.freeze({ id:'local-app-copilot', name:'Microsoft Copilot desktop app', vendor:'Microsoft', type:'ai_assistant', agentName:'Microsoft Copilot' }),
+    'perplexity-app': Object.freeze({ id:'local-app-perplexity', name:'Perplexity desktop app', vendor:'Perplexity', type:'ai_assistant', agentName:'Perplexity' }),
+    'ollama-app': Object.freeze({ id:'local-app-ollama', name:'Ollama app', vendor:'Ollama', type:'ai_assistant', agentName:'Ollama' }),
+    'browser-extension': Object.freeze({ id:'local-browser-extension', name:'AI browser extension', vendor:null, type:'ai_assistant', agentName:'Browser extension' }),
+    'provider-keys': Object.freeze({ id:'local-provider-keys', name:'Local AI provider credential names', vendor:null, type:'unknown', agentName:'Provider keys' }),
   });
   const SENSITIVE_NAME = /(token|secret|password|private[_-]?key|api[_-]?key|authorization|cookie|credential)/i;
   // Positional arguments have no field name to key off. Keep this deliberately
@@ -114,7 +134,9 @@
       id:models.stableId('agent', ['local-mcp', input.source, configPath || input.agentName || spec.agentName]),
       providerAgentId:models.stableId('local-mcp-agent', [input.source, configPath || input.agentName || spec.agentName]),
       name:typeof input.agentName === 'string' && input.agentName.trim() ? input.agentName.trim() : spec.agentName,
-      vendor:spec.vendor, type:spec.type, status:'active', deviceId:typeof input.deviceId === 'string' ? input.deviceId : null,
+      vendor:typeof input.vendor === 'string' && input.vendor.trim() ? input.vendor.trim() : spec.vendor,
+      type:typeof input.agentType === 'string' && input.agentType.trim() ? input.agentType.trim() : spec.type,
+      status:'active', deviceId:typeof input.deviceId === 'string' ? input.deviceId : null,
       confidence:0.85, source, createdAt:observedAt, updatedAt:observedAt,
     });
     const records = [];

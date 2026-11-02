@@ -9,25 +9,40 @@ const path = require('path');
 
 /** The scanned file and key path that hold a server for one client, or null. */
 function locateServer(client, descriptor, serverName) {
-  for (const file of descriptor.files) {
+  const discovered = (client.files || []).filter(file => typeof file.extract === 'function');
+  const files = discovered.length ? discovered : (descriptor && descriptor.files) || [];
+  for (const file of files) {
     const resolved = path.resolve(file.path);
     if (!fs.existsSync(resolved)) continue;
-    let json;
-    try { json = JSON.parse(fs.readFileSync(resolved, 'utf8')); } catch (_) { continue; }
-    const servers = file.extract(json) || {};
+    const format = file.format || 'json';
+    let parsed;
+    try {
+      const raw = fs.readFileSync(resolved, 'utf8');
+      parsed = file.parse ? file.parse(raw) : JSON.parse(raw);
+    } catch (_) { continue; }
+    const servers = file.extract(parsed) || {};
     if (!Object.prototype.hasOwnProperty.call(servers, serverName)) continue;
-    return { file: resolved, scope: file.scope, json };
+    if (format !== 'json') return { file: resolved, scope: file.scope, unsupportedFormat: format };
+    return { file: resolved, scope: file.scope, json: parsed };
   }
   return null;
 }
 
 /** Delete the server from every mcpServers block the client reads in this file. Returns how many blocks changed. */
+function deleteFromMap(map, serverName) {
+  if (map && typeof map === 'object' && !Array.isArray(map) && Object.prototype.hasOwnProperty.call(map, serverName)) {
+    delete map[serverName];
+    return 1;
+  }
+  return 0;
+}
+
 function deleteServer(json, serverName, cwd) {
   let removed = 0;
-  if (json.mcpServers && typeof json.mcpServers === 'object' && Object.prototype.hasOwnProperty.call(json.mcpServers, serverName)) {
-    delete json.mcpServers[serverName];
-    removed += 1;
-  }
+  removed += deleteFromMap(json.mcpServers, serverName);
+  removed += deleteFromMap(json.servers, serverName);
+  removed += deleteFromMap(json.context_servers, serverName);
+  if (json.mcp && typeof json.mcp === 'object') removed += deleteFromMap(json.mcp.servers, serverName);
   const project = json.projects && cwd && json.projects[cwd];
   if (project && project.mcpServers && typeof project.mcpServers === 'object' && Object.prototype.hasOwnProperty.call(project.mcpServers, serverName)) {
     delete project.mcpServers[serverName];

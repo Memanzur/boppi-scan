@@ -115,8 +115,17 @@ async function postBatch({ ingestUrl, token, records, snapshot, fetchImpl }) {
   } catch (error) {
     return { ok: false, networkError: error && error.cause && error.cause.message ? error.cause.message : (error.message || String(error)) };
   }
-  const body = await response.json().catch(() => ({}));
-  return { ok: response.ok, status: response.status, body };
+  const text = await response.text();
+  let body = {};
+  try { body = text ? JSON.parse(text) : {}; } catch (_) { body = {}; }
+  const vercelProtection = response.status === 401 && isVercelProtectionPage(text);
+  return { ok: response.ok, status: response.status, body, vercelProtection };
+}
+
+/** Vercel's deployment-protection interstitial, which is a 401 HTML page rather than an ingest error. */
+function isVercelProtectionPage(text) {
+  if (typeof text !== 'string' || !text) return false;
+  return /Protected deployment/i.test(text.slice(0, 12000));
 }
 
 /**
@@ -147,10 +156,13 @@ const FAILURE_HINT = Object.freeze({
 
 function describeFailure(result) {
   if (result.networkError) return `Could not reach the workspace: ${result.networkError}`;
+  if (result.vercelProtection) {
+    return 'Push rejected (HTTP 401): this site is behind Vercel protection. The request never reached the ingest API. Open the workspace in a browser and confirm the URL, or point --url at the unprotected workspace origin.';
+  }
   const message = (result.body && result.body.error) || 'unknown error';
   const hint = FAILURE_HINT[result.status];
   const requestId = result.body && result.body.requestId ? ` (request ${result.body.requestId})` : '';
   return `Push rejected (HTTP ${result.status}): ${message}${requestId}${hint ? `\n${hint}` : ''}`;
 }
 
-module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure };
+module.exports = { DEFAULT_WORKSPACE_URL, INGEST_PATH, SNAPSHOT_MAX, MERGE_BATCH, toRecords, resolveIngestUrl, workspaceUrl, counts, pushRecords, describeFailure, isVercelProtectionPage };

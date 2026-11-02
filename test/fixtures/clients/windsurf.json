@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"] },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-fetch"],
+      "env": { "OPENAI_API_KEY": "sk-ant-plaintexttestvalue123456" }
+    }
+  }
+}
