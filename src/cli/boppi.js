@@ -25,7 +25,7 @@ const securityGraph = require('../engine/securityGraph');
 const exposurePathEngine = require('../engine/exposurePathEngine');
 const rootCauseEngine = require('../engine/rootCauseEngine');
 
-const { createConfigProvider } = require('./provider');
+const { createConfigProvider, createKeyProvider } = require('./provider');
 const { enrich } = require('./simulate');
 const predict = require('./predict');
 const verify = require('./verify');
@@ -39,6 +39,8 @@ const sarif = require('./render/sarif');
 const fix = require('./fix');
 
 const VERSION = require('../../package.json').version;
+const catalog = require('./discovery/catalog');
+const presence = require('./discovery/presence');
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
 const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push']);
@@ -67,7 +69,7 @@ function usage() {
     '',
     'fix options:',
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
-    '  --client <key>      which client config to edit when the name exists in more than one: claude-desktop | claude-code | cursor',
+    '  --client <key>      which client config to edit when the name exists in more than one (a client id; boppi fix edits JSON configs)',
     '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
     '',
     'Options:',
@@ -75,9 +77,9 @@ function usage() {
     '  --html <file>       write a self-contained HTML report',
     '  --sarif <file>      write a SARIF 2.1.0 report (paths, findings, policy violations) for code scanning',
     '  --policy <file>     evaluate a boppi.policy.json guard; ./boppi.policy.json is used automatically when present',
-    '  --only <clients>    limit discovery, e.g. --only claude-desktop,cursor',
+    '  --only <clients>    limit discovery, e.g. --only claude-desktop,vscode,codex',
     '  --config <path>     scan one explicit config file (skip discovery)',
-    '  --source <id>       client type for --config: claude-desktop | claude-code | cursor',
+    '  --source <id>       client id for --config (see the discovery table in the README)',
     '  --fail-on <sev>     exit 1 if any finding or path is at/above this severity, 4 if a client could not be analyzed (CI usage)',
     '  --overlay <file>    apply a capability claims file; validated claims add inferred permissions, experimental ones are only reported',
     '  --quiet             one summary line only',
@@ -280,7 +282,22 @@ function renderHistory(file) {
 const ONLY_ALIASES = Object.freeze({
   claude: 'claude-desktop', 'claude-desktop': 'claude-desktop', desktop: 'claude-desktop',
   'claude-code': 'claude-code', code: 'claude-code', cursor: 'cursor',
+  ...catalog.EXTRA_ALIASES,
 });
+
+function wants(wanted, client) {
+  if (!wanted) return true;
+  if (wanted.has(client.clientKey)) return true;
+  if (client.group && wanted.has(client.group)) return true;
+  if (client.source && wanted.has(client.source)) return true;
+  return false;
+}
+
+function clientDescriptors(options) {
+  const ctx = { home: options.home, cwd: options.cwd, platform: options.platform };
+  const descriptors = [...CLIENTS.map(mod => mod.locate(ctx)), ...catalog.locateAll(ctx)];
+  return catalog.augmentProjectFiles(descriptors, options.home);
+}
 
 /** Per-machine secret that keys every path fingerprint. Created once, mode 600, never leaves the machine. */
 function loadFingerprintKey(home) {
@@ -306,42 +323,79 @@ function discover(options) {
   const descriptors = options.config
     ? [{
         clientKey: options.source, label: `Explicit config (${options.source})`, source: options.source,
-        files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || {} }],
+        files: [{ path: path.resolve(options.config), scope: 'explicit', extract: json => json.mcpServers || json.servers || {} }],
       }]
-    : CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform }));
+    : clientDescriptors(options);
 
   for (const descriptor of descriptors) {
-    if (wanted && !wanted.has(descriptor.clientKey)) continue;
+    if (!wants(wanted, descriptor)) continue;
     const client = { clientKey: descriptor.clientKey, label: descriptor.label, source: descriptor.source, files: [], mergedServers: {}, primaryPath: null };
     const seenPaths = new Set();
     for (const file of descriptor.files) {
       const resolved = path.resolve(file.path);
       if (seenPaths.has(resolved)) continue; // user and project config can be the same file
       seenPaths.add(resolved);
-      const entry = { path: resolved, scope: file.scope, status: 'not_found', serverCount: 0 };
+      const entry = {
+        path: resolved, scope: file.scope, status: 'not_found', serverCount: 0,
+        extract: file.extract, parse: file.parse, format: file.format || 'json',
+      };
       if (fs.existsSync(resolved)) {
-        try {
-          const json = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+        let stat;
+        try { stat = fs.statSync(resolved); } catch (error) {
+          entry.status = 'unreadable';
+          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : 'unreadable';
           filesRead.add(resolved);
-          const servers = file.extract(json) || {};
+          client.files.push(entry);
+          continue;
+        }
+        if (stat.isDirectory()) {
+          entry.status = 'unreadable';
+          entry.reason = 'this is a directory, not a config file';
+          filesRead.add(resolved);
+          client.files.push(entry);
+          continue;
+        }
+        if (stat.size > 2_000_000) {
+          entry.status = 'skipped';
+          entry.reason = 'larger than 2MB';
+          client.files.push(entry);
+          continue;
+        }
+        try {
+          const raw = fs.readFileSync(resolved, 'utf8');
+          filesRead.add(resolved);
+          const parsed = file.parse ? file.parse(raw) : JSON.parse(raw);
+          const servers = file.extract(parsed) || {};
           entry.status = 'found';
           entry.serverCount = Object.keys(servers).length;
           if (!client.primaryPath) client.primaryPath = resolved;
           for (const [name, server] of Object.entries(servers)) {
-            const key = client.mergedServers[name] ? `${name} (${file.scope})` : name;
+            let key = name;
+            if (client.mergedServers[key]) {
+              key = `${name} (${file.scope})`;
+              let n = 2;
+              while (client.mergedServers[key]) key = `${name} (${file.scope} ${n++})`;
+            }
             client.mergedServers[key] = server;
           }
         } catch (error) {
           entry.status = 'unreadable';
+          const format = file.format || 'json';
           entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied'
             : error.code === 'EISDIR' ? 'this is a directory, not a config file'
-            : 'invalid JSON';
+            : (format === 'toml' || format === 'yaml') ? 'invalid config' : 'invalid JSON';
           filesRead.add(resolved);
         }
       }
       client.files.push(entry);
     }
     clients.push(client);
+  }
+  if (!options.config) {
+    for (const client of presence.discoverPresence(options, filesRead).clients) {
+      if (!wants(wanted, client)) continue;
+      clients.push(client);
+    }
   }
   return { clients, filesRead: [...filesRead] };
 }
@@ -375,9 +429,46 @@ async function performScan(options) {
   const applied = [];
   const providers = [];
   const inferenceByClient = {};
+  const inlineCredentials = [];
   for (const client of discovery.clients) {
+    if (client.inventoryOnly) {
+      for (const install of client.installs || []) {
+        try {
+          const scannerResult = scanner.scanConfig({
+            source: install.source, consent: true, dryRun: true, config: { mcpServers: {} },
+            agentName: install.agentName, vendor: install.vendor, agentType: install.agentType, observedAt: startedAt,
+          });
+          providers.push(createConfigProvider({ clientKey: install.clientKey, label: install.agentName, scannerResult }));
+        } catch (error) {
+          client.scanError = error.message;
+        }
+      }
+      continue;
+    }
+    if (client.presenceOnly) {
+      if (!client.installed) continue;
+      try {
+        const scannerResult = scanner.scanConfig({
+          source: client.source, consent: true, dryRun: true, config: { mcpServers: {} },
+          agentName: client.label, observedAt: startedAt,
+        });
+        client.agentId = scannerResult.agent.id;
+        if (client.credentialNames && client.credentialNames.length) {
+          providers.push(createKeyProvider({ clientKey: client.clientKey, label: client.label, scannerResult, names: client.credentialNames, observedAt: startedAt }));
+        } else {
+          providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult }));
+        }
+      } catch (error) {
+        client.scanError = error.message;
+      }
+      continue;
+    }
     if (!client.primaryPath) continue; // nothing found for this client
     const { config, inferenceByServer, overlayByServer } = enrich(client.mergedServers, options.home, overlay);
+    for (const [serverName, inference] of Object.entries(inferenceByServer)) {
+      const hit = (inference.inferences || []).find(entry => entry.label && entry.label.startsWith('Plaintext credential'));
+      if (hit) inlineCredentials.push({ client: client.clientKey, label: client.label, server: serverName, names: hit.matched });
+    }
     inferenceByClient[client.clientKey] = inferenceByServer;
     shadow.push(...shadowEntries(client, overlayByServer));
     for (const [serverName, match] of Object.entries(overlayByServer)) for (const claim of match.validated) applied.push({ client: client.clientKey, server: serverName, package: match.package.name, claimId: claim.id, capability: claim.capability });
@@ -417,16 +508,19 @@ async function performScan(options) {
   const paths = exposurePathEngine.findPaths(graph);
   const prioritization = exposurePathEngine.prioritize(paths);
   const rootCauses = rootCauseEngine.clusterRootCauses(graph, paths, { limit: 5 });
-  const predictions = discovery.clients
+  const configClients = discovery.clients.filter(c => !c.presenceOnly && !c.inventoryOnly);
+  const predictions = configClients
     .filter(c => c.agentId && !c.scanError)
-    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION, otherClients: discovery.clients }));
+    .flatMap(client => predict.predictForClient({ client, inventory, graph, paths, observedAt: startedAt, home: options.home, overlay, scannerVersion: VERSION, otherClients: configClients }));
   const remediationPlan = predict.planFromPredictions(predictions, paths, { severityFloor: 'high' });
   const storageExport = await controller.getExport();
 
   const diagnostics = overlay
     ? { overlay: { file: overlay.file, claimCount: overlay.claimCount, activeCount: overlay.activeCount, rejected: overlay.rejected }, shadow, applied }
     : { shadow: [], applied: [] };
-  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport };
+  const credentialClient = discovery.clients.find(c => c.clientKey === 'provider-keys');
+  const credentialNames = credentialClient && credentialClient.credentialNames ? credentialClient.credentialNames : [];
+  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, credentialNames, inlineCredentials };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -459,6 +553,8 @@ function exportPayload(scan) {
     diagnostics: scan.diagnostics.overlay
       ? { ...scan.diagnostics, overlay: { ...scan.diagnostics.overlay, file: portablePath(scan.diagnostics.overlay.file, scan.home) } }
       : scan.diagnostics,
+    credentialNames: scan.credentialNames || [],
+    inlineCredentials: scan.inlineCredentials || [],
     generatedBy: `boppi-cli/${VERSION}`,
   };
 }
@@ -532,8 +628,12 @@ async function runFix(options) {
     return 2;
   }
   const client = candidates[0];
-  const descriptor = CLIENTS.map(m => m.locate({ home: options.home, cwd: options.cwd, platform: options.platform })).find(d => d.clientKey === client.clientKey);
+  const descriptor = clientDescriptors(options).find(d => d.clientKey === client.clientKey);
   const located = fix.locateServer(client, descriptor, options.server);
+  if (located && located.unsupportedFormat) {
+    process.stderr.write(`fix: "${options.server}" is in a ${located.unsupportedFormat} config (${located.file}). boppi fix only edits JSON MCP configs.\n`);
+    return 2;
+  }
   if (!located) {
     process.stderr.write(`fix: "${options.server}" is listed for ${client.label} but no readable file holds it.\n`);
     return 2;
@@ -681,6 +781,7 @@ async function run(argv) {
     version: VERSION, startedAt: scan.startedAt, durationMs: scan.durationMs,
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
     inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
+    credentialNames: scan.credentialNames || [], inlineCredentials: scan.inlineCredentials || [],
   };
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);

@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "filesystem": { "command": "uvx", "args": ["@modelcontextprotocol/server-filesystem"] },
+    "fetch": { "url": "https://example.test/mcp" }
+  }
+}

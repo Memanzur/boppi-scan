@@ -1,0 +1,11 @@
+{
+  // user settings mcp key (VS Code 1.99–1.101)
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      },
+    },
+  },
+}

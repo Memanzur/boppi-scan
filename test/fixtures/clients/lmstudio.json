@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"] },
+    "fetch": {
+      "url": "https://example.test/mcp",
+      "headers": { "Authorization": "Bearer sk-ant-plaintexttestvalue123456" }
+    }
+  }
+}

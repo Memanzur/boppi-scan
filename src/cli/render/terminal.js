@@ -70,6 +70,24 @@ function summaryLine(report) {
   return `${plural(inventory.agents.length, 'agent')} · ${plural(inventory.mcpServers.length, 'MCP server')} · ${plural(paths.length, 'exposure path')} (${criticalPaths} critical) · ${plural(inventory.findings.length, 'finding')} (${criticalFindings} critical)`;
 }
 
+function fileStatus(file) {
+  if (file.format === 'presence') {
+    if (file.status === 'found') return file.serverCount ? `${file.serverCount} installed` : 'installed';
+    if (file.status === 'unreadable') return `could not be scanned (${file.reason || 'unreadable'})`;
+    return 'not installed';
+  }
+  if (file.format === 'text') {
+    if (file.status === 'found') return file.serverCount ? `${file.serverCount} name${file.serverCount === 1 ? '' : 's'}` : 'no matching names';
+    if (file.status === 'unreadable') return `could not be scanned (${file.reason || 'unreadable'})`;
+    if (file.status === 'skipped') return `skipped (${file.reason || 'skipped'})`;
+    return 'not found';
+  }
+  if (file.status === 'found') return `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`;
+  if (file.status === 'unreadable') return `could not be scanned (${file.reason || 'invalid JSON'})`;
+  if (file.status === 'skipped') return `skipped (${file.reason || 'skipped'})`;
+  return 'not found';
+}
+
 function renderReport(report, options = {}) {
   const useColor = options.color !== false;
   const s = makeStyle(useColor);
@@ -91,12 +109,9 @@ function renderReport(report, options = {}) {
   for (const client of report.discovery) {
     for (const file of client.files) {
       const mark = file.status === 'found' ? s.green('  ✓ ') : file.status === 'unreadable' ? s.red('  ! ') : s.dim('  · ');
-      const status = file.status === 'found'
-        ? `${file.serverCount} server${file.serverCount === 1 ? '' : 's'}`
-        : file.status === 'unreadable' ? `could not be scanned (${file.reason || 'invalid JSON'})` : 'not found';
-      out(mark, pad(client.label, 16), pad(file.path, 64), '  ', s.dim(status));
+      out(mark, pad(client.label, 20), pad(file.path, 64), '  ', s.dim(fileStatus(file)));
     }
-    if (client.scanError) out(s.red('  ! '), pad(client.label, 16), s.red(`analysis failed (${client.scanError}) · this client is missing from every section below`));
+    if (client.scanError) out(s.red('  ! '), pad(client.label, 20), s.red(`analysis failed (${client.scanError}) · this client is missing from every section below`));
   }
   out('');
   const toolCount = report.inventory.mcpServers.reduce((sum, m) => sum + (m.exposedTools || []).length, 0);
@@ -129,6 +144,13 @@ function renderReport(report, options = {}) {
       const capabilities = (server.capabilities || []).join(', ') || 'no supported capability identified';
       out('  ', s.bold(server.name), s.dim(` · ${agent ? agent.name : 'unknown agent'} · capabilities: ${capabilities}`));
     }
+    out('');
+    out(s.bold('CREDENTIAL NAMES'), s.dim('  values are never collected'));
+    const credentialNames = report.credentialNames || [];
+    const inlineCredentials = report.inlineCredentials || [];
+    if (!credentialNames.length && !inlineCredentials.length) out(s.dim('  No provider key names in the environment or the checked dotfiles, and no plaintext credential flagged in an MCP config.'));
+    for (const entry of credentialNames) out('  ', entry.name, s.dim(`  present in ${entry.where}`));
+    for (const entry of inlineCredentials) out('  ', 'plaintext in config', s.dim(`  ${entry.label} · ${entry.server} · ${entry.names}`));
     out('');
     out(s.bold('COVERAGE'));
     out('  ', s.green('Established: '), `${report.inventory.agents.length} agent${report.inventory.agents.length === 1 ? '' : 's'}, ${report.inventory.mcpServers.length} MCP server${report.inventory.mcpServers.length === 1 ? '' : 's'}, and ${report.filesRead.length} configuration file${report.filesRead.length === 1 ? '' : 's'} examined.`);

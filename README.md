@@ -2,7 +2,7 @@
 
 See what your local AI agents can reach.
 
-`boppi scan` reads the MCP server configs for Claude Desktop, Claude Code, and Cursor on your machine, builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
+`boppi scan` reads the MCP and tool configs for the AI clients on your machine (Claude Desktop, Claude Code, Cursor, VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains, Goose, LM Studio, plus installed chat apps and known browser extensions), builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
 
 ```sh
 npx boppi scan
@@ -153,7 +153,7 @@ boppi push                     scan, then send the sanitized inventory to your B
 --html <file>       self-contained HTML report you can share
 --sarif <file>      SARIF 2.1.0 report for GitHub code scanning or any SARIF viewer
 --policy <file>     evaluate a policy file; ./boppi.policy.json is used automatically when present
---only <clients>    limit discovery: claude-desktop, claude-code, cursor
+--only <clients>    limit discovery to client ids (claude-desktop, cursor, vscode, windsurf, cline, roo, continue, zed, gemini-cli, codex, amazon-q, jetbrains, goose, lmstudio, copilot, browsers, ...)
 --config <path>     scan one explicit config file, skip discovery
 --source <id>       client type for --config
 --fail-on <sev>     exit 1 if any finding or path is at or above this severity
@@ -257,13 +257,32 @@ If a server entry contains something that looks like a secret in a place the sca
 
 ## Discovery targets
 
-| Client | Files |
-|--------|-------|
-| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\\Claude\\claude_desktop_config.json` on Windows |
-| Claude Code | `~/.claude.json`, plus `.mcp.json` in the working directory |
-| Cursor | `~/.cursor/mcp.json`, plus `.cursor/mcp.json` in the working directory |
+Paths below are the ones each product documents. On macOS, editor data lives under `~/Library/Application Support`; on Linux, `~/.config`; on Windows, `%APPDATA%` (or `%LOCALAPPDATA%` for browser profiles). A missing file is reported as not found.
 
-Windsurf and VS Code are not discovered yet. Pull requests welcome. Each client is one file under `src/cli/discovery/`.
+| Client | What is read |
+|--------|----------------|
+| Claude Desktop | `claude_desktop_config.json` in the Claude config directory |
+| Claude Code | `~/.claude.json`, plus project `.mcp.json` in the working directory and (bounded) under common code folders |
+| Cursor | `~/.cursor/mcp.json`, plus project `.cursor/mcp.json` in the working directory and under those same folders |
+| VS Code | User `settings.json` key `mcp`, user `mcp.json`, and workspace `.vscode/mcp.json`. The `servers` object is the current file shape; the settings `mcp` key is the older one |
+| GitHub Copilot | `~/.copilot/mcp-config.json` (or `$COPILOT_HOME` when scanning the real home) and project `.mcp.json`, which Copilot documents as its portable config |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json`. Devin Desktop also documents `~/.config/devin/mcp_config.json` (`%APPDATA%\\devin\\mcp_config.json` on Windows) and `.devin/mcp_config.json`; those are read on the same client |
+| Cline | `cline_mcp_settings.json` in the VS Code globalStorage directory `saoudrizwan.claude-dev` (also Cursor and Windsurf, which use the same layout) |
+| Roo Code | `mcp_settings.json` in `rooveterinaryinc.roo-cline` globalStorage, and the legacy `cline_mcp_settings.json` name |
+| Continue | `~/.continue/config.yaml` (list under `mcpServers`), legacy `config.json`, and `mcpServers/*` block files |
+| Zed | `settings.json` key `context_servers` (macOS and Linux paths are in Zed's docs; Windows is `%APPDATA%\\Zed\\settings.json`) |
+| Gemini CLI | `~/.gemini/settings.json` and `.gemini/settings.json`, key `mcpServers` |
+| Codex CLI | `~/.codex/config.toml` (`$CODEX_HOME` when scanning the real home) and `.codex/config.toml`, tables `[mcp_servers.<name>]` |
+| Amazon Q | `~/.aws/amazonq/default.json` and legacy `mcp.json`, plus `.amazonq/` in the project. Per-tool allow/deny toggles are not in the public file schema, so they are not read |
+| JetBrains / Junie | `~/.junie/mcp/mcp.json` and `.junie/mcp/mcp.json` (Junie's documented paths). AI Assistant's help page only documents the Settings UI; `JetBrains/AIAssistant/mcp.json` and `JetBrains/<Product><Version>/mcp.json` are also checked |
+| Goose | `~/.config/goose/config.yaml` (`%APPDATA%\\Block\\goose\\config\\config.yaml` on Windows). Enabled extensions are the tool servers; the bundled `developer` extension is file and shell access |
+| LM Studio | `~/.lmstudio/mcp.json` |
+
+Project `.mcp.json` and `.cursor/mcp.json` are also collected under `~/Projects`, `~/Developer`, `~/dev`, `~/code`, `~/src`, `~/repos`, `~/source`, `~/work`, `~/github`, `~/GitHub`, `~/workspace`, and `~/Documents/GitHub`, two levels deep. `node_modules` and other dependency directories are not entered.
+
+Installed desktop apps (ChatGPT, Claude, Microsoft Copilot, Perplexity, Ollama) and browser extensions are inventory only: the scanner checks that the app or extension directory exists and does not read the bundle. Extension ids are the Chrome Web Store ids in `src/cli/discovery/presence.js` (ChatGPT, Claude, Perplexity, Grammarly). Gemini in Chrome is part of the browser, not a store extension. No first-party Copilot extension id is published, so none is guessed.
+
+Provider key **names** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `HF_TOKEN`, and the AWS credential names Bedrock uses) are detected in the environment and in a fixed list of dotfiles (`~/.zshrc`, `~/.bashrc`, `~/.aws/credentials`, Goose `secrets.yaml`, and the other shells listed in code). Values are not recorded. A credential-shaped value inside an MCP config is flagged and redacted.
 
 ## Support
 

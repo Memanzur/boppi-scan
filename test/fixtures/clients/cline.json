@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"], "autoApprove": ["read_file"] },
+    "fetch": { "url": "https://example.test/mcp" },
+    "turned-off": { "command": "npx", "args": ["-y", "nope"], "disabled": true }
+  }
+}

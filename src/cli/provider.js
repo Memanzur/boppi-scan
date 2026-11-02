@@ -47,7 +47,13 @@ function overlayPermission(agent, server, claim, observedAt) {
   });
 }
 
+function plaintextInference(inference, capability) {
+  return inference && inference.inferences.find(entry => entry.capabilities.includes(capability) && typeof entry.label === 'string' && entry.label.startsWith('Plaintext credential'));
+}
+
 function reasonFor(capability, server, inference) {
+  const plaintext = plaintextInference(inference, capability);
+  if (plaintext) return `A value in the MCP config matches a credential pattern (${plaintext.matched}). The value was not recorded.`;
   if (capability === 'environment_access') return 'Environment variable names are configured for this server; values are never collected.';
   if (capability === 'credential_access' && (server.credentialReferences || []).length) {
     return 'Environment variable names indicate credential references; values are never collected.';
@@ -59,6 +65,7 @@ function reasonFor(capability, server, inference) {
 
 function isInferred(capability, server, inference) {
   if (capability === 'environment_access') return false;
+  if (plaintextInference(inference, capability)) return false;
   if (capability === 'credential_access' && (server.credentialReferences || []).length) return false;
   return !!(inference && inference.inferences.some(entry => entry.capabilities.includes(capability)));
 }
@@ -111,4 +118,31 @@ function createConfigProvider({ clientKey, label, scannerResult, inferenceByServ
   };
 }
 
-module.exports = { createConfigProvider, derivePermissions, CAP_TO_CATEGORY };
+/** Provider-key names are permissions on one agent. The values are not on the record. */
+function createKeyProvider({ clientKey, label, scannerResult, names, observedAt }) {
+  const base = createConfigProvider({ clientKey, label, scannerResult });
+  return {
+    ...base,
+    normalize: (raw, context = {}) => {
+      const normalized = base.normalize(raw, context);
+      const when = context.now || observedAt || new Date().toISOString();
+      for (const entry of names || []) {
+        normalized.permissions.push(models.createPermission({
+          agentId: raw.agent.id,
+          rawPermission: `${entry.name} (present in ${entry.where}, value not collected)`,
+          normalizedCategory: 'access_credentials',
+          accessLevel: 'broad',
+          riskWeight: 3,
+          normalizationConfidence: 0.9,
+          normalizationReason: `The name ${entry.name} is set in ${entry.where}. The value was not collected.`,
+          source: { ...raw.agent.source, evidenceClass: 'observed' },
+          createdAt: when,
+          updatedAt: when,
+        }));
+      }
+      return normalized;
+    },
+  };
+}
+
+module.exports = { createConfigProvider, createKeyProvider, derivePermissions, CAP_TO_CATEGORY };
