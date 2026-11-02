@@ -6,25 +6,7 @@
 const { securityScore } = require('./securityScore');
 
 const SEVERITY_RANK = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
-const PATH_RULE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-
-function coveredFinding(paths) {
-  const covered = new Set();
-  for (const path of paths || []) {
-    const rule = PATH_RULE[path.templateId];
-    if (rule) covered.add(`${path.agentId}:${rule}`);
-  }
-  return covered;
-}
-
-/** Findings the score should count: every exposure path, plus an open rule finding that is not already that path. */
-function scoreFindings(paths, findings) {
-  const covered = coveredFinding(paths);
-  const open = (findings || []).filter(finding => !['resolved', 'accepted_risk', 'false_positive'].includes(finding.status));
-  const extra = open.filter(finding => !covered.has(`${finding.agentId}:${finding.ruleId}`));
-  return [...(paths || []).map(path => ({ severity: path.severity })), ...extra.map(finding => ({ severity: finding.severity }))];
-}
 
 function hostnameOf(endpoint) {
   if (typeof endpoint !== 'string' || !endpoint) return null;
@@ -172,14 +154,15 @@ function topRisks(report, home) {
 }
 
 function buildSecurityReport(report, home) {
-  const scored = securityScore(scoreFindings(report.paths, report.inventory && report.inventory.findings));
+  // Paths only. A rule finding that restates a path is not a second penalty.
+  const scored = securityScore(report.paths);
   const risks = topRisks(report, home);
   const keys = exposedKeyNames(report);
   return {
     score: scored.score,
     grade: scored.grade,
     higherIsSafer: true,
-    riskPoints: scored.riskPoints,
+    penalty: scored.penalty,
     counts: {
       aiTools: ((report.inventory && report.inventory.agents) || []).length,
       toolServers: ((report.inventory && report.inventory.mcpServers) || []).length,
@@ -193,4 +176,4 @@ function buildSecurityReport(report, home) {
 
 const CLOSING_LINE = 'See history, teams and approvals: npx boppi push';
 
-module.exports = { buildSecurityReport, securityScore, sentenceFor, fixCommand, CLOSING_LINE, scoreFindings };
+module.exports = { buildSecurityReport, securityScore, sentenceFor, fixCommand, CLOSING_LINE };

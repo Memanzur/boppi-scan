@@ -93,7 +93,7 @@ function renderBriefReport(report, options = {}) {
   const useColor = options.color !== false;
   const s = makeStyle(useColor);
   const security = report.securityReport || buildSecurityReport(report, report.home);
-  const paint = security.score >= 76 ? s.green : security.score >= 51 ? s.yellow : s.red;
+  const paint = security.score >= 75 ? s.green : security.score >= 50 ? s.yellow : s.red;
   const lines = [];
   const out = (...values) => lines.push(values.join(''));
   const counts = security.counts;
@@ -105,7 +105,7 @@ function renderBriefReport(report, options = {}) {
   if (security.clean) {
     out(s.green('No risky AI access found'));
   } else if (!security.risks.length) {
-    out(s.dim('No exposure path to list. The score still counts other open findings.'));
+    out(s.dim('No exposure path to list.'));
   } else {
     out(s.bold('TOP RISKS'));
     security.risks.forEach((risk, index) => {

@@ -6,6 +6,8 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { securityScore } = require('../src/cli/securityScore');
+const { buildSecurityReport } = require('../src/cli/securityReport');
+const VECTOR = require('./fixtures/security-score-vector.json');
 const { parseArgs } = require('../src/cli/boppi');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
@@ -23,16 +25,19 @@ function runCli(args, home) {
 }
 
 (function formula() {
-  section('Security score formula');
-  const none = securityScore([]);
-  ok('no findings is 100 A', none.score === 100 && none.grade === 'A' && none.higherIsSafer === true);
-  ok('one medium finding is 90 B', securityScore([{ severity: 'medium' }]).score === 90 && securityScore([{ severity: 'medium' }]).grade === 'B');
-  ok('one critical finding is 60 C', securityScore([{ severity: 'critical' }]).score === 60 && securityScore([{ severity: 'critical' }]).grade === 'C');
-  ok('two criticals is 20 F', securityScore([{ severity: 'critical' }, { severity: 'critical' }]).score === 20 && securityScore([{ severity: 'critical' }, { severity: 'critical' }]).grade === 'F');
-  ok('three criticals stay capped at 0 F', securityScore([{ severity: 'critical' }, { severity: 'critical' }, { severity: 'critical' }]).score === 0);
-  ok('24 low findings are grade F', securityScore(Array.from({ length: 24 }, () => ({ severity: 'low' }))).grade === 'F');
-  ok('one high finding is 75 C', securityScore([{ severity: 'high' }]).score === 75 && securityScore([{ severity: 'high' }]).grade === 'C');
-  ok('50 risk points is grade D', securityScore([{ severity: 'high' }, { severity: 'high' }]).score === 50 && securityScore([{ severity: 'high' }, { severity: 'high' }]).grade === 'D');
+  section('Shared security-score vector');
+  ok('the vector names the control-plane source', VECTOR.source.includes('lib/risk-score.ts') && VECTOR.cases.length >= 5);
+  for (const item of VECTOR.cases) {
+    const result = securityScore(item.paths.map(severity => ({ severity })));
+    ok(`${item.id} is ${item.score} ${item.grade}`, result.score === item.score && result.grade === item.grade && result.penalty === item.penalty && result.higherIsSafer === true);
+  }
+  const findingsOnly = buildSecurityReport({
+    paths: [],
+    inventory: { agents: [], mcpServers: [], findings: [{ severity: 'critical', status: 'open', ruleId: 'AE-006', agentId: 'a' }] },
+    predictions: [], discovery: [], credentialNames: [], inlineCredentials: [],
+  }, '/tmp');
+  ok('a rule finding with no exposure path leaves the score at 100', findingsOnly.score === 100 && findingsOnly.grade === 'A' && findingsOnly.clean === true);
+  ok('the penalty is capped at 100', securityScore(Array.from({ length: 40 }, () => ({ severity: 'critical' }))).score === 0);
 })();
 
 (function scan() {
