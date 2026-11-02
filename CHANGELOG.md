@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
+
+Discovers the AI clients people actually run, not only Claude Desktop, Claude Code, and Cursor.
 
 - Discovers MCP and tool configs for VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains/Junie, Goose, and LM Studio, and project `.mcp.json` / `.cursor/mcp.json` under common code folders.
 - Inventory-only detection of ChatGPT, Claude, Copilot, Perplexity, and Ollama desktop apps, and of known AI browser extensions in Chrome, Edge, Brave, and Arc profiles.

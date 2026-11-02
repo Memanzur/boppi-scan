@@ -8,7 +8,7 @@ See what your local AI agents can reach.
 npx boppi scan
 ```
 
-Node 18 or newer. Tested on macOS. Linux and Windows config locations are looked up but not yet verified on real machines.
+Node 18 or newer. **0.4.0** adds VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains, Goose, and LM Studio, plus installed chat apps, known browser extensions, and provider-key names (values are never collected). Tested on macOS. Linux and Windows config locations are looked up but not yet verified on real machines.
 
 ## Free beta
 
@@ -230,7 +230,7 @@ Fails the job when a path or finding at or above the threshold exists in that fi
 As a GitHub Action, with the SARIF uploaded to code scanning:
 
 ```yaml
-- uses: Memanzur/boppi-scan@v0.3.0
+- uses: Memanzur/boppi-scan@v0.4.0
   with:
     config: .mcp.json
     source: claude-code
