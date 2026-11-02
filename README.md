@@ -111,6 +111,14 @@ A plain `npx boppi scan` with no export flags ends with one more line, `See this
 
 The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone. `boppi verify boppi-scan.json` then checks that prediction against the real machine after you make the edit.
 
+## Security score
+
+`boppi` and `boppi scan` print a security score from 0 to 100. Higher is safer. 100, grade A, means no risky AI access. The letter grades are A at 100, B from 76 to 99, C from 51 to 75, D from 26 to 50, and F from 0 to 25.
+
+The number is `100` minus risk points. Risk points are 40 for each critical finding, 25 for high, 10 for medium, and 4 for low, capped at 100. That is the control plane's current formula, inverted so the terminal shows safety instead of danger. The weights live in one function, `securityScore` in `src/cli/securityScore.js`, so they can be swapped when the control plane revises them. A critical path and the rule finding that restates it are counted once.
+
+The same screen lists how many AI tools, tool servers, and exposed key names were found, then up to three risks in a sentence that names the tool and the resource (`~/.ssh`, the home folder, a shell, or a key name) and the server or domain the data can leave through. Each risk is followed by a real `boppi fix` command. Secret values are not printed. `--json <file>` writes the same score, counts, and risks under `securityReport`.
+
 ## How it works
 
 1. **Discover.** Locate each client's MCP config files. A missing file is reported as not found, never as an error.
