@@ -57,7 +57,7 @@ function makeHome(root) {
     return { code: result.status, stdout: result.stdout || '', stderr: result.stderr || '', attempts: fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) };
   }
 
-  const scan = run(['scan', '--json', exportPath, '--html', path.join(root, 'report.html')]);
+  const scan = run(['scan', '--verbose', '--json', exportPath, '--html', path.join(root, 'report.html')]);
   ok('scan completes with the hooks installed', scan.code === 0 && scan.stdout.includes('INVENTORY'));
   ok('scan opens no socket, DNS lookup, or fetch', scan.attempts.length === 0);
   ok('scan still finds exposure paths, so the hooks did not disable the engine', /\d+ exposure paths? \(\d+ critical\)/.test(scan.stdout) && !scan.stdout.includes('0 exposure paths'));

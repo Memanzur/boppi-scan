@@ -107,9 +107,17 @@ PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left t
 JSON export written to boppi-scan.json
 ```
 
-A plain `npx boppi scan` with no export flags ends with one more line, `See this across your team: npx boppi push   (free beta, https://app.boppi.io)`.
+A plain `npx boppi scan` with no export flags ends with one more line, `See history, teams and approvals: npx boppi push`.
 
 The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone. `boppi verify boppi-scan.json` then checks that prediction against the real machine after you make the edit.
+
+## Security score
+
+`boppi` and `boppi scan` print a security score from 0 to 100. Higher is safer. 100, grade A, means no risky exposure paths. Grades are A at 100, B from 75 to 99, C from 50 to 74, D from 25 to 49, and F from 0 to 24.
+
+The score counts exposure paths only, not rule-engine findings. Within one severity the nth path subtracts weight/n: 28 for critical, 16 for high, 6 for medium, and 2 for low. That sum is rounded once and capped at 100, and the score is 100 minus that penalty. The same function, `securityScore` in `src/cli/securityScore.js`, is what the control plane uses (`lib/risk-score.ts`). The shared cases are in `test/fixtures/security-score-vector.json`.
+
+The same screen lists how many AI tools, tool servers, and exposed key names were found, then up to three risks in a sentence that names the tool and the resource (`~/.ssh`, the home folder, a shell, or a key name) and the server or domain the data can leave through. Each risk is followed by a real `boppi fix` command. Secret values are not printed. `--json <file>` writes the same score, counts, and risks under `securityReport`.
 
 ## How it works
 

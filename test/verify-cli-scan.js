@@ -49,7 +49,7 @@ function runCli(args, home) {
   section('Discovery and full scan report');
   const jsonPath = path.join(root, 'export.json');
   const htmlPath = path.join(root, 'report.html');
-  const scan = runCli(['scan', '--json', jsonPath, '--html', htmlPath], home);
+  const scan = runCli(['scan', '--verbose', '--json', jsonPath, '--html', htmlPath], home);
   ok('scan exits 0 without --fail-on', scan.code === 0);
   ok('all three clients are discovered', ['Claude Desktop', 'Claude Code', 'Cursor'].every(label => scan.stdout.includes(label)));
   ok('missing project config is reported as not found, not an error', scan.stdout.includes('.mcp.json') && scan.stdout.includes('not found'));
@@ -171,10 +171,10 @@ function runCli(args, home) {
   const pathsOnly = runCli(['paths'], home);
   ok('paths subcommand prints paths without findings section', pathsOnly.stdout.includes('EXPOSURE PATHS') && !pathsOnly.stdout.includes('FINDINGS ('));
   const onlyCursor = runCli(['scan', '--only', 'cursor'], home);
-  ok('--only cursor limits the scan to one agent', onlyCursor.stdout.includes('1 agent ') && !onlyCursor.stdout.includes('Claude Desktop'));
+  ok('--only cursor limits the scan to one agent', onlyCursor.stdout.includes('1 AI tool') && !onlyCursor.stdout.includes('Claude Desktop'));
   const quiet = runCli(['scan', '--quiet'], home);
   ok('--quiet prints a compact summary', quiet.stdout.trim().split('\n').length <= 2 && quiet.stdout.includes('3 agents'));
-  const PUSH_HINT = 'See this across your team: npx boppi push';
+  const PUSH_HINT = 'See history, teams and approvals: npx boppi push';
   ok('a plain scan ends with the team dashboard hint', onlyCursor.stdout.trimEnd().split('\n').pop().startsWith(PUSH_HINT));
   ok('the hint stays out of exports, --quiet, and other commands', ![scan, quiet, agentsOnly, pathsOnly].some(r => r.stdout.includes(PUSH_HINT)));
 
@@ -201,13 +201,13 @@ function runCli(args, home) {
   const cleanHome = path.join(root, 'clean-home');
   fs.mkdirSync(path.join(cleanHome, 'Library', 'Application Support', 'Claude'), { recursive: true });
   fs.writeFileSync(path.join(cleanHome, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'] } } }));
-  const clean = runCli(['scan', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
+  const clean = runCli(['scan', '--verbose', '--only', 'claude-desktop', '--history-file', path.join(root, 'clean-history.json')], cleanHome);
   ok('clean scan exits successfully', clean.code === 0);
   ok('clean scan still shows inventory and examined file', clean.stdout.includes('MCP SERVERS (1)') && clean.stdout.includes('claude_desktop_config.json'));
   ok('clean scan explains what it could not establish', clean.stdout.includes('runtime behavior') && clean.stdout.includes('not proof that the environment is safe'));
 
   section('Explicit --config mode');
-  const explicit = runCli(['scan', '--config', path.join(home, '.cursor', 'mcp.json'), '--source', 'cursor'], home);
+  const explicit = runCli(['scan', '--verbose', '--config', path.join(home, '.cursor', 'mcp.json'), '--source', 'cursor'], home);
   ok('explicit config scan works', explicit.code === 0 && explicit.stdout.includes('1 agent '));
   ok('explicit config reports its file in the privacy footer', explicit.stdout.includes(path.join(home, '.cursor', 'mcp.json')));
   const outsideHome = path.join(root, 'outside.json');
@@ -234,13 +234,13 @@ function runCli(args, home) {
   const linuxHome = path.join(root, 'linux-home');
   fs.mkdirSync(path.join(linuxHome, '.config', 'Claude'), { recursive: true });
   fs.writeFileSync(path.join(linuxHome, '.config', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
-  const linux = runCli(['scan', '--only', 'claude-desktop', '--platform', 'linux', '--history-file', path.join(root, 'linux-history.json')], linuxHome);
+  const linux = runCli(['scan', '--verbose', '--only', 'claude-desktop', '--platform', 'linux', '--history-file', path.join(root, 'linux-history.json')], linuxHome);
   ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes('.config/Claude/claude_desktop_config.json') && linux.stdout.includes('1 MCP server'));
   const winHome = path.join(root, 'win-home');
   const appData = path.join(winHome, 'AppData', 'Roaming');
   fs.mkdirSync(path.join(appData, 'Claude'), { recursive: true });
   fs.writeFileSync(path.join(appData, 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
-  const win = spawnSync(process.execPath, [CLI, 'scan', '--only', 'claude-desktop', '--platform', 'win32', '--home', winHome, '--cwd', winHome, '--no-color', '--history-file', path.join(root, 'win-history.json')], { encoding: 'utf8', env: { ...process.env, APPDATA: appData } });
+  const win = spawnSync(process.execPath, [CLI, 'scan', '--verbose', '--only', 'claude-desktop', '--platform', 'win32', '--home', winHome, '--cwd', winHome, '--no-color', '--history-file', path.join(root, 'win-history.json')], { encoding: 'utf8', env: { ...process.env, APPDATA: appData } });
   ok('on windows Claude Desktop is read from %APPDATA%\\Claude', win.status === 0 && (win.stdout || '').includes(path.join('Claude', 'claude_desktop_config.json')) && (win.stdout || '').includes('1 MCP server'));
   ok('an unknown --platform exits 2', runCli(['scan', '--platform', 'beos'], home).code === 2);
 
@@ -258,7 +258,7 @@ function runCli(args, home) {
   const brokenHome = path.join(root, 'broken-home');
   fs.mkdirSync(path.join(brokenHome, '.cursor'), { recursive: true });
   fs.writeFileSync(path.join(brokenHome, '.cursor', 'mcp.json'), '{ not json');
-  const broken = runCli(['scan'], brokenHome);
+  const broken = runCli(['scan', '--verbose'], brokenHome);
   ok('invalid JSON config is reported and skipped', broken.code === 4 && broken.stdout.includes('could not be scanned (invalid JSON)'));
 
   section('Server names that resemble secret keys still scan');
@@ -271,7 +271,7 @@ function runCli(args, home) {
       fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
     },
   }));
-  const vault = runCli(['scan', '--only', 'claude-desktop'], vaultHome);
+  const vault = runCli(['scan', '--verbose', '--only', 'claude-desktop'], vaultHome);
   ok('a server named 1password does not drop the Claude Desktop agent', vault.code === 0 && vault.stdout.includes('1 agent ') && vault.stdout.includes('3 MCP servers'));
   const credentialPath = (vault.stdout.split('EP-B')[1] || '').split('\n')[1] || '';
   ok('credential exposure path (EP-B) through 1password is reported', credentialPath.includes('1password') && credentialPath.includes('access credentials'));
@@ -279,7 +279,7 @@ function runCli(args, home) {
   const secretName = path.join(root, 'secret-name-home');
   fs.mkdirSync(path.join(secretName, '.cursor'), { recursive: true });
   fs.writeFileSync(path.join(secretName, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { 'sk-abcdefghijklmnopqrstuv': { command: 'npx', args: ['-y', 'x'] } } }));
-  const rejected = runCli(['scan', '--only', 'cursor'], secretName);
+  const rejected = runCli(['scan', '--verbose', '--only', 'cursor'], secretName);
   ok('a config rejected by the sanitizer shows the reason instead of "invalid JSON"', rejected.code === 4 && rejected.stdout.includes('could not be scanned (') && rejected.stdout.includes('secret material'));
 
   fs.rmSync(root, { recursive: true, force: true });

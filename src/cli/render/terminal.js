@@ -1,6 +1,7 @@
 /** ANSI terminal report renderer for the Boppi CLI. */
 'use strict';
 const { rankPredictions } = require('../predict');
+const { buildSecurityReport, CLOSING_LINE } = require('../securityReport');
 
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
@@ -88,7 +89,41 @@ function fileStatus(file) {
   return 'not found';
 }
 
+function renderBriefReport(report, options = {}) {
+  const useColor = options.color !== false;
+  const s = makeStyle(useColor);
+  const security = report.securityReport || buildSecurityReport(report, report.home);
+  const paint = security.score >= 75 ? s.green : security.score >= 50 ? s.yellow : s.red;
+  const lines = [];
+  const out = (...values) => lines.push(values.join(''));
+  const counts = security.counts;
+  out(s.bold('BOPPI'), s.dim(' · Security score · '), paint(s.bold(`${security.score}/100 ${security.grade}`)));
+  out(s.dim('Higher is safer'));
+  out('');
+  out(`${counts.aiTools} AI tool${counts.aiTools === 1 ? '' : 's'} · ${counts.toolServers} tool server${counts.toolServers === 1 ? '' : 's'} · ${counts.exposedKeys} exposed key${counts.exposedKeys === 1 ? '' : 's'}`);
+  out('');
+  if (security.clean) {
+    out(s.green('No risky AI access found'));
+  } else if (!security.risks.length) {
+    out(s.dim('No exposure path to list.'));
+  } else {
+    out(s.bold('TOP RISKS'));
+    security.risks.forEach((risk, index) => {
+      const badge = risk.severity === 'critical' || risk.severity === 'high' ? s.red(risk.severity.toUpperCase()) : s.yellow(risk.severity.toUpperCase());
+      out(`  ${index + 1}. ${badge}  ${risk.sentence}`);
+      if (risk.fix) out(s.dim(`     ${risk.fix}`));
+    });
+  }
+  if (report.incomplete && report.incomplete.length) out('', s.yellow(`Incomplete: ${report.incomplete.join(', ')}`));
+  if (!options.json && !options.html && !options.sarif) {
+    out('');
+    out(s.dim(CLOSING_LINE));
+  }
+  return lines.join('\n');
+}
+
 function renderReport(report, options = {}) {
+  if ((options.command || 'scan') === 'scan' && !options.verbose && !options.quiet) return renderBriefReport(report, options);
   const useColor = options.color !== false;
   const s = makeStyle(useColor);
   const command = options.command || 'scan';
@@ -249,8 +284,9 @@ function renderReport(report, options = {}) {
 
 /** The closing line of a plain `boppi scan`, so solo users find the team dashboard. Nothing for exports, --quiet, or other commands. */
 function pushHint(options = {}) {
-  if (options.command !== 'scan' || options.quiet || options.json || options.html || options.sarif) return '';
-  return makeStyle(options.color !== false).dim('See this across your team: npx boppi push   (free beta, https://app.boppi.io)');
+  // The short report already ends with this line. Verbose keeps the long report and adds it here.
+  if (!options.verbose || options.command !== 'scan' || options.quiet || options.json || options.html || options.sarif) return '';
+  return makeStyle(options.color !== false).dim(CLOSING_LINE);
 }
 
-module.exports = { renderReport, summaryLine, pushHint, PATH_RULE_FOR_TEMPLATE };
+module.exports = { renderReport, renderBriefReport, summaryLine, pushHint, PATH_RULE_FOR_TEMPLATE, CLOSING_LINE };

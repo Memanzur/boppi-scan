@@ -31,6 +31,7 @@ const predict = require('./predict');
 const verify = require('./verify');
 const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
+const { buildSecurityReport } = require('./securityReport');
 const html = require('./render/html');
 const push = require('./push');
 const plan = require('./plan');
@@ -51,7 +52,8 @@ function usage() {
   return [
     'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push] [options]',
     '',
-    '  boppi scan                     discover local AI agent configs, scan, print the full report',
+    '  boppi                          same as boppi scan',
+    '  boppi scan                     security score, counts, and the top 3 risks (--verbose for the full report)',
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
     '  boppi plan                     compare every candidate fix (paths broken, new paths, capabilities lost) and show the exact edits; changes nothing',
@@ -555,6 +557,7 @@ function exportPayload(scan) {
       : scan.diagnostics,
     credentialNames: scan.credentialNames || [],
     inlineCredentials: scan.inlineCredentials || [],
+    securityReport: scan.securityReport || null,
     generatedBy: `boppi-cli/${VERSION}`,
   };
 }
@@ -782,7 +785,10 @@ async function run(argv) {
     discovery: discovery.clients, filesRead: discovery.filesRead, portableFilesRead: scan.portableDiscovery.filesRead,
     inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
     credentialNames: scan.credentialNames || [], inlineCredentials: scan.inlineCredentials || [],
+    home: scan.home,
   };
+  report.securityReport = buildSecurityReport(report, scan.home);
+  scan.securityReport = report.securityReport;
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);
   if (policyFile) {
