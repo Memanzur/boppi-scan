@@ -190,7 +190,11 @@ function normalizeSpec(spec) {
   if (env && typeof env === 'object' && !Array.isArray(env)) out.env = env;
   if (url) out.url = url;
   if (spec.headers && typeof spec.headers === 'object' && !Array.isArray(spec.headers)) out.headers = spec.headers;
-  if (Array.isArray(spec.autoApprove)) out.tools = spec.autoApprove.filter(value => typeof value === 'string');
+  if (Array.isArray(spec.autoApprove)) {
+    const approved = spec.autoApprove.filter(value => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,80}$/.test(value));
+    out.tools = approved;
+    if (approved.length) out.autoApproveCount = approved.length;
+  }
   if (Array.isArray(spec.tools)) out.tools = spec.tools.filter(value => typeof value === 'string');
   if (Array.isArray(spec.capabilities)) out.capabilities = spec.capabilities.filter(value => typeof value === 'string');
   if (spec.trustStatus === 'verified' || spec.trustStatus === 'unverified') out.trustStatus = spec.trustStatus;
