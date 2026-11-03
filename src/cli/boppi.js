@@ -32,6 +32,8 @@ const verify = require('./verify');
 const overlayModule = require('./overlay');
 const terminal = require('./render/terminal');
 const { buildSecurityReport } = require('./securityReport');
+const { buildFirstRun } = require('./firstRun');
+const { readClaudePermissions } = require('./discovery/claudePermissions');
 const html = require('./render/html');
 const push = require('./push');
 const plan = require('./plan');
@@ -420,6 +422,7 @@ async function performScan(options) {
   const startMs = Date.now();
 
   const discovery = discover(options);
+  const claudeSettings = options.config ? [] : readClaudePermissions({ home: options.home, cwd: options.cwd, filesRead: discovery.filesRead });
   let overlay = null;
   if (options.overlay) {
     try { overlay = overlayModule.loadOverlay(options.overlay); } catch (error) {
@@ -522,7 +525,7 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   const credentialClient = discovery.clients.find(c => c.clientKey === 'provider-keys');
   const credentialNames = credentialClient && credentialClient.credentialNames ? credentialClient.credentialNames : [];
-  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, credentialNames, inlineCredentials };
+  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, credentialNames, inlineCredentials, claudeSettings };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -558,6 +561,7 @@ function exportPayload(scan) {
     credentialNames: scan.credentialNames || [],
     inlineCredentials: scan.inlineCredentials || [],
     securityReport: scan.securityReport || null,
+    firstRun: scan.firstRun || null,
     generatedBy: `boppi-cli/${VERSION}`,
   };
 }
@@ -786,9 +790,12 @@ async function run(argv) {
     inventory, paths, prioritization: scan.prioritization, predictions: scan.predictions, remediationPlan: scan.remediationPlan, inferenceByClient: scan.inferenceByClient, incomplete,
     credentialNames: scan.credentialNames || [], inlineCredentials: scan.inlineCredentials || [],
     home: scan.home,
+    claudeSettings: scan.claudeSettings || [],
   };
   report.securityReport = buildSecurityReport(report, scan.home);
   scan.securityReport = report.securityReport;
+  report.firstRun = buildFirstRun(report, options.platform);
+  scan.firstRun = report.firstRun;
 
   const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);
   if (policyFile) {
