@@ -18,6 +18,7 @@ const SUITES = [
   'verify-clients.js',
   'verify-security-report.js',
   'verify-first-run.js',
+  'verify-watch.js',
   'verify-no-network.js',
   'verify-plan-fix.js',
   'verify-policy-sarif.js',
