@@ -97,24 +97,55 @@ function renderBriefReport(report, options = {}) {
   const lines = [];
   const out = (...values) => lines.push(values.join(''));
   const counts = security.counts;
+  const first = report.firstRun || {};
   out(s.bold('BOPPI'), s.dim(' · Security score · '), paint(s.bold(`${security.score}/100 ${security.grade}`)));
   out(s.dim('Higher is safer'));
+  out(first.verdict || (security.clean ? 'No risky AI access found.' : ''));
   out('');
   out(`${counts.aiTools} AI tool${counts.aiTools === 1 ? '' : 's'} · ${counts.toolServers} tool server${counts.toolServers === 1 ? '' : 's'} · ${counts.exposedKeys} exposed key${counts.exposedKeys === 1 ? '' : 's'}`);
-  out('');
-  if (security.clean) {
-    out(s.green('No risky AI access found'));
-  } else if (!security.risks.length) {
-    out(s.dim('No exposure path to list.'));
-  } else {
+  if (first.found && first.found.length) {
+    out('');
+    out(s.bold('FOUND'));
+    for (const item of first.found) out(`  ${item.name}  ${s.dim(item.detail)}`);
+  }
+  const keyLines = (report.credentialNames || []).slice(0, 8);
+  if (keyLines.length) {
+    out('');
+    out(s.bold('KEYS'), s.dim('  names only, values not collected'));
+    for (const entry of keyLines) out(`  ${entry.name}  ${s.dim(entry.where)}`);
+  }
+  if (first.hygiene && first.hygiene.length) {
+    out('');
+    out(s.bold('HYGIENE'));
+    for (const item of first.hygiene) {
+      const badge = item.severity === 'high' || item.severity === 'critical' ? s.red(item.severity.toUpperCase()) : s.yellow(item.severity.toUpperCase());
+      out(`  ${badge}  ${item.sentence}`);
+    }
+  }
+  if (security.risks.length) {
+    out('');
     out(s.bold('TOP RISKS'));
     security.risks.forEach((risk, index) => {
       const badge = risk.severity === 'critical' || risk.severity === 'high' ? s.red(risk.severity.toUpperCase()) : s.yellow(risk.severity.toUpperCase());
       out(`  ${index + 1}. ${badge}  ${risk.sentence}`);
       if (risk.fix) out(s.dim(`     ${risk.fix}`));
     });
+  } else if (first.good && first.good.length) {
+    out('');
+    out(s.bold('GOOD'));
+    for (const line of first.good) out(`  ${line}`);
   }
-  if (report.incomplete && report.incomplete.length) out('', s.yellow(`Incomplete: ${report.incomplete.join(', ')}`));
+  if (first.checked) {
+    out('');
+    out(s.dim(`Checked ${first.checked.tools} AI tools across ${first.checked.configLocations} config locations. ${first.checked.present} present.`));
+  }
+  if (first.disclaimer) out(s.dim(first.disclaimer));
+  if (first.next && first.next.length && !security.risks.length) {
+    out('');
+    out(s.bold('NEXT'));
+    first.next.forEach((step, index) => out(`  ${index + 1}. ${step}`));
+  }
+  if (report.incomplete && report.incomplete.length) out(s.yellow(`Incomplete: ${report.incomplete.join(', ')}`));
   if (!options.json && !options.html && !options.sarif) {
     out('');
     out(s.dim(CLOSING_LINE));
