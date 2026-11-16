@@ -144,7 +144,7 @@ function makeHome(root) {
 
   const jsonPath = path.join(root, 'export.json');
   const started = Date.now();
-  const result = spawnSync(process.execPath, [CLI, 'scan', '--json', jsonPath, '--home', home, '--cwd', home, '--platform', 'darwin', '--no-color', '--history-file', path.join(root, 'history.json')], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [CLI, 'scan', '--verbose', '--json', jsonPath, '--home', home, '--cwd', home, '--platform', 'darwin', '--no-color', '--history-file', path.join(root, 'history.json')], { encoding: 'utf8' });
   const wall = Date.now() - started;
   if (result.status !== 0) console.log(result.stderr || result.stdout);
   ok('scan exits 0', result.status === 0);

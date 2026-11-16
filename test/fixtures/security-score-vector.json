@@ -1,0 +1,42 @@
+{
+  "id": "boppi-security-score-v1",
+  "source": "Memanzur/boppii lib/risk-score.ts (cursor/beta-hardening)",
+  "rules": "Exposure paths only, not rule-engine findings. The nth path of a severity adds weight/n (critical 28, high 16, medium 6, low 2). Round that sum once with half away from zero, cap it at 100, then score = 100 - penalty. A=100, B=75-99, C=50-74, D=25-49, F=0-24.",
+  "cases": [
+    {
+      "id": "no-paths",
+      "paths": [],
+      "penalty": 0,
+      "score": 100,
+      "grade": "A"
+    },
+    {
+      "id": "one-critical",
+      "paths": ["critical"],
+      "penalty": 28,
+      "score": 72,
+      "grade": "C"
+    },
+    {
+      "id": "one-of-each",
+      "paths": ["critical", "high", "medium", "low"],
+      "penalty": 52,
+      "score": 48,
+      "grade": "D"
+    },
+    {
+      "id": "three-critical",
+      "paths": ["critical", "critical", "critical"],
+      "penalty": 51,
+      "score": 49,
+      "grade": "D"
+    },
+    {
+      "id": "round-half-up",
+      "paths": ["high", "medium", "medium", "medium", "medium"],
+      "penalty": 29,
+      "score": 71,
+      "grade": "C"
+    }
+  ]
+}
