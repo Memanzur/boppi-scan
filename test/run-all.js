@@ -22,6 +22,7 @@ const SUITES = [
   'verify-no-network.js',
   'verify-plan-fix.js',
   'verify-policy-sarif.js',
+  'verify-guard.js',
 ];
 
 let failures = 0;
