@@ -159,7 +159,7 @@ async function pushRecords({ ingestUrl, token, records, snapshot, expectedInterv
 const FAILURE_HINT = Object.freeze({
   401: 'The token was rejected. Copy a fresh one from the Collectors page (tokens are shown once, and revoked tokens stop working immediately).',
   413: 'The request body is too large. Scan fewer clients with --only and push each separately.',
-  422: 'The workspace rejected the record shape. Update the scanner (npx boppi@latest) and try again.',
+  422: 'The workspace rejected the record shape. Update the scanner (npx @boppi/cli@latest) and try again.',
   503: 'The workspace is temporarily unavailable. Retry in a minute.',
 });
 
