@@ -174,6 +174,6 @@ function buildSecurityReport(report, home) {
   };
 }
 
-const CLOSING_LINE = 'See history, teams and approvals: npx boppi push';
+const CLOSING_LINE = 'See history, teams and approvals: npx @boppi/cli push';
 
 module.exports = { buildSecurityReport, securityScore, sentenceFor, fixCommand, CLOSING_LINE };

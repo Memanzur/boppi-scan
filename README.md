@@ -5,7 +5,7 @@ See what your local AI agents can reach.
 `boppi scan` reads the MCP and tool configs for the AI clients on your machine (Claude Desktop, Claude Code, Cursor, VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains, Goose, LM Studio, plus installed chat apps and known browser extensions), builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
 
 ```sh
-npx boppi scan
+npx @boppi/cli scan
 ```
 
 Node 18 or newer. **0.5.0** prints a security score (higher is safer), names installed AI tools even when they have no MCP servers, and adds `boppi watch`. It discovers VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains, Goose, and LM Studio, plus installed chat apps, known browser extensions, and provider-key names (values are never collected). Tested on macOS. Linux and Windows config locations are looked up but not yet verified on real machines.
@@ -15,16 +15,16 @@ Node 18 or newer. **0.5.0** prints a security score (higher is safer), names ins
 Boppi is useful without an account. The scanner reads supported MCP configuration locally, reports the agents, servers, capabilities, files, and evidence it examined, models configuration changes, and verifies a real change on the next scan.
 
 ```sh
-npx boppi scan --json boppi-scan.json --html boppi-report.html
+npx @boppi/cli scan --json boppi-scan.json --html boppi-report.html
 # edit the configuration using the recommended fix, then:
-npx boppi verify boppi-scan.json
-npx boppi history
+npx @boppi/cli verify boppi-scan.json
+npx @boppi/cli history
 ```
 
 Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), generate a collector token on the Collectors page, and push scans from every machine:
 
 ```sh
-npx boppi push
+npx @boppi/cli push
 ```
 
 It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` and `watch` are the commands that use the network. `push` sends the sanitized inventory of one scan and exits. `watch` repeats that same scan and push in the foreground until you press Ctrl+C, every 15 minutes by default. Intervals shorter than 60 seconds are rejected. Watch adds `expected_interval_seconds` to the payload so the workspace knows the cadence; a one-shot push does not. Neither command uploads `~/.boppi/history.json`. Watch does not protect the machine, and it does not observe what agents do at runtime (see [What leaves the machine](#what-leaves-the-machine)).
@@ -107,7 +107,7 @@ PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left t
 JSON export written to boppi-scan.json
 ```
 
-A plain `npx boppi scan` with no export flags ends with one more line, `See history, teams and approvals: npx boppi push`.
+A plain `npx @boppi/cli scan` with no export flags ends with one more line, `See history, teams and approvals: npx @boppi/cli push`.
 
 The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone. `boppi verify boppi-scan.json` then checks that prediction against the real machine after you make the edit.
 
@@ -234,7 +234,7 @@ Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan 
 ### Use it in CI
 
 ```
-npx boppi scan --config .mcp.json --source claude-code --fail-on high --sarif boppi.sarif
+npx @boppi/cli scan --config .mcp.json --source claude-code --fail-on high --sarif boppi.sarif
 ```
 
 Fails the job when a path or finding at or above the threshold exists in that file, when the policy is violated, or when the config could not be analyzed (exit 4, even without `--fail-on`). Without `--config` the scan reads the runner's user-level configs, which is rarely what CI wants.
@@ -253,7 +253,7 @@ As a GitHub Action, with the SARIF uploaded to code scanning:
     sarif_file: boppi.sarif
 ```
 
-Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx boppi@<version>`; pin `version` for reproducible runs.
+Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx @boppi/cli@<version>`; pin `version` for reproducible runs.
 
 ## What leaves the machine
 

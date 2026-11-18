@@ -174,7 +174,7 @@ function runCli(args, home) {
   ok('--only cursor limits the scan to one agent', onlyCursor.stdout.includes('1 AI tool') && !onlyCursor.stdout.includes('Claude Desktop'));
   const quiet = runCli(['scan', '--quiet'], home);
   ok('--quiet prints a compact summary', quiet.stdout.trim().split('\n').length <= 2 && quiet.stdout.includes('3 agents'));
-  const PUSH_HINT = 'See history, teams and approvals: npx boppi push';
+  const PUSH_HINT = 'See history, teams and approvals: npx @boppi/cli push';
   ok('a plain scan ends with the team dashboard hint', onlyCursor.stdout.trimEnd().split('\n').pop().startsWith(PUSH_HINT));
   ok('the hint stays out of exports, --quiet, and other commands', ![scan, quiet, agentsOnly, pathsOnly].some(r => r.stdout.includes(PUSH_HINT)));
 
