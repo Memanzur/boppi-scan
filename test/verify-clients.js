@@ -11,6 +11,7 @@ const catalog = require('../src/cli/discovery/catalog');
 const presence = require('../src/cli/discovery/presence');
 const projects = require('../src/cli/discovery/projects');
 const secrets = require('../src/cli/discovery/secrets');
+const { collectIssues } = require('../src/cli/autoFix');
 const push = require('../src/cli/push');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
@@ -48,6 +49,28 @@ function read(name) { return fs.readFileSync(path.join(FIX, name), 'utf8'); }
   ok('Goose developer extension is file and shell, and a disabled extension is skipped', goose.developer.capabilities.includes('filesystem_access') && goose.developer.capabilities.includes('shell_access') && goose.fetch.url && !goose['turned-off']);
   const wind = JSON.parse(read('windsurf.json')).mcpServers.fetch;
   ok('an env value that looks like a key is flagged by name only', secrets.inlineCredentialLabels(wind).includes('OPENAI_API_KEY') && !secrets.inlineCredentialLabels({ env: { OPENAI_API_KEY: '${OPENAI_API_KEY}' } }).length);
+  ok('an ${env:VAR} reference is not a plaintext secret', !secrets.valueIsPresent('${env:OPENAI_API_KEY}') && !secrets.isInlineSecret('${env:API_TOKEN}') && !secrets.isInlineSecret('${env:SKILL_TOKEN_VALUE}') && !secrets.inlineCredentialLabels({ env: { OPENAI_API_KEY: '${env:OPENAI_API_KEY}', API_TOKEN: '${env:API_TOKEN}' } }).length);
+  ok('package and command names are not scanned as secret values', !secrets.isArgumentSecret('broke2built-skills-mcp') && !secrets.isArgumentSecret('skills-mcp-server') && !secrets.inlineCredentialLabels({ command: 'broke2built-skills-mcp', args: [] }).length && !secrets.inlineCredentialLabels({ command: 'npx', args: ['-y', 'broke2built-skills-mcp'] }).length && !secrets.inlineCredentialLabels({ command: 'npx', args: ['-y', 'skills-mcp-server'] }).length);
+  ok('a real token in an env block is still a plaintext secret', secrets.isInlineSecret(SECRET) && secrets.inlineCredentialLabels({ env: { OPENAI_API_KEY: SECRET } }).includes('OPENAI_API_KEY') && secrets.isArgumentSecret('sb_secret_positional_test_value_123456'));
+  const secretRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-secret-'));
+  const secretFile = path.join(secretRoot, 'mcp.json');
+  fs.writeFileSync(secretFile, JSON.stringify({
+    mcpServers: {
+      skills: { command: 'broke2built-skills-mcp', args: ['-y', 'broke2built-skills-mcp', 'skills-mcp-server'] },
+      ref: { command: 'node', args: ['server.js'], env: { OPENAI_API_KEY: '${env:OPENAI_API_KEY}', API_TOKEN: '${env:API_TOKEN}', REAL_KEY: SECRET } },
+    },
+  }));
+  const secretIssues = collectIssues({
+    home: secretRoot,
+    cwd: secretRoot,
+    discovery: { clients: [{ label: 'Cursor', clientKey: 'cursor', files: [{ path: secretFile, status: 'found', format: 'json' }] }] },
+    claudeSettings: [],
+    credentialNames: [],
+  });
+  const secretFindings = secretIssues.filter(item => item.ruleId === 'BOPPI-PLAINTEXT-SECRET');
+  ok('config findings ignore env references and package names', !secretFindings.some(item => item.detail && (item.detail.name === 'OPENAI_API_KEY' || item.detail.name === 'API_TOKEN' || item.detail.kind === 'arg')));
+  ok('config findings keep a real env token', secretFindings.some(item => item.detail && item.detail.name === 'REAL_KEY' && item.severity === 'critical'));
+  fs.rmSync(secretRoot, { recursive: true, force: true });
   const header = secrets.inlineCredentialLabels(JSON.parse(read('lmstudio.json')).mcpServers.fetch);
   ok('a bearer header is flagged as a header name, not the value', header.includes('header:Authorization') && !header.join(' ').includes(SECRET));
   const dot = secrets.namesInText(read('zshrc.txt'));

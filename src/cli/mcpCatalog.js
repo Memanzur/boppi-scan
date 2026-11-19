@@ -26,6 +26,7 @@ const ROLE_CAPABILITIES = Object.freeze({
   source: ['network_access', 'source_write'],
   'source-local': ['source_write'],
   memory: [],
+  reference: [],
 });
 
 const AFFIX_PREFIXES = ['mcp-server-', 'server-', 'mcp-'];

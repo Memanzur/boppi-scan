@@ -62,6 +62,17 @@ const commands = inferCapabilities('run', { command: 'npx', args: ['-y', 'mcp-se
 ok('mcp-server-commands is shell after the == version is stripped', commands.capabilities.includes('shell_access'));
 const { CATALOG } = require('../src/cli/mcpCatalog');
 ok('catalog has at least 100 cited servers', CATALOG.length >= 100 && CATALOG.every(entry => typeof entry.citation === 'string' && entry.citation.startsWith('https://')));
+const referencePackages = [
+  ['memory', '@modelcontextprotocol/server-memory'],
+  ['sequential-thinking', '@modelcontextprotocol/server-sequential-thinking'],
+  ['time', '@modelcontextprotocol/server-time'],
+  ['everything', '@modelcontextprotocol/server-everything'],
+];
+for (const [name, pkg] of referencePackages) {
+  const inferred = inferCapabilities(name, { command: 'npx', args: ['-y', pkg] }, { home });
+  const catalogHit = inferred.inferences.some(item => item.grade === 'allowlist' && item.label !== 'directory arguments' && item.label !== 'remote MCP server');
+  ok(`${name} is a known catalog reference server`, catalogHit && !inferred.capabilities.includes('network_access') && !inferred.capabilities.includes('shell_access') && !inferred.capabilities.includes('credential_access'));
+}
 
 fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
 fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });

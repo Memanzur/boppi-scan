@@ -83,5 +83,36 @@ function runCli(args, home) {
   fs.rmSync(root, { recursive: true, force: true });
 })();
 
+(function ranking() {
+  section('Top risk order does not follow the config path');
+  const config = (home) => ({
+    mcpServers: {
+      files: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'docs')] },
+      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'] },
+      slack: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-slack'] },
+      shell: { command: 'npx', args: ['-y', '@wonderwhy-er/desktop-commander'] },
+    },
+  });
+  function ranked(dirName) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-rank-'));
+    const home = path.join(root, 'home');
+    fs.mkdirSync(path.join(home, 'Projects', dirName, '.cursor'), { recursive: true });
+    fs.mkdirSync(path.join(home, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(home, 'Projects', dirName, '.cursor', 'mcp.json'), JSON.stringify(config(home)));
+    const jsonPath = path.join(root, 'out.json');
+    const result = runCli(['scan', '--quiet', '--json', jsonPath, '--only', 'cursor'], home);
+    const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    fs.rmSync(root, { recursive: true, force: true });
+    const risks = (exported.securityReport && exported.securityReport.risks || []).map(risk => `${risk.severity}|${risk.templateId}|${risk.sentence}|${risk.fix || ''}`);
+    const paths = (exported.exposurePaths || []).map(item => `${item.severity}|${item.templateId}|${(item.nodes || []).map(node => `${node.entityType}:${node.label}`).join('>')}`);
+    return { code: result.code, risks, paths };
+  }
+  const places = ['aaa', 'mmm', 'zzz', 'omega'].map(ranked);
+  ok('each location scan exits 0 and ranks at least one risk', places.every(item => item.code === 0 && item.risks.length > 0));
+  ok('top risks stay the same when the config directory changes', places.every(item => JSON.stringify(item.risks) === JSON.stringify(places[0].risks) && JSON.stringify(item.paths) === JSON.stringify(places[0].paths)));
+  const order = { critical: 4, high: 3, medium: 2, low: 1 };
+  ok('top risks are ordered by severity', places[0].risks.every((risk, index, list) => index === 0 || order[risk.split('|')[0]] <= order[list[index - 1].split('|')[0]]));
+})();
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exitCode = failed ? 1 : 0;

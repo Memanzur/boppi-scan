@@ -84,13 +84,43 @@
     },
   ]);
 
+  function nodeKey(node) {
+    if (!node) return '';
+    return [
+      node.label || '',
+      node.entityType || '',
+      (node.metadata && node.metadata.category) || '',
+    ].join('\0');
+  }
+
+  function edgeKey(edge, nodesById) {
+    const from = nodesById.get(edge.fromEntityId);
+    const to = nodesById.get(edge.toEntityId);
+    return [
+      edge.relationshipType || '',
+      nodeKey(from),
+      nodeKey(to),
+    ].join('\0');
+  }
+
+  /** Higher-confidence edges first, then labels. Ids embed the config path, so they are only a last resort. */
+  function compareEdges(a, b, nodesById) {
+    const ca = Number.isFinite(a.confidence) ? a.confidence : 0;
+    const cb = Number.isFinite(b.confidence) ? b.confidence : 0;
+    if (cb !== ca) return cb - ca;
+    const byLabel = edgeKey(a, nodesById).localeCompare(edgeKey(b, nodesById));
+    if (byLabel) return byLabel;
+    return String(a.id).localeCompare(String(b.id));
+  }
+
   function buildAdjacency(graph) {
+    const nodesById = new Map((graph.nodes || []).map(node => [node.id, node]));
+    const edges = [...(graph.edges || [])].sort((a, b) => compareEdges(a, b, nodesById));
     const out = new Map();
-    for (const edge of graph.edges || []) {
+    for (const edge of edges) {
       if (!out.has(edge.fromEntityId)) out.set(edge.fromEntityId, []);
       out.get(edge.fromEntityId).push(edge);
     }
-    for (const list of out.values()) list.sort((a, b) => a.id.localeCompare(b.id));
     return out;
   }
 
@@ -148,7 +178,13 @@
       }
       if (node.entityType === 'capability' && category === 'modify_source_code') groups.sourceModify.push(entry);
     }
-    for (const key of Object.keys(groups)) groups[key].sort((a, b) => a.chain.length - b.chain.length || a.nodeId.localeCompare(b.nodeId));
+    const chainConfidence = chain => (chain.length ? Math.min(...chain.map(edge => (Number.isFinite(edge.confidence) ? edge.confidence : 0))) : 0);
+    for (const key of Object.keys(groups)) {
+      groups[key].sort((a, b) => a.chain.length - b.chain.length
+        || chainConfidence(b.chain) - chainConfidence(a.chain)
+        || nodeKey(nodesById.get(a.nodeId)).localeCompare(nodeKey(nodesById.get(b.nodeId)))
+        || String(a.nodeId).localeCompare(String(b.nodeId)));
+    }
     return groups;
   }
 
@@ -239,7 +275,7 @@
     }
     const agents = graph.nodes
       .filter(n => ['ai_application', 'ai_agent', 'coding_agent', 'autonomous_agent'].includes(n.entityType))
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .sort((a, b) => nodeKey(a).localeCompare(nodeKey(b)) || String(a.id).localeCompare(String(b.id)));
 
     const paths = [];
     for (const agentNode of agents) {
@@ -259,7 +295,23 @@
         paths.push(assemblePath(template, agentNode, branches, nodesById, userEdgesByAgent.get(agentNode.id) || null));
       }
     }
-    return paths.sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0) || b.confidence - a.confidence || a.id.localeCompare(b.id));
+    return paths.sort(comparePaths);
+  }
+
+  function pathContentKey(path) {
+    return [
+      path.agentName || '',
+      path.templateId || '',
+      path.label || '',
+      (path.nodes || []).map(node => `${node.entityType}:${node.label}`).join('>'),
+    ].join('\0');
+  }
+
+  /** Severity, then confidence, then names. Path ids follow the config file location and are not a rank. */
+  function comparePaths(a, b) {
+    return (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0)
+      || (b.confidence - a.confidence)
+      || pathContentKey(a).localeCompare(pathContentKey(b));
   }
 
   /**
@@ -332,12 +384,12 @@
       byAgent.get(path.agentId).push(path);
     }
     const perAgent = [...byAgent.entries()].map(([agentId, agentPaths]) => {
-      const sorted = [...agentPaths].sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0) || b.confidence - a.confidence || a.id.localeCompare(b.id));
+      const sorted = [...agentPaths].sort(comparePaths);
       const highest = sorted[0];
       const impact = sorted
         .map(p => p.nodes.find(n => n.id === p.impactEntityId))
         .filter(Boolean)
-        .sort((a, b) => (IMPACT_RANK[b.entityType] || 0) - (IMPACT_RANK[a.entityType] || 0))[0] || null;
+        .sort((a, b) => (IMPACT_RANK[b.entityType] || 0) - (IMPACT_RANK[a.entityType] || 0) || String(a.label || '').localeCompare(String(b.label || '')))[0] || null;
       return {
         agentId,
         agentName: highest.agentName,
@@ -347,8 +399,14 @@
         confidence: highest.confidence,
         stale: agentPaths.some(p => p.stale),
         dataset: agentPaths.every(p => p.dataset === 'sample') ? 'sample' : 'real',
+        atHighest: agentPaths.filter(path => path.severity === highest.severity).length,
       };
-    }).sort((a, b) => (SEVERITY_RANK[b.highestPath.severity] || 0) - (SEVERITY_RANK[a.highestPath.severity] || 0) || b.confidence - a.confidence || a.agentId.localeCompare(b.agentId));
+    }).sort((a, b) => (SEVERITY_RANK[b.highestPath.severity] || 0) - (SEVERITY_RANK[a.highestPath.severity] || 0)
+      || b.atHighest - a.atHighest
+      || b.confidence - a.confidence
+      || String(a.agentName || '').localeCompare(String(b.agentName || ''))
+      || String(a.highestPath.label || '').localeCompare(String(b.highestPath.label || '')))
+      .map(({ atHighest, ...agent }) => agent);
     return { counts, perAgent, total: (paths || []).length };
   }
 

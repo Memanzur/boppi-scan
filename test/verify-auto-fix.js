@@ -148,6 +148,10 @@ function runCli(args, home, cwd, extra = {}) {
   const narrowed = cursor.mcpServers.filesystem.args;
   const sameWork = (arg) => { try { return fs.realpathSync(arg) === fs.realpathSync(paths.work); } catch (_) { return false; } };
   ok('unpinned -y is removed and broad paths point at the working directory', !narrowed.includes('-y') && !narrowed.includes(paths.home) && !narrowed.includes('/') && narrowed.some(sameWork));
+  const rescanPath = path.join(root, 'after-fix.json');
+  const rescan = runCli(['scan', '--quiet', '--json', rescanPath], paths.home, paths.work);
+  const rescanned = JSON.parse(fs.readFileSync(rescanPath, 'utf8'));
+  ok('re-scan after fix --yes does not report the filesystem package as unpinned', rescan.code === 0 && !(rescanned.configFindings || []).some(finding => finding.ruleId === 'BOPPI-UNPINNED-PACKAGE' && /filesystem/.test(finding.title)));
   const cline = JSON.parse(fs.readFileSync(paths.clineConfig, 'utf8'));
   ok('autoApprove is cleared and the server remains', Array.isArray(cline.mcpServers.notes.autoApprove) && cline.mcpServers.notes.autoApprove.length === 0 && cline.mcpServers.notes.command === 'npx');
   const codex = fs.readFileSync(paths.codexConfig, 'utf8');
@@ -163,6 +167,27 @@ function runCli(args, home, cwd, extra = {}) {
   const restored = runCli(['fix', '--undo'], paths.home, paths.work);
   ok('undo restores every file body and the previous mode', restored.code === 0 && restored.stdout.includes('Restored') && sameSnapshot(tracked, before));
   ok('undo puts the secret back in the restored config', fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
+
+  section('pin an unpinned package to the installed version, then re-scan');
+  const pinRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-pin-'));
+  const pinHome = path.join(pinRoot, 'home');
+  const pinWork = path.join(pinHome, 'work');
+  fs.mkdirSync(path.join(pinHome, '.cursor'), { recursive: true });
+  fs.mkdirSync(path.join(pinWork, 'node_modules', '@modelcontextprotocol', 'server-memory'), { recursive: true });
+  fs.writeFileSync(path.join(pinWork, 'node_modules', '@modelcontextprotocol', 'server-memory', 'package.json'), JSON.stringify({ name: '@modelcontextprotocol/server-memory', version: '0.6.3' }));
+  const pinConfig = path.join(pinHome, '.cursor', 'mcp.json');
+  fs.writeFileSync(pinConfig, JSON.stringify({
+    mcpServers: { memory: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-memory'] } },
+  }, null, 2) + '\n');
+  fs.chmodSync(pinConfig, 0o600);
+  const pinFix = runCli(['fix', '--yes'], pinHome, pinWork);
+  const pinned = JSON.parse(fs.readFileSync(pinConfig, 'utf8'));
+  ok('fix --yes pins the package to the installed version and drops -y', pinFix.code === 0 && pinned.mcpServers.memory.args.length === 1 && pinned.mcpServers.memory.args[0] === '@modelcontextprotocol/server-memory@0.6.3');
+  const pinRescanPath = path.join(pinRoot, 'rescan.json');
+  const pinRescan = runCli(['scan', '--quiet', '--json', pinRescanPath], pinHome, pinWork);
+  const pinExported = JSON.parse(fs.readFileSync(pinRescanPath, 'utf8'));
+  ok('re-scan after the pin does not report the package as unpinned or unknown', pinRescan.code === 0 && !(pinExported.configFindings || []).some(finding => finding.ruleId === 'BOPPI-UNPINNED-PACKAGE' || finding.ruleId === 'BOPPI-UNKNOWN-SERVER'));
+  fs.rmSync(pinRoot, { recursive: true, force: true });
 
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');

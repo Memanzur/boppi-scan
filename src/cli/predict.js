@@ -101,6 +101,9 @@ function rankPredictions(predictions, paths) {
       || (b.prediction.predictedEliminated.length - a.prediction.predictedEliminated.length)
       || (a.appeared - b.appeared) || (a.lost - b.lost)
       || ((a.prediction.edit.action === 'move_server') - (b.prediction.edit.action === 'move_server'))
+      || String(a.prediction.client && a.prediction.client.label || '').localeCompare(String(b.prediction.client && b.prediction.client.label || ''))
+      || String(a.prediction.edit && a.prediction.edit.server || '').localeCompare(String(b.prediction.edit && b.prediction.edit.server || ''))
+      || String(a.prediction.edit && a.prediction.edit.action || '').localeCompare(String(b.prediction.edit && b.prediction.edit.action || ''))
       || a.prediction.predictionId.localeCompare(b.prediction.predictionId));
 }
 

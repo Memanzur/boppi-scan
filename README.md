@@ -218,7 +218,7 @@ Every row is a rescan of the configuration with that one edit applied. A move is
 * API keys and secret values stored in an MCP `env` block, header, or argument can be deleted from the file (the value is never printed). `--yes` does not delete them
 * config files that are readable by every account are set to mode 600
 * MCP servers the catalog does not recognize can be removed. `--yes` does not remove them
-* `npx -y` / `uvx` style auto-install flags on an unpinned package are removed
+* `npx -y` / `uvx` style auto-install flags on an unpinned package are removed. When that package is installed in the working directory, the spec is pinned to that version. Boppi does not guess a version and does not contact a registry.
 * a filesystem server rooted at `/` or the home folder is pointed at the real current directory when that directory is narrower. A symlink to `/` or the home folder is not used
 * Codex `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` are tightened
 

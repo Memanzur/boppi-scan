@@ -172,6 +172,8 @@
       (b.eliminatedSeverity.critical - a.eliminatedSeverity.critical) ||
       (b.eliminatedWeight - a.eliminatedWeight) ||
       (b.eliminatedCount - a.eliminatedCount) ||
+      String(a.label || '').localeCompare(String(b.label || '')) ||
+      String(a.agentName || '').localeCompare(String(b.agentName || '')) ||
       a.nodeId.localeCompare(b.nodeId));
 
     const limit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : causes.length;
@@ -204,7 +206,8 @@
         if (steps.some(s => s.nodeId === cause.nodeId)) continue;
         let gain = 0;
         for (const id of cause.eliminatedSet) if (remaining.has(id)) gain++;
-        if (gain > bestGain || (gain === bestGain && gain > 0 && best && cause.nodeId.localeCompare(best.nodeId) < 0)) { best = cause; bestGain = gain; }
+        const prefer = best && (String(cause.label || '').localeCompare(String(best.label || '')) || cause.nodeId.localeCompare(best.nodeId)) < 0;
+        if (gain > bestGain || (gain === bestGain && gain > 0 && prefer)) { best = cause; bestGain = gain; }
       }
       if (!best || bestGain === 0) break; // no candidate reduces the remaining set further
       const newlyBroken = [...remaining].filter(key => best.eliminatedSet.has(key)).sort();

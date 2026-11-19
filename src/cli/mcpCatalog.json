@@ -33,7 +33,7 @@
   "commands": [
    "everything"
   ],
-  "role": "saas",
+  "role": "reference",
   "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/everything/package.json",
   "images": [],
   "hosts": []
@@ -55,7 +55,8 @@
  {
   "id": "time",
   "packages": [
-   "mcp-server-time"
+   "mcp-server-time",
+   "@modelcontextprotocol/server-time"
   ],
   "commands": [
    "time"
