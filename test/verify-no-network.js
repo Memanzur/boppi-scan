@@ -53,6 +53,7 @@ function makeHome(root) {
       fs.writeFileSync(log, '');
       const child = spawn(process.execPath, ['--require', preload, CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--history-file', history], {
         env: { ...process.env, BOPPI_NET_LOG: log, BOPPI_SCAN_PLATFORM: 'darwin', BOPPI_TOKEN: '', ...extraEnv },
+        stdio: process.platform === 'win32' ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],
       });
       let stdout = '', stderr = '';
       let stopping = false;
@@ -60,7 +61,8 @@ function makeHome(root) {
       const maybeStop = () => {
         if (stopping || !stopWhen(stdout, stderr)) return;
         stopping = true;
-        child.kill('SIGINT');
+        if (process.platform === 'win32') child.send({ type: 'boppi:stop' });
+        else child.kill('SIGINT');
       };
       child.stdout.on('data', d => { stdout += d; maybeStop(); });
       child.stderr.on('data', d => { stderr += d; maybeStop(); });

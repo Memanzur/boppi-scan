@@ -235,7 +235,7 @@ function runCli(args, home) {
   fs.mkdirSync(path.join(linuxHome, '.config', 'Claude'), { recursive: true });
   fs.writeFileSync(path.join(linuxHome, '.config', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
   const linux = runCli(['scan', '--verbose', '--only', 'claude-desktop', '--platform', 'linux', '--history-file', path.join(root, 'linux-history.json')], linuxHome);
-  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes('.config/Claude/claude_desktop_config.json') && linux.stdout.includes('1 MCP server'));
+  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes(path.join('.config', 'Claude', 'claude_desktop_config.json')) && linux.stdout.includes('1 MCP server'));
   const winHome = path.join(root, 'win-home');
   const appData = path.join(winHome, 'AppData', 'Roaming');
   fs.mkdirSync(path.join(appData, 'Claude'), { recursive: true });

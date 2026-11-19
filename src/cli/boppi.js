@@ -950,6 +950,12 @@ async function runWatch(options) {
   // stays on the payload. One-shot push never sets expectedIntervalSeconds.
   options.expectedIntervalSeconds = options.intervalSeconds;
   process.on('SIGINT', onSigint);
+  // Windows cannot deliver SIGINT to a child. A parent that spawned this
+  // process with an IPC channel can send { type: 'boppi:stop' } instead.
+  const onStopMessage = (message) => {
+    if (message && message.type === 'boppi:stop') onSigint();
+  };
+  if (typeof process.send === 'function') process.on('message', onStopMessage);
   try {
     process.stdout.write(watch.intro(options.intervalSeconds) + '\n\n');
     await watch.repeat({
@@ -973,6 +979,7 @@ async function runWatch(options) {
     return 0;
   } finally {
     process.off('SIGINT', onSigint);
+    if (typeof process.send === 'function') process.off('message', onStopMessage);
   }
 }
 
