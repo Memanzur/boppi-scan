@@ -57,12 +57,17 @@ function runCliAsync(args, home, env = {}) {
   });
 }
 
+function stopWatch(child) {
+  if (process.platform === 'win32') child.send({ type: 'boppi:stop' });
+  else child.kill('SIGINT');
+}
+
 /** Run watch until `stopWhen` is true, then send a single Ctrl+C. Kills the process if it is still up after timeoutMs. */
 function runUntilStop(args, home, stopWhen, env = {}, timeoutMs = 20000) {
   return new Promise(resolve => {
     const child = spawn(process.execPath, [CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--platform', 'darwin'], {
       env: cliEnv(env),
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: process.platform === 'win32' ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '', stderr = '';
     let stopping = false;
@@ -70,7 +75,7 @@ function runUntilStop(args, home, stopWhen, env = {}, timeoutMs = 20000) {
     const maybeStop = () => {
       if (stopping || !stopWhen(stdout, stderr)) return;
       stopping = true;
-      child.kill('SIGINT');
+      stopWatch(child);
     };
     child.stdout.on('data', d => { stdout += d; maybeStop(); });
     child.stderr.on('data', d => { stderr += d; maybeStop(); });
