@@ -42,6 +42,7 @@ const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
+const autoFix = require('./autoFix');
 
 const VERSION = require('../../package.json').version;
 const catalog = require('./discovery/catalog');
@@ -61,7 +62,9 @@ function usage() {
     '  boppi agents                   inventory table only',
     '  boppi paths                    exposure paths only',
     '  boppi plan                     compare every candidate fix (paths broken, new paths, capabilities lost) and show the exact edits; changes nothing',
+    '  boppi fix                      show each fixable risk, then apply the ones you accept (backup first)',
     '  boppi fix --server <name>      remove one server entry from its config file (backup first), then rescan and grade the prediction',
+    '  boppi fix --undo               restore the files and permissions from the last backup set',
     '  boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export',
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan once, then send the sanitized inventory to your Boppi workspace',
@@ -78,9 +81,13 @@ function usage() {
     'fix options:',
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
     '  --client <key>      which client config to edit when the name exists in more than one (a client id; boppi fix edits JSON configs)',
-    '  --yes               apply without the terminal confirmation (required when stdin is not a terminal)',
+    '  --yes               apply the safe fixes without prompting. Unknown servers and plaintext secrets still need a terminal confirmation',
+    '  --dry-run           show each diff and change nothing',
+    '  --undo              restore the last backup set',
     '',
     'Options:',
+    '  --format <name>     terminal (default), json, html, or sarif',
+    '  -o, --output <file> write the selected format to a file',
     '  --json <file>       write the machine-readable export (export v2 schema + exposure paths)',
     '  --html <file>       write a self-contained HTML report',
     '  --sarif <file>      write a SARIF 2.1.0 report (paths, findings, policy violations) for code scanning',
@@ -105,7 +112,7 @@ function usage() {
 
 function parseArgs(argv) {
   const options = {
-    command: 'scan', json: null, html: null, only: null, config: null, source: 'claude-desktop',
+    command: 'scan', json: null, html: null, sarif: null, format: 'terminal', output: null, only: null, config: null, source: 'claude-desktop',
     failOn: null, overlay: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
     home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
@@ -114,7 +121,7 @@ function parseArgs(argv) {
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
     interval: null,
   };
-  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--interval']);
+  const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--interval', '--format', '--output', '-o']);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (COMMANDS.has(arg)) options.command = arg;
@@ -143,17 +150,23 @@ function parseArgs(argv) {
       else if (arg === '--platform') options.platform = value;
       else if (arg === '--server') options.server = value;
       else if (arg === '--sarif') options.sarif = value;
+      else if (arg === '--format') options.format = value;
+      else if (arg === '--output' || arg === '-o') options.output = value;
       else if (arg === '--policy') options.policy = value;
       else if (arg === '--client') options.client = value;
       else if (arg === '--interval') options.interval = value;
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
+    else if (arg === '--undo') options.undo = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
-  if (options.command === 'fix' && !options.server && !options.help && !options.version) throw new Error('fix requires --server <name>');
+  if (options.undo && options.command !== 'fix' && !options.help && !options.version) throw new Error('--undo is only valid with boppi fix');
+  if (options.undo && options.server) throw new Error('fix --undo restores the last backup and does not take --server');
+  const FORMATS = new Set(['terminal', 'json', 'html', 'sarif']);
+  if (!FORMATS.has(options.format)) throw new Error('--format must be one of: terminal, json, html, sarif');
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
   if (options.interval != null && options.command !== 'watch') throw new Error('--interval is only valid with boppi watch');
   if (options.command === 'watch' && !options.help && !options.version) {
@@ -537,7 +550,8 @@ async function performScan(options) {
     : { shadow: [], applied: [] };
   const credentialClient = discovery.clients.find(c => c.clientKey === 'provider-keys');
   const credentialNames = credentialClient && credentialClient.credentialNames ? credentialClient.credentialNames : [];
-  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, credentialNames, inlineCredentials, claudeSettings };
+  const configFindings = autoFix.collectIssues({ home: options.home, cwd: options.cwd, discovery, claudeSettings, credentialNames });
+  return { startedAt, home: options.home, durationMs: Date.now() - startMs, discovery, portableDiscovery: portableDiscovery(discovery, options.home), inventory, paths, prioritization, rootCauses, predictions, remediationPlan, inferenceByClient, diagnostics, incomplete, storageExport, credentialNames, inlineCredentials, claudeSettings, configFindings };
 }
 
 /** Config locations as they leave the machine: ~-relative under the scanned home, a fingerprint anywhere else. */
@@ -557,8 +571,20 @@ function portableDiscovery(discovery, home) {
   };
 }
 
+function decorateFindings(findings) {
+  return (findings || []).map(finding => ({ ...finding, remediation: finding.remediation || autoFix.remediationForEngineFinding(finding) }));
+}
+
+function decorateInventory(inventory) {
+  if (!inventory) return inventory;
+  const out = { ...inventory };
+  if (out.real) out.real = { ...out.real, findings: decorateFindings(out.real.findings) };
+  if (out.sample) out.sample = { ...out.sample, findings: decorateFindings(out.sample.findings) };
+  return out;
+}
+
 function exportPayload(scan) {
-  return {
+  const payload = {
     ...scan.storageExport,
     engineVersion: models.ENGINE_VERSION,
     exposurePaths: scan.paths,
@@ -576,6 +602,9 @@ function exportPayload(scan) {
     firstRun: scan.firstRun || null,
     generatedBy: `boppi-cli/${VERSION}`,
   };
+  payload.inventory = decorateInventory(payload.inventory);
+  payload.configFindings = (scan.configFindings || []).map(autoFix.toExportIssue);
+  return payload;
 }
 
 /** boppi verify: rescan with the same discovery options and grade each earlier prediction. */
@@ -628,8 +657,88 @@ async function runVerify(options) {
   return 0;
 }
 
-/** boppi fix: one removal, backed up, applied, rescanned, graded. */
+function renderAutoFixList(issues) {
+  const lines = [];
+  issues.forEach((item, index) => lines.push(autoFix.renderIssue(item, index + 1), ''));
+  return lines.join('\n');
+}
+
+/** boppi fix with no --server: walk fixable config risks. Never sends data. */
+async function runAutoFix(options) {
+  const scan = await performScan(options);
+  if (scan.failed) {
+    process.stderr.write(`Scan failed: ${scan.failed}\n`);
+    return scan.exitCode || 3;
+  }
+  const issues = scan.configFindings || [];
+  const automatic = issues.filter(item => item.autoFixable);
+  const manual = issues.filter(item => !item.autoFixable);
+  process.stdout.write(`BOPPI · FIX  ${automatic.length} automatic, ${manual.length} manual\n`);
+  if (!issues.length) {
+    process.stdout.write('No config risks to fix.\n');
+    return 0;
+  }
+  if (manual.length) {
+    process.stdout.write('\nMANUAL  these need you, because the change is not local or not safe to apply blindly\n\n');
+    process.stdout.write(renderAutoFixList(manual));
+  }
+  if (!automatic.length) {
+    process.stdout.write('No risks can be fixed automatically.\n');
+    return 0;
+  }
+  process.stdout.write('\nAUTOMATIC  a backup is written before the first change\n\n');
+  process.stdout.write(renderAutoFixList(automatic));
+  if (options.dryRun) {
+    process.stdout.write(`Dry run: ${automatic.length} fix${automatic.length === 1 ? '' : 'es'} shown. Nothing was changed.\n`);
+    return 0;
+  }
+  let selected = automatic;
+  if (options.yes) {
+    const held = automatic.filter(autoFix.needsConfirmation);
+    selected = automatic.filter(item => !autoFix.needsConfirmation(item));
+    if (held.length) {
+      process.stdout.write(`${held.length} fix${held.length === 1 ? '' : 'es'} skipped. --yes will not remove an unknown MCP server or delete a plaintext secret, because both break that server. Run boppi fix in a terminal to confirm each one.\n`);
+    }
+  } else if (!process.stdin.isTTY) {
+    process.stderr.write('fix: not applied. Pass --yes to apply the safe fixes without a prompt, or run it in a terminal.\n');
+    return 2;
+  } else {
+    selected = await autoFix.chooseFixes(automatic, item => fix.askChoice(`Apply this fix? ${item.title} [y]es / [n]o / [s]kip / [a]ll: `));
+  }
+  if (!selected.length) {
+    process.stdout.write('Nothing was changed.\n');
+    return 0;
+  }
+  let result;
+  try {
+    result = autoFix.applyIssues(selected, { home: options.home, cwd: options.cwd, now: scan.startedAt });
+  } catch (error) {
+    process.stderr.write(`fix: ${error.message}\n`);
+    return 3;
+  }
+  process.stdout.write(`Applied ${result.written.length} file${result.written.length === 1 ? '' : 's'}.\n`);
+  for (const file of result.written) process.stdout.write(`  ${file}\n`);
+  if (result.manifest) process.stdout.write(`Backup set: ${result.manifest.createdAt}. Restore it with boppi fix --undo.\n`);
+  return 0;
+}
+
+/** boppi fix: config fixes, or one server removal, backed up before anything changes. */
 async function runFix(options) {
+  if (options.undo) {
+    let manifest;
+    try { manifest = fix.undoLast(options.home); } catch (error) {
+      process.stderr.write(`fix: ${error.message}\n`);
+      return 3;
+    }
+    if (!manifest) {
+      process.stderr.write('fix: no backup set to restore. boppi fix writes one before it changes a file.\n');
+      return 2;
+    }
+    process.stdout.write(`Restored ${manifest.files.length} file${manifest.files.length === 1 ? '' : 's'} from the backup set taken at ${manifest.createdAt}.\n`);
+    for (const entry of manifest.files) process.stdout.write(`  ${entry.original}\n`);
+    return 0;
+  }
+  if (!options.server) return runAutoFix(options);
   const before = await performScan(options);
   if (before.failed) {
     process.stderr.write(`Scan failed: ${before.failed}\n`);
@@ -649,6 +758,10 @@ async function runFix(options) {
   const client = candidates[0];
   const descriptor = clientDescriptors(options).find(d => d.clientKey === client.clientKey);
   const located = fix.locateServer(client, descriptor, options.server);
+  if (located && located.symlink) {
+    process.stderr.write(`fix: "${options.server}" is in a symlink (${located.file}). boppi fix will not follow a symlink.\n`);
+    return 2;
+  }
   if (located && located.unsupportedFormat) {
     process.stderr.write(`fix: "${options.server}" is in a ${located.unsupportedFormat} config (${located.file}). boppi fix only edits JSON MCP configs.\n`);
     return 2;
@@ -668,6 +781,10 @@ async function runFix(options) {
   process.stdout.write(`  loses:   ${lost.length ? lost.join(', ') : 'no capability the agent does not also get elsewhere'}\n`);
   process.stdout.write(`  backup:  ${fix.backupPath(options.home, located.file, before.startedAt)}\n`);
 
+  if (options.dryRun) {
+    process.stdout.write('Dry run: nothing was changed.\n');
+    return 0;
+  }
   if (!options.yes) {
     if (!process.stdin.isTTY) {
       process.stderr.write('fix: not applied. Pass --yes to apply without a terminal confirmation.\n');
@@ -875,6 +992,7 @@ async function run(argv) {
   };
   report.securityReport = buildSecurityReport(report, scan.home);
   scan.securityReport = report.securityReport;
+  report.autoFixCount = autoFix.autoFixCount(scan.configFindings);
   report.firstRun = buildFirstRun(report, options.platform);
   scan.firstRun = report.firstRun;
 
@@ -899,26 +1017,59 @@ async function run(argv) {
 
   report.historyChanges = writeHistory(scan, options.historyFile);
 
-  process.stdout.write(terminal.renderReport(report, options) + '\n');
-  if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
+  const machine = options.format !== 'terminal';
+  const notice = machine && !options.output ? process.stderr : process.stdout;
+  const policyPortable = report.policy ? { ...report.policy, file: portablePath(report.policy.file, scan.home) } : null;
+  const jsonText = () => JSON.stringify({ ...exportPayload(scan), policy: policyPortable }, null, 2) + '\n';
+  const sarifReport = () => ({
+    ...report,
+    policy: policyPortable,
+    configFindings: (scan.configFindings || []).map(item => ({ ...autoFix.toExportIssue(item), file: item.file || null })),
+  });
+  const sarifText = () => JSON.stringify(sarif.renderSarif(sarifReport(), {
+    automationId: options.config ? 'config' : 'scan',
+    home: scan.home,
+    cwd: options.cwd,
+    fingerprint: file => portablePath(file, scan.home),
+  }), null, 2) + '\n';
+  const htmlText = () => html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients });
+
+  if (!machine) {
+    process.stdout.write(terminal.renderReport(report, options) + '\n');
+    if (report.policy) process.stdout.write('\n' + policyModule.renderPolicy(report.policy, options.color) + '\n');
+  } else if (report.policy && !report.policy.passed) {
+    process.stderr.write(policyModule.renderPolicy(report.policy, false) + '\n');
+  }
 
   if (options.json) {
-    fs.writeFileSync(options.json, JSON.stringify({ ...exportPayload(scan), policy: report.policy ? { ...report.policy, file: portablePath(report.policy.file, scan.home) } : null }, null, 2));
-    process.stdout.write(`\nJSON export written to ${options.json}\n`);
+    fs.writeFileSync(options.json, jsonText());
+    notice.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
     // HTML is an export artifact, so it receives the portable discovery view;
     // the terminal may still show the exact files read for local consent.
-    fs.writeFileSync(options.html, html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients }));
-    process.stdout.write(`\nHTML report written to ${options.html}\n`);
+    fs.writeFileSync(options.html, htmlText());
+    notice.write(`\nHTML report written to ${options.html}\n`);
   }
   if (options.sarif) {
-    const portableReport = { ...report, discovery: scan.portableDiscovery.clients, policy: report.policy ? { ...report.policy, file: portablePath(report.policy.file, scan.home) } : null };
-    fs.writeFileSync(options.sarif, JSON.stringify(sarif.renderSarif(portableReport, { automationId: options.config ? 'config' : 'scan' }), null, 2));
-    process.stdout.write(`\nSARIF report written to ${options.sarif}\n`);
+    fs.writeFileSync(options.sarif, sarifText());
+    notice.write(`\nSARIF report written to ${options.sarif}\n`);
+  }
+  if (machine) {
+    const body = options.format === 'json' ? jsonText() : options.format === 'html' ? htmlText() : sarifText();
+    if (options.output) {
+      fs.writeFileSync(options.output, body);
+      const label = options.format === 'json' ? 'JSON export' : options.format === 'html' ? 'HTML report' : 'SARIF report';
+      process.stdout.write(`${label} written to ${options.output}\n`);
+    } else {
+      process.stdout.write(body);
+    }
+  } else if (options.output) {
+    fs.writeFileSync(options.output, terminal.renderReport(report, options) + '\n');
+    process.stdout.write(`\nReport written to ${options.output}\n`);
   }
   const hint = terminal.pushHint(options);
-  if (hint) process.stdout.write(`\n${hint}\n`);
+  if (hint && !machine) process.stdout.write(`\n${hint}\n`);
 
   if (report.policy && !report.policy.passed) return 1;
   if (options.failOn) {

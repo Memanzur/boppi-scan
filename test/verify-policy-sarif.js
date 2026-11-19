@@ -64,10 +64,14 @@ function runCli(args, home, cwd = home) {
   ok('rules cover every exposure template and every violated policy rule', ['EP-A', 'EP-B', 'EP-C', 'EP-D', 'EP-E', 'EP-F'].every(id => ruleIds.has(id)) && ruleIds.has('POL-DENY-SERVER') && ruleIds.has('POL-DENY-COMBINATION'));
   ok('every result references a declared rule and a config location', runObj.results.length > 0 && runObj.results.every(r => ruleIds.has(r.ruleId) && r.locations[0].physicalLocation.artifactLocation.uri));
   const openFindings = exported.inventory.real.findings.filter(f => !['resolved', 'accepted_risk', 'false_positive'].includes(f.status));
-  ok('results are the paths, the open findings, and the violations', runObj.results.length === exported.exposurePaths.length + openFindings.length + exported.policy.violations.length);
+  const configFindings = exported.configFindings || [];
+  ok('results are the paths, the open findings, the violations, and the config findings', runObj.results.length === exported.exposurePaths.length + openFindings.length + exported.policy.violations.length + configFindings.length);
+  ok('every engine finding in the export has a remediation object', openFindings.every(f => f.remediation && typeof f.remediation.summary === 'string' && Array.isArray(f.remediation.steps) && typeof f.remediation.autoFixable === 'boolean' && typeof f.remediation.fixId === 'string'));
   ok('critical and high map to error, medium to warning', runObj.results.filter(r => ['critical', 'high'].includes(r.properties.severity)).every(r => r.level === 'error') && runObj.results.filter(r => r.properties.severity === 'medium').every(r => r.level === 'warning'));
   const serialized = JSON.stringify(log);
+  const resultUris = runObj.results.map(result => result.locations[0].physicalLocation.artifactLocation.uri);
   ok('SARIF uses portable config paths, never the home directory', serialized.includes('~/Library/Application Support/Claude/claude_desktop_config.json') && !serialized.includes(home));
+  ok('SARIF result URIs are encoded and have no raw spaces', resultUris.every(uri => typeof uri === 'string' && uri.length > 0 && !/\s/.test(uri) && !uri.includes('\\')) && resultUris.some(uri => uri.includes('Application%20Support')));
 
   section('discovery and validation');
   const cwd = path.join(root, 'project');
@@ -92,7 +96,9 @@ function runCli(args, home, cwd = home) {
   fs.writeFileSync(path.join(cwd, 'boppi.policy.json'), JSON.stringify({ denyCombinations: [['shell_access', 'untrusted_external_content']] }));
   const ci = runCli(['scan', '--config', path.join(cwd, '.mcp.json'), '--source', 'claude-code', '--sarif', path.join(cwd, 'ci.sarif')], home, cwd);
   const ciLog = JSON.parse(fs.readFileSync(path.join(cwd, 'ci.sarif'), 'utf8'));
+  const ciUris = ciLog.runs[0].results.map(result => result.locations[0].physicalLocation.artifactLocation.uri);
   ok('an explicit config scan evaluates the policy and writes SARIF against that file', ci.code === 1 && ci.stdout.includes('POL-DENY-COMBINATION') && ciLog.runs[0].results.some(r => r.ruleId === 'POL-DENY-COMBINATION'));
+  ok('explicit config results point at .mcp.json, not a home path or a fingerprint', ciUris.every(uri => uri === '.mcp.json'));
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
