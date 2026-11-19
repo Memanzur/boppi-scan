@@ -83,16 +83,23 @@ const ENGINE_GUIDE = Object.freeze({
     ],
   },
   'AE-009': {
-    summary: 'Command execution can reach a network-capable server.',
+    summary: 'Command execution is combined with an outbound leg, untrusted content, or an approval bypass.',
     steps: [
-      'Remove the shell or code server, or remove the network-capable server.',
+      'Remove the shell or code server, turn prompting back on, or remove the outbound or untrusted server.',
       'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
     ],
   },
   'AE-010': {
-    summary: 'Command execution is granted and no network leg was evidenced.',
+    summary: 'Command execution still prompts, and no outbound or untrusted leg was evidenced.',
     steps: [
       'Remove shell or code execution the agent does not need.',
+      'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
+    ],
+  },
+  'AE-011': {
+    summary: 'A database or SaaS read can reach fetch, a browser, messaging send, or a shell.',
+    steps: [
+      'Remove the outbound server, or remove the data server the agent does not need.',
       'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
     ],
   },

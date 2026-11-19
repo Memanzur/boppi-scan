@@ -1265,8 +1265,10 @@
       "id": "single-everything-demo",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
-      "note": "One server. A single capability is not a critical combination.",
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One SaaS server. A sensitive read with no outbound leg is medium.",
       "servers": {
         "everything-demo": {
           "command": "npx",
@@ -1683,9 +1685,11 @@
     {
       "id": "single-slack-name-only",
       "client": "claude-desktop",
-      "plantedCombo": false,
-      "expectedSeverities": [],
-      "note": "One server. A single capability is not a critical combination.",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Slack history plus send is an exfiltration chain on one server.",
       "servers": {
         "slack-name-only": {
           "command": "slack"
@@ -1696,8 +1700,10 @@
       "id": "single-github-name-only",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
-      "note": "One server. A single capability is not a critical combination.",
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One GitHub server. Repo read with no outbound leg is medium.",
       "servers": {
         "github-name-only": {
           "command": "github"
@@ -2081,6 +2087,90 @@
       "servers": {
         "calendar-holds": {
           "url": "https://calendar-holds.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "postgres-fetch-exfil",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Postgres read plus a fetch server. The database connection is not the outbound leg.",
+      "servers": {
+        "db": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-postgres"
+          ]
+        },
+        "fetch": {
+          "command": "uvx",
+          "args": [
+            "mcp-server-fetch"
+          ]
+        }
+      }
+    },
+    {
+      "id": "postgres-alone",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "Postgres alone. A sensitive read with no outbound leg is medium.",
+      "servers": {
+        "db": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-postgres"
+          ]
+        }
+      }
+    },
+    {
+      "id": "shell-auto-approve",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Shell with a Cline autoApprove list. Prompting is off.",
+      "servers": {
+        "shell": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-server-commands"
+          ],
+          "autoApprove": [
+            "run"
+          ]
+        }
+      }
+    },
+    {
+      "id": "notion-browser-exfil",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Notion read plus a browser. The Notion host is the data source, not the outbound leg.",
+      "servers": {
+        "notes": {
+          "url": "https://mcp.notion.com/mcp"
+        },
+        "browser": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@playwright/mcp"
+          ]
         }
       }
     }

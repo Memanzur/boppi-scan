@@ -20,10 +20,14 @@ const CAP_TO_CATEGORY = Object.freeze({
   untrusted_external_content: 'untrusted_external_content',
   source_write: 'modify_source_code',
   production_access: 'access_production_system',
+  sensitive_read: 'access_customer_data',
+  messaging_send: 'send_external_message',
+  approval_bypass: 'approval_bypass',
 });
 const RISK_WEIGHT = Object.freeze({
-  shell_access: 3, code_execution: 3, credential_access: 3,
+  shell_access: 3, code_execution: 3, credential_access: 3, approval_bypass: 3,
   filesystem_access: 2, network_access: 2, browser_automation: 2, untrusted_external_content: 2,
+  sensitive_read: 2, messaging_send: 2,
   environment_access: 1,
 });
 const CATEGORY_RISK_WEIGHT = Object.freeze({
@@ -90,13 +94,30 @@ function accessLevelFor(capability, inference) {
     if (role === 'files-broad' || scope === 'root' || scope === 'home') return 'broad';
     return 'scoped';
   }
+  if (capability === 'sensitive_read') return 'data';
   if (role === 'data' || role === 'data-local') return 'data';
   if (role === 'payment') return 'payment';
   return 'broad';
 }
 
-function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}) {
+function bypassPermission(agent, observedAt, reason) {
+  return models.createPermission({
+    agentId: agent.id,
+    rawPermission: `approval bypass (${reason})`,
+    normalizedCategory: 'approval_bypass',
+    accessLevel: 'broad',
+    riskWeight: 3,
+    normalizationConfidence: 0.85,
+    normalizationReason: reason,
+    source: { ...agent.source, evidenceClass: 'observed' },
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  });
+}
+
+function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}, approvalBypass = null) {
   const permissions = [];
+  if (approvalBypass) permissions.push(bypassPermission(agent, observedAt, approvalBypass));
   for (const server of servers) {
     const inference = inferenceByServer[server.name] || null;
     for (const claim of (overlayByServer[server.name] || {}).validated || []) permissions.push(overlayPermission(agent, server, claim, observedAt));
@@ -124,7 +145,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
 }
 
 /** Build a scanController provider from one client's scanner result. */
-function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {} }) {
+function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {}, approvalBypass = null }) {
   return {
     id: `cli-${clientKey}`,
     version: '0.1.0',
@@ -136,7 +157,7 @@ function createConfigProvider({ clientKey, label, scannerResult, inferenceByServ
       return {
         agents: [raw.agent],
         integrations: [],
-        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer),
+        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer, approvalBypass),
         mcpServers: raw.records,
         diagnostics: raw.diagnostics || [],
       };

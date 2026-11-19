@@ -37,7 +37,7 @@
     'execute_code', 'run_shell_commands', 'browse_internet', 'call_external_api',
     'send_external_message', 'send_email', 'browser_automation', 'make_purchase',
     'create_or_modify_records', 'modify_source_code', 'modify_calendar',
-    'write_files', 'delete_files', 'untrusted_external_content',
+    'write_files', 'delete_files', 'untrusted_external_content', 'approval_bypass',
   ]);
   const DATA_CATEGORIES = new Set([
     'read_files', 'read_email', 'read_calendar', 'read_source_code',

@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { matchIdentity, matchHost } = require('./mcpCatalog');
+const { matchIdentity, matchHost, DATA_SOURCE_ROLES } = require('./mcpCatalog');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -69,7 +69,7 @@ const TOOL_ALLOWLIST = Object.freeze([
   { label: 'declared shell tool', capabilities: ['shell_access'], names: ['run_bash', 'bash', 'execute_command', 'run_command', 'run_shell', 'shell_exec'] },
   { label: 'declared file tool', capabilities: ['filesystem_access'], names: ['read_file', 'read_text_file', 'write_file', 'list_directory', 'list_dir', 'list_files'] },
   { label: 'declared credential tool', capabilities: ['credential_access'], names: ['read_aws_credentials', 'get_secret', 'read_secret', 'read_secrets'] },
-  { label: 'declared slack tool', capabilities: ['network_access'], names: ['post_slack_message', 'send_slack_message', 'slack_post_message'] },
+  { label: 'declared slack tool', capabilities: ['messaging_send'], names: ['post_slack_message', 'send_slack_message', 'slack_post_message'] },
   { label: 'declared browser tool', capabilities: ['browser_automation', 'untrusted_external_content', 'network_access'], names: ['browser_navigate', 'browser_click', 'playwright_navigate'] },
 ]);
 
@@ -248,17 +248,24 @@ function inferCapabilities(name, server, options = {}) {
     roles.filesystem_access = filesystemScope === 'root' || filesystemScope === 'home' ? 'files-broad' : 'files-scoped';
   }
 
+  if (Number(spec.autoApproveCount) > 0) {
+    grant(['approval_bypass'], 'observed', 'autoApprove list', 'autoApprove');
+  }
+
   const host = remoteHost(spec);
   if (host) {
     const catalogHost = matchHost(host);
     if (catalogHost) grantCatalog(catalogHost, host);
-    if (!grades.network_access) grant(['network_access'], 'observed', 'remote MCP server', host);
+    const readsData = Object.values(roles).some(role => DATA_SOURCE_ROLES.has(role));
+    if (!grades.network_access && !readsData) grant(['network_access'], 'observed', 'remote MCP server', host);
   }
 
   const haystack = [name, spec.command || '', ...args, spec.url || spec.endpoint || ''].join(' ');
+  const readsData = Object.values(roles).some(role => DATA_SOURCE_ROLES.has(role));
   for (const rule of SUBSTRING_RULES) {
     const match = haystack.match(rule.pattern);
     if (!match) continue;
+    if (readsData && rule.capabilities.length === 1 && rule.capabilities[0] === 'network_access') continue;
     const missing = rule.capabilities.filter(capability => !grades[capability]);
     if (!missing.length) continue;
     grant(missing, 'substring', rule.label, (match[0] || '').trim() || match[0]);
