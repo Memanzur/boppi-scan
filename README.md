@@ -159,6 +159,7 @@ boppi verify <previous.json>   rescan and grade the predictions in an earlier --
 boppi history                  recent local scan summaries, what changed, and verified exposure reduction
 boppi push                     scan once, then send the sanitized inventory to your Boppi workspace
 boppi watch                    repeat that scan and push in the foreground until Ctrl+C
+boppi ask "question"           ask about this scan. With no question, chat until a blank line.
 
 --format <name>     terminal (default), json, html, or sarif
 -o, --output <file> write that format to a file
@@ -226,7 +227,13 @@ Each automatic risk is shown in plain language with a small diff. Answer `y`, `n
 
 Rotating a key at the provider cannot be done from this machine. Those findings print the console to open and the file to edit. The same guidance is on every finding in `--json` and `--format json` as `remediation`: `{ summary, steps, autoFixable, fixId }`.
 
-When a scan finds automatic fixes, the report adds `3 risks can be fixed automatically. Run npx @boppi/cli fix`.
+When a scan finds automatic fixes, the report adds `3 risks can be fixed automatically. Run npx @boppi/cli fix`. A scan also adds `Questions? Run npx @boppi/cli ask`.
+
+### Ask
+
+`boppi ask "what should I fix first?"` scans locally, then sends the question and redacted findings to `POST /api/ai/ask` on `https://beta.boppi.io` (override the origin with `BOPPI_API_URL`). Each finding is only `id`, `title`, `severity`, `category`, `tool`, and `remediation`. A client side pass replaces keys, tokens, and credential URLs with `[redacted]` before the request. File contents are not sent.
+
+`boppi ask` with no question opens a chat. A blank line, `exit`, or `quit` ends it. The first run on a machine prints one privacy line and remembers that in `~/.boppi/ask-notice`. If the API is offline or returns an error, boppi prints that and does not dump the response.
 
 ### Policy guard
 
@@ -308,13 +315,15 @@ Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action 
 
 ## What leaves the machine
 
-Nothing, unless you run `boppi push` or `boppi watch`.
+Nothing, unless you run `boppi push`, `boppi watch`, or `boppi ask`.
 
 The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
-This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push` is allowed to reach the network, and the same check confirms that it does.
+This is tested, not just stated: `npm test` runs scan, plan, fix, verify, history, and the other local commands with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. A real `boppi push` or `boppi watch` is allowed to reach the network, and the same check confirms that it does. `boppi ask` is tested against a local mock of the API.
 
-`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi watch` sends that same inventory on a repeating foreground schedule and adds `expected_interval_seconds` (the pause between cycles, in seconds). One-shot `push` does not send that field. `~/.boppi/history.json` is local scan history and is never uploaded. `boppi push --dry-run` and `boppi watch --dry-run` print the payload without sending it. No other command makes a network request.
+`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi watch` sends that same inventory on a repeating foreground schedule and adds `expected_interval_seconds` (the pause between cycles, in seconds). One-shot `push` does not send that field. `~/.boppi/history.json` is local scan history and is never uploaded. `boppi push --dry-run` and `boppi watch --dry-run` print the payload without sending it.
+
+`boppi ask` POSTs the question and redacted findings to `/api/ai/ask` on the origin in `BOPPI_API_URL` (default `https://beta.boppi.io`). It does not send file contents, keys, or tokens.
 
 If a server entry contains something that looks like a secret in a place the scanner cannot redact, the scanner refuses that client's config and prints the reason instead of a result. Move the secret into an environment variable the server reads and rescan.
 
