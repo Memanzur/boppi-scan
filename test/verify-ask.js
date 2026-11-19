@@ -141,7 +141,27 @@ function fakeResponse(chunks, contentType) {
   ok('the request is POST /api/ai/ask and the body has no secret, token, or file body', bodies.length === 1 && bodies[0].method === 'POST' && bodies[0].url === '/api/ai/ask' && !bodies[0].raw.includes(SECRET) && !bodies[0].raw.includes(TOKEN) && !bodies[0].raw.includes('pw_secret_test') && !bodies[0].raw.includes(FILE_BODY));
   ok('stdout and stderr do not echo the secret', !first.stdout.includes(SECRET) && !first.stderr.includes(SECRET) && !first.stdout.includes(TOKEN));
   const second = await runCli(['ask', 'what next'], home, { BOPPI_API_URL: base });
-  ok('the privacy note is not repeated', second.code === 0 && !second.stderr.includes(ask.PRIVACY_NOTE) && fs.existsSync(path.join(home, '.boppi', 'ask-notice')));
+  const notice = path.join(home, '.boppi', 'ask-notice');
+  ok('the privacy note is not repeated and the marker is owner-only', second.code === 0 && !second.stderr.includes(ask.PRIVACY_NOTE) && fs.lstatSync(notice).isFile() && (fs.statSync(notice).mode & 0o777) === 0o600);
+
+  section('symlink marker');
+  const linkHome = path.join(root, 'link-home');
+  const outside = path.join(root, 'outside-notice');
+  fs.mkdirSync(path.join(linkHome, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(linkHome, '.cursor', 'mcp.json'), '{}\n');
+  fs.mkdirSync(path.join(linkHome, '.boppi'));
+  fs.writeFileSync(outside, 'KEEP\n');
+  fs.symlinkSync(outside, path.join(linkHome, '.boppi', 'ask-notice'));
+  const linked = await runCli(['ask', 'hello'], linkHome, { BOPPI_API_URL: 'http://127.0.0.1:9' });
+  ok('a symlinked privacy marker is not followed', linked.stderr.includes(ask.PRIVACY_NOTE) && fs.readFileSync(outside, 'utf8') === 'KEEP\n' && fs.lstatSync(path.join(linkHome, '.boppi', 'ask-notice')).isSymbolicLink());
+  const elsewhere = path.join(root, 'elsewhere');
+  const dirHome = path.join(root, 'dir-home');
+  fs.mkdirSync(path.join(dirHome, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(dirHome, '.cursor', 'mcp.json'), '{}\n');
+  fs.mkdirSync(elsewhere);
+  fs.symlinkSync(elsewhere, path.join(dirHome, '.boppi'));
+  const linkedDir = await runCli(['ask', 'hello'], dirHome, { BOPPI_API_URL: 'http://127.0.0.1:9' });
+  ok('a symlinked .boppi directory does not receive the privacy marker', linkedDir.stderr.includes(ask.PRIVACY_NOTE) && !fs.existsSync(path.join(elsewhere, 'ask-notice')));
 
   section('errors');
   const failedCall = await runCli(['ask', 'please fail this'], home, { BOPPI_API_URL: base });

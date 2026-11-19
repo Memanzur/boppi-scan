@@ -19,13 +19,44 @@ function noticePath(home) {
   return path.join(home, '.boppi', 'ask-notice');
 }
 
-/** The one-line note, written once per scan home. Returns '' after the first time. */
+function noFollowFlag() {
+  return fs.constants.O_NOFOLLOW || 0;
+}
+
+/**
+ * Record that the privacy line was shown. A symlink at ~/.boppi or at the
+ * marker is left untouched, so the write cannot land in another file.
+ * Returns '' when a regular marker is already present.
+ */
 function privacyNote(home) {
+  const dir = path.join(home, '.boppi');
   const file = noticePath(home);
-  if (fs.existsSync(file)) return '';
   try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, new Date().toISOString() + '\n', { mode: 0o600 });
+    let dirStat;
+    try { dirStat = fs.lstatSync(dir); } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      const parent = fs.lstatSync(home);
+      if (parent.isSymbolicLink() || !parent.isDirectory()) return PRIVACY_NOTE;
+      fs.mkdirSync(dir, { mode: 0o700 });
+      dirStat = fs.lstatSync(dir);
+    }
+    if (dirStat.isSymbolicLink() || !dirStat.isDirectory()) return PRIVACY_NOTE;
+    try { fs.chmodSync(dir, 0o700); } catch (_) { /* the directory may already be private */ }
+    let fileStat = null;
+    try { fileStat = fs.lstatSync(file); } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    if (fileStat) {
+      if (fileStat.isSymbolicLink() || !fileStat.isFile()) return PRIVACY_NOTE;
+      return '';
+    }
+    const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollowFlag(), 0o600);
+    try {
+      fs.writeFileSync(fd, new Date().toISOString() + '\n');
+      fs.fchmodSync(fd, 0o600);
+    } finally {
+      fs.closeSync(fd);
+    }
   } catch (_) { /* still show the note; the next run may show it again */ }
   return PRIVACY_NOTE;
 }
