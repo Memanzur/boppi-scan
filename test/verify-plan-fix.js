@@ -70,7 +70,7 @@ function runCli(args, home, extra = {}) {
   ok('fix exits 0 when the prediction is CONFIRMED', applied.code === 0 && applied.stdout.includes('CONFIRMED'));
   ok('the server is gone and the rest of the file is intact', !after.mcpServers.fetch && after.mcpServers.filesystem && after.theme === 'keep-me');
   const backups = fs.readdirSync(path.join(home, '.boppi', 'backups'));
-  ok('a backup of the original file was written with owner-only permissions', backups.length === 1 && fs.readFileSync(path.join(home, '.boppi', 'backups', backups[0]), 'utf8') === original && (fs.statSync(path.join(home, '.boppi', 'backups', backups[0])).mode & 0o777) === 0o600);
+  ok('a backup of the original file was written with owner-only permissions', backups.length === 1 && fs.readFileSync(path.join(home, '.boppi', 'backups', backups[0]), 'utf8') === original && (process.platform === 'win32' || (fs.statSync(path.join(home, '.boppi', 'backups', backups[0])).mode & 0o777) === 0o600));
   const exports = fs.readdirSync(home).filter(f => f.startsWith('boppi-fix-') && f.endsWith('.json'));
   ok('the predictions used were saved next to the scan for later verify runs', exports.length === 1 && Array.isArray(JSON.parse(fs.readFileSync(path.join(home, exports[0]), 'utf8')).predictions));
   ok('the fix output never prints secret values', !applied.stdout.includes('SUPERSECRETVALUE') && !applied.stderr.includes('SUPERSECRETVALUE'));

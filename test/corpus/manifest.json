@@ -1,0 +1,2088 @@
+{
+  "version": 1,
+  "description": "Labeled MCP server configs for the detection truth gate. Labels were written from the 2026-11-19 probe and from the rule that a critical requires observed tools, a declared tool on the tool list, or the short package and name allowlist. Lookalike names are not critical. Disabled entries count as configs and must not be scanned.",
+  "cases": [
+    {
+      "id": "e0-claude-desktop",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Claude Desktop style combo: files, shell, browser, and a slack token.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "shell": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@wonderwhy-er/desktop-commander"
+          ]
+        },
+        "playwright": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@playwright/mcp"
+          ]
+        },
+        "slack": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-slack"
+          ],
+          "env": {
+            "SLACK_BOT_TOKEN": "present"
+          }
+        }
+      }
+    },
+    {
+      "id": "named-claude-combo",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Same combo using the canonical server names and a remote slack URL stand-in via the slack package.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "shell": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-server-shell"
+          ]
+        },
+        "playwright": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@playwright/mcp"
+          ]
+        },
+        "slack": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-slack"
+          ],
+          "env": {
+            "SLACK_BOT_TOKEN": "present"
+          }
+        }
+      }
+    },
+    {
+      "id": "github-shell-files",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "GitHub token, a shell package, and the filesystem package.",
+      "servers": {
+        "github": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-github"
+          ],
+          "env": {
+            "GITHUB_TOKEN": "present"
+          }
+        },
+        "commander": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@wonderwhy-er/desktop-commander"
+          ]
+        },
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        }
+      }
+    },
+    {
+      "id": "puppeteer-shell-files",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Browser package plus shell and files.",
+      "servers": {
+        "puppeteer": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-puppeteer"
+          ]
+        },
+        "shell": {
+          "command": "shell"
+        },
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem"
+          ]
+        }
+      }
+    },
+    {
+      "id": "e2b-onepassword-fetch",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Code interpreter, a credential manager package, and a remote fetch URL.",
+      "servers": {
+        "code-runner": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "e2b-code-interpreter"
+          ],
+          "env": {
+            "E2B_API_KEY": "present"
+          }
+        },
+        "onepassword": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@1password/mcp"
+          ]
+        },
+        "fetch": {
+          "url": "https://example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "playwright-files-shell-names",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Exact server names filesystem, shell, and playwright.",
+      "servers": {
+        "filesystem": {
+          "command": "filesystem",
+          "args": [
+            "~/docs"
+          ]
+        },
+        "shell": {
+          "command": "shell"
+        },
+        "playwright": {
+          "command": "playwright"
+        }
+      }
+    },
+    {
+      "id": "slack-commander-files",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Slack package with a token name, desktop commander, and files.",
+      "servers": {
+        "slack": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-slack"
+          ],
+          "env": {
+            "SLACK_BOT_TOKEN": "present"
+          }
+        },
+        "commander": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@wonderwhy-er/desktop-commander"
+          ]
+        },
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        }
+      }
+    },
+    {
+      "id": "code-interpreter-bitwarden-url",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Code interpreter package, bitwarden by name, and a non-loopback URL.",
+      "servers": {
+        "interpreter": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "code-interpreter"
+          ]
+        },
+        "bitwarden": {
+          "command": "bitwarden"
+        },
+        "bridge": {
+          "url": "https://bridge.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "puppeteer-commander-filesystem",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Three official packages: browser, shell, files.",
+      "servers": {
+        "puppeteer": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-puppeteer"
+          ]
+        },
+        "commander": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@wonderwhy-er/desktop-commander"
+          ]
+        },
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem"
+          ]
+        }
+      }
+    },
+    {
+      "id": "fetch-package-e2b-credential-tool",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Fetch package, code execution package, and a declared credential tool.",
+      "servers": {
+        "fetch": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-server-fetch"
+          ]
+        },
+        "runner": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "e2b-code-interpreter"
+          ]
+        },
+        "secrets": {
+          "command": "node",
+          "args": [
+            "server.js"
+          ],
+          "tools": [
+            {
+              "name": "read_aws_credentials"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-docs",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Filesystem package rooted at a directory plus a remote MCP URL.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "fetch": {
+          "url": "https://example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-home",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Named filesystem server and a remote endpoint.",
+      "servers": {
+        "filesystem": {
+          "command": "filesystem",
+          "args": [
+            "~/docs"
+          ]
+        },
+        "remote": {
+          "url": "https://mcp.example.test/rpc"
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-wiki",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Filesystem package plus https://wiki.example.test/mcp.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "wiki": {
+          "url": "https://wiki.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-status",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Filesystem package plus https://status.example.test/mcp.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "status": {
+          "url": "https://status.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-design",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Filesystem package plus https://design.example.test/mcp.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "design": {
+          "url": "https://design.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-metrics",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Filesystem package plus https://metrics.example.test/mcp.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "metrics": {
+          "url": "https://metrics.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "files-url-exfil-handbook",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Filesystem package plus https://handbook.example.test/mcp.",
+      "servers": {
+        "filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        },
+        "handbook": {
+          "url": "https://handbook.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "custom-tools-one-server",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "custom-tools": {
+          "command": "node",
+          "args": [
+            "server.js"
+          ],
+          "tools": [
+            {
+              "name": "run_bash",
+              "description": "Run a shell command"
+            },
+            {
+              "name": "read_aws_credentials",
+              "description": "Read AWS credential files"
+            },
+            {
+              "name": "post_slack_message",
+              "description": "Post to Slack"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "custom-tools-split",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "tasks": {
+          "command": "node",
+          "args": [
+            "tasks.js"
+          ],
+          "tools": [
+            {
+              "name": "run_bash"
+            }
+          ]
+        },
+        "keys": {
+          "command": "node",
+          "args": [
+            "keys.js"
+          ],
+          "tools": [
+            {
+              "name": "read_aws_credentials"
+            }
+          ]
+        },
+        "notify": {
+          "command": "node",
+          "args": [
+            "notify.js"
+          ],
+          "tools": [
+            {
+              "name": "post_slack_message"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "custom-tools-string-names",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "helper": {
+          "command": "node",
+          "args": [
+            "helper.js"
+          ],
+          "tools": [
+            "run_bash",
+            "read_secrets",
+            "post_slack_message"
+          ]
+        }
+      }
+    },
+    {
+      "id": "browser-shell-file-tools",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "browser": {
+          "command": "node",
+          "args": [
+            "browser.js"
+          ],
+          "tools": [
+            {
+              "name": "browser_navigate"
+            }
+          ]
+        },
+        "local": {
+          "command": "node",
+          "args": [
+            "local.js"
+          ],
+          "tools": [
+            {
+              "name": "run_bash"
+            },
+            {
+              "name": "read_file"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shell-file-slack-tool",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "ops": {
+          "command": "node",
+          "args": [
+            "ops.js"
+          ],
+          "tools": [
+            {
+              "name": "execute_command"
+            },
+            {
+              "name": "list_directory"
+            }
+          ]
+        },
+        "chat": {
+          "command": "node",
+          "args": [
+            "chat.js"
+          ],
+          "tools": [
+            {
+              "name": "send_slack_message"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bash-and-aws-and-url",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "runner": {
+          "command": "node",
+          "args": [
+            "runner.js"
+          ],
+          "tools": [
+            {
+              "name": "run_shell"
+            }
+          ]
+        },
+        "creds": {
+          "command": "node",
+          "args": [
+            "creds.js"
+          ],
+          "tools": [
+            {
+              "name": "get_secret"
+            }
+          ]
+        },
+        "edge": {
+          "url": "https://edge.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "playwright-navigate-and-files",
+      "client": "cursor",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "browser": {
+          "command": "node",
+          "args": [
+            "pw.js"
+          ],
+          "tools": [
+            {
+              "name": "playwright_navigate"
+            }
+          ]
+        },
+        "files": {
+          "command": "node",
+          "args": [
+            "files.js"
+          ],
+          "tools": [
+            {
+              "name": "write_file"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "click-shell-read",
+      "client": "claude-desktop",
+      "plantedCombo": true,
+      "expectedSeverities": [
+        "critical",
+        "high"
+      ],
+      "note": "Declared tool names on the high precision tool list.",
+      "servers": {
+        "browser": {
+          "command": "node",
+          "args": [
+            "click.js"
+          ],
+          "tools": [
+            {
+              "name": "browser_click"
+            }
+          ]
+        },
+        "term": {
+          "command": "node",
+          "args": [
+            "term.js"
+          ],
+          "tools": [
+            {
+              "name": "shell_exec"
+            }
+          ]
+        },
+        "disk": {
+          "command": "node",
+          "args": [
+            "disk.js"
+          ],
+          "tools": [
+            {
+              "name": "read_text_file"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e0-cursor",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "2026-11-19 Cursor probe: substring names, a vault directory, disabled shell, loopback.",
+      "servers": {
+        "notes": {
+          "command": "node",
+          "args": [
+            "~/notes"
+          ]
+        },
+        "research-notes": {
+          "command": "node",
+          "args": [
+            "index.js"
+          ]
+        },
+        "price-fetch": {
+          "command": "node",
+          "args": [
+            "prices.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "helper.js"
+          ]
+        },
+        "obsidian": {
+          "command": "npx",
+          "args": [
+            "obsidian-mcp",
+            "~/obsidian-vault"
+          ]
+        },
+        "opaque-bin": {
+          "command": "opaque-bin",
+          "args": [
+            "shell,read_secrets,send_slack"
+          ]
+        },
+        "disabled-shell": {
+          "command": "bash",
+          "args": [
+            "-lc",
+            "bash"
+          ],
+          "disabled": true
+        },
+        "enabled-off": {
+          "command": "sh",
+          "enabled": false
+        },
+        "localhost-bridge": {
+          "url": "http://127.0.0.1:9/mcp"
+        }
+      }
+    },
+    {
+      "id": "lookalike-search-sandbox-vault",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "research-notes": {
+          "command": "node",
+          "args": [
+            "notes.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "box.js"
+          ]
+        },
+        "team-vault": {
+          "command": "node",
+          "args": [
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-opaque-and-research",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "opaque-bin": {
+          "command": "opaque-bin",
+          "args": [
+            "shell,read_secrets,send_slack"
+          ]
+        },
+        "research-notes": {
+          "command": "node",
+          "args": [
+            "index.js"
+          ]
+        },
+        "obsidian": {
+          "command": "node",
+          "args": [
+            "~/obsidian-vault"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-price-fetch-sandbox",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "price-fetch": {
+          "command": "node",
+          "args": [
+            "fetch.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "python",
+          "args": [
+            "main.py"
+          ]
+        },
+        "obsidian-vault": {
+          "command": "node",
+          "args": [
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-my-search-cache",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "my-search-cache": {
+          "command": "node",
+          "args": [
+            "cache.js"
+          ]
+        },
+        "unsandboxed-runner": {
+          "command": "node",
+          "args": [
+            "run.js"
+          ]
+        },
+        "client-vault-export": {
+          "command": "node",
+          "args": [
+            "export.js",
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-shell-args-and-notes",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "worker": {
+          "command": "worker",
+          "args": [
+            "shell,read_secrets,send_slack"
+          ]
+        },
+        "research-notes": {
+          "command": "node",
+          "args": [
+            "~/docs"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "help.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-github-notes-name",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "github-stars-cache": {
+          "command": "node",
+          "args": [
+            "stars.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "box.js"
+          ]
+        },
+        "keychain-notes": {
+          "command": "node",
+          "args": [
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-slack-archive",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "slack-archive-export": {
+          "command": "node",
+          "args": [
+            "export.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "box.js"
+          ]
+        },
+        "team-vault": {
+          "command": "node",
+          "args": [
+            "readme.md"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-fetch-prices",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "fetch-prices-locally": {
+          "command": "node",
+          "args": [
+            "prices.js"
+          ]
+        },
+        "code-sandbox-helper": {
+          "command": "node",
+          "args": [
+            "sb.js"
+          ]
+        },
+        "vault-notes": {
+          "command": "node",
+          "args": [
+            "~/obsidian-vault"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-searching-index",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "searching": {
+          "command": "node",
+          "args": [
+            "index.js"
+          ]
+        },
+        "helper-sandbox": {
+          "command": "node",
+          "args": [
+            "h.js"
+          ]
+        },
+        "password-vault-copy": {
+          "command": "node",
+          "args": [
+            "copy.js",
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-notion-word",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "notion-export-cache": {
+          "command": "node",
+          "args": [
+            "cache.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "box.js"
+          ]
+        },
+        "obsidian-vault": {
+          "command": "node",
+          "args": [
+            "server.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-jira-sandbox",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "jira-ticket-dump": {
+          "command": "node",
+          "args": [
+            "dump.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "box.js"
+          ]
+        },
+        "team-vault": {
+          "command": "node",
+          "args": [
+            "~/docs"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookalike-postgres-notes",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high",
+        "medium"
+      ],
+      "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
+      "servers": {
+        "postgres-notes": {
+          "command": "node",
+          "args": [
+            "notes.js"
+          ]
+        },
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "box.js"
+          ]
+        },
+        "bitwarden-export-notes": {
+          "command": "node",
+          "args": [
+            "out.js",
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-memory",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "memory": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-memory"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-time",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "time": {
+          "command": "uvx",
+          "args": [
+            "mcp-server-time"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-sequential-thinking",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "sequential-thinking": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-sequential-thinking"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-sqlite-local",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "sqlite-local": {
+          "command": "uvx",
+          "args": [
+            "mcp-server-sqlite",
+            "--db",
+            "notes.db"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-everything-demo",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "everything-demo": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-everything"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-git-local",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "git-local": {
+          "command": "uvx",
+          "args": [
+            "mcp-server-git",
+            "--repository",
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-research-notes",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "research-notes": {
+          "command": "node",
+          "args": [
+            "index.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-sandbox-helper",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "sandbox-helper": {
+          "command": "node",
+          "args": [
+            "helper.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-unsandboxed-runner",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "unsandboxed-runner": {
+          "command": "node",
+          "args": [
+            "run.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-obsidian-vault",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "obsidian-vault": {
+          "command": "node",
+          "args": [
+            "server.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-vault-notes",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "vault-notes": {
+          "command": "node",
+          "args": [
+            "notes.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-my-search-cache",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "my-search-cache": {
+          "command": "node",
+          "args": [
+            "cache.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-searching",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "searching": {
+          "command": "node",
+          "args": [
+            "searching.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-price-fetch",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "price-fetch": {
+          "command": "node",
+          "args": [
+            "prices.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-fetch-prices-locally",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "fetch-prices-locally": {
+          "command": "node",
+          "args": [
+            "local.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-slack-archive-export",
+      "client": "claude-desktop",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "slack-archive-export": {
+          "command": "node",
+          "args": [
+            "export.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-github-stars-cache",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "github-stars-cache": {
+          "command": "node",
+          "args": [
+            "stars.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-notion-export-cache",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "notion-export-cache": {
+          "command": "node",
+          "args": [
+            "cache.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-jira-ticket-dump",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "jira-ticket-dump": {
+          "command": "node",
+          "args": [
+            "dump.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-postgres-notes",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "postgres-notes": {
+          "command": "node",
+          "args": [
+            "notes.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-keychain-notes",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "keychain-notes": {
+          "command": "node",
+          "args": [
+            "notes.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-aws-notes-folder",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "aws-notes-folder": {
+          "command": "node",
+          "args": [
+            "folder.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-design-tokens",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "design-tokens": {
+          "command": "node",
+          "args": [
+            "tokens.js"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-localhost-bridge",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "localhost-bridge": {
+          "url": "http://127.0.0.1:9/mcp"
+        }
+      }
+    },
+    {
+      "id": "single-loopback-ipv6",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "loopback-ipv6": {
+          "url": "http://[::1]:9/mcp"
+        }
+      }
+    },
+    {
+      "id": "single-notes-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "notes-only": {
+          "command": "node",
+          "args": [
+            "~/notes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-docs-dir-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "docs-dir-only": {
+          "command": "node",
+          "args": [
+            "~/docs"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-benign-tools",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "benign-tools": {
+          "command": "node",
+          "args": [
+            "server.js"
+          ],
+          "tools": [
+            {
+              "name": "list_resources"
+            },
+            {
+              "name": "get_prompt"
+            },
+            {
+              "name": "search_notes"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-shell-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "shell-only": {
+          "command": "shell"
+        }
+      }
+    },
+    {
+      "id": "single-filesystem-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "filesystem-only": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "~/docs"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-fetch-url-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "fetch-url-only": {
+          "url": "https://example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "single-slack-name-only",
+      "client": "claude-desktop",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "slack-name-only": {
+          "command": "slack"
+        }
+      }
+    },
+    {
+      "id": "single-github-name-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "github-name-only": {
+          "command": "github"
+        }
+      }
+    },
+    {
+      "id": "single-puppeteer-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "puppeteer-only": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-puppeteer"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-e2b-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "high"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "e2b-only": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "e2b-code-interpreter"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-onepassword-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "onepassword-only": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@1password/mcp"
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-bitwarden-only",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "bitwarden-only": {
+          "command": "bitwarden"
+        }
+      }
+    },
+    {
+      "id": "single-playwright-only",
+      "client": "claude-desktop",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "One server. A single capability is not a critical combination.",
+      "servers": {
+        "playwright-only": {
+          "command": "playwright"
+        }
+      }
+    },
+    {
+      "id": "disabled-entries",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "disabled true and enabled false are not grants.",
+      "servers": {
+        "disabled-shell": {
+          "command": "bash",
+          "disabled": true
+        },
+        "disabled-filesystem": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "/"
+          ],
+          "disabled": true
+        },
+        "enabled-off-slack": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-slack"
+          ],
+          "env": {
+            "SLACK_BOT_TOKEN": "present"
+          },
+          "enabled": false
+        },
+        "enabled-off-playwright": {
+          "command": "playwright",
+          "enabled": false
+        }
+      }
+    },
+    {
+      "id": "claude-disabled-shell",
+      "client": "claude-desktop",
+      "plantedCombo": false,
+      "expectedSeverities": [
+        "medium"
+      ],
+      "note": "A live notes directory beside a disabled shell.",
+      "servers": {
+        "notes": {
+          "command": "node",
+          "args": [
+            "~/notes"
+          ]
+        },
+        "disabled-shell": {
+          "command": "shell",
+          "disabled": true
+        },
+        "enabled-off": {
+          "command": "bash",
+          "enabled": false
+        }
+      }
+    },
+    {
+      "id": "remote-sentry-events",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "sentry-events": {
+          "url": "https://sentry-events.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-stripe-receipts",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "stripe-receipts": {
+          "url": "https://stripe-receipts.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-notion-pages",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "notion-pages": {
+          "url": "https://notion-pages.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-linear-issues",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "linear-issues": {
+          "url": "https://linear-issues.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-gmail-triage",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "gmail-triage": {
+          "url": "https://gmail-triage.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-discord-moderation",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "discord-moderation": {
+          "url": "https://discord-moderation.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-supabase-studio",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "supabase-studio": {
+          "url": "https://supabase-studio.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-redis-cache",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "redis-cache": {
+          "url": "https://redis-cache.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-mysql-reports",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "mysql-reports": {
+          "url": "https://mysql-reports.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-mongodb-atlas",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "mongodb-atlas": {
+          "url": "https://mongodb-atlas.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-cloudflare-dns",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "cloudflare-dns": {
+          "url": "https://cloudflare-dns.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-vercel-previews",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "vercel-previews": {
+          "url": "https://vercel-previews.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-heroku-logs",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "heroku-logs": {
+          "url": "https://heroku-logs.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-salesforce-contacts",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "salesforce-contacts": {
+          "url": "https://salesforce-contacts.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-hubspot-deals",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "hubspot-deals": {
+          "url": "https://hubspot-deals.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-airtable-base",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "airtable-base": {
+          "url": "https://airtable-base.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-zapier-zaps",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "zapier-zaps": {
+          "url": "https://zapier-zaps.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-sendgrid-mail",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "sendgrid-mail": {
+          "url": "https://sendgrid-mail.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-mailgun-mail",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "mailgun-mail": {
+          "url": "https://mailgun-mail.example.test/mcp"
+        }
+      }
+    },
+    {
+      "id": "remote-calendar-holds",
+      "client": "cursor",
+      "plantedCombo": false,
+      "expectedSeverities": [],
+      "note": "A remote connector name without files, shell, and credentials together.",
+      "servers": {
+        "calendar-holds": {
+          "url": "https://calendar-holds.example.test/mcp"
+        }
+      }
+    }
+  ]
+}

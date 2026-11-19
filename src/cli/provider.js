@@ -18,6 +18,8 @@ const CAP_TO_CATEGORY = Object.freeze({
   credential_access: 'access_credentials',
   browser_automation: 'browser_automation',
   untrusted_external_content: 'untrusted_external_content',
+  source_write: 'modify_source_code',
+  production_access: 'access_production_system',
 });
 const RISK_WEIGHT = Object.freeze({
   shell_access: 3, code_execution: 3, credential_access: 3,
@@ -63,11 +65,34 @@ function reasonFor(capability, server, inference) {
   return 'Capability declared in the MCP server configuration.';
 }
 
+const GRADE_CONFIDENCE = Object.freeze({ observed: 0.85, allowlist: 0.8, substring: 0.35 });
+
+function gradeFor(capability, inference) {
+  const grade = inference && inference.capabilityGrades && inference.capabilityGrades[capability];
+  if (grade === 'observed' || grade === 'allowlist' || grade === 'substring') return grade;
+  return null;
+}
+
 function isInferred(capability, server, inference) {
   if (capability === 'environment_access') return false;
   if (plaintextInference(inference, capability)) return false;
   if (capability === 'credential_access' && (server.credentialReferences || []).length) return false;
+  const grade = gradeFor(capability, inference);
+  if (grade === 'observed') return false;
+  if (grade === 'substring' || grade === 'allowlist') return true;
   return !!(inference && inference.inferences.some(entry => entry.capabilities.includes(capability)));
+}
+
+function accessLevelFor(capability, inference) {
+  const role = inference && inference.capabilityRoles && inference.capabilityRoles[capability];
+  if (capability === 'filesystem_access') {
+    const scope = inference && inference.filesystemScope;
+    if (role === 'files-broad' || scope === 'root' || scope === 'home') return 'broad';
+    return 'scoped';
+  }
+  if (role === 'data' || role === 'data-local') return 'data';
+  if (role === 'payment') return 'payment';
+  return 'broad';
 }
 
 function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}) {
@@ -79,14 +104,15 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
       const normalizedCategory = CAP_TO_CATEGORY[capability];
       if (!normalizedCategory) continue;
       const inferred = isInferred(capability, server, inference);
+      const grade = gradeFor(capability, inference);
       permissions.push(models.createPermission({
         agentId: agent.id,
         integrationId: server.id,
         rawPermission: `${server.name} (${capability})`,
         normalizedCategory,
-        accessLevel: capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',
+        accessLevel: accessLevelFor(capability, inference),
         riskWeight: RISK_WEIGHT[capability] || 1,
-        normalizationConfidence: inferred ? 0.7 : 0.85,
+        normalizationConfidence: grade ? GRADE_CONFIDENCE[grade] : (inferred ? 0.7 : 0.85),
         normalizationReason: reasonFor(capability, server, inference),
         source: { ...agent.source, evidenceClass: inferred ? 'inferred' : 'observed' },
         createdAt: observedAt,

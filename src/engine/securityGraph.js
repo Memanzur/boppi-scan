@@ -278,6 +278,9 @@
         builder.addEdge(serverNode, tool, 'mcp_exposes_tool', server);
       }
       for (const raw of server.capabilities || []) {
+        // Substring grades stay on the record for the inventory. They must not
+        // open a high-confidence edge that a critical path could use.
+        if (server.capabilityGrades && server.capabilityGrades[raw] === 'substring') continue;
         const category = normalizer ? normalizer.normalize(raw).normalizedCategory : 'unknown';
         attachCategory(builder, agentNode, serverNode, category, server);
       }

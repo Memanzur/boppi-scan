@@ -7,6 +7,8 @@
   'use strict';
   const CATEGORIES = Object.freeze(['read_files','write_files','delete_files','read_email','send_email','read_calendar','modify_calendar','read_source_code','modify_source_code','access_customer_data','access_financial_data','access_health_data','access_hr_data','execute_code','run_shell_commands','browse_internet','call_external_api','send_external_message','create_or_modify_records','make_purchase','access_credentials','access_environment_variables','browser_automation','access_production_system','untrusted_external_content','unknown']);
   const RULES = [
+    ['modify_source_code', /^source_write$/i, 'The catalog marks this server as able to write source.'],
+    ['access_production_system', /^production_access$/i, 'The catalog marks this server as a production or payments system.'],
     ['write_files', /drive\.file|file.*write|write.*file|filesystem.*write/i, 'The permission indicates file creation or modification.'],
     ['delete_files', /delete.*file|file.*delete|drive.*delete/i, 'The permission indicates file deletion.'],
     ['read_files', /drive|file|document|onedrive|sharepoint|filesystem|downloads|documents/i, 'The permission names a file or document store.'],

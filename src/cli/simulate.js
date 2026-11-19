@@ -35,6 +35,7 @@ function enrich(mergedServers, home, overlay = null) {
     mcpServers[name] = {
       ...server,
       capabilities: inference.capabilities,
+      capabilityGrades: inference.capabilityGrades,
       filesystemPaths: inference.filesystemPaths.length ? inference.filesystemPaths : server.filesystemPaths,
     };
   }

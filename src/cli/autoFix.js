@@ -75,6 +75,27 @@ const ENGINE_GUIDE = Object.freeze({
       'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
     ],
   },
+  'AE-008': {
+    summary: 'One sensitive grant is present and no cross-boundary chain was evidenced.',
+    steps: [
+      'Keep the grant scoped to the directory or service the agent needs.',
+      'Run boppi plan, then boppi fix --server <name> if you want that server removed.',
+    ],
+  },
+  'AE-009': {
+    summary: 'Command execution can reach a network-capable server.',
+    steps: [
+      'Remove the shell or code server, or remove the network-capable server.',
+      'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
+    ],
+  },
+  'AE-010': {
+    summary: 'Command execution is granted and no network leg was evidenced.',
+    steps: [
+      'Remove shell or code execution the agent does not need.',
+      'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
+    ],
+  },
 });
 
 const PROVIDER_PAGES = Object.freeze([

@@ -152,12 +152,13 @@ function runCli(args, home, cwd, extra = {}) {
   ok('autoApprove is cleared and the server remains', Array.isArray(cline.mcpServers.notes.autoApprove) && cline.mcpServers.notes.autoApprove.length === 0 && cline.mcpServers.notes.command === 'npx');
   const codex = fs.readFileSync(paths.codexConfig, 'utf8');
   ok('codex yolo settings are tightened and the server table remains', codex.includes('approval_policy = "on-request"') && codex.includes('sandbox_mode = "workspace-write"') && codex.includes('[mcp_servers.docs]') && !codex.includes('"never"') && !codex.includes('danger-full-access'));
-  ok('config files are owner-only after the mode fix', tracked.every(file => (fs.statSync(file).mode & 0o777) === 0o600));
+  const ownerOnly = file => process.platform === 'win32' || (fs.statSync(file).mode & 0o777) === 0o600;
+  ok('config files are owner-only after the mode fix', tracked.every(ownerOnly));
   const manifest = JSON.parse(fs.readFileSync(path.join(paths.home, '.boppi', 'fix-undo.json'), 'utf8'));
   const backups = fs.readdirSync(path.join(paths.home, '.boppi', 'backups'));
-  ok('a timestamped backup set was written with owner-only permissions', manifest.files.length === tracked.length && backups.length === tracked.length && manifest.files.every(entry => (fs.statSync(entry.backup).mode & 0o777) === 0o600 && fs.readFileSync(entry.backup, 'utf8') === before.get(entry.original).text));
+  ok('a timestamped backup set was written with owner-only permissions', manifest.files.length === tracked.length && backups.length === tracked.length && manifest.files.every(entry => ownerOnly(entry.backup) && fs.readFileSync(entry.backup, 'utf8') === before.get(entry.original).text));
   ok('the cursor backup and the live config both still hold the secret after --yes', manifest.files.some(entry => fs.readFileSync(entry.backup, 'utf8').includes(SECRET)) && fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
-  ok('backup files are mode 600 and the backup directory is private', manifest.files.every(entry => (fs.statSync(entry.backup).mode & 0o777) === 0o600) && ((fs.statSync(path.join(paths.home, '.boppi', 'backups')).mode & 0o077) === 0));
+  ok('backup files are mode 600 and the backup directory is private', manifest.files.every(entry => ownerOnly(entry.backup)) && (process.platform === 'win32' || (fs.statSync(path.join(paths.home, '.boppi', 'backups')).mode & 0o077) === 0));
 
   const restored = runCli(['fix', '--undo'], paths.home, paths.work);
   ok('undo restores every file body and the previous mode', restored.code === 0 && restored.stdout.includes('Restored') && sameSnapshot(tracked, before));
