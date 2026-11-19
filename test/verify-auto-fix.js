@@ -145,7 +145,9 @@ function runCli(args, home, cwd, extra = {}) {
   const cursor = JSON.parse(fs.readFileSync(paths.cursorConfig, 'utf8'));
   ok('--yes keeps the unknown server and the plaintext key, and leaves a pinned -y flag', cursor.mcpServers.mystery && cursor.mcpServers.fetch.env.OPENAI_API_KEY === SECRET && cursor.mcpServers.fetch.args.includes('-y'));
   ok('--yes says it skipped unknown servers and plaintext secrets', applied.stdout.includes('skipped') && applied.stdout.includes('unknown MCP server') && applied.stdout.includes('plaintext secret'));
-  ok('unpinned -y is removed and broad paths point at the working directory', !cursor.mcpServers.filesystem.args.includes('-y') && !cursor.mcpServers.filesystem.args.includes(paths.home) && !cursor.mcpServers.filesystem.args.includes('/') && cursor.mcpServers.filesystem.args.includes(paths.work));
+  const narrowed = cursor.mcpServers.filesystem.args;
+  const sameWork = (arg) => { try { return fs.realpathSync(arg) === fs.realpathSync(paths.work); } catch (_) { return false; } };
+  ok('unpinned -y is removed and broad paths point at the working directory', !narrowed.includes('-y') && !narrowed.includes(paths.home) && !narrowed.includes('/') && narrowed.some(sameWork));
   const cline = JSON.parse(fs.readFileSync(paths.clineConfig, 'utf8'));
   ok('autoApprove is cleared and the server remains', Array.isArray(cline.mcpServers.notes.autoApprove) && cline.mcpServers.notes.autoApprove.length === 0 && cline.mcpServers.notes.command === 'npx');
   const codex = fs.readFileSync(paths.codexConfig, 'utf8');

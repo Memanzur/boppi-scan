@@ -233,9 +233,12 @@ function narrowerRoot(home, cwd) {
     root = fs.realpathSync(home);
     dir = fs.realpathSync(cwd);
   } catch (_) { return null; }
+  // macOS prefixes /tmp and /var with /private. Compare real paths, then keep
+  // the path the caller passed so a symlink to / is rejected and a normal
+  // working directory is written the way the caller named it.
   if (dir === root || dir === path.parse(dir).root) return null;
-  if (dir.startsWith(root + path.sep)) return dir;
-  return null;
+  if (!dir.startsWith(root + path.sep)) return null;
+  return path.resolve(cwd);
 }
 
 function readJson(file, format) {
