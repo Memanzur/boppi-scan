@@ -41,7 +41,7 @@
   const SENSITIVE_VALUE = /(?:bearer\s+|(?:^|[^A-Za-z0-9])(?:sk|pk|rk|ghp|github_pat|xox[baprs]|sb_(?:publishable|secret)|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{10,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
   const CREDENTIAL_URI = /[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@/i;
   const CREDENTIAL_AT_HOST = /(?:^|[=\s])[^\s/:=@]+:[^\s/@]+@[^\s]+/i;
-  const SAFE_CAPABILITIES = new Set(['filesystem_access','shell_access','code_execution','network_access','environment_access','credential_access','browser_automation','untrusted_external_content','source_write','production_access']);
+  const SAFE_CAPABILITIES = new Set(['filesystem_access','shell_access','code_execution','network_access','environment_access','credential_access','browser_automation','untrusted_external_content','source_write','production_access','sensitive_read','messaging_send','approval_bypass']);
 
   function fail(message) { throw new TypeError(`Local MCP scanner: ${message}`); }
   function text(value, field, max = 240) {

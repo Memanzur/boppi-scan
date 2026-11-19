@@ -62,7 +62,7 @@ test('dup-evidence: one remove_server edit on filesystem eliminates the EP-A exp
   assert.deepStrictEqual(result.after.exposureKeys, []);
 });
 
-test('reroute: removing fetch eliminates nothing because slack still reaches the destination', () => {
+test('reroute: removing fetch eliminates nothing because the webhook still reaches the destination', () => {
   const raw = loadFixture('reroute.json');
   const result = simulate.simulateConfigEdit({ rawConfig: raw, agentContext: contextFor('reroute.json'), edit: { action: 'remove_server', server: 'fetch' } });
   assert.deepStrictEqual(result.eliminated, []);

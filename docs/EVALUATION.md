@@ -12,15 +12,25 @@ A critical rule still composes capabilities across servers. Each leg has to be o
 
 Normalization strips registry prefixes (`ghcr.io/`, `docker.io/`), npm scopes, and version suffixes (`@latest`, `@1.2.3`, `==1.2.3`, image tags). It then removes the affixes `mcp-server-`, `server-`, `-mcp-server`, `-mcp`, and `-server`. `brave-search`, `@brave/brave-search-mcp-server@latest`, and `1password-mcp@1.2.3` resolve. `research-notes` does not, because `search` is not its own hyphen token. `github-stars-cache` does not, because `stars` and `cache` are not affixes.
 
-The catalog has one row per public server, with a citation to the official servers repo, the archived servers repo, a vendor README, or the MCP registry record that was fetched on 2026-11-19. Roles cover command servers (`mcp-server-commands`), Kubernetes (`kubernetes-mcp-server`, pod exec and kubeconfig), databases (sqlite, postgres, redis, mongodb, mysql, mssql), SaaS data (Notion, Slack, Drive, GitHub including writes), Stripe as payments and production, password managers, browser automation, and Desktop Commander as shell plus filesystem. Official hosts include `mcp.notion.com`, `mcp.slack.com`, `mcp.stripe.com`, and `api.githubcopilot.com`.
+The catalog has one row per public server, with a citation to the official servers repo, the archived servers repo, a vendor README, or the MCP registry record that was fetched on 2026-11-19. Roles cover command servers (`mcp-server-commands`), Kubernetes (`kubernetes-mcp-server`, pod exec and kubeconfig), databases (sqlite, postgres, redis, mongodb, mysql, mssql), SaaS data (Notion, Slack, Drive, GitHub repos, Linear, Jira, Confluence), Stripe as payments and production, password managers, browser automation, and Desktop Commander as shell plus filesystem. Official hosts include `mcp.notion.com`, `mcp.slack.com`, `mcp.stripe.com`, `mcp.atlassian.com`, and `api.githubcopilot.com`.
 
 Anything the catalog does not claim, including `price-fetch` and the argument text `shell,read_secrets,send_slack`, stays grade `substring` at confidence 0.35. That is under the 0.40 bar for critical, high, and medium rules. A loopback URL is not network access.
 
 ## Severity
 
-Shell or code execution alone is high (AE-010). A shell can read files, write files, and start processes, so it is more than a scoped directory, but the config does not show a path off the machine. Critical is the cross-boundary step: command execution plus any network-capable leg (AE-009), including a database, a SaaS connector, a browser, or a fetch server. Credentials are not required for that critical.
+Shell or code execution with prompting left on, and with no outbound leg and no untrusted ingestion, is high (AE-010). A shell can read files, write files, and start processes, so it is more than a scoped directory, but that config does not show a path off the machine.
 
-A file grant rooted at `/` or the home directory is high (AE-006) because the blast radius is the whole user environment. A single scoped directory, a password manager, or a data store with no separate network leg and no command execution is medium (AE-008). AE-006 no longer fires because the capability string contains the word filesystem.
+R&D decided that the same shell or command execution is critical when it is combined with any one of these (AE-009):
+
+- An outbound leg: network, browser, or messaging send (Slack send, email send).
+- Untrusted content ingestion: fetch, browser, email, or an issue tracker (Jira, Linear, Confluence).
+- An approval bypass that turns prompting off: a Cline `autoApprove` list, Claude Code `permissions.defaultMode` `bypassPermissions`, Codex `approval_policy` `never`, or Cursor CLI `approvalMode` `unrestricted` (the persisted yolo / run-everything mode, documented at https://cursor.com/docs/cli/reference/configuration).
+
+A database or SaaS catalog role is a sensitive read, not a network leg. The connection to Postgres, Notion, Drive, GitHub, or Confluence is how the agent reads that service. It is not, by itself, a way to send that service's data somewhere else. Sensitive read plus an outbound leg is critical exfiltration (AE-011). The outbound leg is fetch, a browser, messaging send, or a shell, and it has to be a separate capability from the data connection. A single SaaS server that can read and send inside the same vendor workspace is high (AE-013), not critical. Default hosted Slack, with no tool list, is that case. Critical requires a cross-boundary chain: the read leaving to a different destination, or a shell or code interpreter plus network, untrusted content, or an approval bypass. Slack plus fetch, a browser, or a shell stays critical. A declared tool list with no send or write name, or `read_only=true` / `--readOnly`, drops the send. A database alone, or Notion alone, stays medium (AE-008).
+
+Local files plus a non-loopback MCP host are still critical (AE-012), including when that host's catalog role is a data read. The host is a destination for the files. A loopback URL is not. The reference `everything` server is a protocol fixture, role `reference`, and grants nothing.
+
+A file grant rooted at `/` or the home directory is high (AE-006) because the blast radius is the whole user environment. A single scoped directory, a password manager, or a data store with no outbound leg and no command execution is medium (AE-008). AE-006 no longer fires because the capability string contains the word filesystem.
 
 Declared tools: `run_bash`, `bash`, `execute_command`, `run_command`, `run_shell`, `shell_exec` (shell); `read_file`, `read_text_file`, `write_file`, `list_directory`, `list_dir`, `list_files` (files); `read_aws_credentials`, `get_secret`, `read_secret`, `read_secrets` (credentials); `post_slack_message`, `send_slack_message`, `slack_post_message` (network); `browser_navigate`, `browser_click`, `playwright_navigate` (browser, untrusted content, and network).
 
@@ -42,15 +52,16 @@ Meli, McNiece, and Reaves, How Bad Can It Git? Characterizing Secret Leakage in 
 
 ## Result on this corpus
 
-Measured on the same manifest before the grade change, then after. n is 98 cases and 173 server entries. p95 is the scan of one case on this machine, not a laptop in the field.
+The first three rows are the same 98 cases and 173 server entries. The last row adds the database, Notion, and auto-approve cases (102 cases, 179 servers). p95 is the scan of one case on this machine, not a laptop in the field.
 
 | | Critical precision | Critical recall | Planted combo recall | Critical finding precision | High precision | High recall | Medium precision | p95 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Before the grade change | 0.552 (16/29) | 0.640 (16/25) | 0.640 (16/25) | 0.449 (31/69) | 0.938 (30/32) | 0.882 (30/34) | vacuous | 1.21 ms |
 | Short allowlist | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (47/47) | 1.000 (36/36) | 1.000 (36/36) | 1.000 (1/1) | 1.19 ms |
 | Public catalog | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (64/64) | 1.000 (19/19) | 1.000 (19/19) | 1.000 (19/19) | 1.32 ms |
+| Sensitive read and shell boundary | 1.000 (29/29) | 1.000 (29/29) | 1.000 (29/29) | 1.000 (63/63) | 1.000 (19/19) | 1.000 (19/19) | 1.000 (22/22) | 1.17 ms |
 
-The public-catalog row is this branch. High and medium counts changed because a scoped directory is medium, command execution alone is high, and command execution plus network is critical. p95 stayed near 1.3 ms.
+The last row is this branch: 102 cases and 179 server entries. A database or SaaS read plus fetch, a browser, messaging send, or a shell is critical. A bare shell stays high. p95 stayed near 1 ms.
 
 Before, the Cursor half of the 2026-11-19 probe was critical. After, it is not. The Claude Desktop files, shell, browser, and slack case stays critical. Nine planted cases that exist only as tool objects or tool names were missed before and are caught after.
 
@@ -63,4 +74,7 @@ These are the changes in what a scan calls critical:
 - Cursor and Claude Desktop skip `disabled: true` and `enabled: false`, as the other clients already did.
 - A `tools` array of objects is read. A name on the tool list above is an observed capability and can complete a critical combination. Other tool names are listed and add no capability.
 - A loopback MCP URL is not treated as network access.
-- A connector whose name only contains a brand, such as `github-stars-cache`, stays a low confidence network guess. The exact name `github`, or the package `@modelcontextprotocol/server-github`, still counts.
+- A connector whose name only contains a brand, such as `github-stars-cache`, stays a low confidence network guess. The exact name `github`, or the package `@modelcontextprotocol/server-github`, is a sensitive repo read.
+- A database or SaaS server is a sensitive read. Postgres plus fetch, Drive plus a browser, or a database plus Slack send is critical. Postgres alone is medium.
+- Slack history plus Slack send is critical on that one server. Email send is a messaging leg.
+- A bare shell stays high. Shell plus fetch, an issue tracker, or an approval bypass (`autoApprove`, Claude Code `bypassPermissions`, Codex `approval_policy` `never`, Cursor `approvalMode` `unrestricted`) is critical.

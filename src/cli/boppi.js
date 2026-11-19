@@ -43,6 +43,7 @@ const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
 const autoFix = require('./autoFix');
+const approvalBypass = require('./approvalBypass');
 
 const VERSION = require('../../package.json').version;
 const catalog = require('./discovery/catalog');
@@ -508,7 +509,10 @@ async function performScan(options) {
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
       client.agentId = scannerResult.agent.id;
-      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer }));
+      const bypassReason = approvalBypass.clientBypassReason({
+        client, claudeSettings, home: options.home, cwd: options.cwd, filesRead: discovery.filesRead,
+      });
+      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer, approvalBypass: bypassReason }));
     } catch (error) {
       const hint = /secret material/.test(error.message) ? '. Move that value into an environment variable the server reads and rescan; Boppi never records the value itself' : '';
       client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = `${error.message}${hint}`; } });

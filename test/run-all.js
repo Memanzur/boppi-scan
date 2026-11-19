@@ -24,6 +24,7 @@ const SUITES = [
   'verify-policy-sarif.js',
   'verify-auto-fix.js',
   'verify-detection-gate.js',
+  'verify-exfil-shell.js',
   'eval-corpus.js',
 ];
 

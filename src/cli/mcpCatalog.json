@@ -33,7 +33,7 @@
   "commands": [
    "everything"
   ],
-  "role": "saas",
+  "role": "reference",
   "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/everything/package.json",
   "images": [],
   "hosts": []
@@ -133,9 +133,50 @@
   "commands": [
    "slack"
   ],
-  "role": "saas",
+  "role": "saas-message",
   "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/package.json",
   "images": []
+ },
+ {
+  "id": "atlassian",
+  "packages": [],
+  "commands": [
+   "atlassian",
+   "confluence",
+   "jira"
+  ],
+  "hosts": [
+   "mcp.atlassian.com"
+  ],
+  "images": [],
+  "role": "issues",
+  "citation": "https://github.com/atlassian/atlassian-mcp-server"
+ },
+ {
+  "id": "gmail",
+  "packages": [
+   "mcparmory-google-gmail"
+  ],
+  "commands": [
+   "gmail"
+  ],
+  "images": [
+   "ghcr.io/mcparmory/google-gmail"
+  ],
+  "hosts": [],
+  "role": "email",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/google-gmail"
+ },
+ {
+  "id": "mysql",
+  "packages": [],
+  "commands": [
+   "mysql"
+  ],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=mysql"
  },
  {
   "id": "notion",
@@ -3164,7 +3205,9 @@
   "packages": [
    "@connorbritain/mssql-mcp-server"
   ],
-  "commands": [],
+  "commands": [
+   "mssql"
+  ],
   "images": [],
   "hosts": [],
   "role": "data",
@@ -3443,7 +3486,9 @@
   "packages": [
    "@infoinlet/mcp-mongodb"
   ],
-  "commands": [],
+  "commands": [
+   "mongodb"
+  ],
   "images": [],
   "hosts": [],
   "role": "data",
