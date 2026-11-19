@@ -14,8 +14,11 @@
     { id:'AE-003', severity:'high', category:'supply_chain', title:'Sensitive business data is connected to an unverified MCP server', needs:['business_sensitive','unverified_mcp'], path:'An unverified tool server sits on a path to sensitive business data.', fix:'Verify the MCP server, restrict its data scope, or disconnect it.' },
     { id:'AE-004', severity:'critical', category:'software_supply_chain', title:'Source modification can reach production systems', needs:['source_modify','production'], path:'The agent can change code while also reaching production systems or credentials.', fix:'Separate source modification from production access and require approval for deployment actions.' },
     { id:'AE-005', severity:'high', category:'impersonation', title:'Email access and browser content create an impersonation path', needs:['read_email','external_message','browser_or_untrusted'], path:'Untrusted content could influence an agent that can read and send email.', fix:'Require approval for outbound mail and restrict browser or untrusted-content access.' },
-    { id:'AE-006', severity:'high', category:'data_governance', title:'Broad file access has unknown vendor data-training posture', needs:['broad_files','unknown_training'], path:'A broad file grant may expose company data to a vendor whose training posture is unknown.', fix:'Reduce the file scope or verify the vendor’s data-use controls.' },
+    { id:'AE-006', severity:'high', category:'data_governance', title:'Broad file access has unknown vendor data-training posture', needs:['broad_files','unknown_training'], path:'A file grant rooted at / or the home directory may expose the whole user environment to a vendor whose training posture is unknown.', fix:'Point the file server at a narrower directory or verify the vendor data-use controls.' },
     { id:'AE-007', severity:'critical', category:'prompt_injection_impact', title:'Shell and filesystem access can be influenced by untrusted content', needs:['shell','filesystem','untrusted'], path:'Instructions from external content could influence an agent with destructive local capabilities.', fix:'Disable shell access, restrict filesystem paths, and isolate untrusted content.' },
+    { id:'AE-008', severity:'medium', category:'sensitive_grant', title:'A single sensitive grant has no cross-boundary chain', needs:['bounded_sensitive'], path:'One sensitive grant is present and no execution or separate network leg was evidenced.', fix:'Keep the grant scoped, or remove it if the agent does not need it.' },
+    { id:'AE-009', severity:'critical', category:'command_network', title:'Command execution can reach the network', needs:['execution','network'], path:'A shell or code interpreter plus any network-capable server can send command output off the machine.', fix:'Remove the shell or code server, or remove the network-capable server.' },
+    { id:'AE-010', severity:'high', category:'command_local', title:'Command execution is granted without a network leg', needs:['execution_alone'], path:'A shell or code interpreter can run commands on this machine. No network-capable server was evidenced, so this is not yet a cross-boundary chain.', fix:'Remove command execution the agent does not need.' },
   ];
   const categorySet = permissions => new Set((permissions || []).map(p => p.normalizedCategory || p.category || 'unknown'));
   function has(set, ...values) { return values.some(v => set.has(v)); }
@@ -25,7 +28,16 @@
   function classify(permissions, mcpServers, agent) {
     const set = categorySet(permissions);
     const sensitive = has(set,'read_files','access_customer_data','access_financial_data','access_health_data','access_hr_data');
-    const broadFiles = (permissions || []).some(p => p.normalizedCategory === 'read_files' && /drive|all|full|filesystem|document/i.test(p.rawPermission || ''));
+    const broadFiles = (permissions || []).some(p => p.normalizedCategory === 'read_files' && p.accessLevel === 'broad');
+    const strongNetwork = (permissions || []).some(p => ['call_external_api','browse_internet','browser_automation'].includes(p.normalizedCategory));
+    const bounded = (permissions || []).some(p => {
+      if (p.normalizedCategory === 'read_files' && p.accessLevel === 'scoped') return true;
+      if (p.normalizedCategory === 'access_credentials') return true;
+      if (p.accessLevel === 'data' || p.accessLevel === 'payment') return true;
+      return false;
+    });
+    const separateNetwork = (permissions || []).some(p => ['call_external_api','browse_internet','browser_automation'].includes(p.normalizedCategory) && p.accessLevel !== 'data' && p.accessLevel !== 'payment');
+    const execution = (permissions || []).some(p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory));
     const unknownTraining = (agent?.trainingPosture || 'unknown') === 'unknown';
     // AE-003 requires explicit evidence that the server is unverified. An
     // unknown trust state is uncertainty, not proof of supply-chain risk.
@@ -36,13 +48,19 @@
       external_message: permissionEvidence(permissions, p => ['send_external_message','send_email'].includes(p.normalizedCategory)),
       execution: permissionEvidence(permissions, p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory)),
       credential: permissionEvidence(permissions, p => ['access_credentials','access_environment_variables'].includes(p.normalizedCategory)),
-      network: permissionEvidence(permissions, p => ['call_external_api','browse_internet'].includes(p.normalizedCategory)),
+      network: permissionEvidence(permissions, p => ['call_external_api','browse_internet','browser_automation'].includes(p.normalizedCategory)),
       business_sensitive: permissionEvidence(permissions, p => ['access_customer_data','access_financial_data','access_health_data','access_hr_data'].includes(p.normalizedCategory)),
       source_modify: permissionEvidence(permissions, p => p.normalizedCategory === 'modify_source_code'),
       production: permissionEvidence(permissions, p => p.normalizedCategory === 'access_production_system'),
       read_email: permissionEvidence(permissions, p => p.normalizedCategory === 'read_email'),
       browser_or_untrusted: permissionEvidence(permissions, p => ['browser_automation','browse_internet','untrusted_external_content'].includes(p.normalizedCategory)),
-      broad_files: permissionEvidence(permissions, p => p.normalizedCategory === 'read_files' && /drive|all|full|filesystem|document/i.test(p.rawPermission || '')),
+      broad_files: permissionEvidence(permissions, p => p.normalizedCategory === 'read_files' && p.accessLevel === 'broad'),
+      bounded_sensitive: (!execution && !separateNetwork && !broadFiles && bounded)
+        ? permissionEvidence(permissions, p => (p.normalizedCategory === 'read_files' && p.accessLevel === 'scoped') || p.normalizedCategory === 'access_credentials' || p.accessLevel === 'data' || p.accessLevel === 'payment')
+        : [],
+      execution_alone: (execution && !strongNetwork)
+        ? permissionEvidence(permissions, p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory))
+        : [],
       shell: permissionEvidence(permissions, p => p.normalizedCategory === 'run_shell_commands'),
       filesystem: permissionEvidence(permissions, p => ['read_files','write_files','delete_files'].includes(p.normalizedCategory)),
       untrusted: permissionEvidence(permissions, p => p.normalizedCategory === 'untrusted_external_content'),
@@ -77,8 +95,8 @@
     const stale = !!options.stale;
     const confidence = confidenceFor(agent, permissions, mcpServers, stale);
     const inferredAt = options.now || agent?.updatedAt || agent?.createdAt || agent?.source?.observedAt || '1970-01-01T00:00:00.000Z';
-    const rawFindings = RULES.filter(rule => triggered(rule, rule.severity === 'critical' ? criticalGroups : groups)).map(rule => {
-      const evidenceGroups = rule.severity === 'critical' ? criticalGroups : groups;
+    const rawFindings = RULES.filter(rule => triggered(rule, rule.severity === 'low' ? groups : criticalGroups)).map(rule => {
+      const evidenceGroups = rule.severity === 'low' ? groups : criticalGroups;
       const evidence = rule.needs.flatMap(need => evidenceGroups[need] || []);
       const evidenceIds = [...new Set(evidence.map(e => e.id).filter(Boolean))];
       const raw = {

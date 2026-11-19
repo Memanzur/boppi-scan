@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { matchIdentity, matchHost } = require('./mcpCatalog');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -130,7 +131,8 @@ function identityTokens(name, server) {
   const tokens = [];
   if (typeof name === 'string' && name.trim()) tokens.push(name.trim());
   if (typeof server.command === 'string' && server.command.trim()) {
-    tokens.push(server.command.trim().split(/[\\/]/).pop());
+    const base = server.command.trim().split(/[\\/]/).pop();
+    if (base && !/^(?:npx|npm|uvx|uv|pip|pipx|docker|podman|node|python|python3|bunx|deno)$/i.test(base)) tokens.push(base);
   }
   const args = Array.isArray(server.args) ? server.args : [];
   for (const arg of args) {
@@ -138,9 +140,22 @@ function identityTokens(name, server) {
     const value = arg.trim();
     if (!value || value.startsWith('-')) continue;
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(value)) continue;
-    if (/^[A-Za-z0-9_.@/-]+$/.test(value)) tokens.push(value);
+    if (/^[A-Za-z0-9_.@/:=+-]+$/.test(value)) tokens.push(value);
+  }
+  if (typeof server.command === 'string' && /docker|podman/i.test(server.command)) {
+    for (const arg of args) {
+      if (typeof arg === 'string' && /[/.]/.test(arg) && !arg.startsWith('-')) tokens.push(arg.trim());
+    }
   }
   return tokens;
+}
+
+function pathScope(arg, home) {
+  const expanded = path.resolve(expandHome(arg, home));
+  const homeResolved = path.resolve(home || os.homedir());
+  if (arg === '/' || arg === '\\' || /^[A-Za-z]:\\?$/.test(arg) || expanded === path.resolve('/')) return 'root';
+  if (arg === '~' || arg === '~/' || expanded === homeResolved) return 'home';
+  return 'scoped';
 }
 
 function remoteHost(server) {
@@ -207,25 +222,38 @@ function inferCapabilities(name, server, options = {}) {
     grant(['filesystem_access', 'shell_access', 'code_execution'], 'allowlist', 'Claude Code exposed as an MCP server (file, shell, and code tools)', 'claude mcp serve');
   }
 
-  const seenRules = new Set();
-  for (const token of identityTokens(name, spec)) {
-    const rule = ALLOW_INDEX.get(token.toLowerCase());
-    if (!rule || seenRules.has(rule)) continue;
-    seenRules.add(rule);
-    grant(rule.capabilities, 'allowlist', rule.label, token);
+  const roles = {};
+  const seenEntries = new Set();
+  function grantCatalog(hit, matched) {
+    if (!hit || seenEntries.has(hit.entry.id)) return;
+    seenEntries.add(hit.entry.id);
+    if (hit.capabilities.length) grant(hit.capabilities, 'allowlist', hit.entry.id, matched);
+    for (const capability of hit.capabilities) {
+      if (!roles[capability]) roles[capability] = hit.role;
+    }
   }
+  for (const token of identityTokens(name, spec)) grantCatalog(matchIdentity(token), token);
 
   const filesystemPaths = [];
+  let filesystemScope = null;
+  const scopeRank = { scoped: 1, home: 2, root: 3 };
   for (const arg of args) {
     if (!/^(\/|~\/|[A-Za-z]:[\\/])/.test(arg)) continue;
+    const scope = pathScope(arg, home);
+    if (!filesystemScope || scopeRank[scope] > scopeRank[filesystemScope]) filesystemScope = scope;
     if (isExistingDirectory(expandHome(arg, home))) filesystemPaths.push(arg);
   }
   if (filesystemPaths.length) {
     grant(['filesystem_access'], 'observed', 'directory arguments', `${filesystemPaths.length} director${filesystemPaths.length === 1 ? 'y' : 'ies'}`);
+    roles.filesystem_access = filesystemScope === 'root' || filesystemScope === 'home' ? 'files-broad' : 'files-scoped';
   }
 
   const host = remoteHost(spec);
-  if (host) grant(['network_access'], 'observed', 'remote MCP server', host);
+  if (host) {
+    const catalogHost = matchHost(host);
+    if (catalogHost) grantCatalog(catalogHost, host);
+    if (!grades.network_access) grant(['network_access'], 'observed', 'remote MCP server', host);
+  }
 
   const haystack = [name, spec.command || '', ...args, spec.url || spec.endpoint || ''].join(' ');
   for (const rule of SUBSTRING_RULES) {
@@ -236,7 +264,14 @@ function inferCapabilities(name, server, options = {}) {
     grant(missing, 'substring', rule.label, (match[0] || '').trim() || match[0]);
   }
 
-  return { capabilities: [...capabilities], capabilityGrades: grades, filesystemPaths, inferences };
+  return {
+    capabilities: [...capabilities],
+    capabilityGrades: grades,
+    capabilityRoles: roles,
+    filesystemScope,
+    filesystemPaths,
+    inferences,
+  };
 }
 
 module.exports = { RULES: SUBSTRING_RULES, ALLOWLIST, TOOL_ALLOWLIST, inferCapabilities };

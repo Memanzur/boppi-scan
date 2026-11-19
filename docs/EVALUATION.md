@@ -8,28 +8,21 @@ Labels were set from the rule below, not from a model judge. A case is critical 
 
 ## What can be critical
 
-A critical rule still composes capabilities across servers. Each leg has to be one of:
+A critical rule still composes capabilities across servers. Each leg has to be observed or a catalog hit. Observed means a tool name on the tool list, a capability the config already states, a directory argument that exists, or an `http` or `https` URL whose host is not loopback. A catalog hit is a package, image, command, or official host in `src/cli/mcpCatalog.json` after identity normalization.
 
-- **observed**: a tool name on the tool list below, a capability the config already states, a directory argument that exists, or an `http` or `https` URL whose host is not loopback
-- **allowlist**: the server name, the command basename, or a package argument equals one of these tokens
+Normalization strips registry prefixes (`ghcr.io/`, `docker.io/`), npm scopes, and version suffixes (`@latest`, `@1.2.3`, `==1.2.3`, image tags). It then removes the affixes `mcp-server-`, `server-`, `-mcp-server`, `-mcp`, and `-server`. `brave-search`, `@brave/brave-search-mcp-server@latest`, and `1password-mcp@1.2.3` resolve. `research-notes` does not, because `search` is not its own hyphen token. `github-stars-cache` does not, because `stars` and `cache` are not affixes.
 
-Filesystem: `filesystem`, `file-system`, `file-server`, `@modelcontextprotocol/server-filesystem`, `server-filesystem`, `mcp-server-filesystem`.
+The catalog has one row per public server, with a citation to the official servers repo, the archived servers repo, a vendor README, or the MCP registry record that was fetched on 2026-11-19. Roles cover command servers (`mcp-server-commands`), Kubernetes (`kubernetes-mcp-server`, pod exec and kubeconfig), databases (sqlite, postgres, redis, mongodb, mysql, mssql), SaaS data (Notion, Slack, Drive, GitHub including writes), Stripe as payments and production, password managers, browser automation, and Desktop Commander as shell plus filesystem. Official hosts include `mcp.notion.com`, `mcp.slack.com`, `mcp.stripe.com`, and `api.githubcopilot.com`.
 
-Shell: `shell`, `desktop-commander`, `@wonderwhy-er/desktop-commander`, `mcp-server-shell`. The command line `claude mcp serve` is also on this list and includes files and code execution.
+Anything the catalog does not claim, including `price-fetch` and the argument text `shell,read_secrets,send_slack`, stays grade `substring` at confidence 0.35. That is under the 0.40 bar for critical, high, and medium rules. A loopback URL is not network access.
 
-Browser, which also counts as untrusted content and network: `puppeteer`, `playwright`, `@modelcontextprotocol/server-puppeteer`, `@playwright/mcp`, `server-puppeteer`, `mcp-server-puppeteer`.
+## Severity
 
-Fetch, which also counts as untrusted content: `fetch`, `mcp-server-fetch`.
+Shell or code execution alone is high (AE-010). A shell can read files, write files, and start processes, so it is more than a scoped directory, but the config does not show a path off the machine. Critical is the cross-boundary step: command execution plus any network-capable leg (AE-009), including a database, a SaaS connector, a browser, or a fetch server. Credentials are not required for that critical.
 
-Code execution: `e2b`, `e2b-code-interpreter`, `code-interpreter`, `@e2b/code-interpreter`.
-
-Network connectors: `slack`, `@modelcontextprotocol/server-slack`, `server-slack`, `mcp-server-slack`, `github`, `@modelcontextprotocol/server-github`, `server-github`, `mcp-server-github`.
-
-Credential managers: `1password`, `@1password/mcp`, `bitwarden`, `keychain`.
+A file grant rooted at `/` or the home directory is high (AE-006) because the blast radius is the whole user environment. A single scoped directory, a password manager, or a data store with no separate network leg and no command execution is medium (AE-008). AE-006 no longer fires because the capability string contains the word filesystem.
 
 Declared tools: `run_bash`, `bash`, `execute_command`, `run_command`, `run_shell`, `shell_exec` (shell); `read_file`, `read_text_file`, `write_file`, `list_directory`, `list_dir`, `list_files` (files); `read_aws_credentials`, `get_secret`, `read_secret`, `read_secrets` (credentials); `post_slack_message`, `send_slack_message`, `slack_post_message` (network); `browser_navigate`, `browser_click`, `playwright_navigate` (browser, untrusted content, and network).
-
-Anything else the catalog still recognizes, including `price-fetch`, a brand inside a longer name, or the argument text `shell,read_secrets,send_slack`, is grade `substring`. It stays on the server. Its permission confidence is 0.35, under the 0.40 bar a critical rule and a critical path require. `research-notes` does not match `search`. `sandbox-helper` does not match `sandbox`. `obsidian-vault` does not match `vault`. A loopback URL does not count as network access.
 
 ## Papers
 
@@ -51,12 +44,13 @@ Meli, McNiece, and Reaves, How Bad Can It Git? Characterizing Secret Leakage in 
 
 Measured on the same manifest before the grade change, then after. n is 98 cases and 173 server entries. p95 is the scan of one case on this machine, not a laptop in the field.
 
-| | Critical precision | Critical recall | Planted combo recall | Critical finding precision | High precision | High recall | p95 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Before | 0.552 (16/29) | 0.640 (16/25) | 0.640 (16/25) | 0.449 (31/69) | 0.938 (30/32) | 0.882 (30/34) | 1.21 ms |
-| After | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (47/47) | 1.000 (36/36) | 1.000 (36/36) | 1.19 ms |
+| | Critical precision | Critical recall | Planted combo recall | Critical finding precision | High precision | High recall | Medium precision | p95 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Before the grade change | 0.552 (16/29) | 0.640 (16/25) | 0.640 (16/25) | 0.449 (31/69) | 0.938 (30/32) | 0.882 (30/34) | vacuous | 1.21 ms |
+| Short allowlist | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (47/47) | 1.000 (36/36) | 1.000 (36/36) | 1.000 (1/1) | 1.19 ms |
+| Public catalog | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (64/64) | 1.000 (19/19) | 1.000 (19/19) | 1.000 (19/19) | 1.32 ms |
 
-Medium and low had no labeled cases before the grade change, so those ratios were vacuous. After the change the Cursor probe is the one medium case (a privilege path whose evidence is below 0.40), and medium precision and recall are 1.000 (1/1). Low stays empty. The after p95 on the measurement machine was 1.19 ms on the first after run and 1.24 ms on the rerun. Both are far under 5 seconds.
+The public-catalog row is this branch. High and medium counts changed because a scoped directory is medium, command execution alone is high, and command execution plus network is critical. p95 stayed near 1.3 ms.
 
 Before, the Cursor half of the 2026-11-19 probe was critical. After, it is not. The Claude Desktop files, shell, browser, and slack case stays critical. Nine planted cases that exist only as tool objects or tool names were missed before and are caught after.
 

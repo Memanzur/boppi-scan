@@ -18,6 +18,8 @@ const CAP_TO_CATEGORY = Object.freeze({
   credential_access: 'access_credentials',
   browser_automation: 'browser_automation',
   untrusted_external_content: 'untrusted_external_content',
+  source_write: 'modify_source_code',
+  production_access: 'access_production_system',
 });
 const RISK_WEIGHT = Object.freeze({
   shell_access: 3, code_execution: 3, credential_access: 3,
@@ -81,6 +83,18 @@ function isInferred(capability, server, inference) {
   return !!(inference && inference.inferences.some(entry => entry.capabilities.includes(capability)));
 }
 
+function accessLevelFor(capability, inference) {
+  const role = inference && inference.capabilityRoles && inference.capabilityRoles[capability];
+  if (capability === 'filesystem_access') {
+    const scope = inference && inference.filesystemScope;
+    if (role === 'files-broad' || scope === 'root' || scope === 'home') return 'broad';
+    return 'scoped';
+  }
+  if (role === 'data' || role === 'data-local') return 'data';
+  if (role === 'payment') return 'payment';
+  return 'broad';
+}
+
 function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}) {
   const permissions = [];
   for (const server of servers) {
@@ -96,7 +110,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
         integrationId: server.id,
         rawPermission: `${server.name} (${capability})`,
         normalizedCategory,
-        accessLevel: capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',
+        accessLevel: accessLevelFor(capability, inference),
         riskWeight: RISK_WEIGHT[capability] || 1,
         normalizationConfidence: grade ? GRADE_CONFIDENCE[grade] : (inferred ? 0.7 : 0.85),
         normalizationReason: reasonFor(capability, server, inference),

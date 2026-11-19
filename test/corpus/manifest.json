@@ -95,8 +95,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "GitHub token, a shell package, and the filesystem package.",
       "servers": {
@@ -217,8 +216,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Slack package with a token name, desktop commander, and files.",
       "servers": {
@@ -348,8 +346,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Filesystem package rooted at a directory plus a remote MCP URL.",
       "servers": {
@@ -371,8 +368,7 @@
       "client": "claude-desktop",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Named filesystem server and a remote endpoint.",
       "servers": {
@@ -392,8 +388,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Filesystem package plus https://wiki.example.test/mcp.",
       "servers": {
@@ -415,8 +410,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Filesystem package plus https://status.example.test/mcp.",
       "servers": {
@@ -438,8 +432,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Filesystem package plus https://design.example.test/mcp.",
       "servers": {
@@ -461,8 +454,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Filesystem package plus https://metrics.example.test/mcp.",
       "servers": {
@@ -484,8 +476,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Filesystem package plus https://handbook.example.test/mcp.",
       "servers": {
@@ -641,8 +632,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Declared tool names on the high precision tool list.",
       "servers": {
@@ -714,8 +704,7 @@
       "client": "cursor",
       "plantedCombo": true,
       "expectedSeverities": [
-        "critical",
-        "high"
+        "critical"
       ],
       "note": "Declared tool names on the high precision tool list.",
       "servers": {
@@ -857,7 +846,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -886,7 +875,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -915,7 +905,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -944,7 +935,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -974,7 +965,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -1003,7 +995,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -1059,7 +1052,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -1088,7 +1082,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -1145,7 +1139,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -1174,7 +1169,8 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "high",
+        "medium"
       ],
       "note": "Benign lookalike names that contain search, sandbox, vault, or a brand as a substring.",
       "servers": {
@@ -1250,7 +1246,9 @@
       "id": "single-sqlite-local",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
+      "expectedSeverities": [
+        "medium"
+      ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
         "sqlite-local": {
@@ -1284,7 +1282,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
@@ -1582,7 +1580,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
@@ -1599,7 +1597,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
@@ -1641,7 +1639,9 @@
       "id": "single-shell-only",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
+      "expectedSeverities": [
+        "high"
+      ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
         "shell-only": {
@@ -1654,7 +1654,7 @@
       "client": "cursor",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
@@ -1724,7 +1724,9 @@
       "id": "single-e2b-only",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
+      "expectedSeverities": [
+        "high"
+      ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
         "e2b-only": {
@@ -1740,7 +1742,9 @@
       "id": "single-onepassword-only",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
+      "expectedSeverities": [
+        "medium"
+      ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
         "onepassword-only": {
@@ -1756,7 +1760,9 @@
       "id": "single-bitwarden-only",
       "client": "cursor",
       "plantedCombo": false,
-      "expectedSeverities": [],
+      "expectedSeverities": [
+        "medium"
+      ],
       "note": "One server. A single capability is not a critical combination.",
       "servers": {
         "bitwarden-only": {
@@ -1818,7 +1824,7 @@
       "client": "claude-desktop",
       "plantedCombo": false,
       "expectedSeverities": [
-        "high"
+        "medium"
       ],
       "note": "A live notes directory beside a disabled shell.",
       "servers": {

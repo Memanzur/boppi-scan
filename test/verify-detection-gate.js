@@ -52,6 +52,16 @@ ok('research-notes does not gain network access', !research.capabilities.include
 ok('sandbox-helper does not gain code execution', !sandbox.capabilities.includes('code_execution'));
 ok('obsidian-vault directory is files and not credentials', vaultDir.capabilities.includes('filesystem_access') && !vaultDir.capabilities.includes('credential_access') && vaultDir.capabilityGrades.filesystem_access === 'observed');
 ok('declared tool objects are observed capabilities', custom.capabilityGrades.shell_access === 'observed' && custom.capabilityGrades.credential_access === 'observed' && custom.capabilityGrades.network_access === 'observed');
+const brave = inferCapabilities('brave', { command: 'npx', args: ['-y', '@brave/brave-search-mcp-server@latest'] }, { home });
+ok('versioned Brave Search package is network and untrusted content', brave.capabilities.includes('network_access') && brave.capabilities.includes('untrusted_external_content') && brave.capabilityGrades.network_access === 'allowlist');
+const onepassword = inferCapabilities('secrets', { command: 'npx', args: ['-y', '1password-mcp@1.2.3'] }, { home });
+ok('1password-mcp resolves after the version suffix is stripped', onepassword.capabilities.includes('credential_access') && onepassword.capabilityGrades.credential_access === 'allowlist');
+const kube = inferCapabilities('cluster', { command: 'npx', args: ['-y', 'kubernetes-mcp-server@latest'] }, { home });
+ok('kubernetes server is shell plus network', kube.capabilities.includes('shell_access') && kube.capabilities.includes('network_access'));
+const commands = inferCapabilities('run', { command: 'npx', args: ['-y', 'mcp-server-commands==1.2.0'] }, { home });
+ok('mcp-server-commands is shell after the == version is stripped', commands.capabilities.includes('shell_access'));
+const { CATALOG } = require('../src/cli/mcpCatalog');
+ok('catalog has at least 100 cited servers', CATALOG.length >= 100 && CATALOG.every(entry => typeof entry.citation === 'string' && entry.citation.startsWith('https://')));
 
 fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
 fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });

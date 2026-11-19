@@ -99,7 +99,12 @@ function runCli(args, home) {
   const removals = predictions.filter(p => p.edit.action === 'remove_server');
   const moves = predictions.filter(p => p.edit.action === 'move_server');
   ok('move predictions name a target client that is a different scanned agent and list what would appear there', moves.length > 0 && moves.every(p => p.edit.toClient === p.target.key && p.target.agentId !== p.agentId && Array.isArray(p.target.predictedAppeared)));
-  ok('moving filesystem from Claude Desktop to Cursor removes the desktop exfiltration path but creates one on Cursor, which already reaches the network', (() => { const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor'); return m && m.predictedEliminated.length === 1 && m.target.predictedAppeared.some(k => k.startsWith('EP-A:')); })());
+  ok('moving filesystem off Claude Desktop removes its exfiltration path; Cursor already has one because Desktop Commander grants files and puppeteer reaches the network', (() => {
+    const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor');
+    const cursorAgent = exported.inventory.real.agents.find(a => a.name === 'Cursor');
+    const cursorAlready = exported.exposurePaths.some(p => p.agentId === cursorAgent.id && p.templateId === 'EP-A');
+    return m && m.predictedEliminated.length === 1 && m.predictedEliminated[0].startsWith('EP-A:') && cursorAlready;
+  })());
   ok('moves rank below a removal that breaks the same exposures without creating new ones', (() => { const ranked = require('../src/cli/predict').rankPredictions(predictions, exported.exposurePaths); const first = ranked.findIndex(e => e.prediction.edit.action === 'move_server'); const sameRemoval = ranked.findIndex(e => e.prediction.edit.action === 'remove_server' && e.prediction.edit.server === ranked[first].prediction.edit.server); return first > sameRemoval; })());
   ok('eliminated and surviving partition the before set', predictions.every(p => [...p.predictedEliminated, ...p.predictedSurviving].sort().join() === [...p.before.exposureKeys].sort().join() && !p.predictedEliminated.some(k => p.predictedSurviving.includes(k))));
   const keysByAgent = agentId => exported.exposurePaths.filter(x => x.agentId === agentId).map(x => x.exposureKey).sort();
