@@ -158,6 +158,22 @@ function pathScope(arg, home) {
   return 'scoped';
 }
 
+function toolNameList(spec) {
+  if (!Array.isArray(spec.tools)) return [];
+  return spec.tools.map(toolNameOf).filter(Boolean);
+}
+
+/** A declared tool list with no send/write name, or an explicit read-only flag, is not a send. */
+function readOnlyScope(spec) {
+  const url = typeof spec.url === 'string' ? spec.url : '';
+  if (/[?&](?:read_only|readonly)=(?:true|1)\b/i.test(url)) return true;
+  const args = Array.isArray(spec.args) ? spec.args : [];
+  if (args.some(arg => /^--read-?only(?:=true|=1)?$/i.test(arg))) return true;
+  const names = toolNameList(spec);
+  if (!names.length) return false;
+  return !names.some(toolName => /send|post|write|create|update|delete|upload|publish|modify/i.test(toolName));
+}
+
 function remoteHost(server) {
   const raw = server.url || server.endpoint;
   if (typeof raw !== 'string' || !raw.trim()) return null;
@@ -258,6 +274,17 @@ function inferCapabilities(name, server, options = {}) {
     if (catalogHost) grantCatalog(catalogHost, host);
     const readsData = Object.values(roles).some(role => DATA_SOURCE_ROLES.has(role));
     if (!grades.network_access && !readsData) grant(['network_access'], 'observed', 'remote MCP server', host);
+  }
+
+  if (readOnlyScope(spec) && grades.messaging_send !== 'observed') {
+    capabilities.delete('messaging_send');
+    delete grades.messaging_send;
+    delete roles.messaging_send;
+  }
+  if (readOnlyScope(spec) && grades.source_write !== 'observed') {
+    capabilities.delete('source_write');
+    delete grades.source_write;
+    delete roles.source_write;
   }
 
   const haystack = [name, spec.command || '', ...args, spec.url || spec.endpoint || ''].join(' ');

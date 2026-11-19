@@ -87,6 +87,31 @@ const shellData = scan({
 });
 ok('database plus shell is critical exfiltration', shellData.severities.has('critical'));
 
+const everything = inferCapabilities('everything', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-everything'] }, { home });
+ok('the reference everything server grants nothing', everything.capabilities.length === 0);
+const readOnlySlack = inferCapabilities('chat', {
+  url: 'https://mcp.slack.com/mcp',
+  tools: [{ name: 'conversations_history' }, { name: 'list_channels' }],
+}, { home });
+ok('slack with only read tools does not send', readOnlySlack.capabilities.includes('sensitive_read') && !readOnlySlack.capabilities.includes('messaging_send'));
+const readOnlyDb = scan({ db: { command: 'npx', args: ['-y', 'mongodb-mcp-server', '--readOnly'] } });
+ok('a read-only database is not critical', !readOnlyDb.severities.has('critical'));
+const scopedNotion = scan({ notes: { url: 'https://mcp.notion.com/mcp' } });
+ok('scoped notion URL is not critical', !scopedNotion.severities.has('critical'));
+fs.mkdirSync(path.join(home, 'src'), { recursive: true });
+const filesToGithub = scan({
+  repo: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'src')] },
+  github: { url: 'https://api.githubcopilot.com/mcp/' },
+});
+ok('local files plus a GitHub host are critical', filesToGithub.severities.has('critical'));
+const githubAlone = scan({ github: { url: 'https://api.githubcopilot.com/mcp/' } });
+ok('a GitHub host alone is not critical', !githubAlone.severities.has('critical'));
+const disabled = scan({
+  live: { command: 'uvx', args: ['mcp-server-time'] },
+  gone: { command: 'npx', args: ['-y', 'mcp-server-commands'], disabled: true },
+});
+ok('a disabled shell is not a finding', !disabled.severities.has('critical') && !disabled.severities.has('high'));
+
 const bare = scan({ shell: { command: 'npx', args: ['-y', 'mcp-server-commands'] } });
 ok('a bare shell stays high', bare.severities.has('high') && !bare.severities.has('critical'));
 const prompted = scan({

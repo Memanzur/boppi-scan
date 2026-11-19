@@ -20,8 +20,19 @@
     { id:'AE-009', severity:'critical', category:'command_boundary', title:'Command execution crosses a trust boundary', needs:['command_boundary'], path:'A shell or code interpreter is combined with an outbound leg, untrusted content, or an approval bypass. Command output can leave the machine, follow untrusted instructions, or run without a prompt.', fix:'Remove the shell or code server, turn prompting back on, or remove the outbound or untrusted server.' },
     { id:'AE-010', severity:'high', category:'command_local', title:'Command execution still prompts', needs:['execution_alone'], path:'A shell or code interpreter can run commands on this machine. Prompting is still on, and no outbound leg or untrusted ingestion was evidenced.', fix:'Remove command execution the agent does not need.' },
     { id:'AE-011', severity:'critical', category:'data_exfiltration', title:'Sensitive data can leave through an outbound leg', needs:['sensitive_read','outbound'], path:'A database or SaaS read plus an outbound leg (fetch, browser, messaging send, or shell) can move that data off the service.', fix:'Remove the outbound server, or remove the data server the agent does not need.' },
+    { id:'AE-012', severity:'critical', category:'data_exfiltration', title:'Local files can reach a remote MCP host', needs:['local_files','remote_host'], path:'Files this agent can read can be placed in tool calls to a remote MCP host, including a host whose catalog role is a data read.', fix:'Remove the remote server, or narrow the file grant so those files are not in reach.' },
   ];
   const categorySet = permissions => new Set((permissions || []).map(p => p.normalizedCategory || p.category || 'unknown'));
+  function remoteMcpHost(server) {
+    const raw = server && (server.endpoint || server.url);
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+    let url;
+    try { url = new URL(raw.includes('://') ? raw.trim() : `https://${raw.trim()}`); } catch (_) { return null; }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') return null;
+    return host;
+  }
   function has(set, ...values) { return values.some(v => set.has(v)); }
   function permissionEvidence(permissions, predicate) {
     return (permissions || []).filter(predicate).map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null }));
@@ -45,6 +56,10 @@
     const sensitiveRead = (permissions || []).some(p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data');
     const commandBoundary = execution && (strongNetwork || messaging || untrustedHit || approvalBypass);
     const dataOutbound = sensitiveRead && (strongNetwork || messaging || execution);
+    const remoteHosts = (mcpServers || []).filter(server => remoteMcpHost(server));
+    const remoteIds = new Set(remoteHosts.map(server => server.id));
+    const localFilePerms = (permissions || []).filter(permission => permission.normalizedCategory === 'read_files' && permission.integrationId && [...remoteIds].some(id => id !== permission.integrationId));
+    const fileToRemote = localFilePerms.length > 0;
     const unknownTraining = (agent?.trainingPosture || 'unknown') === 'unknown';
     // AE-003 requires explicit evidence that the server is unverified. An
     // unknown trust state is uncertainty, not proof of supply-chain risk.
@@ -62,7 +77,7 @@
       read_email: permissionEvidence(permissions, p => p.normalizedCategory === 'read_email'),
       browser_or_untrusted: permissionEvidence(permissions, p => ['browser_automation','browse_internet','untrusted_external_content'].includes(p.normalizedCategory)),
       broad_files: permissionEvidence(permissions, p => p.normalizedCategory === 'read_files' && p.accessLevel === 'broad'),
-      bounded_sensitive: (!execution && !separateNetwork && !messaging && !broadFiles && bounded)
+      bounded_sensitive: (!execution && !separateNetwork && !messaging && !broadFiles && !dataOutbound && !fileToRemote && bounded)
         ? permissionEvidence(permissions, p => (p.normalizedCategory === 'read_files' && p.accessLevel === 'scoped') || p.normalizedCategory === 'access_credentials' || p.accessLevel === 'data' || p.accessLevel === 'payment')
         : [],
       command_boundary: commandBoundary
@@ -77,6 +92,8 @@
       outbound: dataOutbound
         ? permissionEvidence(permissions, p => ['call_external_api','browse_internet','browser_automation','send_external_message','send_email','execute_code','run_shell_commands'].includes(p.normalizedCategory))
         : [],
+      local_files: fileToRemote ? localFilePerms.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })) : [],
+      remote_host: fileToRemote ? remoteHosts.map(server => ({ id:server.id, name:server.name || server.endpoint, source:server.source?.id || null })) : [],
       shell: permissionEvidence(permissions, p => p.normalizedCategory === 'run_shell_commands'),
       filesystem: permissionEvidence(permissions, p => ['read_files','write_files','delete_files'].includes(p.normalizedCategory)),
       untrusted: permissionEvidence(permissions, p => p.normalizedCategory === 'untrusted_external_content'),
