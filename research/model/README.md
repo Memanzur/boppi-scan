@@ -13,6 +13,8 @@ Budget is $0: no paid APIs, no paid GPUs. Training runs on a free Kaggle or Cola
 | `lib/templates.mjs` | Config templates, scenarios (planted combos and benign shapes), injection phrasings; train and dev use different families |
 | `lib/format.mjs` | System prompt, user prompt, target builder, strict output parser |
 | `lib/hybrid.mjs` | Shipping merge: rules severity, model text and draft fix |
+| `lib/labelSanity.mjs` | Drops records that copy known rules-engine bugs, and single-server catalog-only launches. Independent of the engine fix |
+| `test-label-sanity.mjs` | Unit tests for that filter. `test-pipeline.mjs` runs them |
 | `eval.mjs` | Scores predictions against the rules on the dev split, applies model fixes and re-scans |
 | `test-pipeline.mjs` | Self checks: hybrid cannot be lowered by an obedient model, strict parser, oracle predictions score 1.0 |
 | `train_lora.py` | LoRA or QLoRA training on the chat JSONL (assistant tokens only) |
@@ -31,14 +33,23 @@ node research/model/test-pipeline.mjs --engine ../boppi-engine
 
 Without `--engine` the generator labels with the checkout it sits in (main). Outputs are gitignored; never commit them.
 
-## Data (engine `89f4c80`, generated 2026-11-19, identical on a second run)
+## Data (rules engine `bce6f61`, generator `own-model-gen/2`, 2026-11-19)
 
-| Split | Planned | Kept | Clean | Injected | Dropped (fix failed re-scan) | Critical | High | Medium | None | Benign (below high) |
+Kept rows only. The sanity filter does not write the records it removes.
+
+| Split | Planned | Kept | Clean | Injected | Fix failed re-scan | Critical | High | Medium | None | Benign (below high) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| train | 2,335 | 2,077 | 1,769 | 308 | 258 | 1,271 | 197 | 538 | 71 | 609 |
-| dev | 365 | 330 | 272 | 58 | 35 | 187 | 39 | 93 | 11 | 104 |
+| train | 2,335 | 1,190 | 1,021 | 169 | 266 | 550 | 134 | 185 | 321 | 506 |
+| dev | 365 | 178 | 147 | 31 | 52 | 96 | 11 | 27 | 44 | 71 |
 
-Planted injection never changed a rule label (0 of 366). Train examples are about 770 tokens at the median and 1,590 at p95 (Qwen3 tokenizer); 6 are over 2,048 and are dropped at training time.
+| Filter | Train records removed | Dev records removed |
+|---|---|---|
+| Single-server catalog launch (unique configs skipped while filling the quota; not part of Planned) | 325 | 64 |
+| `BOPPI-UNKNOWN-SERVER` on a catalog reference server | 172 | 31 |
+| `BOPPI-PLAINTEXT-SECRET` on a package name, version pin, or `${env:...}` reference | 7 | 0 |
+| Fix marked passed while `BOPPI-UNPINNED-PACKAGE` remains | 776 | 122 |
+
+A labeled record can match more than one of the last three filters. That happened for 879 train records and 135 dev records. Planted injection never changed a rule label on a kept record (0 of 200). Oracle fixes on this dev file: 109 of 109 passed re-scan.
 
 ## Sealed evaluation
 
@@ -48,7 +59,7 @@ The sealed held-out corpus on `cursor/heldout-detection-eval-5eec` is never read
 
 Proves the pipeline runs end to end. **It says nothing about quality**: 8 steps on 32 examples of a 0.6B model.
 
-- Data and checks: `gen.mjs` plus `test-pipeline.mjs` pass (oracle 227 of 227 fixes pass re-scan; an obedient model cannot lower hybrid severity; vandalized fixes never count).
+- Data and checks on the earlier dev file, before the label sanity filter: `gen.mjs` plus `test-pipeline.mjs` pass (oracle 227 of 227 fixes pass re-scan; an obedient model cannot lower hybrid severity; vandalized fixes never count). The regenerated dev file's oracle is 109 of 109, in the data section above.
 - Training: Qwen3-0.6B, plain LoRA r=8 in fp32 on CPU, 5.0M trainable parameters, 8 steps of 4 examples (examples up to 1,024 tokens), 150 seconds. Loss went from 2.50 to 1.85 (lowest 1.51).
 - Prediction: 12 dev cases (6 short benign, then 3 critical, 1 medium and 2 injected critical), 12 to 35 seconds each on CPU with at most 500 new tokens.
 - Tuned 0.6B: learned the bare JSON shape (no code fence, `rule_ids` first) but invented rule ids such as `Boppi-001` and often looped until the token limit. 1 of 12 outputs passed the strict parser; 0 correct rule ids; its one proposed fix was rejected as malformed.

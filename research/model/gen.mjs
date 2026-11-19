@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Deterministic training and dev data generator for Boppi's own model.
 // Labels come from the Boppi rules engine; explanations from rule and catalog
-// text; fixes from boppi fix, kept only when a re-scan passes.
+// text; fixes from boppi fix, kept only when a re-scan passes. lib/labelSanity.mjs
+// then drops known engine bugs and single-server catalog-only launches.
 //
 //   node research/model/gen.mjs --engine <boppi-scan checkout> --out research/model/out
 //
@@ -10,13 +11,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { rng, fnv } from './lib/rng.mjs';
 import { scanConfig, fixAndRescan, catalogFor, SEVERITY_RANK } from './lib/engine.mjs';
 import { partitionCatalog, makeConfig, inject, BENIGN_ROLES, probeSpec, shortName } from './lib/templates.mjs';
 import { SYSTEM_PROMPT, userPrompt, buildTarget } from './lib/format.mjs';
+import { reviewCase, isSingleServerCatalogLaunch, FILTERS } from './lib/labelSanity.mjs';
 
-const GENERATOR_VERSION = 'own-model-gen/1';
+const GENERATOR_VERSION = 'own-model-gen/2';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith('--') ? [...acc, [a.slice(2), all[i + 1] && !all[i + 1].startsWith('--') ? all[i + 1] : true]] : acc), []));
 const engineDir = path.resolve(args.engine || path.join(here, '..', '..'));
@@ -34,6 +37,7 @@ for (const forbidden of ['heldout', 'held-out', 'test/corpus']) {
 let engineCommit = 'unknown';
 try { engineCommit = execFileSync('git', ['-C', engineDir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch (_) { /* not a git checkout */ }
 const catalogMod = catalogFor(engineDir);
+const secretsMod = createRequire(import.meta.url)(path.join(engineDir, 'src', 'cli', 'discovery', 'secrets.js'));
 const parts = partitionCatalog(catalogMod.CATALOG);
 
 function serverInfoFor(config, labels) {
@@ -56,9 +60,12 @@ function planCases(split) {
   const r = rng(seed);
   const cases = [];
   const seen = new Set();
+  const excludedLaunch = new Set();
   let guard = 0;
-  while (cases.length < clean + injected && guard++ < (clean + injected) * 20) {
+  while (cases.length < clean + injected && guard++ < (clean + injected) * 40) {
     const base = makeConfig(split, parts, r);
+    // Bare catalog launches overlap eval data and teach nothing about a chain.
+    if (isSingleServerCatalogLaunch(base.config, catalogMod)) { excludedLaunch.add(stableHash(base.config)); continue; }
     const h = stableHash(base.config);
     if (seen.has(h)) continue;
     seen.add(h);
@@ -67,7 +74,8 @@ function planCases(split) {
     if (isInjected) { const inj = inject(base.config, split, r); item.config = inj.config; item.injection = inj.injection; }
     cases.push(item);
   }
-  return cases;
+  if (cases.length < clean + injected) throw new Error(`${split}: planned ${cases.length} of ${clean + injected} after excluding ${excludedLaunch.size} single-server catalog launches`);
+  return { cases, excludedLaunch: excludedLaunch.size };
 }
 
 async function labelCase(item) {
@@ -88,8 +96,13 @@ async function labelCase(item) {
     // No edit at all means boppi fix had nothing safe to apply (manual only):
     // keep the case with an empty fix. An edit that fails the re-scan is dropped.
     if (!fix.ops.length) fix = null;
-    else if (!fix.verdict.pass) return { item, dropped: 'fix_failed_rescan', verdict: fix.verdict };
+    else if (!fix.verdict.pass) return { item, dropped: 'fix_failed_rescan', reasons: ['fix_failed_rescan'], verdict: fix.verdict };
   }
+  const sanity = reviewCase({
+    config: item.config, findings: labels.findings, catalog: catalogMod, secrets: secretsMod,
+    fixKept: !!(fix && fix.ops.length), afterFindings: fix && fix.after ? fix.after.findings : [],
+  });
+  if (sanity.drop) return { item, dropped: sanity.reasons.join('+'), reasons: sanity.reasons };
   const serverInfo = serverInfoFor(item.config, labels);
   const target = buildTarget({ labels, serverInfo, fix, injected: !!item.injection });
   const id = `${item.split}-${String(item.index).padStart(5, '0')}`;
@@ -157,18 +170,28 @@ async function probeBenign() {
 const probe = await probeBenign();
 process.stderr.write(`benign probe: ${JSON.stringify(probe)}\n`);
 
-const devCases = planCases('dev');
+const devPlan = planCases('dev');
+const devCases = devPlan.cases;
 const devHashes = new Set(devCases.map(c => c.hash));
-const trainPlanned = planCases('train');
-const trainCases = trainPlanned.filter(c => !devHashes.has(c.hash));
-const manifest = { generator: GENERATOR_VERSION, engine: { dir_basename: path.basename(engineDir), commit: engineCommit }, plan, benign_probe: probe, dedupe_dropped_train: trainPlanned.length - trainCases.length, splits: {} };
+const trainPlan = planCases('train');
+const trainCases = trainPlan.cases.filter(c => !devHashes.has(c.hash));
+const excludedLaunch = { dev: devPlan.excludedLaunch, train: trainPlan.excludedLaunch };
+const manifest = { generator: GENERATOR_VERSION, engine: { dir_basename: path.basename(engineDir), commit: engineCommit }, plan, benign_probe: probe, dedupe_dropped_train: trainPlan.cases.length - trainCases.length, excluded_single_server_catalog_launch: excludedLaunch, splits: {} };
 
 for (const [split, cases] of [['dev', devCases], ['train', trainCases]]) {
   process.stderr.write(`${split}: labeling ${cases.length} configs with ${concurrency} workers\n`);
   const results = await pool(cases, labelCase, concurrency);
   const records = results.filter(x => x.record).map(x => x.record);
   const drops = {};
-  for (const x of results) if (x.dropped) drops[x.dropped] = (drops[x.dropped] || 0) + 1;
+  const filterRemoved = Object.fromEntries(FILTERS.map(name => [name, 0]));
+  let filterRecords = 0;
+  for (const x of results) {
+    if (x.dropped) drops[x.dropped] = (drops[x.dropped] || 0) + 1;
+    const reasons = (x.reasons || []).filter(reason => FILTERS.includes(reason));
+    if (reasons.length) filterRecords++;
+    for (const reason of reasons) filterRemoved[reason]++;
+  }
+  filterRemoved.single_server_catalog_launch += excludedLaunch[split];
   fs.writeFileSync(path.join(outDir, `${split}.dropped.jsonl`), results.filter(x => x.dropped).map(x => JSON.stringify({ split, index: x.item.index, scenario: x.item.scenario, reason: x.dropped, verdict: x.verdict || null, error: x.error || null, config: x.item.config })).join('\n') + '\n');
   const body = records.map(r => JSON.stringify(r)).join('\n') + '\n';
   assertNoSecrets(body, `${split}.jsonl`);
@@ -187,6 +210,9 @@ for (const [split, cases] of [['dev', devCases], ['train', trainCases]]) {
     with_fix: records.filter(r => r.fix && r.fix.ops.length).length,
     by_max_severity: bySev, by_rule: Object.fromEntries(Object.entries(byRule).sort()),
     benign: records.filter(r => (SEVERITY_RANK[r.labels.max_severity] ?? -1) < 3).length,
+    excluded_single_server_catalog_launch: excludedLaunch[split],
+    filter_removed: filterRemoved,
+    filter_records_removed: filterRecords,
   };
 }
 fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

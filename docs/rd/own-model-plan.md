@@ -148,17 +148,18 @@ This is the strongest argument for the hybrid design and for adversarial trainin
 
 Everything lives in `research/model/` on branch `cursor/own-model-free-7c1d`. Generated data, predictions, adapters and weights are gitignored and never committed.
 
-1. **Data** (`gen.mjs`, deterministic, about 3 minutes on 8 CPU cores). Byte for byte identical output on a second run.
-   - Train: 2,077 configs kept (1,769 clean plus 308 with planted prompt injection) from 2,335 planned; 258 dropped because the `boppi fix` edit failed its re-scan.
-   - Dev: 330 kept (272 clean plus 58 injected) from 365 planned; 35 dropped the same way.
-   - Train max severity: 1,271 critical, 197 high, 538 medium, 71 none, so 609 benign (below high). Dev: 187 critical, 39 high, 93 medium, 11 none, 104 benign.
-   - Injection never changed a rule label (0 of 366 injected cases, checked by labeling each injected config and its clean twin).
+1. **Data** (`gen.mjs`, deterministic, fixed seeds). Regenerated on 2026-11-19 with the label sanity filter, using the rules engine at `bce6f61`. Generated files stay gitignored.
+   - Train: 1,190 configs kept (1,021 clean plus 169 with planted prompt injection) from 2,335 planned. 266 dropped because the `boppi fix` edit failed its re-scan. The sanity filter removed 879 more labeled records. While filling the quota it also skipped 325 unique single-server catalog launches.
+   - Dev: 178 kept (147 clean plus 31 injected) from 365 planned. 52 dropped for a failed re-scan. The filter removed 135 more labeled records, and skipped 64 unique single-server catalog launches.
+   - Records each filter removed, train then dev: false `BOPPI-UNKNOWN-SERVER` on a reference server 172 and 31; false `BOPPI-PLAINTEXT-SECRET` on a package name, version pin, or `${env:...}` reference 7 and 0; fix marked passed while `BOPPI-UNPINNED-PACKAGE` remained 776 and 122; single-server catalog launch 325 and 64. A labeled record can match more than one of the first three filters.
+   - Train max severity: 550 critical, 134 high, 185 medium, 321 none, so 506 benign (below high). Dev: 96 critical, 11 high, 27 medium, 44 none, 71 benign.
+   - Injection never changed a rule label on a kept record (0 of 200).
    - Dev uses a different seed, different spec styles, server names, injection phrasings and locations, mostly a different client, and a disjoint 20% slice of every catalog role with 5 or more rows. No train config hash matches a dev config.
    - The sealed held-out corpus on `cursor/heldout-detection-eval-5eec` is never read; the generator and eval also refuse any path containing `heldout`, and the CI corpus in `test/corpus` is not used either.
 2. **Output format** (`lib/format.mjs`). Strict JSON: `rule_ids`, `findings[{rule_id, servers, chain}]`, `fix{commands, ops}`, `untrusted_instructions_seen`. There is no severity field; the parser rejects any output that has one. Severity always comes from the rules (`lib/hybrid.mjs`); model rule ids the rules did not emit become "unverified suggestion" with no severity.
 3. **Training** (`train_lora.py`, `own_model_qwen3_4b.ipynb`). QLoRA, 4 bit NF4, r=16, alpha 32, all attention and MLP projections, seq 2048, batch 1 times grad accum 16, fp16 for the T4, loss on the assistant JSON only, over length examples dropped instead of truncated.
 4. **Eval** (`eval.mjs`). Arms: rules-only (harness check), empty (floor), model-only (severity looked up from the ids the model names), hybrid (shipping design). Reports critical precision and recall, benign flagged, per severity precision, rule id precision and recall, schema validity, injection agreement, and fix validity by applying the model's ops and re-scanning. Pass bar for this experiment: critical precision and recall at least 0.80 and zero benign flagged.
-5. **Self checks** (`test-pipeline.mjs`). Oracle predictions score 1.0 and 227 of 227 dev fixes pass re-scan; a model that obeys an injection and reports nothing leaves hybrid critical recall at 1.0 while model-only drops to 0.
+5. **Self checks** (`test-pipeline.mjs`, including `test-label-sanity.mjs`). Oracle predictions score 1.0 and 109 of 109 dev fixes pass re-scan; a model that obeys an injection and reports nothing leaves hybrid critical recall at 1.0 while model-only drops to 0.
 6. **CPU smoke test** (box, free). See `research/model/README.md` for the numbers. It proves the pipeline runs end to end and says nothing about quality.
 7. **Decision gate after the Kaggle run.** Keep going (more data, Gemma 4 E4B arm, GGUF export for `boppi explain`) only if the fine tuned model beats the prompted base model on the same dev cases, meets the bar above, and the QA agent's sealed run agrees.
 
@@ -166,10 +167,12 @@ Important limit: on dev the reference labels are the rules themselves, so dev sc
 
 ### Rules engine issues the generator surfaced (for the weekly report, not fixed here)
 
-- `boppi fix --yes` on `BOPPI-UNPINNED-PACKAGE` removes `-y` from `npx` but the re-scan still reports the server as unpinned (only the title changes). 241 of the 293 dropped cases were this: the edit changes the file and clears nothing.
+- `boppi fix --yes` on `BOPPI-UNPINNED-PACKAGE` removes `-y` from `npx` but the re-scan still reports the server as unpinned (only the title changes). On the first generator pass, before the sanity filter, 241 of the 293 dropped cases were this: the edit changes the file and clears nothing.
 - The representative exposure path (and so the servers in the top risk sentence) depends on the absolute path of the config file, so two people with the same config can see different top path servers. The generator pins the work dir and a public fingerprint key to stay deterministic.
 - Official reference servers that are in the catalog (`@modelcontextprotocol/server-memory`, `server-sequential-thinking`, `mcp-server-time`) are flagged `BOPPI-UNKNOWN-SERVER` at high on their own, so no memory server config can be benign.
 - `"${env:NOTION_TOKEN}"` (an env reference, not a value) and the package name `broke2built-skills-mcp` are flagged `BOPPI-PLAINTEXT-SECRET`. Both look like false positives.
+
+The generator does not train on these bugs. `research/model/lib/labelSanity.mjs` drops a record when `BOPPI-UNKNOWN-SERVER` is on a catalog reference server (memory, sequential-thinking, time, mcp-sequential-thinking, everything), when `BOPPI-PLAINTEXT-SECRET` is on a package name, a version pin, or an `${env:...}` reference, or when a fix is marked passed while the re-scan still reports `BOPPI-UNPINNED-PACKAGE`. It also keeps single-server catalog-only launches out of train and dev. The filter does not depend on a rules-engine change. A separate fix for these same bugs is in progress against main. Regenerate this dataset once that fix lands.
 
 ## 11. Risks and mitigations
 

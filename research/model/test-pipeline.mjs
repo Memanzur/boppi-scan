@@ -12,6 +12,7 @@ import { parseOutput } from './lib/format.mjs';
 import { diff, apply } from './lib/jsonops.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+execFileSync(process.execPath, [path.join(here, 'test-label-sanity.mjs')], { stdio: 'inherit' });
 const argv = process.argv.slice(2);
 const opt = k => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : null; };
 const engine = opt('engine') || path.join(here, '..', '..');
