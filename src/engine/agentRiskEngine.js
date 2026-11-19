@@ -21,6 +21,7 @@
     { id:'AE-010', severity:'high', category:'command_local', title:'Command execution still prompts', needs:['execution_alone'], path:'A shell or code interpreter can run commands on this machine. Prompting is still on, and no outbound leg or untrusted ingestion was evidenced.', fix:'Remove command execution the agent does not need.' },
     { id:'AE-011', severity:'critical', category:'data_exfiltration', title:'Sensitive data can leave through an outbound leg', needs:['sensitive_read','outbound'], path:'A database or SaaS read plus an outbound leg (fetch, browser, messaging send, or shell) can move that data off the service.', fix:'Remove the outbound server, or remove the data server the agent does not need.' },
     { id:'AE-012', severity:'critical', category:'data_exfiltration', title:'Local files can reach a remote MCP host', needs:['local_files','remote_host'], path:'Files this agent can read can be placed in tool calls to a remote MCP host, including a host whose catalog role is a data read.', fix:'Remove the remote server, or narrow the file grant so those files are not in reach.' },
+    { id:'AE-013', severity:'high', category:'workspace_message', title:'One workspace can read and send its own data', needs:['workspace_loop'], path:'One SaaS server can read and send inside the same vendor workspace. That data is not shown leaving to a different destination.', fix:'Remove send access, or keep this server away from shells and other outbound tools.' },
   ];
   const categorySet = permissions => new Set((permissions || []).map(p => p.normalizedCategory || p.category || 'unknown'));
   function remoteMcpHost(server) {
@@ -53,13 +54,26 @@
     const messaging = (permissions || []).some(p => ['send_external_message','send_email'].includes(p.normalizedCategory));
     const untrustedHit = (permissions || []).some(p => p.normalizedCategory === 'untrusted_external_content');
     const approvalBypass = (permissions || []).some(p => p.normalizedCategory === 'approval_bypass');
-    const sensitiveRead = (permissions || []).some(p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data');
+    const reads = (permissions || []).filter(p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data');
+    const sends = (permissions || []).filter(p => ['send_external_message','send_email'].includes(p.normalizedCategory));
+    const sensitiveRead = reads.length > 0;
+    const sameServerSend = (read) => sends.some(send => send.integrationId && send.integrationId === read.integrationId);
+    const otherDestination = (read) => {
+      const sid = read.integrationId;
+      return (permissions || []).some(permission => {
+        if (!permission.integrationId || permission.integrationId === sid) return false;
+        if (['call_external_api','browse_internet','browser_automation'].includes(permission.normalizedCategory) && permission.accessLevel !== 'data') return true;
+        if (['send_external_message','send_email','execute_code','run_shell_commands','untrusted_external_content'].includes(permission.normalizedCategory)) return true;
+        return false;
+      });
+    };
     const commandBoundary = execution && (strongNetwork || messaging || untrustedHit || approvalBypass);
-    const dataOutbound = sensitiveRead && (strongNetwork || messaging || execution);
     const remoteHosts = (mcpServers || []).filter(server => remoteMcpHost(server));
     const remoteIds = new Set(remoteHosts.map(server => server.id));
     const localFilePerms = (permissions || []).filter(permission => permission.normalizedCategory === 'read_files' && permission.integrationId && [...remoteIds].some(id => id !== permission.integrationId));
     const fileToRemote = localFilePerms.length > 0;
+    const dataOutbound = reads.some(read => execution || approvalBypass || fileToRemote || otherDestination(read));
+    const workspaceReads = reads.filter(read => sameServerSend(read) && !dataOutbound);
     const unknownTraining = (agent?.trainingPosture || 'unknown') === 'unknown';
     // AE-003 requires explicit evidence that the server is unverified. An
     // unknown trust state is uncertainty, not proof of supply-chain risk.
@@ -94,6 +108,7 @@
         : [],
       local_files: fileToRemote ? localFilePerms.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })) : [],
       remote_host: fileToRemote ? remoteHosts.map(server => ({ id:server.id, name:server.name || server.endpoint, source:server.source?.id || null })) : [],
+      workspace_loop: workspaceReads.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })),
       shell: permissionEvidence(permissions, p => p.normalizedCategory === 'run_shell_commands'),
       filesystem: permissionEvidence(permissions, p => ['read_files','write_files','delete_files'].includes(p.normalizedCategory)),
       untrusted: permissionEvidence(permissions, p => p.normalizedCategory === 'untrusted_external_content'),

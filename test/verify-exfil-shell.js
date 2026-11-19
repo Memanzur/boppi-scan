@@ -60,7 +60,7 @@ const gmail = inferCapabilities('mail', { command: 'uvx', args: ['mcparmory-goog
 ok('gmail can read, send, and ingest untrusted mail', gmail.capabilities.includes('sensitive_read') && gmail.capabilities.includes('messaging_send') && gmail.capabilities.includes('untrusted_external_content'));
 const wiki = inferCapabilities('wiki', { url: 'https://mcp.atlassian.com/v2/mcp' }, { home });
 ok('confluence host is a sensitive read', wiki.capabilities.includes('sensitive_read') && wiki.capabilityGrades.sensitive_read === 'allowlist');
-ok('catalog has no gitlab entry', !JSON.stringify(CATALOG).toLowerCase().includes('gitlab'));
+ok('a vendor that is not in the catalog is not a cited package', !CATALOG.some(entry => JSON.stringify(entry.packages || []).includes('@zereight/')));
 
 const alone = scan({ db: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] } });
 ok('a database alone is not critical', !alone.severities.has('critical') && alone.severities.has('medium'));
@@ -111,6 +111,21 @@ const disabled = scan({
   gone: { command: 'npx', args: ['-y', 'mcp-server-commands'], disabled: true },
 });
 ok('a disabled shell is not a finding', !disabled.severities.has('critical') && !disabled.severities.has('high'));
+
+const slackAlone = scan({ chat: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-slack'] } });
+ok('one workspace read and send is high, not critical', slackAlone.severities.has('high') && !slackAlone.severities.has('critical'));
+const gmailAlone = scan({ mail: { command: 'uvx', args: ['mcparmory-google-gmail'] } });
+ok('one mailbox that can read and send is high, not critical', gmailAlone.severities.has('high') && !gmailAlone.severities.has('critical'));
+const slackFetch = scan({
+  chat: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-slack'] },
+  fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
+});
+ok('workspace send plus a separate outbound server is critical', slackFetch.severities.has('critical'));
+const shellAndSlack = scan({
+  chat: { url: 'https://mcp.slack.com/mcp' },
+  shell: { command: 'npx', args: ['-y', 'mcp-server-commands'] },
+});
+ok('shell plus workspace send is critical', shellAndSlack.severities.has('critical'));
 
 const bare = scan({ shell: { command: 'npx', args: ['-y', 'mcp-server-commands'] } });
 ok('a bare shell stays high', bare.severities.has('high') && !bare.severities.has('critical'));
