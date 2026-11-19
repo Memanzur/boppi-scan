@@ -907,9 +907,10 @@ async function run(argv) {
     process.stdout.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
-    // HTML is an export artifact, so it receives the portable discovery view;
-    // the terminal may still show the exact files read for local consent.
-    fs.writeFileSync(options.html, html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients }));
+    // Sentences are built while discovery still has the raw config. The file
+    // itself gets the portable discovery view, so absolute paths are not written.
+    const htmlView = html.prepareHtml(report, scan.home);
+    fs.writeFileSync(options.html, html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients, htmlView }));
     process.stdout.write(`\nHTML report written to ${options.html}\n`);
   }
   if (options.sarif) {
