@@ -152,12 +152,16 @@ boppi scan                     discover configs, scan, print the full report
 boppi agents                   inventory table only
 boppi paths                    exposure paths only
 boppi plan                     compare every candidate fix side by side and print the exact edits; changes nothing
+boppi fix                      show each fixable risk and apply the ones you accept
 boppi fix --server <name>      remove one server entry from its config file (backup first), rescan, grade
+boppi fix --undo               restore the last backup set
 boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
 boppi history                  recent local scan summaries, what changed, and verified exposure reduction
 boppi push                     scan once, then send the sanitized inventory to your Boppi workspace
 boppi watch                    repeat that scan and push in the foreground until Ctrl+C
 
+--format <name>     terminal (default), json, html, or sarif
+-o, --output <file> write that format to a file
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
 --sarif <file>      SARIF 2.1.0 report for GitHub code scanning or any SARIF viewer
@@ -184,7 +188,9 @@ push and watch (the commands that use the network):
 fix only:
 --server <name>     the server entry to remove, as boppi scan names it
 --client <key>      which config to edit when the name exists in more than one client
---yes               apply without the terminal confirmation (required when stdin is not a terminal)
+--yes               apply without prompting (required when stdin is not a terminal)
+--dry-run           show each diff and change nothing
+--undo              restore files and permissions from the last backup set
 ```
 
 ### Plan and fix
@@ -202,6 +208,25 @@ CANDIDATE FIXES  best first
 Every row is a rescan of the configuration with that one edit applied. A move is rescanned on both clients, so the `new` column is what would appear on the target. `agent loses` lists capabilities no other server on that agent provides, which is the workflow cost of the edit.
 
 `boppi fix --server fetch` removes that entry from the file that holds it. It prints the file, the modeled effect, and the backup location, asks for confirmation (or takes `--yes`), copies the file to `~/.boppi/backups/` with mode 600, deletes the key, saves the predictions it used as `boppi-fix-<time>.json`, rescans, and grades the prediction. Exit 0 means CONFIRMED. Only removals are applied; a move is two edits you make by hand, and `boppi verify` grades the source side.
+
+### Automatic fixes
+
+`boppi fix` (with no `--server`) scans, then walks the risks it can change on disk without sending anything off the machine:
+
+* loose Claude Code permission modes (`bypassPermissions`, `dontAsk`, `acceptEdits`) go back to `default`, and unrestricted `Bash` / `PowerShell` / `*` allow rules are removed
+* Cline and Roo `autoApprove` lists are cleared
+* API keys and secret values stored in an MCP `env` block, header, or argument are deleted from the file (the value is never printed)
+* config files that are readable by every account are set to mode 600
+* MCP servers the catalog does not recognize are removed
+* `npx -y` / `uvx` style auto-install flags on an unpinned package are removed
+* a filesystem server rooted at `/` or the home folder is pointed at the current directory when that directory is narrower
+* Codex `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` are tightened
+
+Each automatic risk is shown in plain language with a small diff. Answer `y`, `n`, `s` (skip), or `a` (apply this one and the rest). `--yes` applies every automatic fix. `--dry-run` prints the diffs and writes nothing. The first change in a run is preceded by a timestamped backup under `~/.boppi/backups/`, and `boppi fix --undo` restores that set, including file modes.
+
+Rotating a key at the provider cannot be done from this machine. Those findings print the console to open and the file to edit. The same guidance is on every finding in `--json` and `--format json` as `remediation`: `{ summary, steps, autoFixable, fixId }`.
+
+When a scan finds automatic fixes, the report adds `3 risks can be fixed automatically. Run npx @boppi/cli fix`.
 
 ### Policy guard
 
@@ -238,6 +263,32 @@ npx @boppi/cli scan --config .mcp.json --source claude-code --fail-on high --sar
 ```
 
 Fails the job when a path or finding at or above the threshold exists in that file, when the policy is violated, or when the config could not be analyzed (exit 4, even without `--fail-on`). Without `--config` the scan reads the runner's user-level configs, which is rarely what CI wants.
+
+Upload SARIF from GitHub Actions:
+
+```yaml
+name: boppi
+on:
+  pull_request:
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npx @boppi/cli scan --config .mcp.json --source claude-code --format sarif -o boppi.sarif --fail-on high
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: boppi.sarif
+```
+
+The same report is `boppi scan --format sarif` (stdout) or `--sarif boppi.sarif`. Rules include help text and a `remediation` object (summary, steps, autoFixable, fixId).
 
 As a GitHub Action, with the SARIF uploaded to code scanning:
 

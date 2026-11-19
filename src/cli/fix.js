@@ -4,6 +4,7 @@
  * The command is the approval. On a terminal it also asks; --yes skips that.
  */
 'use strict';
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -52,20 +53,82 @@ function deleteServer(json, serverName, cwd) {
 }
 
 function backupPath(home, file, now) {
-  const stamp = now.replace(/[:.]/g, '-');
-  return path.join(home, '.boppi', 'backups', `${path.basename(file)}.${stamp}.bak`);
+  const stamp = String(now).replace(/[:.]/g, '-');
+  const tag = crypto.createHash('sha256').update(path.resolve(file)).digest('hex').slice(0, 8);
+  return path.join(home, '.boppi', 'backups', `${path.basename(file)}.${tag}.${stamp}.bak`);
+}
+
+function undoManifestPath(home) {
+  return path.join(home, '.boppi', 'fix-undo.json');
+}
+
+function insideDir(parent, file) {
+  const root = path.resolve(parent);
+  const resolved = path.resolve(file);
+  return resolved === root || resolved.startsWith(root + path.sep);
+}
+
+/** One timestamped backup set. Commit writes ~/.boppi/fix-undo.json for --undo. */
+function createBackupSet(home, now) {
+  const files = [];
+  return {
+    capture(file) {
+      const existing = files.find(entry => entry.original === file);
+      if (existing) return existing;
+      const mode = fs.statSync(file).mode & 0o777;
+      const backup = backupPath(home, file, `${now}-${files.length}`);
+      fs.mkdirSync(path.dirname(backup), { recursive: true });
+      fs.copyFileSync(file, backup);
+      fs.chmodSync(backup, 0o600);
+      const entry = { original: file, backup, mode };
+      files.push(entry);
+      return entry;
+    },
+    commit() {
+      if (!files.length) return null;
+      const manifestPath = undoManifestPath(home);
+      fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+      const body = { createdAt: now, files };
+      fs.writeFileSync(manifestPath, JSON.stringify(body, null, 2) + '\n', { mode: 0o600 });
+      return body;
+    },
+  };
 }
 
 /** Write the backup, then the edited config. Returns the backup path. */
 function applyRemoval({ located, serverName, cwd, home, now }) {
-  const backup = backupPath(home, located.file, now);
-  fs.mkdirSync(path.dirname(backup), { recursive: true });
-  fs.copyFileSync(located.file, backup);
-  fs.chmodSync(backup, 0o600);
+  const set = createBackupSet(home, now);
+  const entry = set.capture(located.file);
   const removed = deleteServer(located.json, serverName, cwd);
   if (!removed) throw new Error(`"${serverName}" was not found in ${located.file} at write time`);
   fs.writeFileSync(located.file, JSON.stringify(located.json, null, 2) + '\n');
-  return backup;
+  set.commit();
+  return entry.backup;
+}
+
+/** Restore the last backup set. Returns the manifest, or null when there is none. */
+function undoLast(home) {
+  const manifestPath = undoManifestPath(home);
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+  if (!manifest || !Array.isArray(manifest.files) || !manifest.files.length) return null;
+  const backups = path.join(home, '.boppi', 'backups');
+  for (const entry of manifest.files) {
+    if (!entry || typeof entry.original !== 'string' || typeof entry.backup !== 'string') {
+      throw new Error('the backup set is incomplete');
+    }
+    if (!insideDir(backups, entry.backup)) throw new Error('a backup path is outside ~/.boppi/backups');
+    if (!fs.existsSync(entry.backup)) throw new Error(`backup file is missing: ${path.basename(entry.backup)}`);
+    fs.mkdirSync(path.dirname(entry.original), { recursive: true });
+    fs.copyFileSync(entry.backup, entry.original);
+    if (Number.isInteger(entry.mode)) fs.chmodSync(entry.original, entry.mode);
+  }
+  return manifest;
 }
 
 function confirm(question) {
@@ -76,4 +139,23 @@ function confirm(question) {
   });
 }
 
-module.exports = { locateServer, deleteServer, applyRemoval, backupPath, confirm };
+/** y, n, s, or a. Anything else, including a blank line, skips the fix. */
+function parseChoice(answer) {
+  const text = String(answer || '').trim().toLowerCase();
+  if (text === 'y' || text === 'yes') return 'yes';
+  if (text === 'a' || text === 'all') return 'all';
+  if (text === 'n' || text === 'no' || text === 's' || text === 'skip') return 'skip';
+  return 'skip';
+}
+
+function askChoice(question) {
+  return new Promise(resolve => {
+    const readline = require('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    rl.question(question, answer => { rl.close(); resolve(parseChoice(answer)); });
+  });
+}
+
+module.exports = {
+  locateServer, deleteServer, applyRemoval, backupPath, confirm, createBackupSet, undoLast, parseChoice, askChoice, undoManifestPath,
+};
