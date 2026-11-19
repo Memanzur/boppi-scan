@@ -29,6 +29,7 @@ const ROLE_CAPABILITIES = Object.freeze({
   source: ['sensitive_read', 'source_write'],
   'source-local': ['source_write'],
   memory: [],
+  reference: [],
 });
 
 /** Roles whose network connection is the read path, not an outbound exfil leg. */

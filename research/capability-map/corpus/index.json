@@ -12,7 +12,7 @@
   "limit": 200,
   "node": "v25.8.0",
   "durationMs": 493906,
-  "packageCount": 200,
+  "packageCount": 199,
   "packages": [
     {
       "name": "claude-cup",
@@ -489,20 +489,6 @@
       "inspectedAt": "2026-10-01T20:34:24.877Z",
       "fileCount": 29,
       "filesHash": "sha256-f4d1a42e78a9da707fd09eb124d425e189ce7cb953635e4abe49c494660b59ee"
-    },
-    {
-      "name": "@zereight/mcp-gitlab",
-      "version": "2.1.67",
-      "downloadsLastMonth": 523889,
-      "registryIntegrity": "sha512-3hGPwSui8No9dltgdFZBvwq9VdksBSEWbZZgOfe9tcIuzW12GrCYBPNRxRSw4620ZOOA+nFmI+nqOPeFzVRy5Q==",
-      "packIntegrity": "sha512-3hGPwSui8No9dltgdFZBvwq9VdksBSEWbZZgOfe9tcIuzW12GrCYBPNRxRSw4620ZOOA+nFmI+nqOPeFzVRy5Q==",
-      "tarball": "tarballs/zereight-mcp-gitlab-2.1.67.tgz",
-      "tarballSha256": "sha256-d6d4e44f6bc7e3344303f7d95c64d4b68b6acff082da4e3456201bccd464a4b5",
-      "contentHash": "sha256-8481572fd59442cbeeddaf573b3ced666c958e44db24615f19703f2c1bc92a2b",
-      "packedAt": "2026-10-01T20:34:25.093Z",
-      "inspectedAt": "2026-10-01T20:34:25.093Z",
-      "fileCount": 181,
-      "filesHash": "sha256-4376195621b9b4e5e17b7f65c050e25a33f3d9d26132a0d7134ecc4f05a06b82"
     },
     {
       "name": "clerk",

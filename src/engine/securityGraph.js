@@ -144,6 +144,19 @@
     });
   }
 
+  function serverKey(record) {
+    if (!record || typeof record !== 'object') return null;
+    if (record.integrationId) return record.integrationId;
+    if (record.command || record.endpoint || record.exposedTools || record.serverId) return record.id || null;
+    return null;
+  }
+  function noteServer(node, record) {
+    const serverId = serverKey(record);
+    if (!node || !serverId) return;
+    const ids = node.metadata.serverIds || (node.metadata.serverIds = []);
+    if (!ids.includes(serverId)) ids.push(serverId);
+  }
+
   function attachCategory(builder, agentNode, fromNode, category, record) {
     if (!category || category === 'unknown') return; // unknown never creates graph reach
     const agentScope = agentNode.id;
@@ -158,6 +171,7 @@
       builder.addEdge(fromNode, capability, relationship, record, { category });
       if (EXTERNAL_FACING.has(category)) {
         const destination = derivedNode(builder, 'external', agentScope, 'external_destination', 'external_destination', 'External destination', record, {});
+        noteServer(destination, record);
         builder.addEdge(capability, destination, 'capability_reaches_external_destination', record, { category });
       }
       return;
@@ -166,6 +180,7 @@
       const data = derivedNode(builder, 'data', agentScope, category, 'data_category', category.replace(/_/g, ' '), record, {
         category, sensitive: SENSITIVE_DATA.has(category),
       });
+      noteServer(data, record);
       builder.addEdge(fromNode, data, 'permission_grants_data_access', record, { category });
       return;
     }
