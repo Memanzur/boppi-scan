@@ -228,6 +228,7 @@ function inferCapabilities(name, server, options = {}) {
     if (!hit || seenEntries.has(hit.entry.id)) return;
     seenEntries.add(hit.entry.id);
     if (hit.capabilities.length) grant(hit.capabilities, 'allowlist', hit.entry.id, matched);
+    else inferences.push({ capabilities: [], label: hit.entry.id, matched, grade: 'allowlist' });
     for (const capability of hit.capabilities) {
       if (!roles[capability]) roles[capability] = hit.role;
     }

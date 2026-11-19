@@ -80,10 +80,22 @@
   // --key=..., DATABASE_PASSWORD=... The value may sit after '=' or in the
   // next argument, so the caller redacts both.
   const SENSITIVE_FLAG = /^(?:--?|\/)?[A-Za-z0-9_.-]*(?:key|token|secret|pass(?:word|wd|phrase)?|auth|cred(?:ential)?s?|cookie|session|signature|private)[A-Za-z0-9_.-]*(?:=|$)/i;
+  const HIGH_CONFIDENCE_SECRET = /(?:bearer\s+|(?:^|[^A-Za-z0-9])(?:sk|pk|rk)[-_][A-Za-z0-9_-]{12,}|(?:^|[^A-Za-z0-9])(?:ghp_|github_pat_|xox[baprs]-|sb_(?:publishable|secret)_|bpc_|AKIA|ASIA)[A-Za-z0-9._~+/=-]{8,}|(?:^|[^A-Za-z0-9])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/i;
   function isSensitiveFlag(raw) { return SENSITIVE_FLAG.test(raw) || /^-p$/i.test(raw); }
+  function isPackageSpec(raw) {
+    if (!raw || /\s/.test(raw) || raw.startsWith('-')) return false;
+    if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw) || /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return false;
+    return /^(?:@[A-Za-z0-9_.-]+\/)?[A-Za-z0-9_.-]+(?:@(?:latest|next|canary|\*|x|[0-9][^\s]*)|==[^\s]+)?$/i.test(raw);
+  }
+  function isHighConfidenceSecret(raw) {
+    return HIGH_CONFIDENCE_SECRET.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw);
+  }
   function sanitizeArgument(value) {
     const raw = text(value, 'argument', 500);
-    if (SENSITIVE_NAME.test(raw) || SENSITIVE_VALUE.test(raw) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
+    // A package name can contain a loose token prefix such as "sk". That is not
+    // a secret. Names that say key or secret, and high-confidence tokens, still are.
+    const packageName = isPackageSpec(raw) && !isHighConfidenceSecret(raw);
+    if (SENSITIVE_NAME.test(raw) || (!packageName && SENSITIVE_VALUE.test(raw)) || CREDENTIAL_URI.test(raw) || CREDENTIAL_AT_HOST.test(raw)) return '[redacted-sensitive-argument]';
     if (isSensitiveFlag(raw)) return raw.includes('=') ? `${raw.slice(0, raw.indexOf('='))}=[redacted-sensitive-argument]` : raw;
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return sanitizeEndpoint(raw) || '[redacted-endpoint]';
     if (/^(\/|~\/|[A-Za-z]:[\\/])/.test(raw)) return pathFingerprint(raw);
@@ -104,7 +116,9 @@
   function sanitizeCommand(value) {
     if (typeof value !== 'string' || !value.trim()) return null;
     const basename = value.trim().split(/[\\/]/).pop();
-    if (!basename || SENSITIVE_NAME.test(basename) || /(?:sk|ghp|xox[baprs])-?[A-Za-z0-9_-]{12,}/i.test(basename)) {
+    if (!basename) return null;
+    const packageName = isPackageSpec(basename) && !isHighConfidenceSecret(basename);
+    if (SENSITIVE_NAME.test(basename) || (!packageName && /(?:sk|ghp|xox[baprs])-?[A-Za-z0-9_-]{12,}/i.test(basename))) {
       return '[redacted-sensitive-command]';
     }
     return basename.slice(0, 240);

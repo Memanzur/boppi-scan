@@ -8,7 +8,7 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { isInlineSecret, isArgumentSecret, packageArgument, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
 const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
 
 const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
@@ -227,6 +227,62 @@ function isFloating(spec) {
   return /@(latest|next|\*|x)$/i.test(spec);
 }
 
+function barePackageName(spec) {
+  let text = String(spec).trim();
+  text = text.replace(/==[^\s]+$/, '');
+  if (text.startsWith('@')) {
+    const slash = text.indexOf('/');
+    if (slash === -1) return text;
+    const at = text.indexOf('@', slash + 1);
+    return at === -1 ? text : text.slice(0, at);
+  }
+  const at = text.lastIndexOf('@');
+  return at > 0 ? text.slice(0, at) : text;
+}
+
+const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+
+function readJsonVersion(file) {
+  try {
+    const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return json && typeof json.version === 'string' && EXACT_VERSION.test(json.version) ? json.version : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Version already installed for this project. No registry lookup. */
+function localPackageVersion(spec, cwd) {
+  if (!cwd) return null;
+  const name = barePackageName(spec);
+  if (!name) return null;
+  const installed = readJsonVersion(path.join(cwd, 'node_modules', name, 'package.json'));
+  if (installed) return installed;
+  try {
+    const lock = JSON.parse(fs.readFileSync(path.join(cwd, 'package-lock.json'), 'utf8'));
+    const entry = lock && lock.packages && lock.packages[`node_modules/${name}`];
+    if (entry && typeof entry.version === 'string' && EXACT_VERSION.test(entry.version)) return entry.version;
+  } catch (_) { /* no lockfile */ }
+  return null;
+}
+
+function pinnedPackageSpec(spec, version) {
+  return `${barePackageName(spec)}@${version}`;
+}
+
+function hasSecretArgument(spec) {
+  const args = Array.isArray(spec.args) ? spec.args : [];
+  const skip = packageArgument(spec);
+  let skipped = false;
+  return args.some(arg => {
+    if (!skipped && skip != null && arg === skip) {
+      skipped = true;
+      return false;
+    }
+    return isArgumentSecret(arg);
+  });
+}
+
 function isBroadPath(arg, home) {
   if (typeof arg !== 'string') return false;
   const trimmed = arg.trim();
@@ -378,7 +434,7 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
         }));
       }
     }
-    if (Array.isArray(spec.args) && spec.args.some(arg => isInlineSecret(arg))) {
+    if (hasSecretArgument(spec)) {
       pushIssue(list, seen, issue({
         ruleId: 'BOPPI-PLAINTEXT-SECRET',
         fixId: `plaintext-secret:${where}:argument`,
@@ -402,7 +458,8 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
     }
     const known = catalogMatch(name, spec, home);
     const base = commandBase(spec.command);
-    const specs = Array.isArray(spec.args) ? spec.args.map(packageSpec).filter(Boolean) : [];
+    const argList = Array.isArray(spec.args) ? spec.args : [];
+    const specs = argList.map(packageSpec).filter(Boolean);
     const floating = INSTALLERS.has(base) ? specs.find(isFloating) : null;
     if (!known) {
       pushIssue(list, seen, issue({
@@ -424,32 +481,49 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
         server: name,
       }));
     } else if (floating) {
-      const autoYes = Array.isArray(spec.args) && spec.args.some(arg => arg === '-y' || arg === '--yes');
-      pushIssue(list, seen, issue({
-        ruleId: 'BOPPI-UNPINNED-PACKAGE',
-        fixId: `unpinned-package:${where}`,
-        severity: 'medium',
-        category: 'unpinned_package',
-        tool,
-        title: autoYes
-          ? `The ${name} server installs an unpinned package with ${base} -y.`
-          : `The ${name} server runs an unpinned package (${floating}).`,
-        summary: autoYes
-          ? `Remove -y from the ${name} server so ${base} does not install the latest package without a prompt.`
-          : `Pin ${floating} to an exact version you have reviewed. Boppi will not guess a version.`,
-        steps: [
-          `Edit ${fileLabel} and change ${floating} to ${floating.replace(/@(latest|next|\*|x)$/i, '')}@<version> after you check the release.`,
-          autoYes
-            ? `The local fix removes -y and --yes from the ${name} server. Pinning the version is still a manual step.`
-            : 'There is no local version to pin to, and Boppi does not contact a package registry.',
-        ],
-        autoFixable: editable && autoYes,
-        file,
-        fileLabel,
-        format: 'json',
-        server: name,
-        detail: { autoYes },
-      }));
+      const autoYes = argList.some(arg => arg === '-y' || arg === '--yes');
+      const floatingTag = /@(latest|next|\*|x)$/i.test(floating);
+      const version = localPackageVersion(floating, cwd);
+      const pinned = version ? pinnedPackageSpec(floating, version) : null;
+      // Removing -y does not pin the package. Report that case only while -y
+      // or a floating tag is still present, and pin when this project already
+      // has an exact version on disk.
+      if (pinned || autoYes || floatingTag) {
+        pushIssue(list, seen, issue({
+          ruleId: 'BOPPI-UNPINNED-PACKAGE',
+          fixId: `unpinned-package:${where}`,
+          severity: 'medium',
+          category: 'unpinned_package',
+          tool,
+          title: pinned
+            ? `The ${name} server runs an unpinned package (${floating}).`
+            : autoYes
+              ? `The ${name} server installs an unpinned package with ${base} -y.`
+              : `The ${name} server runs an unpinned package (${floating}).`,
+          summary: pinned
+            ? `Pin ${floating} to ${pinned} in the ${name} server.`
+            : autoYes
+              ? `Remove -y from the ${name} server so ${base} does not install the latest package without a prompt.`
+              : `Pin ${floating} to an exact version you have reviewed. Boppi will not guess a version.`,
+          steps: pinned
+            ? [
+              `The local fix replaces ${floating} with ${pinned} and removes -y and --yes.`,
+              'The version is the one installed in this project. Boppi does not contact a package registry.',
+            ]
+            : [
+              `Edit ${fileLabel} and change ${floating} to ${barePackageName(floating)}@<version> after you check the release.`,
+              autoYes
+                ? `The local fix removes -y and --yes from the ${name} server.`
+                : 'There is no local version to pin to, and Boppi does not contact a package registry.',
+            ],
+          autoFixable: editable && !!(pinned || autoYes),
+          file,
+          fileLabel,
+          format: 'json',
+          server: name,
+          detail: { autoYes, spec: floating, pinned },
+        }));
+      }
     }
     if (Array.isArray(spec.args) && spec.args.some(arg => isBroadPath(arg, home))) {
       const replacement = narrowerRoot(home, cwd);
@@ -718,10 +792,22 @@ function mutate(issueItem, state, cwd) {
     else if (issueItem.ruleId === 'BOPPI-PLAINTEXT-SECRET' && issueItem.detail.kind === 'env' && spec.env) delete spec.env[issueItem.detail.name];
     else if (issueItem.ruleId === 'BOPPI-PLAINTEXT-SECRET' && issueItem.detail.kind === 'header' && spec.headers) delete spec.headers[issueItem.detail.name];
     else if (issueItem.ruleId === 'BOPPI-PLAINTEXT-SECRET' && issueItem.detail.kind === 'arg' && Array.isArray(spec.args)) {
-      spec.args = spec.args.filter(arg => !isInlineSecret(arg));
+      const skip = packageArgument(spec);
+      let skipped = false;
+      spec.args = spec.args.filter(arg => {
+        if (!skipped && skip != null && arg === skip) {
+          skipped = true;
+          return true;
+        }
+        return !isArgumentSecret(arg);
+      });
     } else if (issueItem.ruleId === 'BOPPI-UNKNOWN-SERVER') delete map[name];
     else if (issueItem.ruleId === 'BOPPI-UNPINNED-PACKAGE' && Array.isArray(spec.args)) {
-      spec.args = spec.args.filter(arg => arg !== '-y' && arg !== '--yes');
+      const from = issueItem.detail && issueItem.detail.spec;
+      const pinned = issueItem.detail && issueItem.detail.pinned;
+      spec.args = spec.args
+        .filter(arg => arg !== '-y' && arg !== '--yes')
+        .map(arg => (pinned && from && arg === from ? pinned : arg));
     } else if (issueItem.ruleId === 'BOPPI-BROAD-FILESYSTEM' && issueItem.detail.replacement && Array.isArray(spec.args)) {
       spec.args = spec.args.map(arg => (isBroadPath(arg, state.home) ? issueItem.detail.replacement : arg));
     }
@@ -762,6 +848,12 @@ function diffLines(issueItem) {
     return [`- "${issueItem.server}": { ... }`, '+ removed'];
   }
   if (issueItem.ruleId === 'BOPPI-UNPINNED-PACKAGE') {
+    const detail = issueItem.detail || {};
+    if (detail.pinned) {
+      const lines = [`- "${detail.spec}"`, `+ "${detail.pinned}"`];
+      if (detail.autoYes) lines.push('- "-y"', '+ removed');
+      return lines;
+    }
     return ['- "-y"', '+ removed'];
   }
   if (issueItem.ruleId === 'BOPPI-BROAD-FILESYSTEM') {
