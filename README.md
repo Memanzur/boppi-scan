@@ -159,6 +159,7 @@ boppi verify <previous.json>   rescan and grade the predictions in an earlier --
 boppi history                  recent local scan summaries, what changed, and verified exposure reduction
 boppi push                     scan once, then send the sanitized inventory to your Boppi workspace
 boppi watch                    repeat that scan and push in the foreground until Ctrl+C
+boppi ask "question"           ask about this scan. With no question, chat until a blank line.
 
 --format <name>     terminal (default), json, html, or sarif
 -o, --output <file> write that format to a file
@@ -226,7 +227,17 @@ Each automatic risk is shown in plain language with a small diff. Answer `y`, `n
 
 Rotating a key at the provider cannot be done from this machine. Those findings print the console to open and the file to edit. The same guidance is on every finding in `--json` and `--format json` as `remediation`: `{ summary, steps, autoFixable, fixId }`.
 
-When a scan finds automatic fixes, the report adds `3 risks can be fixed automatically. Run npx @boppi/cli fix`.
+When a scan finds automatic fixes, the report adds `3 risks can be fixed automatically. Run npx @boppi/cli fix`. A scan also adds `Questions? Run npx @boppi/cli ask`.
+
+### Ask
+
+`boppi ask "what should I fix first?"` scans locally. The first send prints what leaves the machine and waits for `y`, or accepts `--yes` when there is no prompt. `--no-network` answers from the local catalog and does not contact the API.
+
+A confirmed send is `POST /api/ai/ask` on `https://beta.boppi.io` (override the origin with `BOPPI_API_URL`; the URL cannot contain a username or password). The JSON body is `{ question, findings, context? }`. `question` is 1 to 2000 characters. `findings` is 0 to 25 items. Each finding is `id`, `title`, `severity` (`critical`, `high`, `medium`, or `low`), `category`, `tool`, and `remediation` (one string). `fixId` is included only when this scan has that automatic fix and the id is at most 80 characters. `context` is one string of earlier turns, up to 2000 characters. The body is at most 96 KB. Keys, tokens, credential URLs, base64 blobs, usernames, and absolute home paths are replaced with `[redacted]` or `~` before the request. File contents, header values, environment values, and argument values are not part of the body. No session cookie is sent, so the call is anonymous: 20 questions per IP per UTC day. A signed-in website session uses a separate limit and is not used here.
+
+The reply is printed only after it is checked. A reply that tells you to pipe a remote script into a shell is replaced with a refusal. A claim that a fix was already applied is removed. `npx @boppi/cli fix` is kept only when this scan has a real automatic fix, and the command is never run.
+
+`boppi ask` with no question opens a chat. A blank line, `exit`, or `quit` ends it. Agreement to send is recorded in `~/.boppi/ask-notice` (a symlink is not followed). If the API is offline, slow, too large, or returns an error, boppi prints one line and does not dump the response. A 429 includes the `Retry-After` wait when the server sends one.
 
 ### Policy guard
 
@@ -308,13 +319,15 @@ Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action 
 
 ## What leaves the machine
 
-Nothing, unless you run `boppi push` or `boppi watch`.
+Nothing, unless you run `boppi push`, `boppi watch`, or `boppi ask`.
 
 The scanner reads configuration metadata only. It never collects secret values, environment variable values, file contents, or raw filesystem paths. Positional arguments that look like credentials (API keys, tokens, bearer or JWT values, connection strings with passwords) are redacted before they reach any model or export. Paths become fingerprints keyed with a secret that lives only on your machine (`~/.boppi/fingerprint-key`), so they cannot be reversed by guessing common paths. Every file that was read is listed at the end of the run so you can check the claim yourself.
 
-This is tested, not just stated: `npm test` runs every command with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. Only a real `boppi push` is allowed to reach the network, and the same check confirms that it does.
+This is tested, not just stated: `npm test` runs scan, plan, fix, verify, history, and the other local commands with sockets, DNS lookups, and `fetch` disabled and fails if any of them is attempted. A real `boppi push` or `boppi watch` is allowed to reach the network, and the same check confirms that it does. `boppi ask` is tested against a local mock of the API.
 
-`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi watch` sends that same inventory on a repeating foreground schedule and adds `expected_interval_seconds` (the pause between cycles, in seconds). One-shot `push` does not send that field. `~/.boppi/history.json` is local scan history and is never uploaded. `boppi push --dry-run` and `boppi watch --dry-run` print the payload without sending it. No other command makes a network request.
+`boppi push` sends the sanitized inventory of one scan (agent, MCP server, permission, and integration records: names, commands, redacted arguments, capabilities, fingerprinted paths) over HTTPS to the workspace you name, authenticated by your collector token. `boppi watch` sends that same inventory on a repeating foreground schedule and adds `expected_interval_seconds` (the pause between cycles, in seconds). One-shot `push` does not send that field. `~/.boppi/history.json` is local scan history and is never uploaded. `boppi push --dry-run` and `boppi watch --dry-run` print the payload without sending it.
+
+`boppi ask` POSTs the question and redacted findings to `/api/ai/ask` on the origin in `BOPPI_API_URL` (default `https://beta.boppi.io`) after you confirm, or when you pass `--yes`. `boppi ask --no-network` does not contact the API. The request has no session cookie. File contents, keys, tokens, usernames, and home paths are not in the body.
 
 If a server entry contains something that looks like a secret in a place the scanner cannot redact, the scanner refuses that client's config and prints the reason instead of a result. Move the secret into an environment variable the server reads and rescan.
 

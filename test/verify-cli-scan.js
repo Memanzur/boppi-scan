@@ -217,7 +217,7 @@ function runCli(args, home) {
   const outsideExport = JSON.parse(fs.readFileSync(outsideJson, 'utf8'));
   ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{16}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
   const keyFile = path.join(home, '.boppi', 'fingerprint-key');
-  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (fs.statSync(keyFile).mode & 0o777) === 0o600);
+  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (process.platform === 'win32' || (fs.statSync(keyFile).mode & 0o777) === 0o600));
   const otherHome = path.join(root, 'other-key-home');
   fs.mkdirSync(path.join(otherHome, '.cursor'), { recursive: true });
   fs.copyFileSync(path.join(home, '.cursor', 'mcp.json'), path.join(otherHome, '.cursor', 'mcp.json'));
@@ -235,7 +235,7 @@ function runCli(args, home) {
   fs.mkdirSync(path.join(linuxHome, '.config', 'Claude'), { recursive: true });
   fs.writeFileSync(path.join(linuxHome, '.config', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
   const linux = runCli(['scan', '--verbose', '--only', 'claude-desktop', '--platform', 'linux', '--history-file', path.join(root, 'linux-history.json')], linuxHome);
-  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes('.config/Claude/claude_desktop_config.json') && linux.stdout.includes('1 MCP server'));
+  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes(path.join('.config', 'Claude', 'claude_desktop_config.json')) && linux.stdout.includes('1 MCP server'));
   const winHome = path.join(root, 'win-home');
   const appData = path.join(winHome, 'AppData', 'Roaming');
   fs.mkdirSync(path.join(appData, 'Claude'), { recursive: true });

@@ -4,12 +4,14 @@
  *
  * One command that discovers local AI agent MCP configurations, runs the
  * existing Boppi engine unchanged (scanner → risk engine → security graph →
- * exposure paths), and reports what your AI agents can reach. Local commands
- * transmit nothing. `boppi push` and `boppi watch` send one scan's sanitized
- * inventory only when you run them.
+ * exposure paths), and reports what your AI agents can reach. Scan, plan, fix,
+ * verify, and history transmit nothing. `boppi push` and `boppi watch` send one
+ * scan's sanitized inventory. `boppi ask` sends the question and redacted findings
+ * only after you confirm, or with --yes. `boppi ask --no-network` stays on this machine.
  *
- * Consent model: invoking this CLI is the explicit consent. Every file read
- * is listed at the end of the run so consent is inspectable.
+ * Consent model: invoking a local command is the explicit consent to read files.
+ * Sending a question is a separate confirmation. Every file read is listed at the
+ * end of the run so consent is inspectable.
  */
 'use strict';
 const fs = require('fs');
@@ -43,19 +45,20 @@ const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
 const autoFix = require('./autoFix');
+const ask = require('./ask');
 
 const VERSION = require('../../package.json').version;
 const catalog = require('./discovery/catalog');
 const presence = require('./discovery/presence');
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'watch']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'watch', 'ask']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|watch] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|watch|ask] [options]',
     '',
     '  boppi                          same as boppi scan',
     '  boppi scan                     security score, counts, and the top 3 risks (--verbose for the full report)',
@@ -69,6 +72,7 @@ function usage() {
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan once, then send the sanitized inventory to your Boppi workspace',
     '  boppi watch                    foreground loop: scan and push until Ctrl+C (default every 15 minutes)',
+    '  boppi ask "question"           ask about this scan, after you confirm the send. With no question, chat until a blank line.',
     '',
     'Push and watch are the commands that use the network:',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
@@ -84,6 +88,13 @@ function usage() {
     '  --yes               apply the safe fixes without prompting. Unknown servers and plaintext secrets still need a terminal confirmation',
     '  --dry-run           show each diff and change nothing',
     '  --undo              restore the last backup set',
+    '',
+    'ask:',
+    '  boppi ask "question"   one question about the local scan. The first send asks you to confirm.',
+    '  boppi ask              chat. A blank line, exit, or quit ends it.',
+    '  --yes                  send without the confirmation prompt',
+    '  --no-network           answer from the local catalog and send nothing',
+    '  BOPPI_API_URL          API origin (default https://beta.boppi.io). The path is /api/ai/ask.',
     '',
     'Options:',
     '  --format <name>     terminal (default), json, html, or sarif',
@@ -104,9 +115,13 @@ function usage() {
     '  --history-file <file>  local-only scan history file (default: <scan home>/.boppi/history.json)',
     '  --version, -v       print the version and exit',
     '',
-    'Privacy: local commands never use the network. push and watch send one scan\'s sanitized',
-    'inventory only. Secret values, file contents, raw paths, and ~/.boppi/history.json are',
-    'never uploaded. Watch repeats that scan; it does not protect the machine. Every file read is listed.',
+    'Privacy: scan, plan, fix, verify, and history never use the network. push and watch send',
+    'one scan\'s sanitized inventory. ask sends the question, up to 25 redacted findings',
+    '(id, title, severity, category, tool, remediation, and a catalog fixId when this scan',
+    'has that automatic fix), and one context string. The body is at most 96 KB. File contents,',
+    'keys, tokens, usernames, home paths, and ~/.boppi/history.json are not uploaded.',
+    'ask sends no session cookie. The anonymous limit is 20 questions per IP per UTC day.',
+    'Watch repeats that scan; it does not protect the machine. Every file read is listed.',
   ].join('\n');
 }
 
@@ -115,7 +130,7 @@ function parseArgs(argv) {
     command: 'scan', json: null, html: null, sarif: null, format: 'terminal', output: null, only: null, config: null, source: 'claude-desktop',
     failOn: null, overlay: null, quiet: false, verbose: false,
     color: !('NO_COLOR' in process.env) && process.stdout.isTTY !== false,
-    home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false,
+    home: process.env.BOPPI_SCAN_HOME || os.homedir(), cwd: process.cwd(), help: false, version: false, noNetwork: false,
     input: null, contradictionsDir: null, historyFile: null,
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
@@ -158,13 +173,16 @@ function parseArgs(argv) {
     } else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--merge') options.merge = true;
     else if (arg === '--yes') options.yes = true;
+    else if (arg === '--no-network') options.noNetwork = true;
     else if (arg === '--undo') options.undo = true;
     else if (options.command === 'verify' && !options.input && !arg.startsWith('-')) options.input = arg;
+    else if (options.command === 'ask' && !arg.startsWith('-')) options.question = options.question ? `${options.question} ${arg}` : arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (options.command === 'verify' && !options.input && !options.help && !options.version) throw new Error('verify requires the path of an earlier --json export');
   if (options.undo && options.command !== 'fix' && !options.help && !options.version) throw new Error('--undo is only valid with boppi fix');
   if (options.undo && options.server) throw new Error('fix --undo restores the last backup and does not take --server');
+  if (options.noNetwork && options.command !== 'ask' && !options.help && !options.version) throw new Error('--no-network is only valid with boppi ask');
   const FORMATS = new Set(['terminal', 'json', 'html', 'sarif']);
   if (!FORMATS.has(options.format)) throw new Error('--format must be one of: terminal, json, html, sarif');
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
@@ -932,6 +950,12 @@ async function runWatch(options) {
   // stays on the payload. One-shot push never sets expectedIntervalSeconds.
   options.expectedIntervalSeconds = options.intervalSeconds;
   process.on('SIGINT', onSigint);
+  // Windows cannot deliver SIGINT to a child. A parent that spawned this
+  // process with an IPC channel can send { type: 'boppi:stop' } instead.
+  const onStopMessage = (message) => {
+    if (message && message.type === 'boppi:stop') onSigint();
+  };
+  if (typeof process.send === 'function') process.on('message', onStopMessage);
   try {
     process.stdout.write(watch.intro(options.intervalSeconds) + '\n\n');
     await watch.repeat({
@@ -955,10 +979,97 @@ async function runWatch(options) {
     return 0;
   } finally {
     process.off('SIGINT', onSigint);
+    if (typeof process.send === 'function') process.off('message', onStopMessage);
   }
 }
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
+
+/** boppi ask: local scan, then one question or a chat. The API sees redacted findings only. */
+async function confirmAsk(options) {
+  if (ask.consentRecorded(options.home)) return true;
+  process.stderr.write(`${ask.PRIVACY_NOTE}\n`);
+  process.stderr.write(`Endpoint: ${ask.originOf(ask.resolveAskUrl(process.env.BOPPI_API_URL))}\n`);
+  let accepted = options.yes === true;
+  if (!accepted && process.stdin.isTTY) {
+    const readline = require('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    try {
+      const line = await new Promise(resolve => rl.question('Send the question and redacted findings to the Boppi API? [y/N] ', resolve));
+      accepted = ask.acceptedAnswer(line);
+    } finally {
+      rl.close();
+    }
+  }
+  if (!accepted) {
+    process.stderr.write(`${ask.OPT_IN_DECLINE}\n`);
+    return false;
+  }
+  ask.recordConsent(options.home);
+  return true;
+}
+
+async function runAsk(options) {
+  if (!options.noNetwork) {
+    try { ask.resolveAskUrl(process.env.BOPPI_API_URL); } catch (error) {
+      process.stderr.write(`${error.message}\n`);
+      return 2;
+    }
+  }
+  if (!options.noNetwork && !options.question && !process.stdin.isTTY) {
+    process.stderr.write('ask needs a question: boppi ask "question", or run it in a terminal.\n');
+    return 2;
+  }
+  const scan = await performScan(options);
+  if (scan.failed) {
+    process.stderr.write(`Scan failed: ${scan.failed}\n`);
+    return scan.exitCode || 3;
+  }
+  const blocked = ask.literalsFromScan(scan);
+  const findings = ask.findingsFromScan(scan, options.home);
+  if (options.noNetwork) {
+    process.stdout.write(ask.offlineAnswer(findings, options.question, options.home, blocked));
+    return 0;
+  }
+  const allowed = await confirmAsk(options);
+  if (!allowed) return 2;
+  const apiUrl = ask.resolveAskUrl(process.env.BOPPI_API_URL);
+  const footer = ask.localFixFooter(findings, options.home);
+  if (!options.question) {
+    if (footer) process.stderr.write(footer);
+    const readline = require('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    try {
+      return await ask.chat({
+        findings,
+        apiUrl,
+        fetchImpl: globalThis.fetch,
+        readLine: () => new Promise(resolve => rl.question('ask> ', resolve)),
+        write: chunk => process.stdout.write(chunk),
+        writeErr: line => process.stderr.write(line),
+        home: options.home,
+        blocked,
+      });
+    } finally {
+      rl.close();
+    }
+  }
+  const result = await ask.askOnce({
+    question: options.question,
+    findings,
+    apiUrl,
+    fetchImpl: globalThis.fetch,
+    write: chunk => process.stdout.write(chunk),
+    home: options.home,
+    blocked,
+  });
+  if (!result.ok) {
+    process.stderr.write(`${result.message}\n`);
+    return 1;
+  }
+  if (footer) process.stderr.write(footer);
+  return 0;
+}
 
 async function run(argv) {
   let options;
@@ -973,6 +1084,7 @@ async function run(argv) {
   if (options.command === 'push') return runPush(options);
   if (options.command === 'watch') return runWatch(options);
   if (options.command === 'fix') return runFix(options);
+  if (options.command === 'ask') return runAsk(options);
 
   const scan = await performScan(options);
   if (scan.failed) {

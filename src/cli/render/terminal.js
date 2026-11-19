@@ -3,6 +3,8 @@
 const { rankPredictions } = require('../predict');
 const { buildSecurityReport, CLOSING_LINE } = require('../securityReport');
 
+const ASK_LINE = 'Questions? Run npx @boppi/cli ask';
+
 const PATH_RULE_FOR_TEMPLATE = Object.freeze({ 'EP-A': 'AE-001', 'EP-B': 'AE-002', 'EP-C': 'AE-004', 'EP-D': 'AE-003', 'EP-E': 'AE-007', 'EP-F': 'AE-005' });
 const SEVERITY_ORDER = Object.freeze({ critical: 4, high: 3, medium: 2, low: 1 });
 
@@ -156,6 +158,10 @@ function renderBriefReport(report, options = {}) {
   if (offer) {
     out('');
     out(offer);
+  }
+  if (!options.quiet) {
+    out('');
+    out(ASK_LINE);
   }
   if (!options.json && !options.html && !options.sarif) {
     out('');
@@ -324,6 +330,10 @@ function renderReport(report, options = {}) {
   for (const file of report.filesRead) out(s.dim(`  - ${file}`));
   if (!report.filesRead.length) out(s.dim('  - none (no configuration files were found)'));
   out(s.dim('  Secret values, file contents, and raw path names are never collected. Paths become fingerprints.'));
+  if ((options.command || 'scan') === 'scan' && !options.quiet) {
+    out('');
+    out(ASK_LINE);
+  }
 
   return lines.join('\n');
 }
@@ -335,4 +345,4 @@ function pushHint(options = {}) {
   return makeStyle(options.color !== false).dim(CLOSING_LINE);
 }
 
-module.exports = { renderReport, renderBriefReport, summaryLine, pushHint, PATH_RULE_FOR_TEMPLATE, CLOSING_LINE };
+module.exports = { renderReport, renderBriefReport, summaryLine, pushHint, PATH_RULE_FOR_TEMPLATE, CLOSING_LINE, ASK_LINE };

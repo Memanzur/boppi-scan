@@ -93,5 +93,5 @@ function namesInText(text, { ini = false } = {}) {
 }
 
 module.exports = {
-  PROVIDER_KEY_NAMES, valueIsPresent, isInlineSecret, inlineCredentialLabels, envKeyPresence, namesInText,
+  PROVIDER_KEY_NAMES, SENSITIVE_VALUE, CREDENTIAL_URI, valueIsPresent, isInlineSecret, inlineCredentialLabels, envKeyPresence, namesInText,
 };
