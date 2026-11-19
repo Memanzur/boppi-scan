@@ -83,6 +83,8 @@ function makeHome(root) {
   const scan = run(['scan', '--verbose', '--json', exportPath, '--html', path.join(root, 'report.html')]);
   ok('scan completes with the hooks installed', scan.code === 0 && scan.stdout.includes('INVENTORY'));
   ok('scan opens no socket, DNS lookup, or fetch', scan.attempts.length === 0);
+  const fixDry = run(['fix', '--dry-run']);
+  ok('fix --dry-run makes no network attempt', fixDry.code === 0 && fixDry.stdout.includes('Dry run') && fixDry.attempts.length === 0);
   ok('scan still finds exposure paths, so the hooks did not disable the engine', /\d+ exposure paths? \(\d+ critical\)/.test(scan.stdout) && !scan.stdout.includes('0 exposure paths'));
 
   for (const command of ['agents', 'paths', 'history']) {
