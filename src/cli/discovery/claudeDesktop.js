@@ -1,6 +1,7 @@
 /** Locator for Claude Desktop MCP configuration files. */
 'use strict';
 const path = require('path');
+const { mapServers } = require('./parse');
 
 function locate({ home, platform }) {
   const file = platform === 'darwin'
@@ -12,7 +13,7 @@ function locate({ home, platform }) {
     clientKey: 'claude-desktop',
     label: 'Claude Desktop',
     source: 'claude-desktop',
-    files: [{ path: file, scope: 'user', extract: json => json.mcpServers || {} }],
+    files: [{ path: file, scope: 'user', extract: json => mapServers(json && json.mcpServers) }],
   };
 }
 

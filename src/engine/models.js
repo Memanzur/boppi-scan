@@ -168,6 +168,14 @@
       normalizationReason: requiredString(clean.normalizationReason || 'No mapping explanation supplied', 'permission.normalizationReason'),
     };
   }
+  function capabilityGrades(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const out = {};
+    for (const [key, grade] of Object.entries(value)) {
+      if (grade === 'observed' || grade === 'allowlist' || grade === 'substring') out[key] = grade;
+    }
+    return out;
+  }
   function createMCPServer(input) {
     const clean = safeValue(input, 'mcpServer');
     return {
@@ -180,6 +188,7 @@
       configPath: optionalString(clean.configPath, 'mcpServer.configPath'),
       exposedTools: Array.isArray(clean.exposedTools) ? clean.exposedTools.map(v => requiredString(v, 'mcpServer.exposedTools')) : [],
       capabilities: Array.isArray(clean.capabilities) ? clean.capabilities.map(v => requiredString(v, 'mcpServer.capabilities')) : [],
+      capabilityGrades: capabilityGrades(clean.capabilityGrades),
       filesystemPathCount: Number.isFinite(Number(clean.filesystemPathCount)) ? Math.max(0, Number(clean.filesystemPathCount)) : 0,
       environmentVariableNames: Array.isArray(clean.environmentVariableNames) ? clean.environmentVariableNames.map(v => requiredString(v, 'mcpServer.environmentVariableNames')) : [],
       credentialReferences: Array.isArray(clean.credentialReferences) ? clean.credentialReferences.map(v => requiredString(v, 'mcpServer.credentialReferences')) : [],

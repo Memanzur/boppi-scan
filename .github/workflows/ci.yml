@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      # npm test includes the detection corpus gate: critical precision,
+      # planted-combo recall, and p95 scan time.
       - run: npm test
       - run: npm run smoke
       - name: Check packed file list

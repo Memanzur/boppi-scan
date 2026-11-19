@@ -63,10 +63,21 @@ function reasonFor(capability, server, inference) {
   return 'Capability declared in the MCP server configuration.';
 }
 
+const GRADE_CONFIDENCE = Object.freeze({ observed: 0.85, allowlist: 0.8, substring: 0.35 });
+
+function gradeFor(capability, inference) {
+  const grade = inference && inference.capabilityGrades && inference.capabilityGrades[capability];
+  if (grade === 'observed' || grade === 'allowlist' || grade === 'substring') return grade;
+  return null;
+}
+
 function isInferred(capability, server, inference) {
   if (capability === 'environment_access') return false;
   if (plaintextInference(inference, capability)) return false;
   if (capability === 'credential_access' && (server.credentialReferences || []).length) return false;
+  const grade = gradeFor(capability, inference);
+  if (grade === 'observed') return false;
+  if (grade === 'substring' || grade === 'allowlist') return true;
   return !!(inference && inference.inferences.some(entry => entry.capabilities.includes(capability)));
 }
 
@@ -79,6 +90,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
       const normalizedCategory = CAP_TO_CATEGORY[capability];
       if (!normalizedCategory) continue;
       const inferred = isInferred(capability, server, inference);
+      const grade = gradeFor(capability, inference);
       permissions.push(models.createPermission({
         agentId: agent.id,
         integrationId: server.id,
@@ -86,7 +98,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
         normalizedCategory,
         accessLevel: capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',
         riskWeight: RISK_WEIGHT[capability] || 1,
-        normalizationConfidence: inferred ? 0.7 : 0.85,
+        normalizationConfidence: grade ? GRADE_CONFIDENCE[grade] : (inferred ? 0.7 : 0.85),
         normalizationReason: reasonFor(capability, server, inference),
         source: { ...agent.source, evidenceClass: inferred ? 'inferred' : 'observed' },
         createdAt: observedAt,

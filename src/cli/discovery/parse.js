@@ -169,6 +169,24 @@ function parseYamlSubset(input) {
   return parsed.value;
 }
 
+function toolNames(list) {
+  if (!Array.isArray(list)) return null;
+  const names = [];
+  for (const entry of list) {
+    if (typeof entry === 'string') {
+      const name = entry.trim();
+      if (name) names.push(name);
+      continue;
+    }
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      const raw = typeof entry.name === 'string' ? entry.name : typeof entry.id === 'string' ? entry.id : '';
+      const name = raw.trim();
+      if (name) names.push(name);
+    }
+  }
+  return names;
+}
+
 function normalizeSpec(spec) {
   let command = spec.command;
   let args = spec.args;
@@ -195,7 +213,8 @@ function normalizeSpec(spec) {
     out.tools = approved;
     if (approved.length) out.autoApproveCount = approved.length;
   }
-  if (Array.isArray(spec.tools)) out.tools = spec.tools.filter(value => typeof value === 'string');
+  const declaredTools = toolNames(spec.tools);
+  if (declaredTools) out.tools = declaredTools;
   if (Array.isArray(spec.capabilities)) out.capabilities = spec.capabilities.filter(value => typeof value === 'string');
   if (spec.trustStatus === 'verified' || spec.trustStatus === 'unverified') out.trustStatus = spec.trustStatus;
   return out;

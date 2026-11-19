@@ -51,6 +51,16 @@
     if (unknownTraining) groups.unknown_training = [{ id:agent?.id || 'agent', evidence:'training posture unknown' }];
     return groups;
   }
+  // A substring match is stored at normalizationConfidence 0.35. It stays in
+  // the inventory and can support a non-critical rule. A critical rule is
+  // satisfied only by observed or allowlist evidence, which is recorded at
+  // 0.40 or higher. Callers that do not grade evidence keep the previous bar.
+  const CRITICAL_EVIDENCE_MIN = 0.4;
+  function supportsCritical(permission) {
+    const confidence = permission && permission.normalizationConfidence;
+    if (typeof confidence !== 'number') return true;
+    return confidence >= CRITICAL_EVIDENCE_MIN;
+  }
   function triggered(rule, groups) {
     const g = groups;
     return rule.needs.every(need => Array.isArray(g[need]) && g[need].length > 0);
@@ -63,11 +73,13 @@
   }
   function assess(agent, permissions = [], mcpServers = [], options = {}) {
     const groups = classify(permissions, mcpServers, agent);
+    const criticalGroups = classify((permissions || []).filter(supportsCritical), mcpServers, agent);
     const stale = !!options.stale;
     const confidence = confidenceFor(agent, permissions, mcpServers, stale);
     const inferredAt = options.now || agent?.updatedAt || agent?.createdAt || agent?.source?.observedAt || '1970-01-01T00:00:00.000Z';
-    const rawFindings = RULES.filter(rule => triggered(rule, groups)).map(rule => {
-      const evidence = rule.needs.flatMap(need => groups[need] || []);
+    const rawFindings = RULES.filter(rule => triggered(rule, rule.severity === 'critical' ? criticalGroups : groups)).map(rule => {
+      const evidenceGroups = rule.severity === 'critical' ? criticalGroups : groups;
+      const evidence = rule.needs.flatMap(need => evidenceGroups[need] || []);
       const evidenceIds = [...new Set(evidence.map(e => e.id).filter(Boolean))];
       const raw = {
         id: models ? models.stableId('finding', [agent?.id || 'unknown', rule.id, evidenceIds]) : `${rule.id}:${agent?.id || 'unknown'}`,
