@@ -4,14 +4,42 @@
  * policy rules; results point at the portable config path of the agent.
  */
 'use strict';
+const path = require('path');
 const exposurePathEngine = require('../../engine/exposurePathEngine');
 
 const LEVEL = Object.freeze({ critical: 'error', high: 'error', medium: 'warning', low: 'note' });
 const { remediationForEngineFinding } = require('../autoFix');
 
-function configUriFor(agentId, discovery) {
+function encodeSarifPath(value) {
+  return String(value).split('/').map((part, index) => (index === 0 && part === '~' ? '~' : encodeURIComponent(part))).join('/');
+}
+
+/** A SARIF artifact URI. Paths inside the working directory stay relative to it so code scanning can attach them. */
+function artifactUri(file, { home, cwd, fingerprint } = {}) {
+  if (!file || file === 'unknown-config') return 'unknown-config';
+  const text = String(file);
+  if (!path.isAbsolute(text)) return encodeSarifPath(text.split(path.sep).join('/'));
+  const resolved = path.resolve(text);
+  if (cwd) {
+    const dir = path.resolve(cwd);
+    if (resolved === dir || resolved.startsWith(dir + path.sep)) {
+      const rel = path.relative(dir, resolved).split(path.sep).join('/');
+      return encodeSarifPath(rel || '.');
+    }
+  }
+  if (home) {
+    const root = path.resolve(home);
+    if (resolved === root || resolved.startsWith(root + path.sep)) {
+      return encodeSarifPath('~' + resolved.slice(root.length).split(path.sep).join('/'));
+    }
+  }
+  if (typeof fingerprint === 'function') return encodeSarifPath(fingerprint(resolved));
+  return 'unknown-config';
+}
+
+function configUriFor(agentId, discovery, options) {
   const client = (discovery || []).find(c => c.agentId === agentId);
-  return client && client.primaryPath ? client.primaryPath : 'unknown-config';
+  return client && client.primaryPath ? artifactUri(client.primaryPath, options) : 'unknown-config';
 }
 
 function renderSarif(report, options = {}) {
@@ -36,7 +64,7 @@ function renderSarif(report, options = {}) {
       ruleId: p.templateId,
       level: LEVEL[p.severity] || 'warning',
       message: { text: `${p.label} on ${p.agentName}: ${p.nodes.map(n => n.label).join(' -> ')}. ${p.remediation}` },
-      locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(p.agentId, report.discovery) } } }],
+      locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(p.agentId, report.discovery, options) } } }],
       partialFingerprints: { boppiPathId: p.id, boppiExposureKey: p.exposureKey },
       properties: { severity: p.severity, agent: p.agentName, confidence: p.confidence, evidenceCount: p.evidenceCount, disclaimer: p.disclaimer },
     });
@@ -50,7 +78,7 @@ function renderSarif(report, options = {}) {
       ruleId: f.ruleId,
       level: LEVEL[f.severity] || 'warning',
       message: { text: `${f.title} (${agentName(f.agentId)}). ${remediation.summary || f.recommendation || ''}`.trim() },
-      locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(f.agentId, report.discovery) } } }],
+      locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(f.agentId, report.discovery, options) } } }],
       partialFingerprints: { boppiFindingId: f.id },
       properties: { severity: f.severity, agent: agentName(f.agentId), remediation },
     });
@@ -62,7 +90,7 @@ function renderSarif(report, options = {}) {
       ruleId: v.ruleId,
       level: LEVEL[v.severity] || 'error',
       message: { text: `${v.title}: ${v.detail}` },
-      locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(v.agentId, report.discovery) } } }],
+      locations: [{ physicalLocation: { artifactLocation: { uri: configUriFor(v.agentId, report.discovery, options) } } }],
       partialFingerprints: { boppiPolicyViolation: `${v.ruleId}:${v.agentId}:${v.subject}` },
       properties: { severity: v.severity, agent: v.agentName, policyFile: report.policy.file, remediation },
     });
@@ -75,7 +103,7 @@ function renderSarif(report, options = {}) {
       ruleId: finding.ruleId,
       level: LEVEL[finding.severity] || 'warning',
       message: { text: `${finding.title} ${remediation.summary || ''}`.trim() },
-      locations: [{ physicalLocation: { artifactLocation: { uri: finding.file || 'unknown-config' } } }],
+      locations: [{ physicalLocation: { artifactLocation: { uri: artifactUri(finding.file, options) } } }],
       partialFingerprints: { boppiFixId: finding.fixId || finding.ruleId },
       properties: { severity: finding.severity, tool: finding.tool, remediation },
     });
@@ -138,4 +166,4 @@ function validateSarif(log) {
   return errors;
 }
 
-module.exports = { renderSarif, validateSarif, LEVEL };
+module.exports = { renderSarif, validateSarif, artifactUri, LEVEL };

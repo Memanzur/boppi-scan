@@ -8,8 +8,11 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, valueIsPresent } = require('./discovery/secrets');
-const { createBackupSet, parseChoice } = require('./fix');
+const { isInlineSecret, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
+
+const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
+const CONFIRM_RULES = new Set(['BOPPI-UNKNOWN-SERVER', 'BOPPI-PLAINTEXT-SECRET']);
 
 const SENSITIVE_NAME = /(token|secret|password|private[_-]?key|api[_-]?key|authorization|cookie|credential)/i;
 const INSTALLERS = new Set(['npx', 'npm', 'uvx', 'uv', 'bunx', 'pnpm', 'pnpx', 'yarn']);
@@ -207,18 +210,30 @@ function isBroadPath(arg, home) {
   if (typeof arg !== 'string') return false;
   const trimmed = arg.trim();
   if (trimmed === '/' || trimmed === '~' || trimmed === '~/' || trimmed === '/*') return true;
-  if (/^[A-Za-z]:\\?$/.test(trimmed)) return true;
+  if (/^[A-Za-z]:[\\/]?$/.test(trimmed)) return true;
   if (!home) return false;
   const root = path.resolve(home);
   if (trimmed === root || trimmed === `${root}/` || trimmed === `${root}\\`) return true;
+  if (!/^(\/|~\/|[A-Za-z]:[\\/])/.test(trimmed)) return false;
+  try {
+    const expanded = trimmed.startsWith('~/') ? path.join(home, trimmed.slice(2)) : trimmed;
+    const real = fs.realpathSync(expanded);
+    const realHome = fs.realpathSync(home);
+    if (real === realHome) return true;
+    if (real === path.parse(real).root) return true;
+  } catch (_) { /* a path that does not exist is not a live symlink to the disk root */ }
   return false;
 }
 
 function narrowerRoot(home, cwd) {
   if (!cwd || !home) return null;
-  const root = path.resolve(home);
-  const dir = path.resolve(cwd);
-  if (dir === root) return null;
+  let root;
+  let dir;
+  try {
+    root = fs.realpathSync(home);
+    dir = fs.realpathSync(cwd);
+  } catch (_) { return null; }
+  if (dir === root || dir === path.parse(dir).root) return null;
   if (dir.startsWith(root + path.sep)) return dir;
   return null;
 }
@@ -269,24 +284,33 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
     if (spec.env && typeof spec.env === 'object' && !Array.isArray(spec.env)) {
       for (const [key, value] of Object.entries(spec.env)) {
         if (typeof value !== 'string' || !valueIsPresent(value)) continue;
-        if (!SENSITIVE_NAME.test(key) && !isInlineSecret(value)) continue;
+        const exactKey = PROVIDER_KEYS.has(key);
+        const valueSecret = isInlineSecret(value);
+        if (!exactKey && !valueSecret && !SENSITIVE_NAME.test(key)) continue;
         const page = providerPage(key);
+        const auto = exactKey || valueSecret;
         pushIssue(list, seen, issue({
           ruleId: 'BOPPI-PLAINTEXT-SECRET',
           fixId: `plaintext-secret:${where}:${key}`,
-          severity: 'critical',
+          severity: auto ? 'critical' : 'medium',
           category: 'plaintext_secret',
           tool,
-          title: `An API key is stored in plaintext in the ${name} server config (${key}).`,
-          summary: `Delete ${key} from the ${name} server env block. The value is not printed.`,
+          title: auto
+            ? `An API key is stored in plaintext in the ${name} server config (${key}).`
+            : `${key} in the ${name} server config looks sensitive by name. The value is not printed.`,
+          summary: auto
+            ? `Delete ${key} from the ${name} server env block. The value is not printed. --yes will not do this.`
+            : `${key} is left in place. The name looks sensitive, but the value does not look like a token, so boppi will not delete it.`,
           steps: [
             page
-              ? `Revoke this key at ${page} and create a new one. It was saved in a config file.`
-              : `Revoke ${key} in the provider console and create a new one. It was saved in a config file.`,
-            'Store the new value in an environment variable or the OS keychain, not in the config file.',
-            `The local fix deletes ${key} from ${fileLabel}.`,
+              ? `Revoke this key at ${page} and create a new one if it is a real credential.`
+              : `Revoke ${key} in the provider console if it is a real credential.`,
+            'Store a new value in an environment variable or the OS keychain, not in the config file.',
+            auto
+              ? `Confirm the local fix to delete ${key} from ${fileLabel}. --yes will not delete it.`
+              : `Edit ${fileLabel} yourself if this value is a password. Boppi will not delete it.`,
           ],
-          autoFixable: editable,
+          autoFixable: editable && auto,
           file,
           fileLabel,
           format: 'json',
@@ -298,21 +322,30 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
     if (spec.headers && typeof spec.headers === 'object' && !Array.isArray(spec.headers)) {
       for (const [key, value] of Object.entries(spec.headers)) {
         if (typeof value !== 'string' || !valueIsPresent(value)) continue;
-        if (!SENSITIVE_NAME.test(key) && !isInlineSecret(value)) continue;
+        const exactKey = PROVIDER_KEYS.has(key);
+        const valueSecret = isInlineSecret(value);
+        if (!exactKey && !valueSecret && !SENSITIVE_NAME.test(key)) continue;
+        const auto = exactKey || valueSecret;
         pushIssue(list, seen, issue({
           ruleId: 'BOPPI-PLAINTEXT-SECRET',
           fixId: `plaintext-secret:${where}:header:${key}`,
-          severity: 'critical',
+          severity: auto ? 'critical' : 'medium',
           category: 'plaintext_secret',
           tool,
-          title: `A secret header is stored in plaintext on the ${name} server (${key}).`,
-          summary: `Delete the ${key} header from the ${name} server. The value is not printed.`,
+          title: auto
+            ? `A secret header is stored in plaintext on the ${name} server (${key}).`
+            : `The ${key} header on the ${name} server looks sensitive by name. The value is not printed.`,
+          summary: auto
+            ? `Delete the ${key} header from the ${name} server. The value is not printed. --yes will not do this.`
+            : `The ${key} header is left in place. The name looks sensitive, but the value does not look like a token.`,
           steps: [
-            `Revoke the credential that was placed in the ${key} header and issue a new one.`,
-            'Pass the new value through an environment variable the server reads, not through the config file.',
-            `The local fix deletes the ${key} header from ${fileLabel}.`,
+            `Revoke the credential in the ${key} header if it is a real credential.`,
+            'Pass a new value through an environment variable the server reads, not through the config file.',
+            auto
+              ? `Confirm the local fix to delete the ${key} header from ${fileLabel}. --yes will not delete it.`
+              : `Edit ${fileLabel} yourself if this value is a password. Boppi will not delete it.`,
           ],
-          autoFixable: editable,
+          autoFixable: editable && auto,
           file,
           fileLabel,
           format: 'json',
@@ -355,7 +388,7 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
         category: 'unknown_server',
         tool,
         title: `The ${name} server is not a known MCP server.`,
-        summary: `Remove the ${name} entry so ${tool} stops loading it. Restore it with boppi fix --undo.`,
+        summary: `Remove the ${name} entry so ${tool} stops loading it. --yes will not do this. Restore a removal with boppi fix --undo.`,
         steps: [
           `Confirm you trust ${name}. If you do not, delete that entry from ${fileLabel}.`,
           'If you keep it, pin the package to a version you have reviewed and record who publishes it.',
@@ -622,7 +655,12 @@ function collectIssues({ home, cwd, discovery, claudeSettings, credentialNames }
 
 function replaceAssignment(text, key, from, to) {
   const re = new RegExp(`^(\\s*${key}\\s*=\\s*)(["']?)${from}\\2\\s*$`);
-  return text.split('\n').map(line => line.replace(re, `$1$2${to}$2`)).join('\n');
+  return text.split('\n').map(line => {
+    const cr = line.endsWith('\r');
+    const bare = cr ? line.slice(0, -1) : line;
+    const next = bare.replace(re, `$1$2${to}$2`);
+    return cr ? `${next}\r` : next;
+  }).join('\n');
 }
 
 function mutate(issueItem, state, cwd) {
@@ -764,11 +802,23 @@ function applyIssues(issues, { home, cwd, now }) {
   const set = createBackupSet(home, now);
   for (const item of pending) set.capture(item.state.file);
   const manifest = pending.length ? set.commit() : null;
-  for (const item of pending) {
-    if (item.contentChanged) fs.writeFileSync(item.state.file, item.state.text);
-    if (item.modeChanged) fs.chmodSync(item.state.file, item.state.mode);
+  const written = [];
+  try {
+    for (const item of pending) {
+      if (item.contentChanged) {
+        replaceRegularFile(item.state.file, item.state.text, item.modeChanged ? item.state.mode : item.state.originalMode);
+      } else if (item.modeChanged) chmodNoFollow(item.state.file, item.state.mode);
+      written.push(item.state.file);
+    }
+  } catch (error) {
+    if (written.length) error.message = `${error.message}. ${written.length} file(s) were already changed. Restore them with boppi fix --undo.`;
+    throw error;
   }
-  return { written: pending.map(item => item.state.file), manifest };
+  return { written, manifest };
+}
+
+function needsConfirmation(item) {
+  return !!(item && CONFIRM_RULES.has(item.ruleId));
 }
 
 function autoFixCount(issues) {
@@ -785,4 +835,5 @@ module.exports = {
   diffLines,
   autoFixCount,
   parseChoice,
+  needsConfirmation,
 };

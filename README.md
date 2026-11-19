@@ -188,7 +188,7 @@ push and watch (the commands that use the network):
 fix only:
 --server <name>     the server entry to remove, as boppi scan names it
 --client <key>      which config to edit when the name exists in more than one client
---yes               apply without prompting (required when stdin is not a terminal)
+--yes               apply the safe fixes without prompting. Unknown servers and plaintext secrets still need a terminal confirmation
 --dry-run           show each diff and change nothing
 --undo              restore files and permissions from the last backup set
 ```
@@ -215,14 +215,14 @@ Every row is a rescan of the configuration with that one edit applied. A move is
 
 * loose Claude Code permission modes (`bypassPermissions`, `dontAsk`, `acceptEdits`) go back to `default`, and unrestricted `Bash` / `PowerShell` / `*` allow rules are removed
 * Cline and Roo `autoApprove` lists are cleared
-* API keys and secret values stored in an MCP `env` block, header, or argument are deleted from the file (the value is never printed)
+* API keys and secret values stored in an MCP `env` block, header, or argument can be deleted from the file (the value is never printed). `--yes` does not delete them
 * config files that are readable by every account are set to mode 600
-* MCP servers the catalog does not recognize are removed
+* MCP servers the catalog does not recognize can be removed. `--yes` does not remove them
 * `npx -y` / `uvx` style auto-install flags on an unpinned package are removed
-* a filesystem server rooted at `/` or the home folder is pointed at the current directory when that directory is narrower
+* a filesystem server rooted at `/` or the home folder is pointed at the real current directory when that directory is narrower. A symlink to `/` or the home folder is not used
 * Codex `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` are tightened
 
-Each automatic risk is shown in plain language with a small diff. Answer `y`, `n`, `s` (skip), or `a` (apply this one and the rest). `--yes` applies every automatic fix. `--dry-run` prints the diffs and writes nothing. The first change in a run is preceded by a timestamped backup under `~/.boppi/backups/`, and `boppi fix --undo` restores that set, including file modes.
+Each automatic risk is shown in plain language with a small diff. Answer `y`, `n`, `s` (skip), or `a` (apply this one and the rest). `--yes` applies the safe fixes and skips unknown-server removal and plaintext-secret deletion. `--dry-run` prints the diffs and writes nothing. The first change in a run is preceded by a timestamped backup under `~/.boppi/backups/` (mode 600), and `boppi fix --undo` restores that set, including file modes. A symlink is never followed.
 
 Rotating a key at the provider cannot be done from this machine. Those findings print the console to open and the file to edit. The same guidance is on every finding in `--json` and `--format json` as `remediation`: `{ summary, steps, autoFixable, fixId }`.
 

@@ -7,7 +7,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
-const { chooseFixes, parseChoice } = require('../src/cli/autoFix');
+const { chooseFixes, parseChoice, applyIssues } = require('../src/cli/autoFix');
 const { validateSarif } = require('../src/cli/render/sarif');
 
 let passed = 0, failed = 0;
@@ -143,7 +143,8 @@ function runCli(args, home, cwd, extra = {}) {
   const settings = JSON.parse(fs.readFileSync(paths.claudeSettings, 'utf8'));
   ok('permission mode returns to default and unrestricted Bash is removed', settings.permissions.defaultMode === 'default' && settings.permissions.allow.length === 1 && settings.permissions.allow[0] === 'Read');
   const cursor = JSON.parse(fs.readFileSync(paths.cursorConfig, 'utf8'));
-  ok('plaintext env key is gone, the pinned -y flag stays, and the unknown server is removed', !cursor.mcpServers.fetch.env.OPENAI_API_KEY && cursor.mcpServers.fetch.args.includes('-y') && !cursor.mcpServers.mystery);
+  ok('--yes keeps the unknown server and the plaintext key, and leaves a pinned -y flag', cursor.mcpServers.mystery && cursor.mcpServers.fetch.env.OPENAI_API_KEY === SECRET && cursor.mcpServers.fetch.args.includes('-y'));
+  ok('--yes says it skipped unknown servers and plaintext secrets', applied.stdout.includes('skipped') && applied.stdout.includes('unknown MCP server') && applied.stdout.includes('plaintext secret'));
   ok('unpinned -y is removed and broad paths point at the working directory', !cursor.mcpServers.filesystem.args.includes('-y') && !cursor.mcpServers.filesystem.args.includes(paths.home) && !cursor.mcpServers.filesystem.args.includes('/') && cursor.mcpServers.filesystem.args.includes(paths.work));
   const cline = JSON.parse(fs.readFileSync(paths.clineConfig, 'utf8'));
   ok('autoApprove is cleared and the server remains', Array.isArray(cline.mcpServers.notes.autoApprove) && cline.mcpServers.notes.autoApprove.length === 0 && cline.mcpServers.notes.command === 'npx');
@@ -153,11 +154,60 @@ function runCli(args, home, cwd, extra = {}) {
   const manifest = JSON.parse(fs.readFileSync(path.join(paths.home, '.boppi', 'fix-undo.json'), 'utf8'));
   const backups = fs.readdirSync(path.join(paths.home, '.boppi', 'backups'));
   ok('a timestamped backup set was written with owner-only permissions', manifest.files.length === tracked.length && backups.length === tracked.length && manifest.files.every(entry => (fs.statSync(entry.backup).mode & 0o777) === 0o600 && fs.readFileSync(entry.backup, 'utf8') === before.get(entry.original).text));
-  ok('the cursor backup still holds the secret, so undo can restore it', manifest.files.some(entry => fs.readFileSync(entry.backup, 'utf8').includes(SECRET)) && !fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
+  ok('the cursor backup and the live config both still hold the secret after --yes', manifest.files.some(entry => fs.readFileSync(entry.backup, 'utf8').includes(SECRET)) && fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
+  ok('backup files are mode 600 and the backup directory is private', manifest.files.every(entry => (fs.statSync(entry.backup).mode & 0o777) === 0o600) && ((fs.statSync(path.join(paths.home, '.boppi', 'backups')).mode & 0o077) === 0));
 
   const restored = runCli(['fix', '--undo'], paths.home, paths.work);
   ok('undo restores every file body and the previous mode', restored.code === 0 && restored.stdout.includes('Restored') && sameSnapshot(tracked, before));
-  ok('the restored config contains the secret again and the fixed file had not', fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
+  ok('undo puts the secret back in the restored config', fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
+
+  section('destructive fixes apply only when chosen');
+  const chosenFile = path.join(root, 'chosen.json');
+  fs.writeFileSync(chosenFile, JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['pkg'], env: { OPENAI_API_KEY: SECRET, COOKIE_PATH: 'chocolate', API_KEY_FILE: '/tmp/keyfile' } } } }, null, 2) + '\n');
+  applyIssues([{
+    ruleId: 'BOPPI-PLAINTEXT-SECRET', fixId: 'plaintext:chosen', file: chosenFile, autoFixable: true, server: 'fetch', detail: { kind: 'env', name: 'OPENAI_API_KEY' },
+  }], { home: paths.home, cwd: paths.work, now: '2026-01-01T00:00:00Z' });
+  const chosenJson = JSON.parse(fs.readFileSync(chosenFile, 'utf8'));
+  ok('a confirmed plaintext fix deletes the provider key and leaves name-only values', chosenJson.mcpServers.fetch.env.OPENAI_API_KEY == null && chosenJson.mcpServers.fetch.env.COOKIE_PATH === 'chocolate' && chosenJson.mcpServers.fetch.env.API_KEY_FILE === '/tmp/keyfile');
+
+  section('symlinks, hard links, and a tampered backup set');
+  const outside = path.join(root, 'outside.json');
+  fs.writeFileSync(outside, JSON.stringify({ mcpServers: { filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'] } } }, null, 2) + '\n');
+  const outsideBefore = fs.readFileSync(outside);
+  const linkHome = path.join(root, 'link-home');
+  fs.mkdirSync(path.join(linkHome, '.cursor'), { recursive: true });
+  fs.symlinkSync(outside, path.join(linkHome, '.cursor', 'mcp.json'));
+  const serverFix = runCli(['fix', '--server', 'filesystem', '--yes'], linkHome, paths.work);
+  ok('fix --server refuses a symlink and does not change the target', serverFix.code === 2 && serverFix.stderr.includes('symlink') && fs.readFileSync(outside).equals(outsideBefore));
+
+  const twin = path.join(root, 'twin.json');
+  fs.writeFileSync(chosenFile, JSON.stringify({ permissions: { defaultMode: 'bypassPermissions' } }, null, 2) + '\n');
+  fs.linkSync(chosenFile, twin);
+  const twinBefore = fs.readFileSync(twin);
+  applyIssues([{
+    ruleId: 'BOPPI-PERM-MODE', fixId: 'perm', file: chosenFile, autoFixable: true, detail: { from: 'bypassPermissions', to: 'default' },
+  }], { home: paths.home, cwd: paths.work, now: '2026-01-01T00:00:01Z' });
+  ok('a fix replaces the named file and leaves another hard link unchanged', fs.readFileSync(chosenFile, 'utf8').includes('"default"') && fs.readFileSync(twin).equals(twinBefore));
+
+  const elsewhere = path.join(root, 'elsewhere');
+  fs.mkdirSync(elsewhere, { recursive: true });
+  const escapeHome = path.join(root, 'escape-home');
+  fs.mkdirSync(path.join(escapeHome, '.claude'), { recursive: true });
+  fs.mkdirSync(path.join(escapeHome, '.boppi'), { recursive: true });
+  fs.symlinkSync(elsewhere, path.join(escapeHome, '.boppi', 'backups'));
+  fs.writeFileSync(path.join(escapeHome, '.claude', 'settings.json'), JSON.stringify({ permissions: { defaultMode: 'bypassPermissions', allow: ['Read'] } }, null, 2) + '\n');
+  const escaped = runCli(['fix', '--yes'], escapeHome, paths.work);
+  ok('a symlinked backup directory is refused', escaped.code !== 0 && fs.readdirSync(elsewhere).length === 0 && escaped.stderr.includes('symlink'));
+
+  const manifestPath = path.join(paths.home, '.boppi', 'fix-undo.json');
+  const poisonedTarget = path.join(root, 'should-not-exist.json');
+  const saved = fs.readFileSync(manifestPath, 'utf8');
+  const poisoned = JSON.parse(saved);
+  poisoned.files[0].original = poisonedTarget;
+  fs.writeFileSync(manifestPath, JSON.stringify(poisoned, null, 2));
+  const poisonRun = runCli(['fix', '--undo'], paths.home, paths.work);
+  ok('undo rejects a modified backup set and does not write the new path', poisonRun.code !== 0 && !fs.existsSync(poisonedTarget) && poisonRun.stderr.includes('modified'));
+  fs.writeFileSync(manifestPath, saved);
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);

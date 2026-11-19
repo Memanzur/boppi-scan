@@ -81,7 +81,7 @@ function usage() {
     'fix options:',
     '  --server <name>     the MCP server entry to remove (as boppi scan names it)',
     '  --client <key>      which client config to edit when the name exists in more than one (a client id; boppi fix edits JSON configs)',
-    '  --yes               apply without prompting (required when stdin is not a terminal)',
+    '  --yes               apply the safe fixes without prompting. Unknown servers and plaintext secrets still need a terminal confirmation',
     '  --dry-run           show each diff and change nothing',
     '  --undo              restore the last backup set',
     '',
@@ -693,11 +693,16 @@ async function runAutoFix(options) {
     return 0;
   }
   let selected = automatic;
-  if (!options.yes) {
-    if (!process.stdin.isTTY) {
-      process.stderr.write('fix: not applied. Pass --yes to apply without a prompt, or run it in a terminal.\n');
-      return 2;
+  if (options.yes) {
+    const held = automatic.filter(autoFix.needsConfirmation);
+    selected = automatic.filter(item => !autoFix.needsConfirmation(item));
+    if (held.length) {
+      process.stdout.write(`${held.length} fix${held.length === 1 ? '' : 'es'} skipped. --yes will not remove an unknown MCP server or delete a plaintext secret, because both break that server. Run boppi fix in a terminal to confirm each one.\n`);
     }
+  } else if (!process.stdin.isTTY) {
+    process.stderr.write('fix: not applied. Pass --yes to apply the safe fixes without a prompt, or run it in a terminal.\n');
+    return 2;
+  } else {
     selected = await autoFix.chooseFixes(automatic, item => fix.askChoice(`Apply this fix? ${item.title} [y]es / [n]o / [s]kip / [a]ll: `));
   }
   if (!selected.length) {
@@ -753,6 +758,10 @@ async function runFix(options) {
   const client = candidates[0];
   const descriptor = clientDescriptors(options).find(d => d.clientKey === client.clientKey);
   const located = fix.locateServer(client, descriptor, options.server);
+  if (located && located.symlink) {
+    process.stderr.write(`fix: "${options.server}" is in a symlink (${located.file}). boppi fix will not follow a symlink.\n`);
+    return 2;
+  }
   if (located && located.unsupportedFormat) {
     process.stderr.write(`fix: "${options.server}" is in a ${located.unsupportedFormat} config (${located.file}). boppi fix only edits JSON MCP configs.\n`);
     return 2;
@@ -1014,11 +1023,15 @@ async function run(argv) {
   const jsonText = () => JSON.stringify({ ...exportPayload(scan), policy: policyPortable }, null, 2) + '\n';
   const sarifReport = () => ({
     ...report,
-    discovery: scan.portableDiscovery.clients,
     policy: policyPortable,
-    configFindings: (scan.configFindings || []).map(autoFix.toExportIssue),
+    configFindings: (scan.configFindings || []).map(item => ({ ...autoFix.toExportIssue(item), file: item.file || null })),
   });
-  const sarifText = () => JSON.stringify(sarif.renderSarif(sarifReport(), { automationId: options.config ? 'config' : 'scan' }), null, 2) + '\n';
+  const sarifText = () => JSON.stringify(sarif.renderSarif(sarifReport(), {
+    automationId: options.config ? 'config' : 'scan',
+    home: scan.home,
+    cwd: options.cwd,
+    fingerprint: file => portablePath(file, scan.home),
+  }), null, 2) + '\n';
   const htmlText = () => html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients });
 
   if (!machine) {
