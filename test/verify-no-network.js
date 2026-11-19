@@ -109,6 +109,13 @@ function makeHome(root) {
   ok('watch --dry-run prints a payload and makes no network attempt', watchDry.code === 0 && watchDry.stdout.includes('"records"') && watchDry.attempts.length === 0);
   ok('watch --dry-run names the interval and does not claim the machine is protected', watchDry.stdout.includes('expected_interval_seconds') && watchDry.stdout.includes('does not protect the machine') && !/protected/i.test(watchDry.stdout + watchDry.stderr));
 
+  const askOff = run(['ask', 'what should I fix']);
+  ok('ask without confirmation makes no network attempt', askOff.code === 2 && askOff.attempts.length === 0 && askOff.stderr.includes('Nothing was sent'));
+  const askLocal = run(['ask', '--no-network', 'what should I fix']);
+  ok('ask --no-network makes no network attempt', askLocal.code === 0 && askLocal.attempts.length === 0 && askLocal.stdout.includes('Nothing was sent'));
+  const askYes = run(['ask', '--yes', 'what should I fix'], { BOPPI_API_URL: 'http://127.0.0.1:9' });
+  ok('ask --yes reaches the network hook, so the hook still sees a real send', askYes.attempts.length > 0 && askYes.attempts.every(a => a === 'fetch') && askYes.code !== 0);
+
   const watchReal = await runSignal(
     ['watch', '--interval', '60', '--token', 'bpc_test_token_value', '--url', 'http://127.0.0.1:1'],
     (stdout, stderr) => stderr.includes('Could not reach') || stdout.includes('Next scan'),

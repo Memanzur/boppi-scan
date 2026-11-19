@@ -152,12 +152,12 @@ function runCli(args, home, cwd, extra = {}) {
   ok('autoApprove is cleared and the server remains', Array.isArray(cline.mcpServers.notes.autoApprove) && cline.mcpServers.notes.autoApprove.length === 0 && cline.mcpServers.notes.command === 'npx');
   const codex = fs.readFileSync(paths.codexConfig, 'utf8');
   ok('codex yolo settings are tightened and the server table remains', codex.includes('approval_policy = "on-request"') && codex.includes('sandbox_mode = "workspace-write"') && codex.includes('[mcp_servers.docs]') && !codex.includes('"never"') && !codex.includes('danger-full-access'));
-  ok('config files are owner-only after the mode fix', tracked.every(file => (fs.statSync(file).mode & 0o777) === 0o600));
+  ok('config files are owner-only after the mode fix', tracked.every(file => process.platform === 'win32' || (fs.statSync(file).mode & 0o777) === 0o600));
   const manifest = JSON.parse(fs.readFileSync(path.join(paths.home, '.boppi', 'fix-undo.json'), 'utf8'));
   const backups = fs.readdirSync(path.join(paths.home, '.boppi', 'backups'));
-  ok('a timestamped backup set was written with owner-only permissions', manifest.files.length === tracked.length && backups.length === tracked.length && manifest.files.every(entry => (fs.statSync(entry.backup).mode & 0o777) === 0o600 && fs.readFileSync(entry.backup, 'utf8') === before.get(entry.original).text));
+  ok('a timestamped backup set was written with owner-only permissions', manifest.files.length === tracked.length && backups.length === tracked.length && manifest.files.every(entry => (process.platform === 'win32' || (fs.statSync(entry.backup).mode & 0o777) === 0o600) && fs.readFileSync(entry.backup, 'utf8') === before.get(entry.original).text));
   ok('the cursor backup and the live config both still hold the secret after --yes', manifest.files.some(entry => fs.readFileSync(entry.backup, 'utf8').includes(SECRET)) && fs.readFileSync(paths.cursorConfig, 'utf8').includes(SECRET));
-  ok('backup files are mode 600 and the backup directory is private', manifest.files.every(entry => (fs.statSync(entry.backup).mode & 0o777) === 0o600) && ((fs.statSync(path.join(paths.home, '.boppi', 'backups')).mode & 0o077) === 0));
+  ok('backup files are mode 600 and the backup directory is private', manifest.files.every(entry => process.platform === 'win32' || (fs.statSync(entry.backup).mode & 0o777) === 0o600) && (process.platform === 'win32' || (fs.statSync(path.join(paths.home, '.boppi', 'backups')).mode & 0o077) === 0));
 
   const restored = runCli(['fix', '--undo'], paths.home, paths.work);
   ok('undo restores every file body and the previous mode', restored.code === 0 && restored.stdout.includes('Restored') && sameSnapshot(tracked, before));
@@ -178,28 +178,49 @@ function runCli(args, home, cwd, extra = {}) {
   const outsideBefore = fs.readFileSync(outside);
   const linkHome = path.join(root, 'link-home');
   fs.mkdirSync(path.join(linkHome, '.cursor'), { recursive: true });
-  fs.symlinkSync(outside, path.join(linkHome, '.cursor', 'mcp.json'));
-  const serverFix = runCli(['fix', '--server', 'filesystem', '--yes'], linkHome, paths.work);
-  ok('fix --server refuses a symlink and does not change the target', serverFix.code === 2 && serverFix.stderr.includes('symlink') && fs.readFileSync(outside).equals(outsideBefore));
+  let canLink = true;
+  try { fs.symlinkSync(outside, path.join(linkHome, '.cursor', 'mcp.json')); }
+  catch (error) {
+    canLink = false;
+    ok('symlink config test skipped where links cannot be created', error.code === 'EPERM' || error.code === 'EACCES');
+  }
+  if (canLink) {
+    const serverFix = runCli(['fix', '--server', 'filesystem', '--yes'], linkHome, paths.work);
+    ok('fix --server refuses a symlink and does not change the target', serverFix.code === 2 && serverFix.stderr.includes('symlink') && fs.readFileSync(outside).equals(outsideBefore));
+  }
 
   const twin = path.join(root, 'twin.json');
   fs.writeFileSync(chosenFile, JSON.stringify({ permissions: { defaultMode: 'bypassPermissions' } }, null, 2) + '\n');
-  fs.linkSync(chosenFile, twin);
-  const twinBefore = fs.readFileSync(twin);
-  applyIssues([{
-    ruleId: 'BOPPI-PERM-MODE', fixId: 'perm', file: chosenFile, autoFixable: true, detail: { from: 'bypassPermissions', to: 'default' },
-  }], { home: paths.home, cwd: paths.work, now: '2026-01-01T00:00:01Z' });
-  ok('a fix replaces the named file and leaves another hard link unchanged', fs.readFileSync(chosenFile, 'utf8').includes('"default"') && fs.readFileSync(twin).equals(twinBefore));
+  let canHardLink = true;
+  try { fs.linkSync(chosenFile, twin); }
+  catch (error) {
+    canHardLink = false;
+    ok('hard link test skipped where links cannot be created', error.code === 'EPERM' || error.code === 'EACCES' || error.code === 'ENOTSUP');
+  }
+  if (canHardLink) {
+    const twinBefore = fs.readFileSync(twin);
+    applyIssues([{
+      ruleId: 'BOPPI-PERM-MODE', fixId: 'perm', file: chosenFile, autoFixable: true, detail: { from: 'bypassPermissions', to: 'default' },
+    }], { home: paths.home, cwd: paths.work, now: '2026-01-01T00:00:01Z' });
+    ok('a fix replaces the named file and leaves another hard link unchanged', fs.readFileSync(chosenFile, 'utf8').includes('"default"') && fs.readFileSync(twin).equals(twinBefore));
+  }
 
   const elsewhere = path.join(root, 'elsewhere');
   fs.mkdirSync(elsewhere, { recursive: true });
   const escapeHome = path.join(root, 'escape-home');
   fs.mkdirSync(path.join(escapeHome, '.claude'), { recursive: true });
   fs.mkdirSync(path.join(escapeHome, '.boppi'), { recursive: true });
-  fs.symlinkSync(elsewhere, path.join(escapeHome, '.boppi', 'backups'));
-  fs.writeFileSync(path.join(escapeHome, '.claude', 'settings.json'), JSON.stringify({ permissions: { defaultMode: 'bypassPermissions', allow: ['Read'] } }, null, 2) + '\n');
-  const escaped = runCli(['fix', '--yes'], escapeHome, paths.work);
-  ok('a symlinked backup directory is refused', escaped.code !== 0 && fs.readdirSync(elsewhere).length === 0 && escaped.stderr.includes('symlink'));
+  let canBackupLink = true;
+  try { fs.symlinkSync(elsewhere, path.join(escapeHome, '.boppi', 'backups')); }
+  catch (error) {
+    canBackupLink = false;
+    ok('symlink backup test skipped where links cannot be created', error.code === 'EPERM' || error.code === 'EACCES');
+  }
+  if (canBackupLink) {
+    fs.writeFileSync(path.join(escapeHome, '.claude', 'settings.json'), JSON.stringify({ permissions: { defaultMode: 'bypassPermissions', allow: ['Read'] } }, null, 2) + '\n');
+    const escaped = runCli(['fix', '--yes'], escapeHome, paths.work);
+    ok('a symlinked backup directory is refused', escaped.code !== 0 && fs.readdirSync(elsewhere).length === 0 && escaped.stderr.includes('symlink'));
+  }
 
   const manifestPath = path.join(paths.home, '.boppi', 'fix-undo.json');
   const poisonedTarget = path.join(root, 'should-not-exist.json');

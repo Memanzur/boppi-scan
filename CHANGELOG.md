@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `boppi ask` sends a question only after you confirm, or when you pass `--yes`. `--no-network` answers from the local fix catalog and does not contact the API. The request is `POST /api/ai/ask` with redacted findings, no session cookie, and no file contents. The reply is checked before it is shown and is never run.
+
 ## 0.5.0
 
 A security score on the first screen, a clearer report when no MCP servers are configured, and a foreground watch command.
