@@ -164,6 +164,14 @@ function runCli(args, home) {
   ok('HTML report lists files read by ~ path and never the home directory', htmlOut.includes('~/.cursor/mcp.json') && !htmlOut.includes(home) && !htmlOut.includes(os.homedir()));
   ok('HTML report never contains secret environment or positional values', !htmlOut.includes('SUPERSECRETVALUE') && !htmlOut.includes('sb_secret_positional_test_value_123456'));
   ok('HTML root cause states the same honest count as the terminal', htmlOut.includes(`Breaks <b>${topCount} of ${exported.exposurePaths.length}</b> exposures`));
+  const scored = require('../src/cli/securityScore').securityScore(exported.exposurePaths);
+  ok('HTML shows the same score and grade as the terminal', htmlOut.includes(`aria-label="Security score ${scored.score}/100, grade ${scored.grade}. Higher is safer."`) && htmlOut.includes('Higher is safer') && exported.securityReport.score === scored.score && exported.securityReport.grade === scored.grade);
+  ok('HTML shows each top risk sentence', exported.securityReport.risks.every(risk => htmlOut.includes(risk.sentence)));
+  ok('HTML gives a plain fix for each top risk', exported.securityReport.risks.every(risk => {
+    const at = htmlOut.indexOf(risk.sentence);
+    return at !== -1 && /Fix\./.test(htmlOut.slice(at, at + 500));
+  }));
+  ok('HTML has no em dash or en dash', !htmlOut.includes('\u2014') && !htmlOut.includes('\u2013'));
 
   section('Subcommands and filters');
   const agentsOnly = runCli(['agents'], home);

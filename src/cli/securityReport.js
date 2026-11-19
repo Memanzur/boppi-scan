@@ -136,11 +136,12 @@ function exposedKeyNames(report) {
   return [...names].sort();
 }
 
-function topRisks(report, home) {
+function listRisks(report, home, limit = 3) {
   const ranked = (report.paths || []).slice().sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0)
     || a.agentName.localeCompare(b.agentName)
     || a.templateId.localeCompare(b.templateId));
-  return ranked.slice(0, 3).map(path => {
+  const cap = limit == null ? 3 : limit;
+  return ranked.slice(0, cap).map(path => {
     const servers = serversOnPath(path, report.inventory || {});
     const egress = servers.find(server => egressPhrase(server));
     return {
@@ -151,6 +152,10 @@ function topRisks(report, home) {
       fix: fixCommand(path, report.predictions, egress && egress.name),
     };
   });
+}
+
+function topRisks(report, home) {
+  return listRisks(report, home, 3);
 }
 
 function buildSecurityReport(report, home) {
@@ -176,4 +181,4 @@ function buildSecurityReport(report, home) {
 
 const CLOSING_LINE = 'See history, teams and approvals: npx @boppi/cli push';
 
-module.exports = { buildSecurityReport, securityScore, sentenceFor, fixCommand, CLOSING_LINE };
+module.exports = { buildSecurityReport, securityScore, sentenceFor, fixCommand, listRisks, CLOSING_LINE };
