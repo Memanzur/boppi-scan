@@ -15,6 +15,8 @@ const risk = require('../src/engine/agentRiskEngine');
 const securityGraph = require('../src/engine/securityGraph');
 const exposure = require('../src/engine/exposurePathEngine');
 
+const heldout = require('./heldout/eval');
+
 const MANIFEST = path.join(__dirname, 'corpus', 'manifest.json');
 const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 const CRITICAL_PRECISION_MIN = 0.8;
@@ -136,9 +138,16 @@ function main() {
   if (failures.length) {
     for (const failure of failures) console.error(`FAIL ${failure}`);
     process.exitCode = 1;
-    return;
+  } else {
+    console.log('detection gate passed');
   }
-  console.log('detection gate passed');
+
+  // Held-out scores are printed after the tuning corpus and do not change
+  // its thresholds. A miss here fails the process so the result is visible.
+  console.log('\n=== held-out ===');
+  const held = heldout.report(path.join(__dirname, '..'));
+  console.log(held.text);
+  if (!held.ok) process.exitCode = 1;
 }
 
 main();
