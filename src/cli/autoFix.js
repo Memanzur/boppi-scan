@@ -103,6 +103,13 @@ const ENGINE_GUIDE = Object.freeze({
       'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
     ],
   },
+  'AE-014': {
+    summary: 'A database or SaaS read is combined with untrusted content or an approval bypass.',
+    steps: [
+      'Turn prompting back on, or remove the issue tracker or the data server the agent does not need.',
+      'Run boppi plan, then boppi fix --server <name> for the one server you choose.',
+    ],
+  },
 });
 
 const PROVIDER_PAGES = Object.freeze([

@@ -20,8 +20,9 @@
     { id:'AE-009', severity:'critical', category:'command_boundary', title:'Command execution crosses a trust boundary', needs:['command_boundary'], path:'A shell or code interpreter is combined with an outbound leg, untrusted content, or an approval bypass. Command output can leave the machine, follow untrusted instructions, or run without a prompt.', fix:'Remove the shell or code server, turn prompting back on, or remove the outbound or untrusted server.' },
     { id:'AE-010', severity:'high', category:'command_local', title:'Command execution still prompts', needs:['execution_alone'], path:'A shell or code interpreter can run commands on this machine. Prompting is still on, and no outbound leg or untrusted ingestion was evidenced.', fix:'Remove command execution the agent does not need.' },
     { id:'AE-011', severity:'critical', category:'data_exfiltration', title:'Sensitive data can leave through an outbound leg', needs:['sensitive_read','outbound'], path:'A database or SaaS read plus an outbound leg (fetch, browser, messaging send, or shell) can move that data off the service.', fix:'Remove the outbound server, or remove the data server the agent does not need.' },
-    { id:'AE-012', severity:'critical', category:'data_exfiltration', title:'Local files can reach a remote MCP host', needs:['local_files','remote_host'], path:'Files this agent can read can be placed in tool calls to a remote MCP host, including a host whose catalog role is a data read.', fix:'Remove the remote server, or narrow the file grant so those files are not in reach.' },
+    { id:'AE-012', severity:'critical', category:'data_exfiltration', title:'Local files can reach a remote MCP host', needs:['local_files','remote_host'], path:'Files this agent can read can be placed in tool calls to a remote MCP host, or written to a remote repository such as GitHub in its package, image, or URL form.', fix:'Remove the remote server, or narrow the file grant so those files are not in reach.' },
     { id:'AE-013', severity:'high', category:'workspace_message', title:'One workspace can read and send its own data', needs:['workspace_loop'], path:'One SaaS server can read and send inside the same vendor workspace. That data is not shown leaving to a different destination.', fix:'Remove send access, or keep this server away from shells and other outbound tools.' },
+    { id:'AE-014', severity:'critical', category:'data_boundary', title:'Sensitive data meets untrusted content or an approval bypass', needs:['sensitive_read_boundary','boundary'], path:'A database or SaaS read combined with untrusted content, such as an issue tracker, or with an approval bypass, is a critical trust boundary. The read is reported at that higher severity.', fix:'Turn prompting back on, or remove the untrusted server or the data server the agent does not need.' },
   ];
   const categorySet = permissions => new Set((permissions || []).map(p => p.normalizedCategory || p.category || 'unknown'));
   function remoteMcpHost(server) {
@@ -58,22 +59,36 @@
     const sends = (permissions || []).filter(p => ['send_external_message','send_email'].includes(p.normalizedCategory));
     const sensitiveRead = reads.length > 0;
     const sameServerSend = (read) => sends.some(send => send.integrationId && send.integrationId === read.integrationId);
-    const otherDestination = (read) => {
-      const sid = read.integrationId;
-      return (permissions || []).some(permission => {
-        if (!permission.integrationId || permission.integrationId === sid) return false;
-        if (['call_external_api','browse_internet','browser_automation'].includes(permission.normalizedCategory) && permission.accessLevel !== 'data') return true;
-        if (['send_external_message','send_email','execute_code','run_shell_commands','untrusted_external_content'].includes(permission.normalizedCategory)) return true;
-        return false;
-      });
+    const otherServer = (permission, sid) => permission.integrationId && permission.integrationId !== sid;
+    // A real outbound leg. Untrusted content and an approval bypass are not
+    // outbound legs, and they must not blank the data finding on their own.
+    const outboundLeg = (permission) => {
+      if (['send_external_message','send_email','execute_code','run_shell_commands'].includes(permission.normalizedCategory)) return true;
+      if (['call_external_api','browse_internet','browser_automation'].includes(permission.normalizedCategory) && permission.accessLevel !== 'data') return true;
+      return false;
     };
+    const otherDestination = (read) => (permissions || []).some(permission => otherServer(permission, read.integrationId) && outboundLeg(permission));
+    const otherUntrusted = (read) => (permissions || []).some(permission => permission.normalizedCategory === 'untrusted_external_content' && otherServer(permission, read.integrationId));
     const commandBoundary = execution && (strongNetwork || messaging || untrustedHit || approvalBypass);
     const remoteHosts = (mcpServers || []).filter(server => remoteMcpHost(server));
     const remoteIds = new Set(remoteHosts.map(server => server.id));
     const localFilePerms = (permissions || []).filter(permission => permission.normalizedCategory === 'read_files' && permission.integrationId && [...remoteIds].some(id => id !== permission.integrationId));
     const fileToRemote = localFilePerms.length > 0;
-    const dataOutbound = reads.some(read => execution || approvalBypass || fileToRemote || otherDestination(read));
-    const workspaceReads = reads.filter(read => sameServerSend(read) && !dataOutbound);
+    const remoteRepoWrite = (permission) => permission.normalizedCategory === 'modify_source_code' && permission.accessLevel !== 'local' && permission.integrationId;
+    const remoteRepoIds = new Set((permissions || []).filter(remoteRepoWrite).map(permission => permission.integrationId));
+    const filesToSourcePerms = (permissions || []).filter(permission => permission.normalizedCategory === 'read_files' && permission.integrationId && [...remoteRepoIds].some(id => id !== permission.integrationId));
+    const filesToSource = filesToSourcePerms.length > 0;
+    const fileExfilPerms = [];
+    const seenFileIds = new Set();
+    for (const permission of [...(fileToRemote ? localFilePerms : []), ...filesToSourcePerms]) {
+      if (seenFileIds.has(permission.id)) continue;
+      seenFileIds.add(permission.id);
+      fileExfilPerms.push(permission);
+    }
+    const fileExfil = fileExfilPerms.length > 0;
+    const dataLeaves = reads.some(read => execution || otherDestination(read));
+    const dataBoundary = reads.some(read => otherUntrusted(read) || approvalBypass);
+    const workspaceReads = reads.filter(read => sameServerSend(read) && !dataLeaves && !dataBoundary);
     const unknownTraining = (agent?.trainingPosture || 'unknown') === 'unknown';
     // AE-003 requires explicit evidence that the server is unverified. An
     // unknown trust state is uncertainty, not proof of supply-chain risk.
@@ -91,7 +106,7 @@
       read_email: permissionEvidence(permissions, p => p.normalizedCategory === 'read_email'),
       browser_or_untrusted: permissionEvidence(permissions, p => ['browser_automation','browse_internet','untrusted_external_content'].includes(p.normalizedCategory)),
       broad_files: permissionEvidence(permissions, p => p.normalizedCategory === 'read_files' && p.accessLevel === 'broad'),
-      bounded_sensitive: (!execution && !separateNetwork && !messaging && !broadFiles && !dataOutbound && !fileToRemote && bounded)
+      bounded_sensitive: (!execution && !separateNetwork && !messaging && !broadFiles && !dataLeaves && !dataBoundary && !fileExfil && bounded)
         ? permissionEvidence(permissions, p => (p.normalizedCategory === 'read_files' && p.accessLevel === 'scoped') || p.normalizedCategory === 'access_credentials' || p.accessLevel === 'data' || p.accessLevel === 'payment')
         : [],
       command_boundary: commandBoundary
@@ -100,14 +115,23 @@
       execution_alone: (execution && !commandBoundary && !(sensitiveRead && execution))
         ? permissionEvidence(permissions, p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory))
         : [],
-      sensitive_read: dataOutbound
+      sensitive_read: dataLeaves
         ? permissionEvidence(permissions, p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data')
         : [],
-      outbound: dataOutbound
+      outbound: dataLeaves
         ? permissionEvidence(permissions, p => ['call_external_api','browse_internet','browser_automation','send_external_message','send_email','execute_code','run_shell_commands'].includes(p.normalizedCategory))
         : [],
-      local_files: fileToRemote ? localFilePerms.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })) : [],
-      remote_host: fileToRemote ? remoteHosts.map(server => ({ id:server.id, name:server.name || server.endpoint, source:server.source?.id || null })) : [],
+      sensitive_read_boundary: dataBoundary
+        ? permissionEvidence(permissions, p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data')
+        : [],
+      boundary: dataBoundary
+        ? permissionEvidence(permissions, p => p.normalizedCategory === 'untrusted_external_content' || p.normalizedCategory === 'approval_bypass')
+        : [],
+      local_files: fileExfil ? fileExfilPerms.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })) : [],
+      remote_host: fileExfil ? [
+        ...(fileToRemote ? remoteHosts.map(server => ({ id:server.id, name:server.name || server.endpoint, source:server.source?.id || null })) : []),
+        ...(filesToSource ? permissionEvidence(permissions, remoteRepoWrite) : []),
+      ] : [],
       workspace_loop: workspaceReads.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })),
       shell: permissionEvidence(permissions, p => p.normalizedCategory === 'run_shell_commands'),
       filesystem: permissionEvidence(permissions, p => ['read_files','write_files','delete_files'].includes(p.normalizedCategory)),

@@ -28,11 +28,13 @@ R&D decided that the same shell or command execution is critical when it is comb
 
 A database or SaaS catalog role is a sensitive read, not a network leg. The connection to Postgres, Notion, Drive, GitHub, or Confluence is how the agent reads that service. It is not, by itself, a way to send that service's data somewhere else. Sensitive read plus an outbound leg is critical exfiltration (AE-011). The outbound leg is fetch, a browser, messaging send, or a shell, and it has to be a separate capability from the data connection. A single SaaS server that can read and send inside the same vendor workspace is high (AE-013), not critical. Default hosted Slack, with no tool list, is that case. Critical requires a cross-boundary chain: the read leaving to a different destination, or a shell or code interpreter plus network, untrusted content, or an approval bypass. Slack plus fetch, a browser, or a shell stays critical. A declared tool list with no send or write name, or `read_only=true` / `--readOnly`, drops the send. A database alone, or Notion alone, stays medium (AE-008).
 
-Local files plus a non-loopback MCP host are still critical (AE-012), including when that host's catalog role is a data read. The host is a destination for the files. A loopback URL is not. The reference `everything` server is a protocol fixture, role `reference`, and grants nothing.
+A sensitive read plus untrusted content on a different server, such as Jira, or plus an approval bypass with no shell, is critical (AE-014). That covers Claude Code `bypassPermissions`, Codex `approval_policy` `never`, and Cursor `approvalMode` `unrestricted`. The database or SaaS permission stays in the finding. Adding the issue tracker or turning prompting off raises that finding. Jira alone stays a medium sensitive read.
+
+Local files plus a non-loopback MCP host are still critical (AE-012), including when that host's catalog role is a data read. The host is a destination for the files. The same rule covers local files plus a remote repository write. The GitHub server is that destination in every command form: the npx package `@modelcontextprotocol/server-github`, the image `ghcr.io/github/github-mcp-server`, and the host `api.githubcopilot.com`. The GitHub server alone stays medium. A local git server (`mcp-server-git`, role `source-local`) is not that destination. A loopback URL is not. The reference `everything` server is a protocol fixture, role `reference`, and grants nothing.
 
 A file grant rooted at `/` or the home directory is high (AE-006) because the blast radius is the whole user environment. A single scoped directory, a password manager, or a data store with no outbound leg and no command execution is medium (AE-008). AE-006 no longer fires because the capability string contains the word filesystem.
 
-Declared tools: `run_bash`, `bash`, `execute_command`, `run_command`, `run_shell`, `shell_exec` (shell); `read_file`, `read_text_file`, `write_file`, `list_directory`, `list_dir`, `list_files` (files); `read_aws_credentials`, `get_secret`, `read_secret`, `read_secrets` (credentials); `post_slack_message`, `send_slack_message`, `slack_post_message` (network); `browser_navigate`, `browser_click`, `playwright_navigate` (browser, untrusted content, and network).
+Declared tools: `run_bash`, `bash`, `execute_command`, `run_command`, `run_shell`, `shell_exec` (shell); `read_file`, `read_text_file`, `write_file`, `list_directory`, `list_dir`, `list_files` (files); `read_aws_credentials`, `get_secret`, `read_secret`, `read_secrets` (credentials); `post_slack_message`, `send_slack_message`, `slack_post_message`, `reply_to_thread`, `replyToThread`, and `post_message` (messaging send); `browser_navigate`, `browser_click`, `playwright_navigate` (browser, untrusted content, and network). A reply or post word in the tool name, including `reply_to_thread`, is messaging send. A Slack tool list that only names a read, such as `conversations_history`, still drops the send.
 
 ## Papers
 
@@ -59,9 +61,11 @@ The first three rows are the same 98 cases and 173 server entries. The last row 
 | Before the grade change | 0.552 (16/29) | 0.640 (16/25) | 0.640 (16/25) | 0.449 (31/69) | 0.938 (30/32) | 0.882 (30/34) | vacuous | 1.21 ms |
 | Short allowlist | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (47/47) | 1.000 (36/36) | 1.000 (36/36) | 1.000 (1/1) | 1.19 ms |
 | Public catalog | 1.000 (25/25) | 1.000 (25/25) | 1.000 (25/25) | 1.000 (64/64) | 1.000 (19/19) | 1.000 (19/19) | 1.000 (19/19) | 1.32 ms |
-| Sensitive read and shell boundary | 1.000 (29/29) | 1.000 (29/29) | 1.000 (29/29) | 1.000 (63/63) | 1.000 (19/19) | 1.000 (19/19) | 1.000 (22/22) | 1.17 ms |
+| Sensitive read and shell boundary | 1.000 (28/28) | 0.966 (28/29) | 0.966 (28/29) | 1.000 (73/73) | 0.950 (19/20) | 1.000 (19/19) | 1.000 (21/21) | 1.12 ms |
 
-The last row is this branch: 102 cases and 179 server entries. A database or SaaS read plus fetch, a browser, messaging send, or a shell is critical. A bare shell stays high. p95 stayed near 1 ms.
+The last row is this branch after the silent-drop, GitHub command form, and reply-tool fixes: 102 cases and 179 server entries. Medium recall is 0.955 (21/22). A database or SaaS read plus fetch, a browser, messaging send, or a shell is critical. The same read plus Jira, or plus an approval bypass, is critical and the read stays in the finding. Local files plus the GitHub package, image, or host are critical. A bare shell stays high. p95 stayed near 1 ms.
+
+Two labels still disagree with the rules, and the rules were not edited to chase them. `single-slack-name-only` is labeled critical and scores high (AE-013): one Slack server that can read and send inside its own workspace. `single-everything-demo` is labeled medium and the reference server grants nothing, so there is no finding.
 
 Before, the Cursor half of the 2026-11-19 probe was critical. After, it is not. The Claude Desktop files, shell, browser, and slack case stays critical. Nine planted cases that exist only as tool objects or tool names were missed before and are caught after.
 
@@ -72,9 +76,9 @@ These are the changes in what a scan calls critical:
 - A critical finding or a critical path no longer stands on substring evidence alone. The combination rules are unchanged.
 - `research-notes` is not a network server. `sandbox-helper` is not a code execution server. A directory named `obsidian-vault` is file access when the directory exists, and it is not credential access.
 - Cursor and Claude Desktop skip `disabled: true` and `enabled: false`, as the other clients already did.
-- A `tools` array of objects is read. A name on the tool list above is an observed capability and can complete a critical combination. Other tool names are listed and add no capability.
+- A `tools` array of objects is read. A name on the tool list above is an observed capability and can complete a critical combination. A reply or post word in a tool name is messaging send. Other tool names are listed and add no capability.
 - A loopback MCP URL is not treated as network access.
-- A connector whose name only contains a brand, such as `github-stars-cache`, stays a low confidence network guess. The exact name `github`, or the package `@modelcontextprotocol/server-github`, is a sensitive repo read.
-- A database or SaaS server is a sensitive read. Postgres plus fetch, Drive plus a browser, or a database plus Slack send is critical. Postgres alone is medium.
-- Slack history plus Slack send is critical on that one server. Email send is a messaging leg.
+- A connector whose name only contains a brand, such as `github-stars-cache`, stays a low confidence network guess. The exact name `github`, or the package `@modelcontextprotocol/server-github`, is a sensitive repo read. Local files plus that package, the GitHub container image, or `api.githubcopilot.com` are critical.
+- A database or SaaS server is a sensitive read. Postgres plus fetch, Drive plus a browser, or a database plus Slack send is critical. Postgres alone is medium. Postgres plus Jira, or a database or Notion server plus an approval bypass, is critical, and the read is still emitted.
+- Slack history plus Slack send on that one server is high (AE-013). Email send is a messaging leg. A tool named `reply_to_thread` or `post_message` keeps messaging send.
 - A bare shell stays high. Shell plus fetch, an issue tracker, or an approval bypass (`autoApprove`, Claude Code `bypassPermissions`, Codex `approval_policy` `never`, Cursor `approvalMode` `unrestricted`) is critical.

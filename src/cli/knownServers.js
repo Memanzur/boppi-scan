@@ -108,6 +108,18 @@ for (const rule of TOOL_ALLOWLIST) {
   for (const name of rule.names) TOOL_INDEX.set(name.toLowerCase(), rule);
 }
 
+/** reply_to_thread, post_message, replyToThread, and the same shape of name. */
+const MESSAGE_TOOL = { label: 'declared reply or post tool', capabilities: ['messaging_send'] };
+
+function messageTool(toolName) {
+  const parts = String(toolName || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return parts.some(part => part === 'reply' || part === 'post');
+}
+
 function expandHome(value, home) {
   if (typeof value !== 'string') return value;
   if (value.startsWith('~/')) return path.join(home || os.homedir(), value.slice(2));
@@ -171,7 +183,7 @@ function readOnlyScope(spec) {
   if (args.some(arg => /^--read-?only(?:=true|=1)?$/i.test(arg))) return true;
   const names = toolNameList(spec);
   if (!names.length) return false;
-  return !names.some(toolName => /send|post|write|create|update|delete|upload|publish|modify/i.test(toolName));
+  return !names.some(toolName => messageTool(toolName) || /send|post|write|create|update|delete|upload|publish|modify|reply/i.test(toolName));
 }
 
 function remoteHost(server) {
@@ -226,7 +238,7 @@ function inferCapabilities(name, server, options = {}) {
   }
   const toolsByRule = new Map();
   for (const toolName of toolNames) {
-    const rule = TOOL_INDEX.get(toolName.toLowerCase());
+    const rule = TOOL_INDEX.get(toolName.toLowerCase()) || (messageTool(toolName) ? MESSAGE_TOOL : null);
     if (!rule) continue;
     if (!toolsByRule.has(rule)) toolsByRule.set(rule, []);
     toolsByRule.get(rule).push(toolName);

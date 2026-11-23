@@ -46,6 +46,18 @@ function scan(servers) {
   return { severities, servers: inventory.mcpServers, findings: assessed.findings };
 }
 
+function openFindings(findings) {
+  return (findings || []).filter(finding => !finding.status || finding.status === 'open');
+}
+
+function citesData(result) {
+  return openFindings(result.findings).some(finding => (finding.evidence || []).some(item => item.category === 'access_customer_data'));
+}
+
+function ruleIds(result) {
+  return new Set(openFindings(result.findings).map(finding => finding.ruleId));
+}
+
 const postgres = inferCapabilities('db', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] }, { home });
 ok('postgres is a sensitive read and not a network leg', postgres.capabilities.includes('sensitive_read') && !postgres.capabilities.includes('network_access') && postgres.capabilityGrades.sensitive_read === 'allowlist');
 const mysql = inferCapabilities('db', { command: 'npx', args: ['-y', 'mysql'] }, { home });
@@ -94,6 +106,27 @@ const readOnlySlack = inferCapabilities('chat', {
   tools: [{ name: 'conversations_history' }, { name: 'list_channels' }],
 }, { home });
 ok('slack with only read tools does not send', readOnlySlack.capabilities.includes('sensitive_read') && !readOnlySlack.capabilities.includes('messaging_send'));
+const replyThread = inferCapabilities('chat', {
+  url: 'https://mcp.slack.com/mcp',
+  tools: [{ name: 'reply_to_thread' }],
+}, { home });
+ok('reply_to_thread maps to messaging send', replyThread.capabilities.includes('messaging_send') && replyThread.capabilityGrades.messaging_send === 'observed');
+const postMessage = inferCapabilities('bot', {
+  command: 'node',
+  args: ['bot.js'],
+  tools: [{ name: 'post_message' }],
+}, { home });
+ok('post_message maps to messaging send', postMessage.capabilities.includes('messaging_send') && postMessage.capabilityGrades.messaging_send === 'observed');
+const camelReply = inferCapabilities('chat', {
+  url: 'https://mcp.slack.com/mcp',
+  tools: [{ name: 'replyToThread' }],
+}, { home });
+ok('replyToThread maps to messaging send', camelReply.capabilities.includes('messaging_send'));
+const replyChain = scan({
+  db: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] },
+  chat: { url: 'https://mcp.slack.com/mcp', tools: [{ name: 'reply_to_thread' }] },
+});
+ok('database plus reply_to_thread is critical', replyChain.severities.has('critical') && citesData(replyChain));
 const readOnlyDb = scan({ db: { command: 'npx', args: ['-y', 'mongodb-mcp-server', '--readOnly'] } });
 ok('a read-only database is not critical', !readOnlyDb.severities.has('critical'));
 const scopedNotion = scan({ notes: { url: 'https://mcp.notion.com/mcp' } });
@@ -104,6 +137,23 @@ const filesToGithub = scan({
   github: { url: 'https://api.githubcopilot.com/mcp/' },
 });
 ok('local files plus a GitHub host are critical', filesToGithub.severities.has('critical'));
+const filesToGithubNpx = scan({
+  repo: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'src')] },
+  github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
+});
+ok('local files plus the GitHub npx package are critical', filesToGithubNpx.severities.has('critical') && ruleIds(filesToGithubNpx).has('AE-012'));
+const filesToGithubImage = scan({
+  repo: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'src')] },
+  github: { command: 'docker', args: ['run', '-i', '--rm', 'ghcr.io/github/github-mcp-server'] },
+});
+ok('local files plus the GitHub container image are critical', filesToGithubImage.severities.has('critical') && ruleIds(filesToGithubImage).has('AE-012'));
+const githubNpxAlone = scan({ github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] } });
+ok('the GitHub npx package alone stays medium', githubNpxAlone.severities.has('medium') && !githubNpxAlone.severities.has('critical') && citesData(githubNpxAlone));
+const filesAndLocalGit = scan({
+  repo: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', path.join(home, 'src')] },
+  git: { command: 'uvx', args: ['mcp-server-git', '--repository', path.join(home, 'src')] },
+});
+ok('a local git server is not a remote file destination', !filesAndLocalGit.severities.has('critical'));
 const githubAlone = scan({ github: { url: 'https://api.githubcopilot.com/mcp/' } });
 ok('a GitHub host alone is not critical', !githubAlone.severities.has('critical'));
 const disabled = scan({
@@ -143,6 +193,18 @@ const fetchShell = scan({
   fetch: { command: 'uvx', args: ['mcp-server-fetch'] },
 });
 ok('shell plus fetch is still critical', fetchShell.severities.has('critical'));
+
+const dbJira = scan({
+  db: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] },
+  issues: { command: 'npx', args: ['-y', 'jira'] },
+});
+ok('database plus jira raises severity and still cites the database', dbJira.severities.has('critical') && citesData(dbJira) && ruleIds(dbJira).has('AE-014') && !ruleIds(dbJira).has('AE-008'));
+const dbApprove = scan({
+  db: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'], autoApprove: ['query'] },
+});
+ok('database plus autoApprove raises severity and still cites the database', dbApprove.severities.has('critical') && citesData(dbApprove) && ruleIds(dbApprove).has('AE-014'));
+const jiraAlone = scan({ issues: { command: 'npx', args: ['-y', 'jira'] } });
+ok('jira alone still emits a finding and is not critical', jiraAlone.findings.length > 0 && !jiraAlone.severities.has('critical'));
 
 function severitiesOf(scanResult) {
   const severities = new Set();
@@ -199,10 +261,53 @@ function severitiesOf(scanResult) {
   const listed = (cursorScan.discovery && cursorScan.discovery.filesRead) || [];
   ok('the cursor yolo file is listed as read', listed.some(file => file.endsWith(path.join('.cursor', 'cli-config.json'))));
 
+  function citesScanData(scanResult) {
+    const findings = ((scanResult.inventory && scanResult.inventory.findings) || []).filter(finding => !finding.status || finding.status === 'open');
+    return findings.length > 0 && findings.some(finding => (finding.evidence || []).some(item => item.category === 'access_customer_data'));
+  }
+
+  const dataHome = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-data-bypass-'));
+  fs.mkdirSync(path.join(dataHome, '.claude'), { recursive: true });
+  fs.writeFileSync(path.join(dataHome, '.claude.json'), JSON.stringify({
+    mcpServers: { db: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] } },
+  }));
+  fs.writeFileSync(path.join(dataHome, '.claude', 'settings.json'), JSON.stringify({
+    permissions: { defaultMode: 'bypassPermissions' },
+  }));
+  const dataBypass = await cli.performScan({ home: dataHome, cwd: dataHome, platform: 'darwin', only: ['claude-code'] });
+  ok('Claude Code bypassPermissions plus a database is critical and the database is emitted', !dataBypass.failed && severitiesOf(dataBypass).has('critical') && citesScanData(dataBypass));
+
+  const codexDataHome = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-codex-data-'));
+  fs.mkdirSync(path.join(codexDataHome, '.codex'), { recursive: true });
+  fs.writeFileSync(path.join(codexDataHome, '.codex', 'config.toml'), [
+    'approval_policy = "never"',
+    '',
+    '[mcp_servers.db]',
+    'command = "npx"',
+    'args = ["-y", "@modelcontextprotocol/server-postgres"]',
+    '',
+  ].join('\n'));
+  const codexData = await cli.performScan({ home: codexDataHome, cwd: codexDataHome, platform: 'darwin', only: ['codex'] });
+  ok('Codex approval_policy never plus a database is critical and the database is emitted', !codexData.failed && severitiesOf(codexData).has('critical') && citesScanData(codexData));
+
+  const cursorDataHome = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-cursor-data-'));
+  fs.mkdirSync(path.join(cursorDataHome, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(cursorDataHome, '.cursor', 'mcp.json'), JSON.stringify({
+    mcpServers: { notes: { url: 'https://mcp.notion.com/mcp' } },
+  }));
+  fs.writeFileSync(path.join(cursorDataHome, '.cursor', 'cli-config.json'), JSON.stringify({
+    version: 1, approvalMode: 'unrestricted',
+  }));
+  const cursorData = await cli.performScan({ home: cursorDataHome, cwd: cursorDataHome, platform: 'darwin', only: ['cursor'] });
+  ok('Cursor unrestricted plus Notion is critical and the read is emitted', !cursorData.failed && severitiesOf(cursorData).has('critical') && citesScanData(cursorData));
+
   fs.rmSync(home, { recursive: true, force: true });
   fs.rmSync(codeHome, { recursive: true, force: true });
   fs.rmSync(codexHome, { recursive: true, force: true });
   fs.rmSync(cursorHome, { recursive: true, force: true });
+  fs.rmSync(dataHome, { recursive: true, force: true });
+  fs.rmSync(codexDataHome, { recursive: true, force: true });
+  fs.rmSync(cursorDataHome, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 })().catch(error => {

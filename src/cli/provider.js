@@ -8,6 +8,7 @@
 'use strict';
 const models = require('../engine/models');
 const overlay = require('./overlay');
+const { REMOTE_WRITE_ROLES } = require('./mcpCatalog');
 
 const CAP_TO_CATEGORY = Object.freeze({
   filesystem_access: 'read_files',
@@ -97,6 +98,10 @@ function accessLevelFor(capability, inference) {
   if (capability === 'sensitive_read') return 'data';
   if (role === 'data' || role === 'data-local') return 'data';
   if (role === 'payment') return 'payment';
+  if (capability === 'source_write') {
+    if (REMOTE_WRITE_ROLES.has(role)) return 'remote';
+    if (role === 'source-local') return 'local';
+  }
   return 'broad';
 }
 

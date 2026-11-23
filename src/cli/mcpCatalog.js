@@ -35,6 +35,12 @@ const ROLE_CAPABILITIES = Object.freeze({
 /** Roles whose network connection is the read path, not an outbound exfil leg. */
 const DATA_SOURCE_ROLES = new Set(['data', 'data-local', 'saas', 'saas-message', 'email', 'issues', 'source']);
 
+/**
+ * Remote repository roles. source_write here can receive local files
+ * (GitHub package, image, or host). source-local stays on this machine.
+ */
+const REMOTE_WRITE_ROLES = new Set(['source']);
+
 const MESSAGE_NAME = /(?:^|[^a-z0-9])(?:slack|sendgrid|mailgun|gmail|resend)(?:[^a-z0-9]|$)/;
 const ISSUE_NAME = /(?:^|[^a-z0-9])(?:jira|linear)(?:[^a-z0-9]|$)/;
 const EMAIL_NAME = /(?:^|[^a-z0-9])(?:gmail|imap)(?:[^a-z0-9]|$)/;
@@ -150,5 +156,5 @@ function matchHost(host) {
 }
 
 module.exports = {
-  CATALOG, ROLE_CAPABILITIES, DATA_SOURCE_ROLES, capabilitiesForRole, derivedKeys, matchIdentity, matchHost,
+  CATALOG, ROLE_CAPABILITIES, DATA_SOURCE_ROLES, REMOTE_WRITE_ROLES, capabilitiesForRole, derivedKeys, matchIdentity, matchHost,
 };
