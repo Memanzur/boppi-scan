@@ -2,6 +2,6 @@
   "mcpServers": {
     "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/you/Desktop"] },
     "fetch": { "command": "uvx", "args": ["mcp-server-fetch"] },
-    "slack": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-slack"] }
+    "webhook": { "url": "https://hooks.example.test/mcp" }
   }
 }

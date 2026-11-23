@@ -19,14 +19,44 @@ const ROLE_CAPABILITIES = Object.freeze({
   search: ['network_access', 'untrusted_external_content'],
   code: ['code_execution'],
   credential: ['credential_access'],
-  data: ['network_access'],
-  'data-local': ['filesystem_access'],
-  saas: ['network_access'],
+  data: ['sensitive_read'],
+  'data-local': ['sensitive_read'],
+  saas: ['sensitive_read'],
+  'saas-message': ['sensitive_read', 'messaging_send'],
+  email: ['sensitive_read', 'messaging_send', 'untrusted_external_content'],
+  issues: ['sensitive_read', 'untrusted_external_content'],
   payment: ['network_access', 'production_access'],
-  source: ['network_access', 'source_write'],
+  source: ['sensitive_read', 'source_write'],
   'source-local': ['source_write'],
   memory: [],
+  reference: [],
 });
+
+/** Roles whose network connection is the read path, not an outbound exfil leg. */
+const DATA_SOURCE_ROLES = new Set(['data', 'data-local', 'saas', 'saas-message', 'email', 'issues', 'source']);
+
+/**
+ * Remote repository roles. source_write here can receive local files
+ * (GitHub package, image, or host). source-local stays on this machine.
+ */
+const REMOTE_WRITE_ROLES = new Set(['source']);
+
+const MESSAGE_NAME = /(?:^|[^a-z0-9])(?:slack|sendgrid|mailgun|gmail|resend)(?:[^a-z0-9]|$)/;
+const ISSUE_NAME = /(?:^|[^a-z0-9])(?:jira|linear)(?:[^a-z0-9]|$)/;
+const EMAIL_NAME = /(?:^|[^a-z0-9])(?:gmail|imap)(?:[^a-z0-9]|$)/;
+
+function entryBlob(entry) {
+  return [entry.id, ...(entry.commands || []), ...(entry.packages || []), ...(entry.images || [])].join(' ').toLowerCase();
+}
+
+function capabilitiesForEntry(entry) {
+  const caps = capabilitiesForRole(entry.role);
+  const blob = entryBlob(entry);
+  const add = capability => { if (!caps.includes(capability)) caps.push(capability); };
+  if (MESSAGE_NAME.test(blob) || EMAIL_NAME.test(blob)) add('messaging_send');
+  if (ISSUE_NAME.test(blob) || EMAIL_NAME.test(blob)) add('untrusted_external_content');
+  return caps;
+}
 
 const AFFIX_PREFIXES = ['mcp-server-', 'server-', 'mcp-'];
 const AFFIX_SUFFIXES = ['-mcp-server', '-server', '-mcp'];
@@ -115,16 +145,16 @@ function bestKey(keys) {
 function matchIdentity(token) {
   const hit = bestKey(derivedKeys(token));
   if (!hit) return null;
-  return { entry: hit.entry, key: hit.key, capabilities: capabilitiesForRole(hit.entry.role), role: hit.entry.role };
+  return { entry: hit.entry, key: hit.key, capabilities: capabilitiesForEntry(hit.entry), role: hit.entry.role };
 }
 
 function matchHost(host) {
   if (!host) return null;
   const entry = byHost.get(String(host).toLowerCase());
   if (!entry) return null;
-  return { entry, key: host, capabilities: capabilitiesForRole(entry.role), role: entry.role };
+  return { entry, key: host, capabilities: capabilitiesForEntry(entry), role: entry.role };
 }
 
 module.exports = {
-  CATALOG, ROLE_CAPABILITIES, capabilitiesForRole, derivedKeys, matchIdentity, matchHost,
+  CATALOG, ROLE_CAPABILITIES, DATA_SOURCE_ROLES, REMOTE_WRITE_ROLES, capabilitiesForRole, derivedKeys, matchIdentity, matchHost,
 };

@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { matchIdentity, matchHost } = require('./mcpCatalog');
+const { matchIdentity, matchHost, DATA_SOURCE_ROLES } = require('./mcpCatalog');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -69,7 +69,7 @@ const TOOL_ALLOWLIST = Object.freeze([
   { label: 'declared shell tool', capabilities: ['shell_access'], names: ['run_bash', 'bash', 'execute_command', 'run_command', 'run_shell', 'shell_exec'] },
   { label: 'declared file tool', capabilities: ['filesystem_access'], names: ['read_file', 'read_text_file', 'write_file', 'list_directory', 'list_dir', 'list_files'] },
   { label: 'declared credential tool', capabilities: ['credential_access'], names: ['read_aws_credentials', 'get_secret', 'read_secret', 'read_secrets'] },
-  { label: 'declared slack tool', capabilities: ['network_access'], names: ['post_slack_message', 'send_slack_message', 'slack_post_message'] },
+  { label: 'declared slack tool', capabilities: ['messaging_send'], names: ['post_slack_message', 'send_slack_message', 'slack_post_message'] },
   { label: 'declared browser tool', capabilities: ['browser_automation', 'untrusted_external_content', 'network_access'], names: ['browser_navigate', 'browser_click', 'playwright_navigate'] },
 ]);
 
@@ -91,7 +91,7 @@ const SUBSTRING_RULES = Object.freeze([
   { pattern: compile(['terminal', 'desktop[-_]?commander', 'applescript', 'osascript', 'command[-_]?runner', 'cli[-_]?mcp'], 'word'), capabilities: ['shell_access'], label: 'shell or command server' },
   { pattern: compile(['sandbox', 'repl'], 'token'), capabilities: ['code_execution'], label: 'code execution server' },
   { pattern: compile(['e2b', 'code[-_]?interpreter', 'run[-_]?python', 'riza', 'jupyter'], 'word'), capabilities: ['code_execution'], label: 'code execution server' },
-  { pattern: compile(['github', 'gitlab', 'bitbucket', 'slack', 'discord', 'notion', 'linear', 'jira', 'asana', 'gmail', 'google[-_]?(?:drive|calendar|maps|sheets|workspace)', 'gdrive', 'supabase', 'stripe', 'sentry', 'cloudflare', 'azure', 'vercel', 'netlify', 'heroku', 'postgres', 'mysql', 'mongodb', 'redis', 'snowflake', 'salesforce', 'hubspot', 'airtable', 'zapier'], 'word'), capabilities: ['network_access'], label: 'external service connector' },
+  { pattern: compile(['github', 'bitbucket', 'slack', 'discord', 'notion', 'linear', 'jira', 'asana', 'gmail', 'google[-_]?(?:drive|calendar|maps|sheets|workspace)', 'gdrive', 'supabase', 'stripe', 'sentry', 'cloudflare', 'azure', 'vercel', 'netlify', 'heroku', 'postgres', 'mysql', 'mongodb', 'redis', 'snowflake', 'salesforce', 'hubspot', 'airtable', 'zapier'], 'word'), capabilities: ['network_access'], label: 'external service connector' },
   { pattern: compile(['aws', 'gcp'], 'token'), capabilities: ['network_access'], label: 'external service connector' },
   { pattern: compile(['vault'], 'token'), capabilities: ['credential_access'], label: 'credential manager server' },
   { pattern: compile(['1password', 'keychain', 'bitwarden', 'secrets?[-_]?manager'], 'word'), capabilities: ['credential_access'], label: 'credential manager server' },
@@ -106,6 +106,18 @@ for (const rule of ALLOWLIST) {
 const TOOL_INDEX = new Map();
 for (const rule of TOOL_ALLOWLIST) {
   for (const name of rule.names) TOOL_INDEX.set(name.toLowerCase(), rule);
+}
+
+/** reply_to_thread, post_message, replyToThread, and the same shape of name. */
+const MESSAGE_TOOL = { label: 'declared reply or post tool', capabilities: ['messaging_send'] };
+
+function messageTool(toolName) {
+  const parts = String(toolName || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return parts.some(part => part === 'reply' || part === 'post');
 }
 
 function expandHome(value, home) {
@@ -156,6 +168,22 @@ function pathScope(arg, home) {
   if (arg === '/' || arg === '\\' || /^[A-Za-z]:\\?$/.test(arg) || expanded === path.resolve('/')) return 'root';
   if (arg === '~' || arg === '~/' || expanded === homeResolved) return 'home';
   return 'scoped';
+}
+
+function toolNameList(spec) {
+  if (!Array.isArray(spec.tools)) return [];
+  return spec.tools.map(toolNameOf).filter(Boolean);
+}
+
+/** A declared tool list with no send/write name, or an explicit read-only flag, is not a send. */
+function readOnlyScope(spec) {
+  const url = typeof spec.url === 'string' ? spec.url : '';
+  if (/[?&](?:read_only|readonly)=(?:true|1)\b/i.test(url)) return true;
+  const args = Array.isArray(spec.args) ? spec.args : [];
+  if (args.some(arg => /^--read-?only(?:=true|=1)?$/i.test(arg))) return true;
+  const names = toolNameList(spec);
+  if (!names.length) return false;
+  return !names.some(toolName => messageTool(toolName) || /send|post|write|create|update|delete|upload|publish|modify|reply/i.test(toolName));
 }
 
 function remoteHost(server) {
@@ -210,7 +238,7 @@ function inferCapabilities(name, server, options = {}) {
   }
   const toolsByRule = new Map();
   for (const toolName of toolNames) {
-    const rule = TOOL_INDEX.get(toolName.toLowerCase());
+    const rule = TOOL_INDEX.get(toolName.toLowerCase()) || (messageTool(toolName) ? MESSAGE_TOOL : null);
     if (!rule) continue;
     if (!toolsByRule.has(rule)) toolsByRule.set(rule, []);
     toolsByRule.get(rule).push(toolName);
@@ -248,17 +276,35 @@ function inferCapabilities(name, server, options = {}) {
     roles.filesystem_access = filesystemScope === 'root' || filesystemScope === 'home' ? 'files-broad' : 'files-scoped';
   }
 
+  if (Number(spec.autoApproveCount) > 0) {
+    grant(['approval_bypass'], 'observed', 'autoApprove list', 'autoApprove');
+  }
+
   const host = remoteHost(spec);
   if (host) {
     const catalogHost = matchHost(host);
     if (catalogHost) grantCatalog(catalogHost, host);
-    if (!grades.network_access) grant(['network_access'], 'observed', 'remote MCP server', host);
+    const readsData = Object.values(roles).some(role => DATA_SOURCE_ROLES.has(role));
+    if (!grades.network_access && !readsData) grant(['network_access'], 'observed', 'remote MCP server', host);
+  }
+
+  if (readOnlyScope(spec) && grades.messaging_send !== 'observed') {
+    capabilities.delete('messaging_send');
+    delete grades.messaging_send;
+    delete roles.messaging_send;
+  }
+  if (readOnlyScope(spec) && grades.source_write !== 'observed') {
+    capabilities.delete('source_write');
+    delete grades.source_write;
+    delete roles.source_write;
   }
 
   const haystack = [name, spec.command || '', ...args, spec.url || spec.endpoint || ''].join(' ');
+  const readsData = Object.values(roles).some(role => DATA_SOURCE_ROLES.has(role));
   for (const rule of SUBSTRING_RULES) {
     const match = haystack.match(rule.pattern);
     if (!match) continue;
+    if (readsData && rule.capabilities.length === 1 && rule.capabilities[0] === 'network_access') continue;
     const missing = rule.capabilities.filter(capability => !grades[capability]);
     if (!missing.length) continue;
     grant(missing, 'substring', rule.label, (match[0] || '').trim() || match[0]);
