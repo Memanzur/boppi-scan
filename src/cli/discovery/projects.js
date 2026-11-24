@@ -49,7 +49,10 @@ function walkProjectConfigs(home) {
     considerFile(path.join(dir, '.cursor', 'mcp.json'), 'cursor');
     if (depth >= MAX_DEPTH) return;
     let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (error) {
+      if (error.code === 'EACCES' || error.code === 'EPERM' || error.code === 'ELOOP') found.push({ path: dir, kind: 'blocked' });
+      return;
+    }
     for (const entry of entries) {
       if (visits >= MAX_DIRS || found.length >= MAX_FILES) return;
       if (!entry.isDirectory() || entry.isSymbolicLink()) continue;

@@ -379,15 +379,29 @@ function discover(options) {
         path: resolved, scope: file.scope, status: 'not_found', serverCount: 0,
         extract: file.extract, parse: file.parse, format: file.format || 'json',
       };
-      if (fs.existsSync(resolved)) {
-        let stat;
-        try { stat = fs.statSync(resolved); } catch (error) {
+      let listed;
+      try { listed = fs.lstatSync(resolved); } catch (error) {
+        if (error.code !== 'ENOENT') {
           entry.status = 'unreadable';
-          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : 'unreadable';
+          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : error.code === 'ELOOP' ? 'symlink loop' : 'unreadable';
           filesRead.add(resolved);
+        }
+        client.files.push(entry);
+        continue;
+      }
+      let stat = listed;
+      if (listed.isSymbolicLink()) {
+        try { stat = fs.statSync(resolved); } catch (error) {
+          if (error.code !== 'ENOENT') {
+            entry.status = 'unreadable';
+            entry.reason = error.code === 'ELOOP' ? 'symlink loop' : error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : 'unreadable';
+            filesRead.add(resolved);
+          }
           client.files.push(entry);
           continue;
         }
+      }
+      {
         if (stat.isDirectory()) {
           entry.status = 'unreadable';
           entry.reason = 'this is a directory, not a config file';
@@ -545,7 +559,7 @@ async function performScan(options) {
     inventory = result.inventory;
   }
   const incomplete = discovery.clients
-    .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable'))
+    .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable' || file.status === 'skipped'))
     .map(c => c.label);
 
   const graph = securityGraph.buildGraph(inventory);

@@ -128,6 +128,93 @@ function runCli(args, home, cwd, extraEnv = {}) {
 
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(brokenRoot, { recursive: true, force: true });
+
+  section('hidden configs are incomplete and do not run the command');
+  function freshHome() {
+    const caseRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-guard-hide-'));
+    const caseHome = path.join(caseRoot, 'home');
+    const caseCwd = path.join(caseRoot, 'project');
+    const configDir = path.join(caseHome, 'Library', 'Application Support', 'Claude');
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.mkdirSync(caseCwd, { recursive: true });
+    const config = path.join(configDir, 'claude_desktop_config.json');
+    const denyFile = path.join(caseCwd, 'deny.json');
+    fs.writeFileSync(denyFile, JSON.stringify({ denyServers: ['filesystem'] }));
+    const caseMarker = path.join(caseRoot, 'ran.txt');
+    return { caseRoot, caseHome, caseCwd, configDir, config, denyFile, caseMarker };
+  }
+  const filesystemConfig = (dir) => JSON.stringify({
+    mcpServers: { filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', dir] } },
+  });
+  function hidden(args, home, dir, marker) {
+    return runCli(args, home, dir, { BOPPI_GUARD_MARKER: marker });
+  }
+  function refused(result, marker) {
+    return result.status === 4 && /Scan incomplete:/.test(result.stderr) && !fs.existsSync(marker) && !result.stdout.includes('POLICY  passed') && !result.stdout.includes('Would run:');
+  }
+  function modeBlocks(target) {
+    try {
+      fs.readdirSync(target);
+      return false;
+    } catch (error) {
+      return error.code === 'EACCES' || error.code === 'EPERM';
+    }
+  }
+
+  const deniedDir = freshHome();
+  fs.writeFileSync(deniedDir.config, filesystemConfig(deniedDir.caseHome));
+  fs.mkdirSync(path.join(deniedDir.caseHome, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(deniedDir.caseHome, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: {} }));
+  fs.chmodSync(deniedDir.configDir, 0o000);
+  const dirBlocked = modeBlocks(deniedDir.configDir);
+  const dirGuard = hidden(['guard', '--policy', deniedDir.denyFile, '--', ...wrapped], deniedDir.caseHome, deniedDir.caseCwd, deniedDir.caseMarker);
+  const dirDry = hidden(['guard', '--dry-run', '--policy', deniedDir.denyFile, '--', ...wrapped], deniedDir.caseHome, deniedDir.caseCwd, deniedDir.caseMarker);
+  const dirScan = hidden(['scan', '--policy', deniedDir.denyFile, '--quiet'], deniedDir.caseHome, deniedDir.caseCwd, deniedDir.caseMarker);
+  ok('a permission denied config directory exits 4 and does not run the command', !dirBlocked || (refused(dirGuard, deniedDir.caseMarker) && refused(dirDry, deniedDir.caseMarker) && dirScan.status === 4));
+  fs.chmodSync(deniedDir.configDir, 0o755);
+  fs.rmSync(deniedDir.caseRoot, { recursive: true, force: true });
+
+  const selfLink = freshHome();
+  let selfLinked = true;
+  try { fs.symlinkSync(path.basename(selfLink.config), selfLink.config); } catch (_) { selfLinked = false; }
+  const selfGuard = selfLinked ? hidden(['guard', '--policy', selfLink.denyFile, '--', ...wrapped], selfLink.caseHome, selfLink.caseCwd, selfLink.caseMarker) : null;
+  const selfDry = selfLinked ? hidden(['guard', '--dry-run', '--policy', selfLink.denyFile, '--', ...wrapped], selfLink.caseHome, selfLink.caseCwd, selfLink.caseMarker) : null;
+  ok('a config symlink that points at itself exits 4 and does not run the command', !selfLinked || (refused(selfGuard, selfLink.caseMarker) && refused(selfDry, selfLink.caseMarker)));
+  fs.rmSync(selfLink.caseRoot, { recursive: true, force: true });
+
+  const pair = freshHome();
+  const other = path.join(pair.configDir, 'other.json');
+  let paired = true;
+  try {
+    fs.symlinkSync('other.json', pair.config);
+    fs.symlinkSync(path.basename(pair.config), other);
+  } catch (_) { paired = false; }
+  const pairGuard = paired ? hidden(['guard', '--policy', pair.denyFile, '--', ...wrapped], pair.caseHome, pair.caseCwd, pair.caseMarker) : null;
+  const pairScan = paired ? hidden(['scan', '--policy', pair.denyFile, '--quiet'], pair.caseHome, pair.caseCwd, pair.caseMarker) : null;
+  ok('two config names that point at each other exit 4 and do not run the command', !paired || (refused(pairGuard, pair.caseMarker) && pairScan.status === 4));
+  fs.rmSync(pair.caseRoot, { recursive: true, force: true });
+
+  const huge = freshHome();
+  fs.writeFileSync(huge.config, filesystemConfig(huge.caseHome) + ' '.repeat(2_000_001));
+  const hugeGuard = hidden(['guard', '--policy', huge.denyFile, '--', ...wrapped], huge.caseHome, huge.caseCwd, huge.caseMarker);
+  const hugeDry = hidden(['guard', '--dry-run', '--policy', huge.denyFile, '--', ...wrapped], huge.caseHome, huge.caseCwd, huge.caseMarker);
+  const hugeScan = hidden(['scan', '--policy', huge.denyFile, '--quiet'], huge.caseHome, huge.caseCwd, huge.caseMarker);
+  ok('a config larger than 2MB exits 4 and does not run the command', refused(hugeGuard, huge.caseMarker) && refused(hugeDry, huge.caseMarker) && hugeScan.status === 4);
+  fs.rmSync(huge.caseRoot, { recursive: true, force: true });
+
+  const project = freshHome();
+  fs.writeFileSync(project.config, JSON.stringify({ mcpServers: {} }));
+  const secret = path.join(project.caseHome, 'Projects', 'secret');
+  fs.mkdirSync(path.join(secret, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(secret, '.cursor', 'mcp.json'), filesystemConfig(project.caseHome));
+  fs.chmodSync(secret, 0o000);
+  const projectBlocked = modeBlocks(secret);
+  const projectGuard = hidden(['guard', '--policy', project.denyFile, '--', ...wrapped], project.caseHome, project.caseCwd, project.caseMarker);
+  const projectDry = hidden(['guard', '--dry-run', '--policy', project.denyFile, '--', ...wrapped], project.caseHome, project.caseCwd, project.caseMarker);
+  const projectScan = hidden(['scan', '--policy', project.denyFile, '--quiet'], project.caseHome, project.caseCwd, project.caseMarker);
+  ok('an unreadable project directory exits 4 and does not run the command', !projectBlocked || (refused(projectGuard, project.caseMarker) && refused(projectDry, project.caseMarker) && projectScan.status === 4));
+  fs.chmodSync(secret, 0o755);
+  fs.rmSync(project.caseRoot, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 })();
