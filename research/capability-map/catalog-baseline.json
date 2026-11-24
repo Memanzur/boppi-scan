@@ -226,18 +226,6 @@
       }
     },
     {
-      "name": "@zereight/mcp-gitlab",
-      "version": "2.1.67",
-      "categories": {
-        "call_external_api": [
-          {
-            "label": "external service connector",
-            "matched": "gitlab"
-          }
-        ]
-      }
-    },
-    {
       "name": "clerk",
       "version": "3.4.0",
       "categories": {}

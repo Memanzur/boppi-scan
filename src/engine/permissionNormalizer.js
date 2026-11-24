@@ -5,10 +5,15 @@
   if (root) root.BoppiPermissionNormalizer = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const CATEGORIES = Object.freeze(['read_files','write_files','delete_files','read_email','send_email','read_calendar','modify_calendar','read_source_code','modify_source_code','access_customer_data','access_financial_data','access_health_data','access_hr_data','execute_code','run_shell_commands','browse_internet','call_external_api','send_external_message','create_or_modify_records','make_purchase','access_credentials','access_environment_variables','browser_automation','access_production_system','untrusted_external_content','unknown']);
+  const CATEGORIES = Object.freeze(['read_files','write_files','delete_files','read_email','send_email','read_calendar','modify_calendar','read_source_code','modify_source_code','access_customer_data','access_financial_data','access_health_data','access_hr_data','execute_code','run_shell_commands','browse_internet','call_external_api','send_external_message','create_or_modify_records','make_purchase','access_credentials','access_environment_variables','browser_automation','access_production_system','untrusted_external_content','approval_bypass','unknown']);
   const RULES = [
+    ['untrusted_external_content', /^untrusted_external_content$/i, 'The catalog marks this server as untrusted content.'],
+    ['browser_automation', /^browser_automation$/i, 'The catalog marks this server as browser automation.'],
     ['modify_source_code', /^source_write$/i, 'The catalog marks this server as able to write source.'],
     ['access_production_system', /^production_access$/i, 'The catalog marks this server as a production or payments system.'],
+    ['access_customer_data', /^sensitive_read$/i, 'The catalog marks this server as a read of sensitive data.'],
+    ['send_external_message', /^messaging_send$/i, 'The catalog marks this server as able to send a message.'],
+    ['approval_bypass', /^approval_bypass$/i, 'The config auto-approves tool calls or turns prompting off.'],
     ['write_files', /drive\.file|file.*write|write.*file|filesystem.*write/i, 'The permission indicates file creation or modification.'],
     ['delete_files', /delete.*file|file.*delete|drive.*delete/i, 'The permission indicates file deletion.'],
     ['read_files', /drive|file|document|onedrive|sharepoint|filesystem|downloads|documents/i, 'The permission names a file or document store.'],

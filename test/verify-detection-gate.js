@@ -51,7 +51,7 @@ const custom = inferCapabilities('custom-tools', tools['custom-tools'], { home }
 ok('research-notes does not gain network access', !research.capabilities.includes('network_access') && !research.capabilities.includes('untrusted_external_content'));
 ok('sandbox-helper does not gain code execution', !sandbox.capabilities.includes('code_execution'));
 ok('obsidian-vault directory is files and not credentials', vaultDir.capabilities.includes('filesystem_access') && !vaultDir.capabilities.includes('credential_access') && vaultDir.capabilityGrades.filesystem_access === 'observed');
-ok('declared tool objects are observed capabilities', custom.capabilityGrades.shell_access === 'observed' && custom.capabilityGrades.credential_access === 'observed' && custom.capabilityGrades.network_access === 'observed');
+ok('declared tool objects are observed capabilities', custom.capabilityGrades.shell_access === 'observed' && custom.capabilityGrades.credential_access === 'observed' && custom.capabilityGrades.messaging_send === 'observed');
 const brave = inferCapabilities('brave', { command: 'npx', args: ['-y', '@brave/brave-search-mcp-server@latest'] }, { home });
 ok('versioned Brave Search package is network and untrusted content', brave.capabilities.includes('network_access') && brave.capabilities.includes('untrusted_external_content') && brave.capabilityGrades.network_access === 'allowlist');
 const onepassword = inferCapabilities('secrets', { command: 'npx', args: ['-y', '1password-mcp@1.2.3'] }, { home });

@@ -1,0 +1,2046 @@
+{
+  "version": 2,
+  "sealed": true,
+  "labeledOn": "2026-11-24",
+  "rubric": "test/heldout-v2/RUBRIC.md",
+  "description": "Fresh sealed homes for the detection engine. Labels come from RUBRIC.md. The harness prints aggregates only.",
+  "cases": [
+    {
+      "id": "h2-001-empty",
+      "family": "empty-home",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "No config files. Clause N1: nothing to grade.",
+      "traits": [
+        "benign"
+      ],
+      "files": {}
+    },
+    {
+      "id": "h2-002-cursor-memory",
+      "family": "memory-npx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/memory/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Cursor memory package only. Memory grants nothing (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-003-desktop-time",
+      "family": "time-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/time/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Claude Desktop time server via uvx. Time grants nothing (N1).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"clock\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-004-cursor-thinking-memory",
+      "family": "sequential-thinking",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Sequential thinking plus memory. Both are memory-role servers (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"thinking\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-sequential-thinking\"\n      ]\n    },\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-005-desktop-everything",
+      "family": "everything-reference",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "The reference everything server grants nothing (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"protocol-demo\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-everything@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-006-cursor-git",
+      "family": "git-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/git/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Local git server only. It is not a remote destination (N3).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"git\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-git\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-007-vscode-brave",
+      "family": "brave-search",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Brave Search alone is network and untrusted content. No severity clause applies (N2).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"brave\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@brave/brave-search-mcp-server@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-008-windsurf-fetch",
+      "family": "fetch-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Fetch alone is network and untrusted content (N2).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"pages\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch==0.6.2\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-009-cursor-loopback",
+      "family": "loopback-url",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "A loopback MCP URL is not network access, and the server is not a catalog hit (N2).",
+      "traits": [
+        "benign",
+        "remote-url"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"local\": {\n      \"url\": \"http://127.0.0.1:3333/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-010-desktop-disabled-pair",
+      "family": "disabled-servers",
+      "source": "https://code.claude.com/docs/en/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell and fetch are both disabled, so neither server exists (N5).",
+      "traits": [
+        "benign",
+        "disabled",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"mcp-server-shell\"\n      ],\n      \"disabled\": true\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ],\n      \"disabled\": true\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-011-cursor-lookalikes",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "research-notes and sandbox-helper are documented lookalikes, not catalog hits (N6).",
+      "traits": [
+        "benign",
+        "adversarial"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"research-notes\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"notes.js\"\n      ]\n    },\n    \"sandbox-helper\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"helper.js\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-012-cursor-price-fetch",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "price-fetch is the documented substring example. It stays under the 0.40 bar (N6).",
+      "traits": [
+        "benign",
+        "adversarial",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"prices\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"price-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-013-cursor-stars-cache",
+      "family": "adversarial-names",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "github-stars-cache is a brand lookalike, not the GitHub server (N6).",
+      "traits": [
+        "benign",
+        "adversarial",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"stars\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"github-stars-cache\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-014-cursor-vault-name",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "The server is named obsidian-vault and does not point at a directory. The name is not credential access (N6).",
+      "traits": [
+        "benign",
+        "adversarial"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"obsidian-vault\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"vault.js\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-015-claude-bypass-memory",
+      "family": "approval-bypass",
+      "source": "https://code.claude.com/docs/en/settings",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "bypassPermissions with only a memory server. The bypass is hygiene when there is no shell and no sensitive read (N4).",
+      "traits": [
+        "benign",
+        "approval-bypass",
+        "npx"
+      ],
+      "files": {
+        ".claude/settings.json": "{\n  \"permissions\": {\n    \"defaultMode\": \"bypassPermissions\"\n  }\n}",
+        ".claude.json": "{\n  \"mcpServers\": {\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-016-codex-never-time",
+      "family": "approval-bypass",
+      "source": "https://developers.openai.com/codex/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Codex approval_policy never with only the time server (N4, N1).",
+      "traits": [
+        "benign",
+        "approval-bypass",
+        "uvx"
+      ],
+      "files": {
+        ".codex/config.toml": "approval_policy = \"never\"\n\n[mcp_servers.clock]\ncommand = \"uvx\"\nargs = [\"mcp-server-time\"]\n"
+      }
+    },
+    {
+      "id": "h2-017-cursor-yolo-everything",
+      "family": "approval-bypass",
+      "source": "https://cursor.com/docs/cli/reference/configuration",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Cursor approvalMode unrestricted with only the reference everything server (N4, N1).",
+      "traits": [
+        "benign",
+        "approval-bypass",
+        "npx"
+      ],
+      "files": {
+        ".cursor/cli-config.json": "{\n  \"approvalMode\": \"unrestricted\"\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"sample-server\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-everything@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-018-cline-approve-memory",
+      "family": "approval-bypass",
+      "source": "https://docs.cline.bot/mcp/configuring-mcp-servers",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Cline autoApprove lists a name that is not a shell, file, credential, browser, or send tool, on a memory server (N4).",
+      "traits": [
+        "benign",
+        "approval-bypass",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ],\n      \"autoApprove\": [\n        \"list_memories\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-019-continue-time",
+      "family": "continue-yaml",
+      "source": "https://docs.continue.dev/customize/deep-dives/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Continue config.yaml time server. Time grants nothing (N1).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".continue/config.yaml": "mcpServers:\n  - name: \"clock\"\n    command: \"uvx\"\n    args:\n      - \"mcp-server-time\"\n"
+      }
+    },
+    {
+      "id": "h2-020-gemini-thinking",
+      "family": "gemini-settings",
+      "source": "https://geminicli.com/docs/tools/mcp-server/",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Gemini CLI sequential thinking only (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"thinking\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-sequential-thinking\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-021-lmstudio-memory",
+      "family": "lmstudio-mcp",
+      "source": "https://lmstudio.ai/docs/app/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "LM Studio memory server only (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".lmstudio/mcp.json": "{\n  \"mcpServers\": {\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-022-amazonq-time",
+      "family": "amazonq-mcp",
+      "source": "https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/mcp-ide.html",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Amazon Q time server only (N1).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".aws/amazonq/mcp.json": "{\n  \"mcpServers\": {\n    \"clock\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-023-zed-memory",
+      "family": "zed-context-servers",
+      "source": "https://zed.dev/docs/ai/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Zed context_servers memory entry only (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".config/zed/settings.json": "{\n  \"context_servers\": {\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-024-windsurf-everything",
+      "family": "windsurf-mcp",
+      "source": "https://docs.windsurf.com/windsurf/cascade/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Windsurf everything server only (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"demo-server\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-everything\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-025-vscode-disabled-postgres",
+      "family": "disabled-servers",
+      "source": "https://code.visualstudio.com/docs/copilot/customization/mcp-servers",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "The only VS Code server is disabled postgres (N5).",
+      "traits": [
+        "benign",
+        "disabled",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ],\n      \"disabled\": true\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-026-copilot-everything",
+      "family": "copilot-mcp",
+      "source": "https://code.visualstudio.com/docs/copilot/reference/mcp-configuration",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Copilot mcp-config.json holds the reference everything server (N1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".copilot/mcp-config.json": "{\n  \"mcpServers\": {\n    \"sample-server\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-everything\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-027-junie-time",
+      "family": "junie-mcp",
+      "source": "https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Junie time server only (N1).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".junie/mcp/mcp.json": "{\n  \"mcpServers\": {\n    \"clock\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-028-goose-time-only",
+      "family": "goose-yaml",
+      "source": "https://github.com/block/goose/blob/main/documentation/docs/guides/config-files.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Goose developer extension is disabled. The enabled time server grants nothing (N5, N1).",
+      "traits": [
+        "benign",
+        "disabled",
+        "uvx"
+      ],
+      "files": {
+        ".config/goose/config.yaml": "extensions:\n  developer:\n    enabled: false\n    type: builtin\n    name: \"developer\"\n  clock:\n    enabled: true\n    type: stdio\n    name: \"clock\"\n    cmd: \"uvx\"\n    args:\n      - \"mcp-server-time\"\n"
+      }
+    },
+    {
+      "id": "h2-029-split-memory-time",
+      "family": "multi-client",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Cursor has memory and Claude Desktop has time. Neither client has a graded server (N1, S1).",
+      "traits": [
+        "benign",
+        "multi-client",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ]\n    }\n  }\n}",
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"time\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-030-slack-disabled",
+      "family": "disabled-servers",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Slack is disabled. The enabled server is memory (N5, N1).",
+      "traits": [
+        "benign",
+        "disabled",
+        "npx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ],\n      \"disabled\": true\n    },\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-031-loopback-and-notes",
+      "family": "adversarial-names",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Loopback URL plus research-notes. Neither is a catalog network or file grant (N6).",
+      "traits": [
+        "benign",
+        "adversarial",
+        "remote-url"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"local\": {\n      \"url\": \"http://localhost:4000/mcp\"\n    },\n    \"research-notes\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"notes.js\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-032-empty-maps",
+      "family": "multi-client",
+      "source": "https://code.claude.com/docs/en/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Cursor and Claude Code files exist and declare no servers.",
+      "traits": [
+        "benign",
+        "multi-client"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {}\n}",
+        ".claude.json": "{\n  \"mcpServers\": {}\n}"
+      }
+    },
+    {
+      "id": "h2-033-filesystem-lookalike",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "filesystem-backup-helper does not normalize to the filesystem server (N6).",
+      "traits": [
+        "benign",
+        "adversarial"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem-backup-helper\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"index.js\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-034-slack-lookalike",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "slack-notifier-cache does not normalize to Slack (N6).",
+      "traits": [
+        "benign",
+        "adversarial"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"slack-notifier-cache\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"index.js\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-035-notes-server",
+      "family": "adversarial-names",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "A private node script named notes-server matches no catalog row (N6).",
+      "traits": [
+        "benign",
+        "adversarial"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"notes-server\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"index.js\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-036-codex-time",
+      "family": "codex-toml",
+      "source": "https://developers.openai.com/codex/mcp",
+      "expectedHighest": "none",
+      "expectedCriticalCombos": [],
+      "rationale": "Codex time server with approval left on. Time grants nothing (N1).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".codex/config.toml": "\n[mcp_servers.clock]\ncommand = \"uvx\"\nargs = [\"mcp-server-time\"]\n"
+      }
+    },
+    {
+      "id": "h2-037-files-docs",
+      "family": "filesystem-npx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Filesystem package rooted at a scoped docs directory (M1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-038-project-files",
+      "family": "filesystem-npx",
+      "source": "https://code.claude.com/docs/en/mcp",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Project .mcp.json grants the filesystem server a scoped project directory. Copilot reads that same file, still medium (M1, S1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        "work/repo/.mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{CWD}}/src\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-039-vscode-postgres",
+      "family": "postgres-npx",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/postgres/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Postgres alone in VS Code settings is a sensitive read (M1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/settings.json": "{\n  \"mcp\": {\n    \"servers\": {\n      \"postgres\": {\n        \"command\": \"npx\",\n        \"args\": [\n          \"-y\",\n          \"@modelcontextprotocol/server-postgres\"\n        ]\n      }\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-040-desktop-sqlite",
+      "family": "sqlite-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/sqlite/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Sqlite alone is a local data store (M1).",
+      "traits": [
+        "benign",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"sqlite\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-sqlite\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-041-cursor-notion",
+      "family": "notion-url",
+      "source": "https://developers.notion.com/docs/get-started-with-mcp",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Notion remote host is a SaaS read. The time server grants nothing (M1, N1).",
+      "traits": [
+        "benign",
+        "remote-url",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"notion\": {\n      \"url\": \"https://mcp.notion.com/mcp\"\n    },\n    \"clock\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-042-windsurf-gdrive",
+      "family": "gdrive-npx",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/gdrive/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Google Drive package alone is a SaaS read (M1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"drive\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-gdrive@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-043-gemini-github",
+      "family": "github-npx",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "GitHub package alone stays medium (M1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"repos\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-github@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-044-copilot-github-image",
+      "family": "github-docker",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "GitHub container image alone stays medium (M1).",
+      "traits": [
+        "benign",
+        "docker"
+      ],
+      "files": {
+        ".copilot/mcp-config.json": "{\n  \"mcpServers\": {\n    \"github\": {\n      \"command\": \"docker\",\n      \"args\": [\n        \"run\",\n        \"-i\",\n        \"--rm\",\n        \"ghcr.io/github/github-mcp-server\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-045-desktop-github-host",
+      "family": "github-host",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "api.githubcopilot.com alone stays medium (M1).",
+      "traits": [
+        "benign",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"github\": {\n      \"url\": \"https://api.githubcopilot.com/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-046-cursor-1password",
+      "family": "password-manager",
+      "source": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.CakeRepository/1password",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Password manager package with no outbound leg and no shell (M1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"onepassword\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@takescake/1password-mcp\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-047-slack-read-tools",
+      "family": "slack-read-only",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Slack tool list names only conversations_history, so the send is dropped and the server is a sensitive read (M1).",
+      "traits": [
+        "benign",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ],\n      \"tools\": [\n        \"conversations_history\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-048-slack-readonly-url",
+      "family": "slack-read-only",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Slack host with read_only=true drops the send (M1).",
+      "traits": [
+        "benign",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"slack\": {\n      \"url\": \"https://mcp.slack.com/mcp?read_only=true\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-049-atlassian-host",
+      "family": "atlassian-url",
+      "source": "https://github.com/atlassian/atlassian-mcp-server",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Jira and Confluence host alone stays a medium sensitive read (M1, C3).",
+      "traits": [
+        "benign",
+        "remote-url"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"atlassian\": {\n      \"url\": \"https://mcp.atlassian.com/v1/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-050-linear-host",
+      "family": "linear-url",
+      "source": "https://linear.app/docs/mcp",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Linear host stays medium. The time server grants nothing (M1, N1).",
+      "traits": [
+        "benign",
+        "remote-url",
+        "uvx"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"linear\": {\n      \"url\": \"https://mcp.linear.app/mcp\"\n    },\n    \"clock\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-051-files-and-git",
+      "family": "git-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/git/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Scoped files plus local git. Local git is not a remote destination (M1, C4).",
+      "traits": [
+        "benign",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"git\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-git\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-052-files-loopback",
+      "family": "loopback-url",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Scoped files plus a loopback URL. Loopback is not a destination (M1, C4).",
+      "traits": [
+        "benign",
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"local\": {\n      \"url\": \"http://127.0.0.1:8080/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-053-files-stars-cache",
+      "family": "adversarial-names",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Scoped files plus github-stars-cache. The lookalike is not the GitHub destination (M1, N6, C4).",
+      "traits": [
+        "benign",
+        "adversarial",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"stars\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"github-stars-cache\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-054-postgres-shell-off",
+      "family": "disabled-servers",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/postgres/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell is disabled. Postgres remains a data store with no outbound leg (N5, M1).",
+      "traits": [
+        "benign",
+        "disabled",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ],\n      \"disabled\": true\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-055-notion-and-sqlite",
+      "family": "multi-client",
+      "source": "https://developers.notion.com/docs/get-started-with-mcp",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Claude Desktop has Notion and Cursor has sqlite. Each client is a sensitive read alone (M1, S1).",
+      "traits": [
+        "benign",
+        "multi-client",
+        "remote-url",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"notion\": {\n      \"url\": \"https://mcp.notion.com/mcp\"\n    }\n  }\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"sqlite\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-sqlite\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-056-files-price-fetch",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/README.md",
+      "expectedHighest": "medium",
+      "expectedCriticalCombos": [],
+      "rationale": "Scoped files plus price-fetch. The substring fetch is not an outbound leg (M1, N6).",
+      "traits": [
+        "benign",
+        "adversarial",
+        "npx"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"prices\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"price-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-057-commander",
+      "family": "desktop-commander",
+      "source": "https://github.com/wonderwhy-er/DesktopCommanderMCP/blob/main/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Desktop Commander is shell and files with prompting left on (H1).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"commander\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@wonderwhy-er/desktop-commander\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-058-shell-uvx",
+      "family": "shell-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "uvx mcp-server-shell with no outbound leg and no bypass (H1).",
+      "traits": [
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-059-commands",
+      "family": "commands-npx",
+      "source": "https://registry.modelcontextprotocol.io/v0/servers?search=mcp-server-commands",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Command server package is shell with prompting left on (H1).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"commands\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@agent-infra/mcp-server-commands\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-060-e2b",
+      "family": "e2b-npx",
+      "source": "https://github.com/e2b-dev/mcp-server/blob/main/package.json",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Code interpreter alone, prompting left on, no outbound leg (H1).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"e2b\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"e2b-code-interpreter\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-061-files-home",
+      "family": "filesystem-broad",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Filesystem server rooted at the home directory (H2).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-062-files-root",
+      "family": "filesystem-broad",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Filesystem server rooted at / (H2).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".claude.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"/\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-063-slack-default",
+      "family": "slack-package",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Default Slack package can read and send inside Slack (H3).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-064-slack-host",
+      "family": "slack-host",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Hosted Slack with no tool list is the same vendor read and send. Memory grants nothing (H3, N1).",
+      "traits": [
+        "remote-url",
+        "npx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"url\": \"https://mcp.slack.com/mcp\"\n    },\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-065-gmail-image",
+      "family": "gmail-docker",
+      "source": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/google-gmail",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Gmail image reads and sends inside Gmail (H3).",
+      "traits": [
+        "docker"
+      ],
+      "files": {
+        ".copilot/mcp-config.json": "{\n  \"mcpServers\": {\n    \"gmail\": {\n      \"command\": \"docker\",\n      \"args\": [\n        \"run\",\n        \"-i\",\n        \"--rm\",\n        \"ghcr.io/mcparmory/google-gmail\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-066-goose-developer",
+      "family": "goose-yaml",
+      "source": "https://github.com/block/goose/blob/main/documentation/docs/guides/config-files.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Goose developer extension states shell and file tools, with no outbound leg (H1).",
+      "traits": [],
+      "files": {
+        ".config/goose/config.yaml": "extensions:\n  developer:\n    enabled: true\n    type: builtin\n    name: \"developer\"\n"
+      }
+    },
+    {
+      "id": "h2-067-shell-and-files",
+      "family": "shell-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell plus a scoped directory. The shell can already touch files, and nothing leaves the machine (H1).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-068-shell-and-memory",
+      "family": "shell-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell plus memory. Memory adds no outbound leg (H1).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-069-shell-and-git",
+      "family": "git-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/git/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell plus local git. Local git is not a remote destination (H1, C4).",
+      "traits": [
+        "uvx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"git\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-git\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-070-shell-loopback",
+      "family": "loopback-url",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell plus a loopback URL. Loopback is not an outbound leg (H1).",
+      "traits": [
+        "uvx",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"local\": {\n      \"url\": \"http://127.0.0.1:9090/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-071-shell-price-fetch",
+      "family": "adversarial-names",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell plus price-fetch. The lookalike does not supply network, so the shell stays high (H1, N6).",
+      "traits": [
+        "adversarial",
+        "uvx",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"prices\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"price-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-072-shell-stars-cache",
+      "family": "adversarial-names",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Shell plus github-stars-cache. The lookalike is not GitHub and not network at catalog grade (H1, N6).",
+      "traits": [
+        "adversarial",
+        "uvx",
+        "npx"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"stars\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"github-stars-cache\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-073-split-shell-fetch",
+      "family": "multi-client",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Cursor has a shell and Claude Desktop has fetch. The legs are on different clients, so this is not AE-009 (S1, H1).",
+      "traits": [
+        "multi-client",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}",
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-074-split-shell-browser",
+      "family": "multi-client",
+      "source": "https://code.visualstudio.com/docs/copilot/customization/mcp-servers",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "VS Code has a shell and Windsurf has Playwright. Split across clients (S1, H1).",
+      "traits": [
+        "multi-client",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}",
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"playwright\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@playwright/mcp@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-075-split-e2b-slack",
+      "family": "multi-client",
+      "source": "https://docs.cline.bot/mcp/configuring-mcp-servers",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Cline has the code interpreter and Cursor has default Slack. Each is high alone, and they do not combine (S1, H1, H3).",
+      "traits": [
+        "multi-client",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"e2b\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"e2b-code-interpreter\"\n      ]\n    }\n  }\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-076-home-files-postgres",
+      "family": "filesystem-broad",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Home-rooted files are high. Postgres on the same client is a read, not an outbound leg (H2, M1).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}\"\n      ]\n    },\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-077-yolo-files-shell-off",
+      "family": "approval-bypass",
+      "source": "https://cursor.com/docs/cli/reference/configuration",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "approvalMode is unrestricted, the shell entry is disabled, and files are rooted at home. A bypass does not raise a file grant (N5, H2, N4).",
+      "traits": [
+        "approval-bypass",
+        "disabled",
+        "npx"
+      ],
+      "files": {
+        ".cursor/cli-config.json": "{\n  \"approvalMode\": \"unrestricted\"\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}\"\n      ]\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ],\n      \"disabled\": true\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-078-declared-bash",
+      "family": "declared-tools",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Declared run_bash on a private node server is observed shell, with prompting left on (H1).",
+      "traits": [
+        "adversarial"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"helper\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"helper.js\"\n      ],\n      \"tools\": [\n        \"run_bash\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-079-slack-and-memory",
+      "family": "slack-package",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Default Slack is high. Memory adds nothing (H3).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    },\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-080-gmail-and-time",
+      "family": "gmail-docker",
+      "source": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/google-gmail",
+      "expectedHighest": "high",
+      "expectedCriticalCombos": [],
+      "rationale": "Gmail package reads and sends inside Gmail. Time adds nothing (H3).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".lmstudio/mcp.json": "{\n  \"mcpServers\": {\n    \"gmail\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"mcparmory-google-gmail\"\n      ]\n    },\n    \"time\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-time\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-081-shell-fetch",
+      "family": "fetch-uvx",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Shell plus fetch on Cursor. Fetch is network and untrusted content (C1).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"mcp-server-shell\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-082-commander-playwright",
+      "family": "playwright-npx",
+      "source": "https://github.com/microsoft/playwright-mcp/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Desktop Commander plus Playwright. Browser is outbound and untrusted (C1).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"commander\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@wonderwhy-er/desktop-commander\"\n      ]\n    },\n    \"playwright\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@playwright/mcp@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-083-shell-slack",
+      "family": "slack-package",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Shell plus default Slack. Messaging send is an outbound leg (C1).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-084-commands-jira",
+      "family": "atlassian-url",
+      "source": "https://github.com/atlassian/atlassian-mcp-server",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Command server plus the Atlassian host. Jira is untrusted content (C1).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"commands\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@agent-infra/mcp-server-commands\"\n      ]\n    },\n    \"atlassian\": {\n      \"url\": \"https://mcp.atlassian.com/v1/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-085-shell-linear",
+      "family": "linear-url",
+      "source": "https://linear.app/docs/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Shell plus the Linear host. Linear is an issue tracker (C1).",
+      "traits": [
+        "uvx",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"linear\": {\n      \"url\": \"https://mcp.linear.app/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-086-e2b-fetch",
+      "family": "e2b-npx",
+      "source": "https://github.com/e2b-dev/mcp-server/blob/main/package.json",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Codex code interpreter plus fetch. Code execution meets untrusted network content (C1).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".codex/config.toml": "\n[mcp_servers.e2b]\ncommand = \"npx\"\nargs = [\"-y\", \"e2b-code-interpreter\"]\n\n[mcp_servers.fetch]\ncommand = \"uvx\"\nargs = [\"mcp-server-fetch\"]\n"
+      }
+    },
+    {
+      "id": "h2-087-shell-brave",
+      "family": "brave-search",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Shell plus Brave Search. Search is network and untrusted content (C1).",
+      "traits": [
+        "uvx",
+        "npx"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"brave\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@brave/brave-search-mcp-server@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-088-cline-approve-shell",
+      "family": "approval-bypass",
+      "source": "https://docs.cline.bot/mcp/configuring-mcp-servers",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Cline autoApprove lists execute_command on the shell package, so prompting is off (C1, S3).",
+      "traits": [
+        "approval-bypass",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"mcp-server-shell\"\n      ],\n      \"autoApprove\": [\n        \"execute_command\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-089-claude-bypass-shell",
+      "family": "approval-bypass",
+      "source": "https://code.claude.com/docs/en/settings",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Claude Code bypassPermissions on the same client as a shell (C1, S3).",
+      "traits": [
+        "approval-bypass",
+        "uvx"
+      ],
+      "files": {
+        ".claude/settings.json": "{\n  \"permissions\": {\n    \"defaultMode\": \"bypassPermissions\"\n  }\n}",
+        ".claude.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-090-codex-never-shell",
+      "family": "approval-bypass",
+      "source": "https://developers.openai.com/codex/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Codex approval_policy never with a shell (C1, S3).",
+      "traits": [
+        "approval-bypass",
+        "uvx"
+      ],
+      "files": {
+        ".codex/config.toml": "approval_policy = \"never\"\n\n[mcp_servers.shell]\ncommand = \"uvx\"\nargs = [\"mcp-server-shell\"]\n"
+      }
+    },
+    {
+      "id": "h2-091-cursor-yolo-commander",
+      "family": "approval-bypass",
+      "source": "https://cursor.com/docs/cli/reference/configuration",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Cursor approvalMode unrestricted with Desktop Commander (C1, S3).",
+      "traits": [
+        "approval-bypass",
+        "npx"
+      ],
+      "files": {
+        ".cursor/cli-config.json": "{\n  \"approvalMode\": \"unrestricted\"\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"commander\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@wonderwhy-er/desktop-commander\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-092-files-github-npx",
+      "family": "github-npx",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus the GitHub npm package (C4).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"github\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-github\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-093-files-github-image",
+      "family": "github-docker",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus the GitHub container image (C4).",
+      "traits": [
+        "npx",
+        "docker"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"github\": {\n      \"command\": \"docker\",\n      \"args\": [\n        \"run\",\n        \"-i\",\n        \"--rm\",\n        \"ghcr.io/github/github-mcp-server\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-094-files-github-host",
+      "family": "github-host",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus api.githubcopilot.com (C4).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"github\": {\n      \"url\": \"https://api.githubcopilot.com/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-095-files-example-host",
+      "family": "remote-url",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus a non-loopback MCP host that is not in the catalog (C4).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"remote\": {\n      \"url\": \"https://mcp.example.com/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-096-files-stripe",
+      "family": "stripe-url",
+      "source": "https://docs.stripe.com/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus the Stripe host. The host is a non-loopback destination (C4).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"stripe\": {\n      \"url\": \"https://mcp.stripe.com/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-097-postgres-fetch",
+      "family": "postgres-npx",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/postgres/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Postgres read plus fetch. Fetch is a separate outbound leg (C2).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-098-sqlite-playwright",
+      "family": "sqlite-uvx",
+      "source": "https://github.com/microsoft/playwright-mcp/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Sqlite read plus Playwright. The browser is a separate outbound leg (C2).",
+      "traits": [
+        "uvx",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"sqlite\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-sqlite\"\n      ]\n    },\n    \"playwright\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@playwright/mcp@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-099-gdrive-shell",
+      "family": "gdrive-npx",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/gdrive/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Drive read plus a shell. The shell is a separate outbound leg (C2).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"gdrive\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-gdrive\"\n      ]\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-100-notion-slack",
+      "family": "notion-url",
+      "source": "https://developers.notion.com/docs/get-started-with-mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Notion read plus Slack send on another server (C2).",
+      "traits": [
+        "remote-url",
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"notion\": {\n      \"url\": \"https://mcp.notion.com/mcp\"\n    },\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-101-postgres-slack",
+      "family": "slack-package",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Postgres read plus Slack send (C2).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    },\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-102-github-shell",
+      "family": "github-npx",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "GitHub read plus a shell. The shell is separate from the GitHub connection (C2).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"github\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-github\"\n      ]\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-103-postgres-jira",
+      "family": "atlassian-url",
+      "source": "https://github.com/atlassian/atlassian-mcp-server",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Postgres plus the Atlassian host on another server (C3).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    },\n    \"atlassian\": {\n      \"url\": \"https://mcp.atlassian.com/v1/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-104-notion-linear",
+      "family": "linear-url",
+      "source": "https://linear.app/docs/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Notion read plus Linear untrusted content on another server (C3).",
+      "traits": [
+        "remote-url"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"notion\": {\n      \"url\": \"https://mcp.notion.com/mcp\"\n    },\n    \"linear\": {\n      \"url\": \"https://mcp.linear.app/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-105-sqlite-bypass",
+      "family": "approval-bypass",
+      "source": "https://code.claude.com/docs/en/settings",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Sqlite plus Claude Code bypassPermissions, with no shell (C3, S3).",
+      "traits": [
+        "approval-bypass",
+        "uvx"
+      ],
+      "files": {
+        ".claude/settings.json": "{\n  \"permissions\": {\n    \"defaultMode\": \"bypassPermissions\"\n  }\n}",
+        ".claude.json": "{\n  \"mcpServers\": {\n    \"sqlite\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-sqlite\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-106-gdrive-never",
+      "family": "approval-bypass",
+      "source": "https://developers.openai.com/codex/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Drive plus Codex approval_policy never, with no shell. Time grants nothing (C3, S3, N1).",
+      "traits": [
+        "approval-bypass",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".codex/config.toml": "approval_policy = \"never\"\n\n[mcp_servers.drive]\ncommand = \"npx\"\nargs = [\"-y\", \"@modelcontextprotocol/server-gdrive\"]\n\n[mcp_servers.clock]\ncommand = \"uvx\"\nargs = [\"mcp-server-time\"]\n"
+      }
+    },
+    {
+      "id": "h2-107-notion-yolo",
+      "family": "approval-bypass",
+      "source": "https://cursor.com/docs/cli/reference/configuration",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Notion plus Cursor approvalMode unrestricted, with no shell. Memory grants nothing (C3, S3, N1).",
+      "traits": [
+        "approval-bypass",
+        "remote-url"
+      ],
+      "files": {
+        ".cursor/cli-config.json": "{\n  \"approvalMode\": \"unrestricted\"\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"notion\": {\n      \"url\": \"https://mcp.notion.com/mcp\"\n    },\n    \"recall\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-108-slack-approve-read",
+      "family": "approval-bypass",
+      "source": "https://docs.cline.bot/mcp/configuring-mcp-servers",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Cline autoApprove names list_channels on Slack, which drops the send and still turns prompting off on a sensitive read (C3, M1, S3).",
+      "traits": [
+        "approval-bypass",
+        "npx"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ],\n      \"autoApprove\": [\n        \"list_channels\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-109-tools-bash-browser",
+      "family": "declared-tools",
+      "source": "https://github.com/microsoft/playwright-mcp/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Declared run_bash and browser_navigate on one private server. Shell meets browser network (C1).",
+      "traits": [
+        "adversarial"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"helper\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"helper.js\"\n      ],\n      \"tools\": [\n        \"run_bash\",\n        \"browser_navigate\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-110-read-file-remote",
+      "family": "remote-url",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Declared read_file plus a non-loopback URL on that server (C4).",
+      "traits": [
+        "remote-url",
+        "adversarial"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"files\": {\n      \"url\": \"https://files.example.com/mcp\",\n      \"tools\": [\n        \"read_file\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-111-creds-shell-fetch",
+      "family": "declared-tools",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "EP-B",
+        "AE-009"
+      ],
+      "rationale": "Declared read_secrets and execute_command, plus fetch. Credential, execution, and network (C5, C1).",
+      "traits": [
+        "uvx",
+        "adversarial"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"helper\": {\n      \"command\": \"node\",\n      \"args\": [\n        \"helper.js\"\n      ],\n      \"tools\": [\n        \"read_secrets\",\n        \"execute_command\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-112-kubernetes",
+      "family": "kubernetes-npx",
+      "source": "https://github.com/containers/kubernetes-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "EP-B"
+      ],
+      "rationale": "kubernetes-mcp-server grants shell, network, and credential together (C5).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"cluster\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"kubernetes-mcp-server@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-113-kubernetes-memory",
+      "family": "kubernetes-npx",
+      "source": "https://github.com/containers/kubernetes-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "EP-B"
+      ],
+      "rationale": "Kubernetes catalog role still holds execution, credential, and network when memory is also configured (C5).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"kubernetes\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"kubernetes-mcp-server@latest\"\n      ]\n    },\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-114-cursor-user-and-project",
+      "family": "cursor-mcp",
+      "source": "https://cursor.com/docs/context/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Shell is in the Cursor user file and fetch is in the Cursor project file. Same client (C1, S2).",
+      "traits": [
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}",
+        "work/repo/.cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-115-cursor-chain-claude-memory",
+      "family": "multi-client",
+      "source": "https://code.claude.com/docs/en/mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Cursor holds shell and fetch. Claude Desktop holds only memory (C1, N1).",
+      "traits": [
+        "multi-client",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"shell\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"mcp-server-shell\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}",
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"memory\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-memory\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-116-docker-commander-fetch",
+      "family": "desktop-commander",
+      "source": "https://github.com/wonderwhy-er/DesktopCommanderMCP/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Desktop Commander image plus uvx fetch (C1).",
+      "traits": [
+        "docker",
+        "uvx"
+      ],
+      "files": {
+        ".copilot/mcp-config.json": "{\n  \"mcpServers\": {\n    \"commander\": {\n      \"command\": \"docker\",\n      \"args\": [\n        \"run\",\n        \"-i\",\n        \"--rm\",\n        \"mcp/desktop-commander\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-117-postgres-version-fetch",
+      "family": "postgres-npx",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/postgres/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Postgres package with an @latest suffix, plus pinned uvx fetch. Normalization keeps both catalog hits (C2).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".junie/mcp/mcp.json": "{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres@latest\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch==0.6.2\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-118-docker-files-github-host",
+      "family": "filesystem-docker",
+      "source": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Docker filesystem image with a scoped mount, plus the GitHub host (C4).",
+      "traits": [
+        "docker",
+        "remote-url"
+      ],
+      "files": {
+        ".aws/amazonq/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"docker\",\n      \"args\": [\n        \"run\",\n        \"-i\",\n        \"--rm\",\n        \"--mount\",\n        \"type=bind,src={{HOME}}/docs,dst=/projects/docs\",\n        \"mcp/filesystem\",\n        \"/projects\"\n      ]\n    },\n    \"github\": {\n      \"url\": \"https://api.githubcopilot.com/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-119-shell-gmail",
+      "family": "gmail-docker",
+      "source": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/google-gmail",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Shell plus the Gmail package. Email is untrusted content and a send leg (C1).",
+      "traits": [
+        "uvx",
+        "npx"
+      ],
+      "files": {
+        ".config/zed/settings.json": "{\n  \"context_servers\": {\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"gmail\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"mcparmory-google-gmail\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-120-e2b-jira",
+      "family": "atlassian-url",
+      "source": "https://github.com/atlassian/atlassian-mcp-server",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Code interpreter plus the Atlassian host (C1).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json": "{\n  \"mcpServers\": {\n    \"e2b\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"e2b-code-interpreter\"\n      ]\n    },\n    \"atlassian\": {\n      \"url\": \"https://mcp.atlassian.com/v1/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-121-postgres-playwright",
+      "family": "playwright-npx",
+      "source": "https://github.com/microsoft/playwright-mcp/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Postgres plus Playwright (C2).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".codeium/windsurf/mcp_config.json": "{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    },\n    \"playwright\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@playwright/mcp@latest\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-122-fetch-disabled-shell-slack",
+      "family": "disabled-servers",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-009"
+      ],
+      "rationale": "Fetch is disabled. Shell and Slack remain, so messaging send still meets the shell (N5, C1).",
+      "traits": [
+        "disabled",
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ],\n      \"disabled\": true\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-123-slack-read-and-shell",
+      "family": "slack-read-only",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-011"
+      ],
+      "rationale": "Slack lists only conversations_history, so the send is dropped, and a shell is the separate outbound leg (M1, C2).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Claude/claude_desktop_config.json": "{\n  \"mcpServers\": {\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ],\n      \"tools\": [\n        \"conversations_history\"\n      ]\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-124-files-github-readonly",
+      "family": "github-npx",
+      "source": "https://github.com/github/github-mcp-server/blob/main/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus the GitHub package started with --readOnly. The flag drops a send, not the GitHub destination (C4).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"github\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-github\",\n        \"--readOnly\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-125-claude-jira-cursor-files",
+      "family": "multi-client",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/postgres/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-014"
+      ],
+      "rationale": "Claude Code has postgres and Jira. Cursor has only scoped files. The critical chain is on Claude Code (C3, S1).",
+      "traits": [
+        "multi-client",
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".claude.json": "{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-postgres\"\n      ]\n    },\n    \"atlassian\": {\n      \"url\": \"https://mcp.atlassian.com/v1/mcp\"\n    }\n  }\n}",
+        ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-126-files-notion-host",
+      "family": "notion-url",
+      "source": "https://developers.notion.com/docs/get-started-with-mcp",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "AE-012"
+      ],
+      "rationale": "Scoped files plus the Notion host. A data-read host is still a destination for local files (C4).",
+      "traits": [
+        "npx",
+        "remote-url"
+      ],
+      "files": {
+        ".gemini/settings.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"notion\": {\n      \"url\": \"https://mcp.notion.com/mcp\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-127-password-shell-fetch",
+      "family": "password-manager",
+      "source": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.CakeRepository/1password",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "EP-B",
+        "AE-009"
+      ],
+      "rationale": "1Password package, shell, and fetch. Credential access meets execution and network (C5, C1).",
+      "traits": [
+        "npx",
+        "uvx"
+      ],
+      "files": {
+        ".config/Code/User/mcp.json": "{\n  \"servers\": {\n    \"onepassword\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@takescake/1password-mcp\"\n      ]\n    },\n    \"shell\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-shell\"\n      ]\n    },\n    \"fetch\": {\n      \"command\": \"uvx\",\n      \"args\": [\n        \"mcp-server-fetch\"\n      ]\n    }\n  }\n}"
+      }
+    },
+    {
+      "id": "h2-128-files-slack-send",
+      "family": "slack-package",
+      "source": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/README.md",
+      "expectedHighest": "critical",
+      "expectedCriticalCombos": [
+        "EP-A"
+      ],
+      "rationale": "Scoped files plus default Slack send. Readable files have a messaging destination (C6).",
+      "traits": [
+        "npx"
+      ],
+      "files": {
+        ".copilot/mcp-config.json": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-filesystem\",\n        \"{{HOME}}/docs\"\n      ]\n    },\n    \"slack\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/server-slack\"\n      ]\n    }\n  }\n}"
+      }
+    }
+  ]
+}

@@ -195,6 +195,17 @@
    */
   function exposureKey(path) { return `${path.templateId}:${path.agentId}`; }
 
+  // One SaaS server that reads and sends inside its own workspace is not a
+  // cross-boundary exfiltration path. Local files, or a second server, are.
+  function sameWorkspaceOnly(groups, nodesById) {
+    const serverIds = (entry) => nodesById.get(entry.nodeId)?.metadata?.serverIds || [];
+    if ((groups.sensitiveData || []).some(entry => nodesById.get(entry.nodeId)?.metadata?.category === 'read_files')) return false;
+    const dataIds = new Set((groups.sensitiveData || []).flatMap(serverIds));
+    const destIds = new Set((groups.externalDestination || []).flatMap(serverIds));
+    if (dataIds.size !== 1 || destIds.size !== 1) return false;
+    return [...dataIds][0] === [...destIds][0];
+  }
+
   function assemblePath(template, agentNode, branches, nodesById, incomingUserEdge) {
     const orderedEdges = [];
     const seenEdges = new Set();
@@ -292,7 +303,12 @@
           branches.push({ name, ...best });
         }
         if (!satisfied) continue;
-        paths.push(assemblePath(template, agentNode, branches, nodesById, userEdgesByAgent.get(agentNode.id) || null));
+        const built = assemblePath(template, agentNode, branches, nodesById, userEdgesByAgent.get(agentNode.id) || null);
+        if (template.id === 'EP-A' && sameWorkspaceOnly(groups, nodesById)) {
+          built.severity = 'high';
+          built.baseSeverity = 'high';
+        }
+        paths.push(built);
       }
     }
     return paths.sort(comparePaths);

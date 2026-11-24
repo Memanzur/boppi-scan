@@ -43,6 +43,7 @@ const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
 const autoFix = require('./autoFix');
+const approvalBypass = require('./approvalBypass');
 
 const VERSION = require('../../package.json').version;
 const catalog = require('./discovery/catalog');
@@ -508,7 +509,10 @@ async function performScan(options) {
         config, configPath: client.primaryPath, observedAt: startedAt,
       });
       client.agentId = scannerResult.agent.id;
-      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer }));
+      const bypassReason = approvalBypass.clientBypassReason({
+        client, claudeSettings, home: options.home, cwd: options.cwd, filesRead: discovery.filesRead,
+      });
+      providers.push(createConfigProvider({ clientKey: client.clientKey, label: client.label, scannerResult, inferenceByServer, overlayByServer, approvalBypass: bypassReason }));
     } catch (error) {
       const hint = /secret material/.test(error.message) ? '. Move that value into an environment variable the server reads and rescan; Boppi never records the value itself' : '';
       client.files.forEach(f => { if (f.status === 'found') { f.status = 'unreadable'; f.reason = `${error.message}${hint}`; } });
@@ -1032,7 +1036,14 @@ async function run(argv) {
     cwd: options.cwd,
     fingerprint: file => portablePath(file, scan.home),
   }), null, 2) + '\n';
-  const htmlText = () => html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients });
+  // Sentences need the raw config (merged server args). The written report
+  // gets the portable discovery view, so absolute paths are not written.
+  // Machine formats send the "written to" line to stderr so stdout stays the report.
+  let htmlView = null;
+  const htmlText = () => {
+    if (!htmlView) htmlView = html.prepareHtml(report, scan.home);
+    return html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients, htmlView });
+  };
 
   if (!machine) {
     process.stdout.write(terminal.renderReport(report, options) + '\n');
@@ -1046,8 +1057,6 @@ async function run(argv) {
     notice.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
-    // HTML is an export artifact, so it receives the portable discovery view;
-    // the terminal may still show the exact files read for local consent.
     fs.writeFileSync(options.html, htmlText());
     notice.write(`\nHTML report written to ${options.html}\n`);
   }
