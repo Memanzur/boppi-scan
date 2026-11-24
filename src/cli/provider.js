@@ -8,6 +8,7 @@
 'use strict';
 const models = require('../engine/models');
 const overlay = require('./overlay');
+const { REMOTE_WRITE_ROLES } = require('./mcpCatalog');
 
 const CAP_TO_CATEGORY = Object.freeze({
   filesystem_access: 'read_files',
@@ -18,10 +19,16 @@ const CAP_TO_CATEGORY = Object.freeze({
   credential_access: 'access_credentials',
   browser_automation: 'browser_automation',
   untrusted_external_content: 'untrusted_external_content',
+  source_write: 'modify_source_code',
+  production_access: 'access_production_system',
+  sensitive_read: 'access_customer_data',
+  messaging_send: 'send_external_message',
+  approval_bypass: 'approval_bypass',
 });
 const RISK_WEIGHT = Object.freeze({
-  shell_access: 3, code_execution: 3, credential_access: 3,
+  shell_access: 3, code_execution: 3, credential_access: 3, approval_bypass: 3,
   filesystem_access: 2, network_access: 2, browser_automation: 2, untrusted_external_content: 2,
+  sensitive_read: 2, messaging_send: 2,
   environment_access: 1,
 });
 const CATEGORY_RISK_WEIGHT = Object.freeze({
@@ -63,15 +70,59 @@ function reasonFor(capability, server, inference) {
   return 'Capability declared in the MCP server configuration.';
 }
 
+const GRADE_CONFIDENCE = Object.freeze({ observed: 0.85, allowlist: 0.8, substring: 0.35 });
+
+function gradeFor(capability, inference) {
+  const grade = inference && inference.capabilityGrades && inference.capabilityGrades[capability];
+  if (grade === 'observed' || grade === 'allowlist' || grade === 'substring') return grade;
+  return null;
+}
+
 function isInferred(capability, server, inference) {
   if (capability === 'environment_access') return false;
   if (plaintextInference(inference, capability)) return false;
   if (capability === 'credential_access' && (server.credentialReferences || []).length) return false;
+  const grade = gradeFor(capability, inference);
+  if (grade === 'observed') return false;
+  if (grade === 'substring' || grade === 'allowlist') return true;
   return !!(inference && inference.inferences.some(entry => entry.capabilities.includes(capability)));
 }
 
-function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}) {
+function accessLevelFor(capability, inference) {
+  const role = inference && inference.capabilityRoles && inference.capabilityRoles[capability];
+  if (capability === 'filesystem_access') {
+    const scope = inference && inference.filesystemScope;
+    if (role === 'files-broad' || scope === 'root' || scope === 'home') return 'broad';
+    return 'scoped';
+  }
+  if (capability === 'sensitive_read') return 'data';
+  if (role === 'data' || role === 'data-local') return 'data';
+  if (role === 'payment') return 'payment';
+  if (capability === 'source_write') {
+    if (REMOTE_WRITE_ROLES.has(role)) return 'remote';
+    if (role === 'source-local') return 'local';
+  }
+  return 'broad';
+}
+
+function bypassPermission(agent, observedAt, reason) {
+  return models.createPermission({
+    agentId: agent.id,
+    rawPermission: `approval bypass (${reason})`,
+    normalizedCategory: 'approval_bypass',
+    accessLevel: 'broad',
+    riskWeight: 3,
+    normalizationConfidence: 0.85,
+    normalizationReason: reason,
+    source: { ...agent.source, evidenceClass: 'observed' },
+    createdAt: observedAt,
+    updatedAt: observedAt,
+  });
+}
+
+function derivePermissions(agent, servers, inferenceByServer, observedAt, overlayByServer = {}, approvalBypass = null) {
   const permissions = [];
+  if (approvalBypass) permissions.push(bypassPermission(agent, observedAt, approvalBypass));
   for (const server of servers) {
     const inference = inferenceByServer[server.name] || null;
     for (const claim of (overlayByServer[server.name] || {}).validated || []) permissions.push(overlayPermission(agent, server, claim, observedAt));
@@ -79,14 +130,15 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
       const normalizedCategory = CAP_TO_CATEGORY[capability];
       if (!normalizedCategory) continue;
       const inferred = isInferred(capability, server, inference);
+      const grade = gradeFor(capability, inference);
       permissions.push(models.createPermission({
         agentId: agent.id,
         integrationId: server.id,
         rawPermission: `${server.name} (${capability})`,
         normalizedCategory,
-        accessLevel: capability === 'filesystem_access' && server.filesystemPathCount > 0 ? 'scoped' : 'broad',
+        accessLevel: accessLevelFor(capability, inference),
         riskWeight: RISK_WEIGHT[capability] || 1,
-        normalizationConfidence: inferred ? 0.7 : 0.85,
+        normalizationConfidence: grade ? GRADE_CONFIDENCE[grade] : (inferred ? 0.7 : 0.85),
         normalizationReason: reasonFor(capability, server, inference),
         source: { ...agent.source, evidenceClass: inferred ? 'inferred' : 'observed' },
         createdAt: observedAt,
@@ -98,7 +150,7 @@ function derivePermissions(agent, servers, inferenceByServer, observedAt, overla
 }
 
 /** Build a scanController provider from one client's scanner result. */
-function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {} }) {
+function createConfigProvider({ clientKey, label, scannerResult, inferenceByServer = {}, overlayByServer = {}, approvalBypass = null }) {
   return {
     id: `cli-${clientKey}`,
     version: '0.1.0',
@@ -110,7 +162,7 @@ function createConfigProvider({ clientKey, label, scannerResult, inferenceByServ
       return {
         agents: [raw.agent],
         integrations: [],
-        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer),
+        permissions: derivePermissions(raw.agent, raw.records, inferenceByServer, observedAt, overlayByServer, approvalBypass),
         mcpServers: raw.records,
         diagnostics: raw.diagnostics || [],
       };

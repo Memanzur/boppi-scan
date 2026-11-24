@@ -44,6 +44,12 @@ function coveredKeys(paths) {
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
 
+function autoFixOffer(report) {
+  const count = report.autoFixCount || 0;
+  if (!count) return '';
+  return `${count} ${count === 1 ? 'risk' : 'risks'} can be fixed automatically. Run npx @boppi/cli fix`;
+}
+
 function editSentence(step) {
   if (step.edit.action === 'move_server') return `Move the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration to ${step.target ? step.target.label : step.edit.toClient}. Rescan afterward to verify the change landed.`;
   return `Remove the "${step.edit.server}" entry from ${step.client.label}'s MCP configuration. Rescan afterward to verify the change landed.`;
@@ -146,6 +152,11 @@ function renderBriefReport(report, options = {}) {
     first.next.forEach((step, index) => out(`  ${index + 1}. ${step}`));
   }
   if (report.incomplete && report.incomplete.length) out(s.yellow(`Incomplete: ${report.incomplete.join(', ')}`));
+  const offer = autoFixOffer(report);
+  if (offer) {
+    out('');
+    out(offer);
+  }
   if (!options.json && !options.html && !options.sarif) {
     out('');
     out(s.dim(CLOSING_LINE));
@@ -304,6 +315,10 @@ function renderReport(report, options = {}) {
   }
   out('  ', `2. ${s.bold('boppi scan --html boppi-report.html')} writes a shareable report with the evidence for every claim.`);
   out('  ', `3. Working with a team? ${s.bold('boppi push')} sends this sanitized inventory to your Boppi workspace (it asks for your collector token). Nothing else ever leaves the machine.`);
+  if ((options.command || 'scan') === 'scan') {
+    const offer = autoFixOffer(report);
+    if (offer) out('  ', `4. ${offer}`);
+  }
   out('');
   out(s.bold('PRIVACY'), s.dim('  Files read this run (metadata only, sanitized in memory, nothing left this machine):'));
   for (const file of report.filesRead) out(s.dim(`  - ${file}`));
