@@ -142,6 +142,13 @@ function bestKey(keys) {
   return best;
 }
 
+/** Exact package identity, scope included, version suffix removed. No affix stripping. */
+function exactPackageMatch(token, entry) {
+  if (!entry || !Array.isArray(entry.packages)) return false;
+  const key = stripVersion(token).toLowerCase();
+  return entry.packages.some(pkg => stripVersion(pkg).toLowerCase() === key);
+}
+
 function matchIdentity(token) {
   const hit = bestKey(derivedKeys(token));
   if (!hit) return null;
@@ -156,5 +163,5 @@ function matchHost(host) {
 }
 
 module.exports = {
-  CATALOG, ROLE_CAPABILITIES, DATA_SOURCE_ROLES, REMOTE_WRITE_ROLES, capabilitiesForRole, derivedKeys, matchIdentity, matchHost,
+  CATALOG, ROLE_CAPABILITIES, DATA_SOURCE_ROLES, REMOTE_WRITE_ROLES, capabilitiesForRole, derivedKeys, matchIdentity, matchHost, exactPackageMatch,
 };

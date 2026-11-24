@@ -16,7 +16,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { matchIdentity, matchHost, DATA_SOURCE_ROLES } = require('./mcpCatalog');
+const { matchIdentity, matchHost, DATA_SOURCE_ROLES, exactPackageMatch } = require('./mcpCatalog');
+const { installerPackage, commandStem, unwrapLaunch } = require('./discovery/secrets');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -139,6 +140,21 @@ function toolNameOf(value) {
   return '';
 }
 
+/** python3.11rc1, node22, node.cmd, and a quoted Windows path are interpreters. */
+function normalizeInterpreter(command) {
+  const base = commandStem(command);
+  if (base === 'nodejs') return 'node';
+  if (base === 'pythonw' || base === 'py') return 'python';
+  const shells = new Set(['bash', 'sh', 'zsh', 'pwsh', 'powershell']);
+  if (shells.has(base)) return base;
+  const match = base.match(/^(nodejs|node|pythonw|python|py|bun|deno|ruby|perl)(\d+(?:\.\d+)*[a-z]+\d*|\d+(?:\.\d+)*)?$/);
+  if (!match) return null;
+  const stem = match[1];
+  if (stem === 'nodejs' || stem === 'node') return 'node';
+  if (stem === 'pythonw' || stem === 'python' || stem === 'py') return 'python';
+  return stem;
+}
+
 function identityTokens(name, server) {
   const tokens = [];
   if (typeof name === 'string' && name.trim()) tokens.push(name.trim());
@@ -256,11 +272,35 @@ function inferCapabilities(name, server, options = {}) {
     if (!hit || seenEntries.has(hit.entry.id)) return;
     seenEntries.add(hit.entry.id);
     if (hit.capabilities.length) grant(hit.capabilities, 'allowlist', hit.entry.id, matched);
+    else inferences.push({ capabilities: [], label: hit.entry.id, matched, grade: 'allowlist' });
     for (const capability of hit.capabilities) {
       if (!roles[capability]) roles[capability] = hit.role;
     }
   }
-  for (const token of identityTokens(name, spec)) grantCatalog(matchIdentity(token), token);
+  const launch = unwrapLaunch(spec.command, args);
+  const launched = launch.ambiguous ? null : installerPackage(launch.command, launch.args);
+  const commandName = launch.ambiguous ? '' : commandStem(launch.command);
+  const interpreter = !launch.ambiguous && normalizeInterpreter(launch.command) != null;
+  const commandIsLauncher = ['npx', 'npm', 'uvx', 'uv', 'bunx', 'pnpm', 'pnpx', 'yarn', 'pip', 'pipx', 'deno', 'docker', 'podman'].includes(commandName);
+  const tokens = launch.ambiguous ? [] : identityTokens(name, { command: launch.command, args: launch.args });
+  for (const token of tokens) {
+    const hit = matchIdentity(token);
+    // An interpreter or an ambiguous wrapper does not launch a later package.
+    // A script or other binary is known only as itself, not from a later argument.
+    // The wrapper executable itself is not a catalog entry.
+    if (interpreter) continue;
+    if (!commandIsLauncher && token !== commandName && token !== launch.command && token !== name) continue;
+    if (['cmd', 'sh', 'bash', 'zsh', 'dash', 'powershell', 'pwsh', 'env', 'sudo', 'doas', 'nice', 'nohup', 'wsl', 'start'].includes(commandStem(token))) continue;
+    // A zero-capability row is known only from the package this command launches,
+    // scope included. A later argument, or a server name, does not inherit it.
+    if (hit && !hit.capabilities.length) {
+      if (!exactPackageMatch(token, hit.entry)) continue;
+      const launchedHit = launched && exactPackageMatch(launched.spec, hit.entry);
+      const commandHit = commandName && exactPackageMatch(commandName, hit.entry);
+      if (!launchedHit && !commandHit) continue;
+    }
+    grantCatalog(hit, token);
+  }
 
   const filesystemPaths = [];
   let filesystemScope = null;

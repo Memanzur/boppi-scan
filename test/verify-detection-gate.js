@@ -10,6 +10,7 @@ const parse = require('../src/cli/discovery/parse');
 const cursor = require('../src/cli/discovery/cursor');
 const claudeDesktop = require('../src/cli/discovery/claudeDesktop');
 const { inferCapabilities } = require('../src/cli/knownServers');
+const { unwrapLaunch, commandStem } = require('../src/cli/discovery/secrets');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
 let passed = 0;
@@ -62,6 +63,144 @@ const commands = inferCapabilities('run', { command: 'npx', args: ['-y', 'mcp-se
 ok('mcp-server-commands is shell after the == version is stripped', commands.capabilities.includes('shell_access'));
 const { CATALOG } = require('../src/cli/mcpCatalog');
 ok('catalog has at least 100 cited servers', CATALOG.length >= 100 && CATALOG.every(entry => typeof entry.citation === 'string' && entry.citation.startsWith('https://')));
+const referencePackages = [
+  ['memory', '@modelcontextprotocol/server-memory'],
+  ['sequential-thinking', '@modelcontextprotocol/server-sequential-thinking'],
+  ['time', '@modelcontextprotocol/server-time'],
+  ['everything', '@modelcontextprotocol/server-everything'],
+];
+for (const [name, pkg] of referencePackages) {
+  const inferred = inferCapabilities(name, { command: 'npx', args: ['-y', pkg] }, { home });
+  const catalogHit = inferred.inferences.some(item => item.grade === 'allowlist' && item.label !== 'directory arguments' && item.label !== 'remote MCP server');
+  ok(`${name} is a known catalog reference server`, catalogHit && !inferred.capabilities.includes('network_access') && !inferred.capabilities.includes('shell_access') && !inferred.capabilities.includes('credential_access'));
+}
+const timeLatest = inferCapabilities('clock', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-time@latest'] }, { home });
+const timeExact = inferCapabilities('clock', { command: 'uvx', args: ['mcp-server-time==0.6.3'] }, { home });
+ok('official time stays known with @latest and an exact == pin', [timeLatest, timeExact].every(inferred => inferred.inferences.some(item => item.grade === 'allowlist' && item.label === 'time') && !inferred.capabilities.includes('network_access')));
+const evilEverything = inferCapabilities('demo', { command: 'npx', args: ['-y', '@evil/server-everything'] }, { home });
+const evilMemory = inferCapabilities('demo', { command: 'npx', args: ['-y', '@evil/server-memory'] }, { home });
+const namedMemory = inferCapabilities('memory', { command: 'node', args: ['server.js'] }, { home });
+const namedEverything = inferCapabilities('everything', { command: 'npx', args: ['-y', 'mcp-server-fetch'] }, { home });
+const allowHit = inferred => inferred.inferences.some(item => item.grade === 'allowlist' && (item.label === 'everything' || item.label === 'memory'));
+ok('@evil/server-everything and @evil/server-memory stay off the official allowlist', !allowHit(evilEverything) && !allowHit(evilMemory));
+ok('a server merely named memory or everything is not the official server', !allowHit(namedMemory) && !allowHit(namedEverything));
+ok('a server named everything still keeps the fetch package capabilities', namedEverything.capabilities.includes('network_access') && namedEverything.capabilities.includes('untrusted_external_content'));
+const decoy = inferCapabilities('decoy', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-everything'] }, { home });
+ok('a decoy official package argument is not an allowlist hit', !decoy.inferences.some(item => item.grade === 'allowlist' && item.label === 'everything'));
+const nodeFetch = inferCapabilities('nodeFetch', { command: 'node', args: ['evil.js', 'mcp-server-fetch'] }, { home });
+const nodeFiles = inferCapabilities('nodeFiles', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
+ok('node evil.js does not inherit the official fetch or filesystem allowlist', !nodeFetch.inferences.some(item => item.grade === 'allowlist') && !nodeFiles.inferences.some(item => item.grade === 'allowlist'));
+const wrapped = [
+  ['cmd', ['/c', 'node', 'evil.js', '@modelcontextprotocol/server-filesystem']],
+  ['C:\\Windows\\System32\\cmd.exe', ['/c', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['cmd', ['/k', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['sh', ['-c', 'node evil.js mcp-server-fetch']],
+  ['bash', ['-c', 'node evil.js mcp-server-fetch']],
+  ['zsh', ['-c', 'node evil.js mcp-server-fetch']],
+  ['dash', ['-c', 'node evil.js mcp-server-fetch']],
+  ['powershell', ['-Command', 'node evil.js mcp-server-fetch']],
+  ['pwsh', ['-File', 'evil.ps1', 'mcp-server-fetch']],
+  ['env', ['FOO=bar', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['sudo', ['-u', 'root', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['doas', ['node', 'evil.js', 'mcp-server-fetch']],
+  ['nice', ['-n', '10', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['nohup', ['node', 'evil.js', 'mcp-server-fetch']],
+  ['time', ['-p', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['wsl', ['-e', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['start', ['/b', 'node', 'evil.js', 'mcp-server-fetch']],
+];
+for (const [command, wrapArgs] of wrapped) {
+  const inferred = inferCapabilities('wrapped', { command, args: wrapArgs }, { home });
+  ok(`${command} wrapper does not allowlist the inner script package`, !inferred.inferences.some(item => item.grade === 'allowlist'));
+}
+const viaNpx = inferCapabilities('via', { command: 'cmd', args: ['/c', 'npx', '-y', '@modelcontextprotocol/server-filesystem'] }, { home });
+ok('cmd /c npx still allowlists the filesystem server', viaNpx.inferences.some(item => item.grade === 'allowlist' && item.label === 'filesystem'));
+const npxExec = inferCapabilities('execd', { command: 'npx', args: ['exec', '@modelcontextprotocol/server-filesystem'] }, { home });
+ok('npx exec launches the filesystem package', npxExec.inferences.some(item => item.grade === 'allowlist' && item.label === 'filesystem'));
+const ambiguous = inferCapabilities('ambiguous', { command: 'sh', args: ['-c', 'npx -y mcp-server-fetch && curl evil.example'] }, { home });
+ok('a shell pipeline is not allowlisted', !ambiguous.inferences.some(item => item.grade === 'allowlist'));
+const repro = unwrapLaunch('cmd', ['/c', 'npx -y mcp-server-fetch@latest']);
+ok('cmd /c keeps the package when it is the last token of a string', !repro.ambiguous && repro.command === 'npx' && repro.args[repro.args.length - 1] === 'mcp-server-fetch@latest');
+const quotedSpace = unwrapLaunch('cmd', ['/c', 'npx -y "my package"']);
+ok('a quoted space is not treated as a finished split', quotedSpace.ambiguous === true);
+const openQuote = unwrapLaunch('sh', ['-c', 'npx -y "mcp-server-fetch@latest']);
+ok('an unmatched quote stays incomplete', openQuote.ambiguous === true);
+const shellForms = [
+  ['cmd /c', text => ['cmd', ['/c', text]]],
+  ['cmd /s /c', text => ['cmd', ['/s', '/c', `"${text.trim()}"`]]],
+  ['bash -c', text => ['bash', ['-c', text]]],
+  ['bash -lc', text => ['bash', ['-lc', text]]],
+  ['sh -c', text => ['sh', ['-c', text]]],
+  ['zsh -c', text => ['zsh', ['-c', text]]],
+  ['pwsh -Command', text => ['pwsh', ['-Command', text]]],
+  ['env -S', text => ['env', ['-S', text]]],
+];
+const shellTexts = [
+  ['last', 'npx -y mcp-server-fetch@latest'],
+  ['middle', 'npx -y mcp-server-fetch@latest --offline'],
+  ['trailing', 'npx -y mcp-server-fetch@latest   '],
+];
+for (const [label, wrap] of shellForms) {
+  for (const [place, text] of shellTexts) {
+    const [command, wrapArgs] = wrap(text);
+    const launch = unwrapLaunch(command, wrapArgs);
+    const inferred = inferCapabilities('probe', { command, args: wrapArgs }, { home });
+    const allow = inferred.inferences.some(item => item.grade === 'allowlist' && item.label === 'fetch');
+    ok(`${label} ${place} token keeps mcp-server-fetch and allowlists fetch`, !launch.ambiguous && launch.command === 'npx' && launch.args.includes('mcp-server-fetch@latest') && allow);
+  }
+}
+function shellVerdict(command, args) {
+  const launch = unwrapLaunch(command, args);
+  const inferred = inferCapabilities('probe', { command, args }, { home });
+  const labels = inferred.inferences.filter(item => item.grade === 'allowlist').map(item => item.label).sort();
+  return JSON.stringify({
+    ambiguous: !!launch.ambiguous,
+    command: launch.ambiguous ? '' : commandStem(launch.command),
+    args: launch.ambiguous ? [] : launch.args,
+    labels,
+  });
+}
+function mulberry32(seed) {
+  let state = seed >>> 0;
+  return function next() {
+    state = (state + 0x6D2B79F5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const sampleWords = ['npx', '-y', '--offline', 'mcp-server-fetch@latest', '@modelcontextprotocol/server-filesystem', 'extra', 'pkg-name', 'node', 'evil.js'];
+const random = mulberry32(0xC0FFEE);
+let propertyMisses = 0;
+for (let sample = 0; sample < 40; sample++) {
+  const count = 1 + Math.floor(random() * 4);
+  const tokens = [];
+  for (let i = 0; i < count; i++) tokens.push(sampleWords[Math.floor(random() * sampleWords.length)]);
+  const inner = tokens.join(' ');
+  const bare = shellVerdict(tokens[0], tokens.slice(1));
+  const wrapped = [
+    ['cmd', ['/c', inner]],
+    ['cmd', ['/c', `${inner}   `]],
+    ['cmd', ['/s', '/c', `"${inner}"`]],
+    ['bash', ['-c', inner]],
+    ['bash', ['-lc', `${inner}  `]],
+    ['sh', ['-c', inner]],
+    ['zsh', ['-c', inner]],
+    ['pwsh', ['-Command', inner]],
+    ['env', ['-S', inner]],
+    ['cmd', ['/c', ...tokens]],
+    ['bash', ['-c', ...tokens]],
+    ['sh', ['-c', ...tokens]],
+  ];
+  for (const [command, wrapArgs] of wrapped) {
+    if (shellVerdict(command, wrapArgs) !== bare) propertyMisses += 1;
+  }
+}
+ok('string form and array form produce the same verdict', propertyMisses === 0);
+for (const command of ['python3.11', 'python3.11rc1', 'python3.13t', 'python3', 'node22', 'node.exe', 'node.cmd', 'nodejs', '/usr/bin/node.exe', 'bun.exe', 'deno', 'pythonw', 'py', 'C:\\Program Files\\nodejs\\node.cmd']) {
+  const inferred = inferCapabilities('tool', { command, args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
+  ok(`${command} does not allowlist a script's later package`, !inferred.inferences.some(item => item.grade === 'allowlist'));
+}
 
 fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
 fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });

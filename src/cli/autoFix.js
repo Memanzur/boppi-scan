@@ -8,7 +8,7 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, parseCommandLine, rewritePinnedShell, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
 const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
 
 const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
@@ -16,6 +16,7 @@ const CONFIRM_RULES = new Set(['BOPPI-UNKNOWN-SERVER', 'BOPPI-PLAINTEXT-SECRET']
 
 const SENSITIVE_NAME = /(token|secret|password|private[_-]?key|api[_-]?key|authorization|cookie|credential)/i;
 const INSTALLERS = new Set(['npx', 'npm', 'uvx', 'uv', 'bunx', 'pnpm', 'pnpx', 'yarn']);
+const NODE_PIN_COMMANDS = new Set(['npx', 'npm', 'bunx', 'pnpm', 'pnpx', 'yarn']);
 const BROAD_TOOLS = new Set(['Bash', 'Bash(*)', 'PowerShell', 'PowerShell(*)', '*']);
 const LOOSE_MODES = Object.freeze({
   bypassPermissions: 'default',
@@ -212,22 +213,16 @@ function eachSpec(json, cwd, visit) {
 function catalogMatch(name, spec, home) {
   const normalized = parse.normalizeSpec(spec);
   const inference = inferCapabilities(name, normalized, { home });
-  return inference.inferences.some(item => item.label !== 'directory arguments' && item.label !== 'remote MCP server');
+  return inference.inferences.some(item => item.grade === 'allowlist' && item.label !== 'directory arguments' && item.label !== 'remote MCP server');
 }
 
 function commandBase(command) {
-  if (typeof command !== 'string') return '';
-  return command.split(/[\\/]/).pop().toLowerCase();
-}
-
-function packageSpec(arg) {
-  if (typeof arg !== 'string' || !arg || arg.startsWith('-')) return null;
-  if (arg.startsWith('/') || arg.startsWith('~') || /^[A-Za-z]:[\\/]/.test(arg)) return null;
-  if (/\s/.test(arg)) return null;
-  return arg;
+  return commandStem(command);
 }
 
 function isPinnedSpec(spec) {
+  const eq = spec.lastIndexOf('==');
+  if (eq > 0) return !/^(?:latest|next|\*|x)$/i.test(spec.slice(eq + 2));
   if (spec.startsWith('@')) {
     const slash = spec.indexOf('/');
     if (slash === -1) return false;
@@ -239,6 +234,70 @@ function isPinnedSpec(spec) {
 function isFloating(spec) {
   if (!isPinnedSpec(spec)) return true;
   return /@(latest|next|\*|x)$/i.test(spec);
+}
+
+function barePackageName(spec) {
+  let text = String(spec).trim();
+  text = text.replace(/==[^\s]+$/, '');
+  if (text.startsWith('@')) {
+    const slash = text.indexOf('/');
+    if (slash === -1) return text;
+    const at = text.indexOf('@', slash + 1);
+    return at === -1 ? text : text.slice(0, at);
+  }
+  const at = text.lastIndexOf('@');
+  return at > 0 ? text.slice(0, at) : text;
+}
+
+const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+
+function readJsonVersion(file) {
+  try {
+    const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return json && typeof json.version === 'string' && EXACT_VERSION.test(json.version) ? json.version : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Version already installed for this project. No registry lookup. */
+function localPackageVersion(spec, cwd) {
+  if (!cwd) return null;
+  const name = barePackageName(spec);
+  if (!name) return null;
+  const installed = readJsonVersion(path.join(cwd, 'node_modules', name, 'package.json'));
+  if (installed) return installed;
+  try {
+    const lock = JSON.parse(fs.readFileSync(path.join(cwd, 'package-lock.json'), 'utf8'));
+    const entry = lock && lock.packages && lock.packages[`node_modules/${name}`];
+    if (entry && typeof entry.version === 'string' && EXACT_VERSION.test(entry.version)) return entry.version;
+  } catch (_) { /* no lockfile */ }
+  return null;
+}
+
+function pinnedPackageSpec(spec, version) {
+  return `${barePackageName(spec)}@${version}`;
+}
+
+function pinToken(chosen, version) {
+  const pinned = pinnedPackageSpec(chosen.spec, version);
+  if (chosen.token.startsWith('-') && chosen.token.includes('=')) {
+    return `${chosen.token.slice(0, chosen.token.indexOf('='))}=${pinned}`;
+  }
+  return pinned;
+}
+
+function hasSecretArgument(spec) {
+  const args = Array.isArray(spec.args) ? spec.args : [];
+  const skip = packageArgument(spec);
+  let skipped = false;
+  return args.some(arg => {
+    if (!skipped && skip != null && arg === skip) {
+      skipped = true;
+      return false;
+    }
+    return isArgumentSecret(arg);
+  });
 }
 
 function isBroadPath(arg, home) {
@@ -323,7 +382,7 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
       for (const [key, value] of Object.entries(spec.env)) {
         if (typeof value !== 'string' || !valueIsPresent(value)) continue;
         const exactKey = PROVIDER_KEYS.has(key);
-        const valueSecret = isInlineSecret(value);
+        const valueSecret = isEnvSecret(value);
         if (!exactKey && !valueSecret && !SENSITIVE_NAME.test(key)) continue;
         const page = providerPage(key);
         const auto = exactKey || valueSecret;
@@ -392,7 +451,7 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
         }));
       }
     }
-    if (Array.isArray(spec.args) && spec.args.some(arg => isInlineSecret(arg))) {
+    if (hasSecretArgument(spec)) {
       pushIssue(list, seen, issue({
         ruleId: 'BOPPI-PLAINTEXT-SECRET',
         fixId: `plaintext-secret:${where}:argument`,
@@ -415,10 +474,53 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
       }));
     }
     const known = catalogMatch(name, spec, home);
-    const base = commandBase(spec.command);
-    const specs = Array.isArray(spec.args) ? spec.args.map(packageSpec).filter(Boolean) : [];
-    const floating = INSTALLERS.has(base) ? specs.find(isFloating) : null;
-    if (!known) {
+    const argList = Array.isArray(spec.args) ? spec.args : [];
+    const launch = unwrapLaunch(spec.command, argList);
+    const base = launch.ambiguous ? '' : commandBase(launch.command);
+    const chosen = INSTALLERS.has(base) ? installerPackage(launch.command, launch.args) : null;
+    const floating = chosen && !chosen.ambiguous && isFloating(chosen.spec) ? chosen.spec : null;
+    if (launch.ambiguous) {
+      pushIssue(list, seen, issue({
+        ruleId: 'BOPPI-UNKNOWN-SERVER',
+        fixId: `unknown-server:${where}`,
+        severity: 'high',
+        category: 'unknown_server',
+        tool,
+        title: `The ${name} server command could not be read completely.`,
+        summary: `Boppi will not treat ${name} as a known server. The shell string is ambiguous, so the command it would allow is incomplete.`,
+        steps: [
+          `Edit ${fileLabel} so ${name} is one command, without a pipe, a join, or an unresolved quote.`,
+          'Boppi does not guess which part of an ambiguous shell string is the server.',
+        ],
+        autoFixable: false,
+        file,
+        fileLabel,
+        format: 'json',
+        server: name,
+        detail: { incomplete: true },
+      }));
+    } else if (chosen && chosen.ambiguous) {
+      const shown = (chosen.candidates || []).filter(Boolean).join(' or ') || 'more than one package';
+      pushIssue(list, seen, issue({
+        ruleId: 'BOPPI-UNPINNED-PACKAGE',
+        fixId: `unpinned-package:${where}`,
+        severity: 'medium',
+        category: 'unpinned_package',
+        tool,
+        title: `The ${name} server's installer flags do not identify one package (${shown}).`,
+        summary: `Boppi will not rewrite this command. The package it would pin is not the package ${base} will launch.`,
+        steps: [
+          `Edit ${fileLabel} so the package ${base} runs is written as one exact version.`,
+          'Boppi does not guess which token is the package when a flag could take the next token as a value.',
+        ],
+        autoFixable: false,
+        file,
+        fileLabel,
+        format: 'json',
+        server: name,
+        detail: { autoYes: false, spec: null, pinned: null, ambiguous: true },
+      }));
+    } else if (!known) {
       pushIssue(list, seen, issue({
         ruleId: 'BOPPI-UNKNOWN-SERVER',
         fixId: `unknown-server:${where}`,
@@ -438,32 +540,85 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
         server: name,
       }));
     } else if (floating) {
-      const autoYes = Array.isArray(spec.args) && spec.args.some(arg => arg === '-y' || arg === '--yes');
-      pushIssue(list, seen, issue({
-        ruleId: 'BOPPI-UNPINNED-PACKAGE',
-        fixId: `unpinned-package:${where}`,
-        severity: 'medium',
-        category: 'unpinned_package',
-        tool,
-        title: autoYes
-          ? `The ${name} server installs an unpinned package with ${base} -y.`
-          : `The ${name} server runs an unpinned package (${floating}).`,
-        summary: autoYes
-          ? `Remove -y from the ${name} server so ${base} does not install the latest package without a prompt.`
-          : `Pin ${floating} to an exact version you have reviewed. Boppi will not guess a version.`,
-        steps: [
-          `Edit ${fileLabel} and change ${floating} to ${floating.replace(/@(latest|next|\*|x)$/i, '')}@<version> after you check the release.`,
-          autoYes
-            ? `The local fix removes -y and --yes from the ${name} server. Pinning the version is still a manual step.`
-            : 'There is no local version to pin to, and Boppi does not contact a package registry.',
-        ],
-        autoFixable: editable && autoYes,
-        file,
-        fileLabel,
-        format: 'json',
-        server: name,
-        detail: { autoYes },
-      }));
+      const topYes = argList.some(arg => arg === '-y' || arg === '--yes');
+      const floatingTag = /(?:@|==)(latest|next|\*|x)$/i.test(floating);
+      const version = NODE_PIN_COMMANDS.has(base) ? localPackageVersion(floating, cwd) : null;
+      const pinned = version ? pinToken(chosen, version) : null;
+      const direct = argList.includes(chosen.token);
+      const shellHits = [];
+      if (!direct) {
+        for (const arg of argList) {
+          if (typeof arg !== 'string' || !arg.includes(chosen.token)) continue;
+          shellHits.push({
+            arg,
+            rewritten: pinned ? rewritePinnedShell(arg, chosen.token, pinned) : null,
+          });
+        }
+      }
+      const shell = !direct && shellHits.length === 1 && shellHits[0].rewritten ? shellHits[0] : null;
+      const shellBlocked = !direct && (shellHits.length !== 1 || !!(pinned && !shellHits[0].rewritten));
+      const shellYes = shellHits.some(hit => {
+        const parsed = parseCommandLine(hit.arg);
+        if (!parsed || parsed.ambiguous) return false;
+        const tokens = [parsed.command, ...parsed.args];
+        return tokens.includes('-y') || tokens.includes('--yes');
+      });
+      const autoYes = topYes || shellYes;
+      // Removing -y does not pin the package. Report that case only while -y
+      // or a floating tag is still present, and pin when this project already
+      // has an exact version on disk. A package buried in a shell string is
+      // rewritten there, or left unfixed when the string cannot be rebuilt.
+      if (pinned || autoYes || floatingTag) {
+        const canWrite = !shellBlocked && (direct || !!shell || topYes);
+        pushIssue(list, seen, issue({
+          ruleId: 'BOPPI-UNPINNED-PACKAGE',
+          fixId: `unpinned-package:${where}`,
+          severity: 'medium',
+          category: 'unpinned_package',
+          tool,
+          title: pinned
+            ? `The ${name} server runs an unpinned package (${floating}).`
+            : autoYes
+              ? `The ${name} server installs an unpinned package with ${base} -y.`
+              : `The ${name} server runs an unpinned package (${floating}).`,
+          summary: shellBlocked
+            ? `The ${floating} package is inside a shell string on ${name}. Boppi will not rewrite it, because the string could not be rebuilt without dropping text.`
+            : pinned
+              ? `Pin ${floating} to ${pinned} in the ${name} server.`
+              : autoYes
+                ? `Remove -y from the ${name} server so ${base} does not install the latest package without a prompt.`
+                : `Pin ${floating} to an exact version you have reviewed. Boppi will not guess a version.`,
+          steps: shellBlocked
+            ? [
+              `Edit ${fileLabel} and replace ${floating} with ${barePackageName(floating)}@<version> inside the shell string.`,
+              'Boppi does not change a shell string when the rewrite would drop part of the command.',
+            ]
+            : pinned
+              ? [
+                `The local fix replaces ${floating} with ${pinned} and removes -y and --yes.`,
+                'The version is the one installed in this project. Boppi does not contact a package registry.',
+              ]
+              : [
+                `Edit ${fileLabel} and change ${floating} to ${barePackageName(floating)}@<version> after you check the release.`,
+                autoYes
+                  ? `The local fix removes -y and --yes from the ${name} server.`
+                  : 'There is no local version to pin to, and Boppi does not contact a package registry.',
+              ],
+          autoFixable: editable && canWrite && !!(pinned || topYes || (shell && pinned)),
+          file,
+          fileLabel,
+          format: 'json',
+          server: name,
+          detail: {
+            autoYes: topYes,
+            spec: chosen.token,
+            pinned: shellBlocked ? null : pinned,
+            shellFrom: shell && shell.arg,
+            shellTo: shell && shell.rewritten,
+            incomplete: shellBlocked,
+          },
+        }));
+      }
     }
     if (Array.isArray(spec.args) && spec.args.some(arg => isBroadPath(arg, home))) {
       const replacement = narrowerRoot(home, cwd);
@@ -758,10 +913,35 @@ function mutate(issueItem, state, cwd) {
     else if (issueItem.ruleId === 'BOPPI-PLAINTEXT-SECRET' && issueItem.detail.kind === 'env' && spec.env) delete spec.env[issueItem.detail.name];
     else if (issueItem.ruleId === 'BOPPI-PLAINTEXT-SECRET' && issueItem.detail.kind === 'header' && spec.headers) delete spec.headers[issueItem.detail.name];
     else if (issueItem.ruleId === 'BOPPI-PLAINTEXT-SECRET' && issueItem.detail.kind === 'arg' && Array.isArray(spec.args)) {
-      spec.args = spec.args.filter(arg => !isInlineSecret(arg));
+      const skip = packageArgument(spec);
+      let skipped = false;
+      spec.args = spec.args.filter(arg => {
+        if (!skipped && skip != null && arg === skip) {
+          skipped = true;
+          return true;
+        }
+        return !isArgumentSecret(arg);
+      });
     } else if (issueItem.ruleId === 'BOPPI-UNKNOWN-SERVER') delete map[name];
     else if (issueItem.ruleId === 'BOPPI-UNPINNED-PACKAGE' && Array.isArray(spec.args)) {
-      spec.args = spec.args.filter(arg => arg !== '-y' && arg !== '--yes');
+      const from = issueItem.detail && issueItem.detail.spec;
+      const pinnedSpec = issueItem.detail && issueItem.detail.pinned;
+      const shellFrom = issueItem.detail && issueItem.detail.shellFrom;
+      const shellTo = issueItem.detail && issueItem.detail.shellTo;
+      if (shellFrom && shellTo) {
+        let replaced = false;
+        spec.args = spec.args.map(arg => {
+          if (!replaced && arg === shellFrom) {
+            replaced = true;
+            return shellTo;
+          }
+          return arg;
+        }).filter(arg => arg !== '-y' && arg !== '--yes');
+      } else {
+        spec.args = spec.args
+          .filter(arg => arg !== '-y' && arg !== '--yes')
+          .map(arg => (pinnedSpec && from && arg === from ? pinnedSpec : arg));
+      }
     } else if (issueItem.ruleId === 'BOPPI-BROAD-FILESYSTEM' && issueItem.detail.replacement && Array.isArray(spec.args)) {
       spec.args = spec.args.map(arg => (isBroadPath(arg, state.home) ? issueItem.detail.replacement : arg));
     }
@@ -802,6 +982,15 @@ function diffLines(issueItem) {
     return [`- "${issueItem.server}": { ... }`, '+ removed'];
   }
   if (issueItem.ruleId === 'BOPPI-UNPINNED-PACKAGE') {
+    const detail = issueItem.detail || {};
+    if (detail.shellFrom && detail.shellTo) {
+      return [`- "${detail.shellFrom}"`, `+ "${detail.shellTo}"`];
+    }
+    if (detail.pinned) {
+      const lines = [`- "${detail.spec}"`, `+ "${detail.pinned}"`];
+      if (detail.autoYes) lines.push('- "-y"', '+ removed');
+      return lines;
+    }
     return ['- "-y"', '+ removed'];
   }
   if (issueItem.ruleId === 'BOPPI-BROAD-FILESYSTEM') {

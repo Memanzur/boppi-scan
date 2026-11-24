@@ -138,8 +138,10 @@ function exposedKeyNames(report) {
 
 function listRisks(report, home, limit = 3) {
   const ranked = (report.paths || []).slice().sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0)
-    || a.agentName.localeCompare(b.agentName)
-    || a.templateId.localeCompare(b.templateId));
+    || String(a.agentName || '').localeCompare(String(b.agentName || ''), 'en')
+    || String(a.templateId || '').localeCompare(String(b.templateId || ''), 'en')
+    || String(a.label || '').localeCompare(String(b.label || ''), 'en')
+    || String((a.nodes || []).map(node => `${node.entityType}:${node.label}`).join('>')).localeCompare(String((b.nodes || []).map(node => `${node.entityType}:${node.label}`).join('>')), 'en'));
   const cap = limit == null ? 3 : limit;
   return ranked.slice(0, cap).map(path => {
     const servers = serversOnPath(path, report.inventory || {});
