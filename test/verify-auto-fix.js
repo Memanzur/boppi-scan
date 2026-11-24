@@ -379,6 +379,44 @@ function runCli(args, home, cwd, extra = {}) {
   ok('a quoted npx.exe path pins the same package as npx', shimJson.quoted.args.includes('mcp-server-fetch@1.4.2'));
   fs.rmSync(shim.root, { recursive: true, force: true });
 
+  section('pin a package that lives inside a shell string');
+  const shellPin = stage({
+    fetch: { command: 'cmd', args: ['/c', 'npx -y mcp-server-fetch@latest'] },
+    cmd: { command: 'cmd', args: ['/c', 'npx -y mcp-server-fetch@latest'] },
+    cmdQuoted: { command: 'cmd', args: ['/s', '/c', '"npx -y mcp-server-fetch@latest"'] },
+    cmdMiddle: { command: 'cmd', args: ['/c', 'npx -y mcp-server-fetch@latest --offline'] },
+    cmdTrail: { command: 'cmd', args: ['/c', 'npx -y mcp-server-fetch@latest   '] },
+    bash: { command: 'bash', args: ['-c', 'npx -y mcp-server-fetch@latest'] },
+    bashLc: { command: 'bash', args: ['-lc', 'npx -y mcp-server-fetch@latest'] },
+    sh: { command: 'sh', args: ['-c', 'npx -y mcp-server-fetch@latest'] },
+    zsh: { command: 'zsh', args: ['-c', 'npx -y mcp-server-fetch@latest'] },
+    pwsh: { command: 'pwsh', args: ['-Command', 'npx -y mcp-server-fetch@latest'] },
+    env: { command: 'env', args: ['-S', 'npx -y mcp-server-fetch@latest'] },
+    doubled: { command: 'cmd', args: ['/c', 'npx -y mcp-server-fetch@latest mcp-server-fetch@latest'] },
+    piped: { command: 'bash', args: ['-c', 'npx -y mcp-server-fetch@latest && true'] },
+  }, { 'mcp-server-fetch': '1.4.2' });
+  const beforeShell = issueList(shellPin);
+  ok('a cmd /c string reports the unpinned package', beforeShell.some(item => item.server === 'fetch' && item.ruleId === 'BOPPI-UNPINNED-PACKAGE' && item.autoFixable));
+  ok('a shell string that cannot be rebuilt is not auto-fixed', beforeShell.some(item => item.server === 'doubled' && item.ruleId === 'BOPPI-UNPINNED-PACKAGE' && item.autoFixable === false && item.detail && item.detail.incomplete));
+  ok('an ambiguous shell string is incomplete and not allowlisted into a pin', beforeShell.some(item => item.server === 'piped' && item.ruleId === 'BOPPI-UNKNOWN-SERVER' && item.autoFixable === false && item.detail && item.detail.incomplete));
+  const shellFix = runCli(['fix', '--yes'], shellPin.home, shellPin.work);
+  const shellJson = JSON.parse(fs.readFileSync(shellPin.file, 'utf8')).mcpServers;
+  function pinnedString(server) {
+    return (shellJson[server].args || []).some(arg => String(arg).includes('mcp-server-fetch@1.4.2'))
+      && !(shellJson[server].args || []).some(arg => String(arg).includes('@latest') || arg === '-y' || arg === '--yes');
+  }
+  ok('fix --yes rewrites the pin inside each shell string', shellFix.code === 0 && ['fetch', 'cmd', 'cmdQuoted', 'cmdMiddle', 'cmdTrail', 'bash', 'bashLc', 'sh', 'zsh', 'pwsh', 'env'].every(pinnedString));
+  ok('cmd middle token keeps the flag that follows the package', shellJson.cmdMiddle.args.some(arg => String(arg).includes('--offline')));
+  ok('a doubled package string is left unchanged', shellJson.doubled.args[1] === 'npx -y mcp-server-fetch@latest mcp-server-fetch@latest');
+  ok('an ambiguous shell string is left unchanged', shellJson.piped.args[1] === 'npx -y mcp-server-fetch@latest && true');
+  const shellRescan = path.join(shellPin.root, 'rescan.json');
+  const shellScan = runCli(['scan', '--quiet', '--json', shellRescan], shellPin.home, shellPin.work);
+  const shellFindings = JSON.parse(fs.readFileSync(shellRescan, 'utf8')).configFindings || [];
+  const unpinnedIds = shellFindings.filter(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE').map(item => item.fixId);
+  ok('re-scan after the shell pin does not still report those packages as unpinned', shellScan.code === 0 && !['fetch', 'cmd', 'cmdQuoted', 'bashLc', 'env'].some(name => unpinnedIds.some(id => id.endsWith(':' + name))));
+  ok('the doubled string is still reported after fix --yes', unpinnedIds.some(id => id.endsWith(':doubled')));
+  fs.rmSync(shellPin.root, { recursive: true, force: true });
+
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');
   fs.writeFileSync(chosenFile, JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['pkg'], env: { OPENAI_API_KEY: SECRET, COOKIE_PATH: 'chocolate', API_KEY_FILE: '/tmp/keyfile' } } } }, null, 2) + '\n');

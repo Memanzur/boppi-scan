@@ -57,23 +57,59 @@ function shellAmbiguous(text) {
   return SHELL_SYNTAX.test(String(text || ''));
 }
 
+/** Characters that are command text. Quotes and whitespace are not. */
+function commandContent(text) {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' || ch === "'" || /\s/.test(ch)) continue;
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Drop one or two quote pairs that wrap the whole string (cmd /s /c).
+ * A quote that closes before the end is left for the tokenizer.
+ */
+function peelWrappingQuotes(text) {
+  let current = text;
+  for (let layer = 0; layer < 2; layer++) {
+    const trimmed = current.trim();
+    if (trimmed.length < 2) break;
+    const quote = trimmed[0];
+    if ((quote !== '"' && quote !== "'") || trimmed[trimmed.length - 1] !== quote) break;
+    let close = -1;
+    for (let i = 1; i < trimmed.length; i++) {
+      if (trimmed[i] === '\\' && i + 1 < trimmed.length) { i += 1; continue; }
+      if (trimmed[i] === quote) { close = i; break; }
+    }
+    if (close !== trimmed.length - 1) break;
+    current = trimmed.slice(1, -1);
+  }
+  return current;
+}
+
 /** Split a simple command string. Pipes, joins, and unresolved quotes are ambiguous. */
 function parseCommandLine(text) {
-  if (typeof text !== 'string' || !text.trim() || shellAmbiguous(text)) return { ambiguous: true };
+  if (typeof text !== 'string' || !text.trim() || shellAmbiguous(text) || text.includes('\\')) return { ambiguous: true };
+  const source = peelWrappingQuotes(text);
+  if (!source.trim() || shellAmbiguous(source) || source.includes('\\')) return { ambiguous: true };
   const tokens = [];
   let current = '';
   let quote = null;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
     if (quote) {
       if (ch === quote) quote = null;
+      else if (ch === '\\' && i + 1 < source.length && (source[i + 1] === quote || source[i + 1] === '\\')) current += source[++i];
       else current += ch;
       continue;
     }
     if (ch === '"' || ch === "'") { quote = ch; continue; }
     if (ch === '\\') {
-      if (i + 1 >= text.length) return { ambiguous: true };
-      current += text[++i];
+      if (i + 1 >= source.length) return { ambiguous: true };
+      current += source[++i];
       continue;
     }
     if (/\s/.test(ch)) {
@@ -83,8 +119,37 @@ function parseCommandLine(text) {
     }
     current += ch;
   }
+  // The loop only pushes on whitespace. The final word is still in current.
+  if (current) tokens.push(current);
   if (quote || !tokens.length) return { ambiguous: true };
+  // A faithful split loses only separators and quotes. Anything else is incomplete.
+  const expected = commandContent(text);
+  if (expected == null || expected !== tokens.join('')) return { ambiguous: true };
   return { command: tokens[0], args: tokens.slice(1), ambiguous: false };
+}
+
+/**
+ * Replace one package token inside a shell string and drop -y / --yes.
+ * Returns null when the string cannot be rebuilt without losing text.
+ */
+function rewritePinnedShell(text, from, to) {
+  if (typeof text !== 'string' || typeof from !== 'string' || !from || typeof to !== 'string' || !to) return null;
+  const parsed = parseCommandLine(text);
+  if (!parsed || parsed.ambiguous) return null;
+  const tokens = [parsed.command, ...parsed.args];
+  if (tokens.filter(token => token === from).length !== 1) return null;
+  const next = [];
+  for (const token of tokens) {
+    if (token === '-y' || token === '--yes') continue;
+    next.push(token === from ? to : token);
+  }
+  if (!next.length || next.some(token => /[\s"'\\]/.test(token))) return null;
+  const rebuilt = next.join(' ');
+  const check = parseCommandLine(rebuilt);
+  if (!check || check.ambiguous) return null;
+  const checked = [check.command, ...check.args];
+  if (checked.length !== next.length || checked.some((token, index) => token !== next[index])) return null;
+  return rebuilt;
 }
 
 function asLaunch(command, args) {
@@ -93,7 +158,7 @@ function asLaunch(command, args) {
 
 function fromRest(rest) {
   if (!rest.length) return { ambiguous: true };
-  if (rest.length === 1 && /\s/.test(rest[0])) return parseCommandLine(rest[0]);
+  if (rest.length === 1 && (/\s/.test(rest[0]) || /["']/.test(rest[0]))) return parseCommandLine(rest[0]);
   if (rest.some(shellAmbiguous)) return { ambiguous: true };
   return asLaunch(rest[0], rest.slice(1));
 }
@@ -103,7 +168,7 @@ function unwrapCmd(list) {
   while (i < list.length) {
     const arg = list[i];
     if (/^\/[ck]$/i.test(arg)) return fromRest(list.slice(i + 1));
-    if (/^\/[dauve]$/i.test(arg) || /^\/[xyt]:/i.test(arg)) { i += 1; continue; }
+    if (/^\/[dauves]$/i.test(arg) || /^\/[xyt]:/i.test(arg)) { i += 1; continue; }
     if (arg.startsWith('/') || arg.startsWith('-')) return { ambiguous: true };
     break;
   }
@@ -588,5 +653,5 @@ function namesInText(text, { ini = false } = {}) {
 
 module.exports = {
   PROVIDER_KEY_NAMES, valueIsPresent, isEnvReference, isPackageSpec, isPackageNameShape, isHighConfidenceSecret,
-  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
+  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, parseCommandLine, rewritePinnedShell, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
 };

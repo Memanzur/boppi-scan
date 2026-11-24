@@ -10,6 +10,7 @@ const parse = require('../src/cli/discovery/parse');
 const cursor = require('../src/cli/discovery/cursor');
 const claudeDesktop = require('../src/cli/discovery/claudeDesktop');
 const { inferCapabilities } = require('../src/cli/knownServers');
+const { unwrapLaunch, commandStem } = require('../src/cli/discovery/secrets');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
 let passed = 0;
@@ -118,6 +119,84 @@ const npxExec = inferCapabilities('execd', { command: 'npx', args: ['exec', '@mo
 ok('npx exec launches the filesystem package', npxExec.inferences.some(item => item.grade === 'allowlist' && item.label === 'filesystem'));
 const ambiguous = inferCapabilities('ambiguous', { command: 'sh', args: ['-c', 'npx -y mcp-server-fetch && curl evil.example'] }, { home });
 ok('a shell pipeline is not allowlisted', !ambiguous.inferences.some(item => item.grade === 'allowlist'));
+const repro = unwrapLaunch('cmd', ['/c', 'npx -y mcp-server-fetch@latest']);
+ok('cmd /c keeps the package when it is the last token of a string', !repro.ambiguous && repro.command === 'npx' && repro.args[repro.args.length - 1] === 'mcp-server-fetch@latest');
+const quotedSpace = unwrapLaunch('cmd', ['/c', 'npx -y "my package"']);
+ok('a quoted space is not treated as a finished split', quotedSpace.ambiguous === true);
+const openQuote = unwrapLaunch('sh', ['-c', 'npx -y "mcp-server-fetch@latest']);
+ok('an unmatched quote stays incomplete', openQuote.ambiguous === true);
+const shellForms = [
+  ['cmd /c', text => ['cmd', ['/c', text]]],
+  ['cmd /s /c', text => ['cmd', ['/s', '/c', `"${text.trim()}"`]]],
+  ['bash -c', text => ['bash', ['-c', text]]],
+  ['bash -lc', text => ['bash', ['-lc', text]]],
+  ['sh -c', text => ['sh', ['-c', text]]],
+  ['zsh -c', text => ['zsh', ['-c', text]]],
+  ['pwsh -Command', text => ['pwsh', ['-Command', text]]],
+  ['env -S', text => ['env', ['-S', text]]],
+];
+const shellTexts = [
+  ['last', 'npx -y mcp-server-fetch@latest'],
+  ['middle', 'npx -y mcp-server-fetch@latest --offline'],
+  ['trailing', 'npx -y mcp-server-fetch@latest   '],
+];
+for (const [label, wrap] of shellForms) {
+  for (const [place, text] of shellTexts) {
+    const [command, wrapArgs] = wrap(text);
+    const launch = unwrapLaunch(command, wrapArgs);
+    const inferred = inferCapabilities('probe', { command, args: wrapArgs }, { home });
+    const allow = inferred.inferences.some(item => item.grade === 'allowlist' && item.label === 'fetch');
+    ok(`${label} ${place} token keeps mcp-server-fetch and allowlists fetch`, !launch.ambiguous && launch.command === 'npx' && launch.args.includes('mcp-server-fetch@latest') && allow);
+  }
+}
+function shellVerdict(command, args) {
+  const launch = unwrapLaunch(command, args);
+  const inferred = inferCapabilities('probe', { command, args }, { home });
+  const labels = inferred.inferences.filter(item => item.grade === 'allowlist').map(item => item.label).sort();
+  return JSON.stringify({
+    ambiguous: !!launch.ambiguous,
+    command: launch.ambiguous ? '' : commandStem(launch.command),
+    args: launch.ambiguous ? [] : launch.args,
+    labels,
+  });
+}
+function mulberry32(seed) {
+  let state = seed >>> 0;
+  return function next() {
+    state = (state + 0x6D2B79F5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const sampleWords = ['npx', '-y', '--offline', 'mcp-server-fetch@latest', '@modelcontextprotocol/server-filesystem', 'extra', 'pkg-name', 'node', 'evil.js'];
+const random = mulberry32(0xC0FFEE);
+let propertyMisses = 0;
+for (let sample = 0; sample < 40; sample++) {
+  const count = 1 + Math.floor(random() * 4);
+  const tokens = [];
+  for (let i = 0; i < count; i++) tokens.push(sampleWords[Math.floor(random() * sampleWords.length)]);
+  const inner = tokens.join(' ');
+  const bare = shellVerdict(tokens[0], tokens.slice(1));
+  const wrapped = [
+    ['cmd', ['/c', inner]],
+    ['cmd', ['/c', `${inner}   `]],
+    ['cmd', ['/s', '/c', `"${inner}"`]],
+    ['bash', ['-c', inner]],
+    ['bash', ['-lc', `${inner}  `]],
+    ['sh', ['-c', inner]],
+    ['zsh', ['-c', inner]],
+    ['pwsh', ['-Command', inner]],
+    ['env', ['-S', inner]],
+    ['cmd', ['/c', ...tokens]],
+    ['bash', ['-c', ...tokens]],
+    ['sh', ['-c', ...tokens]],
+  ];
+  for (const [command, wrapArgs] of wrapped) {
+    if (shellVerdict(command, wrapArgs) !== bare) propertyMisses += 1;
+  }
+}
+ok('string form and array form produce the same verdict', propertyMisses === 0);
 for (const command of ['python3.11', 'python3.11rc1', 'python3.13t', 'python3', 'node22', 'node.exe', 'node.cmd', 'nodejs', '/usr/bin/node.exe', 'bun.exe', 'deno', 'pythonw', 'py', 'C:\\Program Files\\nodejs\\node.cmd']) {
   const inferred = inferCapabilities('tool', { command, args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
   ok(`${command} does not allowlist a script's later package`, !inferred.inferences.some(item => item.grade === 'allowlist'));

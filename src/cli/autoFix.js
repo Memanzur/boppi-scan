@@ -8,7 +8,7 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, parseCommandLine, rewritePinnedShell, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
 const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
 
 const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
@@ -479,7 +479,27 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
     const base = launch.ambiguous ? '' : commandBase(launch.command);
     const chosen = INSTALLERS.has(base) ? installerPackage(launch.command, launch.args) : null;
     const floating = chosen && !chosen.ambiguous && isFloating(chosen.spec) ? chosen.spec : null;
-    if (chosen && chosen.ambiguous) {
+    if (launch.ambiguous) {
+      pushIssue(list, seen, issue({
+        ruleId: 'BOPPI-UNKNOWN-SERVER',
+        fixId: `unknown-server:${where}`,
+        severity: 'high',
+        category: 'unknown_server',
+        tool,
+        title: `The ${name} server command could not be read completely.`,
+        summary: `Boppi will not treat ${name} as a known server. The shell string is ambiguous, so the command it would allow is incomplete.`,
+        steps: [
+          `Edit ${fileLabel} so ${name} is one command, without a pipe, a join, or an unresolved quote.`,
+          'Boppi does not guess which part of an ambiguous shell string is the server.',
+        ],
+        autoFixable: false,
+        file,
+        fileLabel,
+        format: 'json',
+        server: name,
+        detail: { incomplete: true },
+      }));
+    } else if (chosen && chosen.ambiguous) {
       const shown = (chosen.candidates || []).filter(Boolean).join(' or ') || 'more than one package';
       pushIssue(list, seen, issue({
         ruleId: 'BOPPI-UNPINNED-PACKAGE',
@@ -520,14 +540,36 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
         server: name,
       }));
     } else if (floating) {
-      const autoYes = argList.some(arg => arg === '-y' || arg === '--yes');
+      const topYes = argList.some(arg => arg === '-y' || arg === '--yes');
       const floatingTag = /(?:@|==)(latest|next|\*|x)$/i.test(floating);
       const version = NODE_PIN_COMMANDS.has(base) ? localPackageVersion(floating, cwd) : null;
       const pinned = version ? pinToken(chosen, version) : null;
+      const direct = argList.includes(chosen.token);
+      const shellHits = [];
+      if (!direct) {
+        for (const arg of argList) {
+          if (typeof arg !== 'string' || !arg.includes(chosen.token)) continue;
+          shellHits.push({
+            arg,
+            rewritten: pinned ? rewritePinnedShell(arg, chosen.token, pinned) : null,
+          });
+        }
+      }
+      const shell = !direct && shellHits.length === 1 && shellHits[0].rewritten ? shellHits[0] : null;
+      const shellBlocked = !direct && (shellHits.length !== 1 || !!(pinned && !shellHits[0].rewritten));
+      const shellYes = shellHits.some(hit => {
+        const parsed = parseCommandLine(hit.arg);
+        if (!parsed || parsed.ambiguous) return false;
+        const tokens = [parsed.command, ...parsed.args];
+        return tokens.includes('-y') || tokens.includes('--yes');
+      });
+      const autoYes = topYes || shellYes;
       // Removing -y does not pin the package. Report that case only while -y
       // or a floating tag is still present, and pin when this project already
-      // has an exact version on disk.
+      // has an exact version on disk. A package buried in a shell string is
+      // rewritten there, or left unfixed when the string cannot be rebuilt.
       if (pinned || autoYes || floatingTag) {
+        const canWrite = !shellBlocked && (direct || !!shell || topYes);
         pushIssue(list, seen, issue({
           ruleId: 'BOPPI-UNPINNED-PACKAGE',
           fixId: `unpinned-package:${where}`,
@@ -539,28 +581,42 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
             : autoYes
               ? `The ${name} server installs an unpinned package with ${base} -y.`
               : `The ${name} server runs an unpinned package (${floating}).`,
-          summary: pinned
-            ? `Pin ${floating} to ${pinned} in the ${name} server.`
-            : autoYes
-              ? `Remove -y from the ${name} server so ${base} does not install the latest package without a prompt.`
-              : `Pin ${floating} to an exact version you have reviewed. Boppi will not guess a version.`,
-          steps: pinned
+          summary: shellBlocked
+            ? `The ${floating} package is inside a shell string on ${name}. Boppi will not rewrite it, because the string could not be rebuilt without dropping text.`
+            : pinned
+              ? `Pin ${floating} to ${pinned} in the ${name} server.`
+              : autoYes
+                ? `Remove -y from the ${name} server so ${base} does not install the latest package without a prompt.`
+                : `Pin ${floating} to an exact version you have reviewed. Boppi will not guess a version.`,
+          steps: shellBlocked
             ? [
-              `The local fix replaces ${floating} with ${pinned} and removes -y and --yes.`,
-              'The version is the one installed in this project. Boppi does not contact a package registry.',
+              `Edit ${fileLabel} and replace ${floating} with ${barePackageName(floating)}@<version> inside the shell string.`,
+              'Boppi does not change a shell string when the rewrite would drop part of the command.',
             ]
-            : [
-              `Edit ${fileLabel} and change ${floating} to ${barePackageName(floating)}@<version> after you check the release.`,
-              autoYes
-                ? `The local fix removes -y and --yes from the ${name} server.`
-                : 'There is no local version to pin to, and Boppi does not contact a package registry.',
-            ],
-          autoFixable: editable && !!(pinned || autoYes),
+            : pinned
+              ? [
+                `The local fix replaces ${floating} with ${pinned} and removes -y and --yes.`,
+                'The version is the one installed in this project. Boppi does not contact a package registry.',
+              ]
+              : [
+                `Edit ${fileLabel} and change ${floating} to ${barePackageName(floating)}@<version> after you check the release.`,
+                autoYes
+                  ? `The local fix removes -y and --yes from the ${name} server.`
+                  : 'There is no local version to pin to, and Boppi does not contact a package registry.',
+              ],
+          autoFixable: editable && canWrite && !!(pinned || topYes || (shell && pinned)),
           file,
           fileLabel,
           format: 'json',
           server: name,
-          detail: { autoYes, spec: chosen.token, pinned },
+          detail: {
+            autoYes: topYes,
+            spec: chosen.token,
+            pinned: shellBlocked ? null : pinned,
+            shellFrom: shell && shell.arg,
+            shellTo: shell && shell.rewritten,
+            incomplete: shellBlocked,
+          },
         }));
       }
     }
@@ -843,10 +899,23 @@ function mutate(issueItem, state, cwd) {
     } else if (issueItem.ruleId === 'BOPPI-UNKNOWN-SERVER') delete map[name];
     else if (issueItem.ruleId === 'BOPPI-UNPINNED-PACKAGE' && Array.isArray(spec.args)) {
       const from = issueItem.detail && issueItem.detail.spec;
-      const pinned = issueItem.detail && issueItem.detail.pinned;
-      spec.args = spec.args
-        .filter(arg => arg !== '-y' && arg !== '--yes')
-        .map(arg => (pinned && from && arg === from ? pinned : arg));
+      const pinnedSpec = issueItem.detail && issueItem.detail.pinned;
+      const shellFrom = issueItem.detail && issueItem.detail.shellFrom;
+      const shellTo = issueItem.detail && issueItem.detail.shellTo;
+      if (shellFrom && shellTo) {
+        let replaced = false;
+        spec.args = spec.args.map(arg => {
+          if (!replaced && arg === shellFrom) {
+            replaced = true;
+            return shellTo;
+          }
+          return arg;
+        }).filter(arg => arg !== '-y' && arg !== '--yes');
+      } else {
+        spec.args = spec.args
+          .filter(arg => arg !== '-y' && arg !== '--yes')
+          .map(arg => (pinnedSpec && from && arg === from ? pinnedSpec : arg));
+      }
     } else if (issueItem.ruleId === 'BOPPI-BROAD-FILESYSTEM' && issueItem.detail.replacement && Array.isArray(spec.args)) {
       spec.args = spec.args.map(arg => (isBroadPath(arg, state.home) ? issueItem.detail.replacement : arg));
     }
@@ -888,6 +957,9 @@ function diffLines(issueItem) {
   }
   if (issueItem.ruleId === 'BOPPI-UNPINNED-PACKAGE') {
     const detail = issueItem.detail || {};
+    if (detail.shellFrom && detail.shellTo) {
+      return [`- "${detail.shellFrom}"`, `+ "${detail.shellTo}"`];
+    }
     if (detail.pinned) {
       const lines = [`- "${detail.spec}"`, `+ "${detail.pinned}"`];
       if (detail.autoYes) lines.push('- "-y"', '+ removed');
