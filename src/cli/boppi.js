@@ -1085,7 +1085,14 @@ async function run(argv) {
     cwd: options.cwd,
     fingerprint: file => portablePath(file, scan.home),
   }), null, 2) + '\n';
-  const htmlText = () => html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients });
+  // Sentences need the raw config (merged server args). The written report
+  // gets the portable discovery view, so absolute paths are not written.
+  // Machine formats send the "written to" line to stderr so stdout stays the report.
+  let htmlView = null;
+  const htmlText = () => {
+    if (!htmlView) htmlView = html.prepareHtml(report, scan.home);
+    return html.renderHtml({ ...report, discovery: scan.portableDiscovery.clients, htmlView });
+  };
 
   if (!machine) {
     process.stdout.write(terminal.renderReport(report, options) + '\n');
@@ -1099,8 +1106,6 @@ async function run(argv) {
     notice.write(`\nJSON export written to ${options.json}\n`);
   }
   if (options.html) {
-    // HTML is an export artifact, so it receives the portable discovery view;
-    // the terminal may still show the exact files read for local consent.
     fs.writeFileSync(options.html, htmlText());
     notice.write(`\nHTML report written to ${options.html}\n`);
   }
