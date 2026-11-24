@@ -8,7 +8,7 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
 const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
 
 const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
@@ -474,9 +474,10 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
       }));
     }
     const known = catalogMatch(name, spec, home);
-    const base = commandBase(spec.command);
     const argList = Array.isArray(spec.args) ? spec.args : [];
-    const chosen = INSTALLERS.has(base) ? installerPackage(spec.command, argList) : null;
+    const launch = unwrapLaunch(spec.command, argList);
+    const base = launch.ambiguous ? '' : commandBase(launch.command);
+    const chosen = INSTALLERS.has(base) ? installerPackage(launch.command, launch.args) : null;
     const floating = chosen && !chosen.ambiguous && isFloating(chosen.spec) ? chosen.spec : null;
     if (chosen && chosen.ambiguous) {
       const shown = (chosen.candidates || []).filter(Boolean).join(' or ') || 'more than one package';

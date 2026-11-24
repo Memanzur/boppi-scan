@@ -51,6 +51,269 @@ function commandBaseName(command) {
   return commandStem(command);
 }
 
+const SHELL_SYNTAX = /[|&;<>`]|\$[({A-Za-z]|%[^%\s]+%|\r|\n/;
+
+function shellAmbiguous(text) {
+  return SHELL_SYNTAX.test(String(text || ''));
+}
+
+/** Split a simple command string. Pipes, joins, and unresolved quotes are ambiguous. */
+function parseCommandLine(text) {
+  if (typeof text !== 'string' || !text.trim() || shellAmbiguous(text)) return { ambiguous: true };
+  const tokens = [];
+  let current = '';
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else current += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === '\\') {
+      if (i + 1 >= text.length) return { ambiguous: true };
+      current += text[++i];
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (current) tokens.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (quote || !tokens.length) return { ambiguous: true };
+  return { command: tokens[0], args: tokens.slice(1), ambiguous: false };
+}
+
+function asLaunch(command, args) {
+  return { command, args, ambiguous: false };
+}
+
+function fromRest(rest) {
+  if (!rest.length) return { ambiguous: true };
+  if (rest.length === 1 && /\s/.test(rest[0])) return parseCommandLine(rest[0]);
+  if (rest.some(shellAmbiguous)) return { ambiguous: true };
+  return asLaunch(rest[0], rest.slice(1));
+}
+
+function unwrapCmd(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (/^\/[ck]$/i.test(arg)) return fromRest(list.slice(i + 1));
+    if (/^\/[dauve]$/i.test(arg) || /^\/[xyt]:/i.test(arg)) { i += 1; continue; }
+    if (arg.startsWith('/') || arg.startsWith('-')) return { ambiguous: true };
+    break;
+  }
+  return fromRest(list.slice(i));
+}
+
+function unwrapShellC(list) {
+  let i = 0;
+  let saw = false;
+  while (i < list.length) {
+    const arg = list[i];
+    if (arg === '--') return fromRest(list.slice(i + 1));
+    if (arg === '-c' || arg === '--command') { saw = true; i += 1; break; }
+    if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg) && arg.length > 2) { saw = true; i += 1; break; }
+    if (/^-[a-zA-Z]+$/.test(arg)) { i += 1; continue; }
+    if (arg.startsWith('-')) return { ambiguous: true };
+    break;
+  }
+  if (!saw) return null;
+  return fromRest(list.slice(i));
+}
+
+function unwrapPowerShell(list) {
+  let i = 0;
+  let mode = null;
+  while (i < list.length) {
+    const flag = list[i].replace(/^\//, '-').toLowerCase();
+    if (flag === '-command' || flag === '-c') { mode = 'command'; i += 1; break; }
+    if (flag === '-file' || flag === '-f') { mode = 'file'; i += 1; break; }
+    if (['-noprofile', '-noninteractive', '-nologo', '-mta', '-sta', '-noexit'].includes(flag)) { i += 1; continue; }
+    if (['-executionpolicy', '-inputformat', '-outputformat', '-windowstyle', '-workingdirectory'].includes(flag)) {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (list[i].startsWith('-') || list[i].startsWith('/')) return { ambiguous: true };
+    break;
+  }
+  const rest = list.slice(i);
+  if (!rest.length) return null;
+  if (mode === 'file') return asLaunch(rest[0], rest.slice(1));
+  return fromRest(rest);
+}
+
+function unwrapEnv(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (arg === '--') { i += 1; break; }
+    if (['-i', '--ignore-environment', '-0', '-v', '--debug'].includes(arg)) { i += 1; continue; }
+    if (['-u', '--unset', '-C', '--chdir'].includes(arg)) {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (arg === '-S' || arg === '--split-string') {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      return parseCommandLine(list[i + 1]);
+    }
+    if (arg.startsWith('-')) return { ambiguous: true };
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg)) { i += 1; continue; }
+    break;
+  }
+  if (i >= list.length) return null;
+  return fromRest(list.slice(i));
+}
+
+function unwrapSudo(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (arg === '--') { i += 1; break; }
+    if (['-u', '-g', '-p', '-C', '-T', '-D', '--user', '--group', '--prompt', '--chdir', '--close-from'].includes(arg)) {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (/^-[a-zA-Z]+$/.test(arg) || ['--login', '--shell', '--preserve-env', '--non-interactive', '--set-home', '--background'].includes(arg)) {
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith('-')) return { ambiguous: true };
+    break;
+  }
+  if (i >= list.length) return null;
+  return fromRest(list.slice(i));
+}
+
+function unwrapNice(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (arg === '--') { i += 1; break; }
+    if (arg === '-n' || arg === '--adjustment') {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (/^-\d+$/.test(arg)) { i += 1; continue; }
+    if (arg.startsWith('-')) return { ambiguous: true };
+    break;
+  }
+  if (i >= list.length) return null;
+  return fromRest(list.slice(i));
+}
+
+function unwrapNohup(list) {
+  const rest = list[0] === '--' ? list.slice(1) : list;
+  if (!rest.length) return null;
+  if (rest[0].startsWith('-')) return { ambiguous: true };
+  return fromRest(rest);
+}
+
+function unwrapTime(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (arg === '--') { i += 1; break; }
+    if (arg === '-p' || arg === '--portability' || arg === '-v' || arg === '--verbose') { i += 1; continue; }
+    if (arg === '-f' || arg === '--format' || arg === '-o' || arg === '--output') {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (arg.startsWith('-')) return { ambiguous: true };
+    break;
+  }
+  if (i >= list.length) return null;
+  return fromRest(list.slice(i));
+}
+
+function unwrapWsl(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (arg === '-e' || arg === '--exec' || arg === '--') return fromRest(list.slice(i + 1));
+    if (['-d', '--distribution', '-u', '--user', '--cd', '--shell-type'].includes(arg)) {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (arg.startsWith('-')) { i += 1; continue; }
+    break;
+  }
+  if (i >= list.length) return null;
+  return fromRest(list.slice(i));
+}
+
+function unwrapStart(list) {
+  let i = 0;
+  while (i < list.length) {
+    const arg = list[i];
+    if (/^\/b$/i.test(arg) || /^\/wait$/i.test(arg) || /^\/min$/i.test(arg) || /^\/max$/i.test(arg)) { i += 1; continue; }
+    if (/^\/d$/i.test(arg)) {
+      if (i + 1 >= list.length) return { ambiguous: true };
+      i += 2;
+      continue;
+    }
+    if (arg.startsWith('/')) return { ambiguous: true };
+    if (arg === '') { i += 1; continue; }
+    break;
+  }
+  if (i >= list.length) return null;
+  return fromRest(list.slice(i));
+}
+
+function withoutLeadingExec(list) {
+  const out = [];
+  let removed = false;
+  let sawWord = false;
+  for (const arg of list) {
+    if (!sawWord && !arg.startsWith('-') && arg === 'exec') { removed = true; sawWord = true; continue; }
+    if (!arg.startsWith('-')) sawWord = true;
+    out.push(arg);
+  }
+  return removed ? out : null;
+}
+
+function unwrapOnce(command, args) {
+  const stem = commandStem(command);
+  const list = Array.isArray(args) ? args.filter(item => typeof item === 'string') : [];
+  if (stem === 'cmd') return unwrapCmd(list);
+  if (stem === 'sh' || stem === 'bash' || stem === 'zsh' || stem === 'dash') return unwrapShellC(list);
+  if (stem === 'powershell' || stem === 'pwsh') return unwrapPowerShell(list);
+  if (stem === 'env') return unwrapEnv(list);
+  if (stem === 'sudo' || stem === 'doas') return unwrapSudo(list);
+  if (stem === 'nice') return unwrapNice(list);
+  if (stem === 'nohup') return unwrapNohup(list);
+  if (stem === 'time') return unwrapTime(list);
+  if (stem === 'wsl') return unwrapWsl(list);
+  if (stem === 'start') return unwrapStart(list);
+  if (stem === 'npx' || stem === 'bunx' || stem === 'pnpx') {
+    const dropped = withoutLeadingExec(list);
+    if (dropped) return asLaunch(command, dropped);
+  }
+  return null;
+}
+
+/** Peel cmd, shells, env, sudo, and the other launch wrappers. Ambiguous shell text stays ambiguous. */
+function unwrapLaunch(command, args) {
+  let current = { command: command || '', args: Array.isArray(args) ? args.filter(item => typeof item === 'string') : [], ambiguous: false };
+  for (let hop = 0; hop < 6; hop++) {
+    const next = unwrapOnce(current.command, current.args);
+    if (!next) return current;
+    if (next.ambiguous) return { command: current.command, args: current.args, ambiguous: true };
+    current = next;
+  }
+  return current;
+}
+
 /** npm or Python package spec, with or without a version. Not a path, flag, or URL. */
 function isPackageSpec(arg) {
   if (typeof arg !== 'string') return false;
@@ -325,5 +588,5 @@ function namesInText(text, { ini = false } = {}) {
 
 module.exports = {
   PROVIDER_KEY_NAMES, valueIsPresent, isEnvReference, isPackageSpec, isPackageNameShape, isHighConfidenceSecret,
-  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
+  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, unwrapLaunch, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
 };

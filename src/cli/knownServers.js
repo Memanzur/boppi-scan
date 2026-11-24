@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { matchIdentity, matchHost, DATA_SOURCE_ROLES, exactPackageMatch } = require('./mcpCatalog');
-const { installerPackage, commandStem } = require('./discovery/secrets');
+const { installerPackage, commandStem, unwrapLaunch } = require('./discovery/secrets');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -277,13 +277,20 @@ function inferCapabilities(name, server, options = {}) {
       if (!roles[capability]) roles[capability] = hit.role;
     }
   }
-  const launched = installerPackage(spec.command, args);
-  const commandName = commandStem(spec.command);
-  const interpreter = normalizeInterpreter(spec.command) != null;
-  for (const token of identityTokens(name, spec)) {
+  const launch = unwrapLaunch(spec.command, args);
+  const launched = launch.ambiguous ? null : installerPackage(launch.command, launch.args);
+  const commandName = launch.ambiguous ? '' : commandStem(launch.command);
+  const interpreter = !launch.ambiguous && normalizeInterpreter(launch.command) != null;
+  const commandIsLauncher = ['npx', 'npm', 'uvx', 'uv', 'bunx', 'pnpm', 'pnpx', 'yarn', 'pip', 'pipx', 'deno', 'docker', 'podman'].includes(commandName);
+  const tokens = launch.ambiguous ? [] : identityTokens(name, { command: launch.command, args: launch.args });
+  for (const token of tokens) {
     const hit = matchIdentity(token);
-    // An interpreter does not launch the package named in a later argument.
+    // An interpreter or an ambiguous wrapper does not launch a later package.
+    // A script or other binary is known only as itself, not from a later argument.
+    // The wrapper executable itself is not a catalog entry.
     if (interpreter) continue;
+    if (!commandIsLauncher && token !== commandName && token !== launch.command && token !== name) continue;
+    if (['cmd', 'sh', 'bash', 'zsh', 'dash', 'powershell', 'pwsh', 'env', 'sudo', 'doas', 'nice', 'nohup', 'wsl', 'start'].includes(commandStem(token))) continue;
     // A zero-capability row is known only from the package this command launches,
     // scope included. A later argument, or a server name, does not inherit it.
     if (hit && !hit.capabilities.length) {

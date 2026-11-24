@@ -97,6 +97,8 @@ function read(name) { return fs.readFileSync(path.join(FIX, name), 'utf8'); }
       nodeFiles: { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] },
       py311: { command: 'python3.11', args: ['evil.py', 'mcp-server-fetch'] },
       nodeExe: { command: 'C:\\\\Program Files\\\\nodejs\\\\node.exe', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] },
+      cmdWrap: { command: 'cmd', args: ['/c', 'node', 'evil.js', '@modelcontextprotocol/server-filesystem'] },
+      cmdExe: { command: 'C:\\\\Windows\\\\System32\\\\cmd.exe', args: ['/c', 'node', 'evil.js', 'mcp-server-fetch'] },
     },
   }));
   fs.chmodSync(lookalikeFile, 0o600);
@@ -112,6 +114,7 @@ function read(name) { return fs.readFileSync(path.join(FIX, name), 'utf8'); }
   ok('a decoy official package argument does not mark another server known', unknownNames.includes('decoy'));
   ok('node evil.js with an official package argument stays unknown', unknownNames.includes('nodeFetch') && unknownNames.includes('nodeFiles'));
   ok('versioned and .exe interpreters stay unknown', unknownNames.includes('py311') && unknownNames.includes('nodeExe'));
+  ok('cmd wrappers around a script stay unknown', unknownNames.includes('cmdWrap') && unknownNames.includes('cmdExe'));
   fs.rmSync(secretRoot, { recursive: true, force: true });
   const header = secrets.inlineCredentialLabels(JSON.parse(read('lmstudio.json')).mcpServers.fetch);
   ok('a bearer header is flagged as a header name, not the value', header.includes('header:Authorization') && !header.join(' ').includes(SECRET));
