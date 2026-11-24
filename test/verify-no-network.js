@@ -110,6 +110,11 @@ function makeHome(root) {
   const verify = run(['verify', exportPath]);
   ok('verify rescans with no network attempt', verify.code === 0 && verify.attempts.length === 0);
 
+  const guardPolicy = path.join(root, 'guard-policy.json');
+  fs.writeFileSync(guardPolicy, JSON.stringify({ allowServers: ['filesystem', 'fetch', 'shell', 'puppeteer', 'desktop-commander', 'mcp-server'] }));
+  const guardRun = run(['guard', '--policy', guardPolicy]);
+  ok('guard checks the policy and makes no network attempt', guardRun.code === 0 && guardRun.stdout.includes('POLICY  passed') && guardRun.attempts.length === 0);
+
   const dry = run(['push', '--dry-run', '--url', 'http://127.0.0.1:1']);
   ok('push --dry-run prints the payload and makes no network attempt', dry.code === 0 && dry.stdout.includes('"records"') && dry.attempts.length === 0);
 

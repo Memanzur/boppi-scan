@@ -42,6 +42,7 @@ const plan = require('./plan');
 const policyModule = require('./policy');
 const sarif = require('./render/sarif');
 const fix = require('./fix');
+const guard = require('./guard');
 const autoFix = require('./autoFix');
 const approvalBypass = require('./approvalBypass');
 
@@ -50,13 +51,13 @@ const catalog = require('./discovery/catalog');
 const presence = require('./discovery/presence');
 const CLIENTS = [require('./discovery/claudeDesktop'), require('./discovery/claudeCode'), require('./discovery/cursor')];
 const SEVERITY_ORDER = Object.freeze({ low: 1, medium: 2, high: 3, critical: 4 });
-const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'watch']);
+const COMMANDS = new Set(['scan', 'agents', 'paths', 'plan', 'fix', 'verify', 'history', 'push', 'watch', 'guard']);
 // Config locations differ per OS. The override exists for tests and for scanning a copied home directory from another machine.
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'linux', 'win32']);
 
 function usage() {
   return [
-    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|watch] [options]',
+    'Usage: boppi [scan|agents|paths|plan|fix|verify|history|push|watch|guard] [options]',
     '',
     '  boppi                          same as boppi scan',
     '  boppi scan                     security score, counts, and the top 3 risks (--verbose for the full report)',
@@ -70,6 +71,7 @@ function usage() {
     '  boppi history                  show recent local scan summaries and verified exposure reduction',
     '  boppi push                     scan once, then send the sanitized inventory to your Boppi workspace',
     '  boppi watch                    foreground loop: scan and push until Ctrl+C (default every 15 minutes)',
+    '  boppi guard -- <command>       run <command> only when the policy guard passes; no policy, no command',
     '',
     'Push and watch are the commands that use the network:',
     `  --url <workspace>   workspace origin or ingest URL (default ${push.DEFAULT_WORKSPACE_URL})`,
@@ -112,6 +114,9 @@ function usage() {
 }
 
 function parseArgs(argv) {
+  const separator = argv.indexOf('--');
+  const wrapped = separator === -1 ? null : argv.slice(separator + 1);
+  if (separator !== -1) argv = argv.slice(0, separator);
   const options = {
     command: 'scan', json: null, html: null, sarif: null, format: 'terminal', output: null, only: null, config: null, source: 'claude-desktop',
     failOn: null, overlay: null, quiet: false, verbose: false,
@@ -121,6 +126,7 @@ function parseArgs(argv) {
     url: null, token: process.env.BOPPI_TOKEN || null, file: null, dryRun: false, merge: false,
     platform: process.env.BOPPI_SCAN_PLATFORM || process.platform,
     interval: null,
+    wrapped,
   };
   const takesValue = new Set(['--json', '--html', '--only', '--config', '--source', '--fail-on', '--home', '--cwd', '--contradictions-dir', '--overlay', '--history-file', '--url', '--token', '--file', '--platform', '--server', '--client', '--sarif', '--policy', '--interval', '--format', '--output', '-o']);
   for (let i = 0; i < argv.length; i++) {
@@ -169,6 +175,10 @@ function parseArgs(argv) {
   const FORMATS = new Set(['terminal', 'json', 'html', 'sarif']);
   if (!FORMATS.has(options.format)) throw new Error('--format must be one of: terminal, json, html, sarif');
   if (options.client && !ONLY_ALIASES[options.client]) throw new Error(`--client must be one of: ${[...new Set(Object.values(ONLY_ALIASES))].join(', ')}`);
+  if (options.wrapped && options.command !== 'guard') throw new Error('-- is only valid with boppi guard');
+  if (options.command === 'guard' && !options.help && !options.version) {
+    if (options.wrapped && options.wrapped.length === 0) throw new Error('boppi guard -- requires a command');
+  }
   if (options.interval != null && options.command !== 'watch') throw new Error('--interval is only valid with boppi watch');
   if (options.command === 'watch' && !options.help && !options.version) {
     if (options.file) throw new Error('watch scans this machine on each cycle and does not take --file');
@@ -369,15 +379,29 @@ function discover(options) {
         path: resolved, scope: file.scope, status: 'not_found', serverCount: 0,
         extract: file.extract, parse: file.parse, format: file.format || 'json',
       };
-      if (fs.existsSync(resolved)) {
-        let stat;
-        try { stat = fs.statSync(resolved); } catch (error) {
+      let listed;
+      try { listed = fs.lstatSync(resolved); } catch (error) {
+        if (error.code !== 'ENOENT') {
           entry.status = 'unreadable';
-          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : 'unreadable';
+          entry.reason = error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : error.code === 'ELOOP' ? 'symlink loop' : 'unreadable';
           filesRead.add(resolved);
+        }
+        client.files.push(entry);
+        continue;
+      }
+      let stat = listed;
+      if (listed.isSymbolicLink()) {
+        try { stat = fs.statSync(resolved); } catch (error) {
+          if (error.code !== 'ENOENT') {
+            entry.status = 'unreadable';
+            entry.reason = error.code === 'ELOOP' ? 'symlink loop' : error.code === 'EACCES' || error.code === 'EPERM' ? 'permission denied' : 'unreadable';
+            filesRead.add(resolved);
+          }
           client.files.push(entry);
           continue;
         }
+      }
+      {
         if (stat.isDirectory()) {
           entry.status = 'unreadable';
           entry.reason = 'this is a directory, not a config file';
@@ -534,8 +558,10 @@ async function performScan(options) {
     }
     inventory = result.inventory;
   }
+  // MCP configs that exist but were not analyzed make the scan incomplete.
+  // Presence checks and shell startup files are best-effort and do not.
   const incomplete = discovery.clients
-    .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable'))
+    .filter(c => !c.presenceOnly && !c.inventoryOnly && (c.scanError || c.files.some(file => file.format !== 'text' && file.format !== 'presence' && (file.status === 'unreadable' || file.status === 'skipped'))))
     .map(c => c.label);
 
   const graph = securityGraph.buildGraph(inventory);
@@ -964,6 +990,48 @@ async function runWatch(options) {
 
 function plural(count, noun) { return `${count} ${noun}${count === 1 ? '' : 's'}`; }
 
+async function runGuard(options) {
+  const policyFile = policyModule.discoverPolicy(options.policy, options.cwd);
+  if (!policyFile) {
+    process.stderr.write('boppi guard requires a policy file (--policy or ./boppi.policy.json).\n');
+    return 2;
+  }
+  const scan = await performScan(options);
+  if (scan.failed) {
+    process.stderr.write(`Scan failed: ${scan.failed}\n`);
+    return scan.exitCode || 3;
+  }
+  let loaded;
+  try { loaded = policyModule.loadPolicy(policyFile); } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    return 2;
+  }
+  if (scan.incomplete && scan.incomplete.length) {
+    process.stderr.write(`Scan incomplete: ${scan.incomplete.join(', ')} could not be analyzed. The wrapped command was not run.\n`);
+    return 4;
+  }
+  const result = policyModule.evaluatePolicy(loaded, scan.inventory, scan.paths);
+  process.stdout.write(policyModule.renderPolicy(result, options.color) + '\n');
+  if (!result.passed) {
+    process.stderr.write('Policy guard failed. The wrapped command was not run.\n');
+    return 1;
+  }
+  if (!options.wrapped) {
+    process.stdout.write('Policy guard passed. No command was wrapped.\n');
+    return 0;
+  }
+  if (options.dryRun) {
+    process.stdout.write(`Would run: ${guard.formatCommand(options.wrapped)}\n`);
+    return 0;
+  }
+  const child = guard.runWrapped(options.wrapped);
+  if (child.error) {
+    process.stderr.write(`boppi guard could not run ${options.wrapped[0]}: ${child.error.message}\n`);
+    return child.code;
+  }
+  return child.code;
+}
+
 async function run(argv) {
   let options;
   try { options = parseArgs(argv); } catch (error) {
@@ -977,6 +1045,7 @@ async function run(argv) {
   if (options.command === 'push') return runPush(options);
   if (options.command === 'watch') return runWatch(options);
   if (options.command === 'fix') return runFix(options);
+  if (options.command === 'guard') return runGuard(options);
 
   const scan = await performScan(options);
   if (scan.failed) {

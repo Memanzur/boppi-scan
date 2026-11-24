@@ -578,6 +578,13 @@ function collectYoloToml(list, seen, { file, fileLabel, tool, text }) {
   }
 }
 
+const SHELL_STARTUP = new Set(['.zshrc', '.zprofile', '.zshenv', '.bashrc', '.bash_profile', '.profile', 'config.fish']);
+
+function shellStartupName(file) {
+  if (typeof file !== 'string') return '';
+  return file.split(/[\\/]/).pop();
+}
+
 function collectCredentialNames(list, seen, credentialNames) {
   for (const entry of credentialNames || []) {
     if (!entry || !entry.name) continue;
@@ -611,6 +618,25 @@ function collectIssues({ home, cwd, discovery, claudeSettings, credentialNames }
   const seen = new Set();
   for (const client of (discovery && discovery.clients) || []) {
     for (const file of client.files || []) {
+      if (file.format === 'text' && file.status === 'skipped' && file.reason === 'larger than 1MB' && SHELL_STARTUP.has(shellStartupName(file.path))) {
+        const fileLabel = displayPath(file.path, home);
+        pushIssue(list, seen, issue({
+          ruleId: 'BOPPI-SHELL-RC-SIZE',
+          fixId: `shell-rc-size:${fileLabel}`,
+          severity: 'low',
+          category: 'coverage',
+          tool: client.label || 'Provider keys',
+          title: `${fileLabel} is larger than 1MB, so provider key names in it were not read.`,
+          summary: 'Shell startup files are checked on a best-effort basis. A file this large is skipped instead of failing the scan.',
+          steps: [
+            `Move exports you care about out of ${fileLabel}, or trim the file below 1MB, and scan again.`,
+          ],
+          autoFixable: false,
+          file: file.path,
+          fileLabel,
+          format: 'text',
+        }));
+      }
       if (file.status !== 'found' || !file.path) continue;
       if (file.format === 'text' || file.format === 'presence') continue;
       let stat;

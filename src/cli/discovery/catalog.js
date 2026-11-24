@@ -302,6 +302,13 @@ function augmentProjectFiles(descriptors, home) {
   const cursor = descriptors.find(d => d.clientKey === 'cursor');
   const copilotClient = descriptors.find(d => d.clientKey === 'copilot');
   for (const hit of hits) {
+    if (hit.kind === 'blocked' || hit.kind === 'dropped') {
+      const blocked = jsonFile(hit.path, 'project', () => ({}));
+      if (claude) claude.files.push({ ...blocked });
+      if (cursor) cursor.files.push({ ...blocked });
+      if (copilotClient) copilotClient.files.push({ ...blocked });
+      continue;
+    }
     if (hit.kind === 'mcp') {
       const file = jsonFile(hit.path, 'project', json => parse.mapServers(json.mcpServers || json.servers));
       if (claude) claude.files.push(file);
