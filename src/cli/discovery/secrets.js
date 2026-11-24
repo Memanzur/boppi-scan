@@ -90,6 +90,12 @@ const INSTALL_SUBS = Object.freeze({
   uv: ['tool', 'run'],
 });
 const PACKAGE_FLAGS = new Set(['-p', '--package', '--from']);
+const BOOLEAN_FLAGS = new Set([
+  '-y', '--yes', '-q', '--quiet', '-s', '--silent', '-n', '--no',
+  '--offline', '--prefer-offline', '--prefer-online', '--no-install', '--ignore-existing',
+  '--global', '--shell', '--no-cache', '--refresh', '--isolated', '--ignore-scripts',
+  '--foreground-scripts', '--no-project',
+]);
 
 function splitInstallerFlag(arg) {
   if (arg.startsWith('--')) {
@@ -104,8 +110,9 @@ function splitInstallerFlag(arg) {
 /**
  * The package an installer will fetch. Subcommands (npm exec, npm x, yarn dlx,
  * pnpm dlx, uv tool run) are not packages. -p, --package, and --from supply
- * the package only before it has been chosen. Anything after that package
- * belongs to the server, including a later flag of the same shape.
+ * the package only before it has been chosen. `--` does not hide the package
+ * that follows it. Other long flags consume their value. Anything after the
+ * package belongs to the server, including a later flag of the same shape.
  * Returns { token, spec } or null. token is the argv string to rewrite.
  */
 function installerPackage(command, args) {
@@ -118,6 +125,7 @@ function installerPackage(command, args) {
   let subIndex = 0;
   let token = null;
   let spec = null;
+  let endOfFlags = false;
   const take = (raw, name) => {
     if (!isPackageSpec(name)) return false;
     token = raw;
@@ -127,22 +135,33 @@ function installerPackage(command, args) {
 
   for (let i = 0; i < list.length; i++) {
     const arg = list[i];
-    if (arg === '--') break;
-    if (arg.startsWith('-')) {
+    if (arg === '--') {
+      endOfFlags = true;
+      continue;
+    }
+    if (!endOfFlags && arg.startsWith('-')) {
       const parsed = splitInstallerFlag(arg);
-      if (!PACKAGE_FLAGS.has(parsed.flag)) continue;
       if (spec) break;
-      let raw = arg;
-      let name = parsed.inline;
-      if (parsed.inline == null) {
-        const next = list[i + 1];
-        if (typeof next !== 'string' || next === '--' || next.startsWith('-')) continue;
-        raw = next;
-        name = next;
-        i += 1;
+      if (PACKAGE_FLAGS.has(parsed.flag)) {
+        let raw = arg;
+        let name = parsed.inline;
+        if (parsed.inline == null) {
+          const next = list[i + 1];
+          if (typeof next !== 'string' || next === '--' || next.startsWith('-')) continue;
+          raw = next;
+          name = next;
+          i += 1;
+        }
+        if (!take(raw, name)) continue;
+        if (direct || subIndex >= subs.length) break;
+        continue;
       }
-      if (!take(raw, name)) continue;
-      if (direct || subIndex >= subs.length) break;
+      if (BOOLEAN_FLAGS.has(parsed.flag) || BOOLEAN_FLAGS.has(arg)) continue;
+      const takesValue = parsed.flag.startsWith('--') || parsed.inline != null;
+      if (takesValue && parsed.inline == null) {
+        const next = list[i + 1];
+        if (typeof next === 'string' && next !== '--' && !next.startsWith('-')) i += 1;
+      }
       continue;
     }
     if (!direct && subIndex < subs.length) {
@@ -151,7 +170,7 @@ function installerPackage(command, args) {
       subIndex += 1;
       continue;
     }
-    if (!spec && !take(arg, arg)) return null;
+    if (!spec && !take(arg, arg)) continue;
     break;
   }
   if (!direct && subIndex < subs.length) return null;

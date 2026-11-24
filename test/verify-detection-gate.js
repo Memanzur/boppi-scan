@@ -84,6 +84,8 @@ const allowHit = inferred => inferred.inferences.some(item => item.grade === 'al
 ok('@evil/server-everything and @evil/server-memory stay off the official allowlist', !allowHit(evilEverything) && !allowHit(evilMemory));
 ok('a server merely named memory or everything is not the official server', !allowHit(namedMemory) && !allowHit(namedEverything));
 ok('a server named everything still keeps the fetch package capabilities', namedEverything.capabilities.includes('network_access') && namedEverything.capabilities.includes('untrusted_external_content'));
+const decoy = inferCapabilities('decoy', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-everything'] }, { home });
+ok('a decoy official package argument is not an allowlist hit', !decoy.inferences.some(item => item.grade === 'allowlist' && item.label === 'everything'));
 
 fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
 fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });

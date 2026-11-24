@@ -286,6 +286,34 @@ function runCli(args, home, cwd, extra = {}) {
   ok('fix --yes pins the real package and keeps the later flag value', afterArgs.includes('mcp-server-fetch@1.4.2') && afterArgs.includes('--package') && afterArgs.includes('leaked-value') && !afterArgs.some(arg => String(arg).startsWith('leaked-value@')));
   fs.rmSync(afterPkg.root, { recursive: true, force: true });
 
+  const afterDash = stage({
+    npx: { command: 'npx', args: ['-y', '--', 'mcp-server-fetch@latest'] },
+    npm: { command: 'npm', args: ['exec', '--yes', '--', 'mcp-server-fetch'] },
+    npmx: { command: 'npm', args: ['x', '--', 'mcp-server-fetch@latest'] },
+    yarn: { command: 'yarn', args: ['dlx', '--', 'mcp-server-fetch@latest'] },
+    pnpm: { command: 'pnpm', args: ['dlx', '--', 'mcp-server-fetch'] },
+  }, { 'mcp-server-fetch': '1.4.2' });
+  const dashTitles = unpinnedTitles(afterDash);
+  ok('a package after -- is still the unpinned package', dashTitles.length === 5 && dashTitles.every(title => title.includes('mcp-server-fetch') && !title.includes('(--)')));
+  runCli(['fix', '--yes'], afterDash.home, afterDash.work);
+  const dashJson = JSON.parse(fs.readFileSync(afterDash.file, 'utf8')).mcpServers;
+  ok('fix --yes pins the package that follows --', ['npx', 'npm', 'npmx', 'yarn', 'pnpm'].every(name => dashJson[name].args.includes(name === 'npm' || name === 'pnpm' ? 'mcp-server-fetch@1.4.2' : 'mcp-server-fetch@1.4.2') && dashJson[name].args.includes('--')));
+  fs.rmSync(afterDash.root, { recursive: true, force: true });
+
+  const flagValue = stage({
+    uv: { command: 'uvx', args: ['--python', '3.11', 'mcp-server-fetch@latest'] },
+    cache: { command: 'npx', args: ['--cache', '/tmp/cache', 'mcp-server-fetch@latest'] },
+    npmrc: { command: 'npm', args: ['exec', '--userconfig', '/tmp/npmrc', 'mcp-server-fetch'] },
+  }, { 'mcp-server-fetch': '1.4.2' });
+  const flagTitles = unpinnedTitles(flagValue);
+  ok('a flag value is not the package name', flagTitles.length === 3 && flagTitles.every(title => title.includes('mcp-server-fetch') && !title.includes('3.11') && !title.includes('/tmp/cache') && !title.includes('/tmp/npmrc')));
+  runCli(['fix', '--yes'], flagValue.home, flagValue.work);
+  const flagJson = JSON.parse(fs.readFileSync(flagValue.file, 'utf8')).mcpServers;
+  ok('npx --cache pins the real package and keeps the flag value', flagJson.cache.args.includes('--cache') && flagJson.cache.args.includes('/tmp/cache') && flagJson.cache.args.includes('mcp-server-fetch@1.4.2'));
+  ok('npm exec --userconfig pins the real package and keeps the flag value', flagJson.npmrc.args[0] === 'exec' && flagJson.npmrc.args.includes('--userconfig') && flagJson.npmrc.args.includes('/tmp/npmrc') && flagJson.npmrc.args.includes('mcp-server-fetch@1.4.2'));
+  ok('uvx --python does not treat 3.11 as the package and is not rewritten', flagJson.uv.args.join(' ') === '--python 3.11 mcp-server-fetch@latest');
+  fs.rmSync(flagValue.root, { recursive: true, force: true });
+
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');
   fs.writeFileSync(chosenFile, JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['pkg'], env: { OPENAI_API_KEY: SECRET, COOKIE_PATH: 'chocolate', API_KEY_FILE: '/tmp/keyfile' } } } }, null, 2) + '\n');

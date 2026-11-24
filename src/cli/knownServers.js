@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { matchIdentity, matchHost, DATA_SOURCE_ROLES, exactPackageMatch } = require('./mcpCatalog');
+const { installerPackage } = require('./discovery/secrets');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -261,11 +262,18 @@ function inferCapabilities(name, server, options = {}) {
       if (!roles[capability]) roles[capability] = hit.role;
     }
   }
+  const launched = installerPackage(spec.command, args);
+  const commandName = typeof spec.command === 'string' ? spec.command.trim().split(/[\\/]/).pop() : '';
   for (const token of identityTokens(name, spec)) {
     const hit = matchIdentity(token);
-    // A zero-capability row is known only from its exact package, scope included.
-    // A server name, or a package under another scope, does not inherit it.
-    if (hit && !hit.capabilities.length && !exactPackageMatch(token, hit.entry)) continue;
+    // A zero-capability row is known only from the package this command launches,
+    // scope included. A later argument, or a server name, does not inherit it.
+    if (hit && !hit.capabilities.length) {
+      if (!exactPackageMatch(token, hit.entry)) continue;
+      const launchedHit = launched && exactPackageMatch(launched.spec, hit.entry);
+      const commandHit = commandName && exactPackageMatch(commandName, hit.entry);
+      if (!launchedHit && !commandHit) continue;
+    }
     grantCatalog(hit, token);
   }
 
