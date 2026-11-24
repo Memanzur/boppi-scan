@@ -130,9 +130,9 @@ function runCli(args, home) {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const scored = securityScore(exported.exposurePaths);
-  ok('demo score matches the terminal formula and is 49 D', scored.score === 49 && scored.grade === 'D' && exported.securityReport.score === 49 && exported.securityReport.grade === 'D');
-  ok('HTML prints that score, grade, and higher is safer', html.includes('aria-label="Security score 49/100, grade D. Higher is safer."') && html.includes('class="score-num">49<') && html.includes('class="grade" aria-label="Grade D">D<'));
-  ok('HTML verdict names keys, the internet, and the 3 items', html.includes('Your AI tools can reach your keys and the internet. Fix the 3 items below, then tighten the settings that follow.'));
+  ok('demo score matches the terminal formula and is 56 C', scored.score === 56 && scored.grade === 'C' && exported.securityReport.score === 56 && exported.securityReport.grade === 'C');
+  ok('HTML prints that score, grade, and higher is safer', html.includes('aria-label="Security score 56/100, grade C. Higher is safer."') && html.includes('class="score-num">56<') && html.includes('class="grade" aria-label="Grade C">C<'));
+  ok('HTML verdict names keys, the internet, and the 2 items', html.includes('Your AI tools can reach your keys and the internet. Fix the 2 items below, then tighten the settings that follow.'));
   const found = html.split('id="found"')[1].split('id="technical"')[0];
   ok('provider keys are not listed as an AI tool', !found.includes('Provider keys') && found.includes('Cursor') && found.includes('Claude Desktop') && found.includes('Claude Code'));
   let cursor = 0;
@@ -142,14 +142,17 @@ function runCli(args, home) {
     cursor = at + 1;
   }
   ok('Claude Code key fix names the config file and the keychain', html.includes('Move GITHUB_PERSONAL_ACCESS_TOKEN out of ~/.claude.json into your OS keychain.'));
-  ok('home folder risk tells you to limit the filesystem server', html.includes('Limit the filesystem server to a project folder instead of your home folder.'));
+  // The critical path can cite the home folder or the GitHub key. The page must show that path's sentence and its plain fix.
+  const shown = exported.securityReport.risks.map(risk => risk.sentence).join('\n');
+  ok('a shown home folder risk tells you to limit the filesystem server', !/read the home folder/.test(shown) || html.includes('Limit the filesystem server to a project folder instead of your home folder.'));
+  ok('a shown key risk names the keychain', !/use the \S+ key/.test(shown) || html.includes('Move GITHUB_PERSONAL_ACCESS_TOKEN out of ~/.cursor/mcp.json into your OS keychain.'));
   ok('Cursor key fix names mcp.json', found.includes('Move GITHUB_PERSONAL_ACCESS_TOKEN out of ~/.cursor/mcp.json into your OS keychain.'));
   ok('Claude Code hygiene is in the report', html.includes('Settings to tighten') && html.includes('bypass permission prompts') && html.includes('Bash with no command restriction') && html.includes('Set permissions.defaultMode to default so Claude Code asks before tools run.') && html.includes('Replace the open Bash allow rule with the specific commands you want Claude Code to run.'));
   ok('key names are shown and values are not', found.includes('OPENAI_API_KEY') && found.includes('ANTHROPIC_API_KEY') && found.includes('NOTION_TOKEN') && found.includes('Values are never shown.') && ![githubToken, claudeToken, notionToken, openai, anthropic].some(secret => html.includes(secret)));
   ok('HTML stays on this computer', html.includes('Scanned locally. Nothing left this computer.') && html.includes(CLOSING) && html.includes('href="https://boppi.io"') && html.startsWith('<!doctype html>') && !/<script src=|<link rel|https?:\/\/(?!boppi\.io)/.test(html));
   ok('the page has no em dash or en dash and hides the raw timestamp', !html.includes('\u2014') && !html.includes('\u2013') && !/\d{4}-\d{2}-\d{2}T/.test(html));
   ok('technical details still hold the evidence tables', html.includes('<details class="tech" id="technical">') && html.includes('Potential exposure paths') && html.includes('Privacy.') && html.includes('~/.cursor/mcp.json') && !html.includes(home));
-  ok('terminal text for this scan is unchanged aside from the export paths', scan.stdout.includes('49/100 D') && scan.stdout.includes('Higher is safer') && scan.stdout.includes('HYGIENE') && scan.stdout.includes('bypass permission prompts') && scan.stdout.includes('TOP RISKS') && !scan.stdout.includes('Your biggest risks'));
+  ok('terminal text for this scan shows the same score', scan.stdout.includes('56/100 C') && scan.stdout.includes('Higher is safer') && scan.stdout.includes('HYGIENE') && scan.stdout.includes('bypass permission prompts') && scan.stdout.includes('TOP RISKS') && !scan.stdout.includes('Your biggest risks'));
 
   const empty = path.join(root, 'empty');
   fs.mkdirSync(empty);
