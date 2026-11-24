@@ -73,6 +73,17 @@ for (const [name, pkg] of referencePackages) {
   const catalogHit = inferred.inferences.some(item => item.grade === 'allowlist' && item.label !== 'directory arguments' && item.label !== 'remote MCP server');
   ok(`${name} is a known catalog reference server`, catalogHit && !inferred.capabilities.includes('network_access') && !inferred.capabilities.includes('shell_access') && !inferred.capabilities.includes('credential_access'));
 }
+const timeLatest = inferCapabilities('clock', { command: 'npx', args: ['-y', '@modelcontextprotocol/server-time@latest'] }, { home });
+const timeExact = inferCapabilities('clock', { command: 'uvx', args: ['mcp-server-time==0.6.3'] }, { home });
+ok('official time stays known with @latest and an exact == pin', [timeLatest, timeExact].every(inferred => inferred.inferences.some(item => item.grade === 'allowlist' && item.label === 'time') && !inferred.capabilities.includes('network_access')));
+const evilEverything = inferCapabilities('demo', { command: 'npx', args: ['-y', '@evil/server-everything'] }, { home });
+const evilMemory = inferCapabilities('demo', { command: 'npx', args: ['-y', '@evil/server-memory'] }, { home });
+const namedMemory = inferCapabilities('memory', { command: 'node', args: ['server.js'] }, { home });
+const namedEverything = inferCapabilities('everything', { command: 'npx', args: ['-y', 'mcp-server-fetch'] }, { home });
+const allowHit = inferred => inferred.inferences.some(item => item.grade === 'allowlist' && (item.label === 'everything' || item.label === 'memory'));
+ok('@evil/server-everything and @evil/server-memory stay off the official allowlist', !allowHit(evilEverything) && !allowHit(evilMemory));
+ok('a server merely named memory or everything is not the official server', !allowHit(namedMemory) && !allowHit(namedEverything));
+ok('a server named everything still keeps the fetch package capabilities', namedEverything.capabilities.includes('network_access') && namedEverything.capabilities.includes('untrusted_external_content'));
 
 fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
 fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });

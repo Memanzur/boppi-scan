@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { matchIdentity, matchHost, DATA_SOURCE_ROLES } = require('./mcpCatalog');
+const { matchIdentity, matchHost, DATA_SOURCE_ROLES, exactPackageMatch } = require('./mcpCatalog');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -261,7 +261,13 @@ function inferCapabilities(name, server, options = {}) {
       if (!roles[capability]) roles[capability] = hit.role;
     }
   }
-  for (const token of identityTokens(name, spec)) grantCatalog(matchIdentity(token), token);
+  for (const token of identityTokens(name, spec)) {
+    const hit = matchIdentity(token);
+    // A zero-capability row is known only from its exact package, scope included.
+    // A server name, or a package under another scope, does not inherit it.
+    if (hit && !hit.capabilities.length && !exactPackageMatch(token, hit.entry)) continue;
+    grantCatalog(hit, token);
+  }
 
   const filesystemPaths = [];
   let filesystemScope = null;

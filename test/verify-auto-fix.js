@@ -7,7 +7,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
-const { chooseFixes, parseChoice, applyIssues } = require('../src/cli/autoFix');
+const { chooseFixes, parseChoice, applyIssues, collectIssues } = require('../src/cli/autoFix');
 const { validateSarif } = require('../src/cli/render/sarif');
 
 let passed = 0, failed = 0;
@@ -188,6 +188,103 @@ function runCli(args, home, cwd, extra = {}) {
   const pinExported = JSON.parse(fs.readFileSync(pinRescanPath, 'utf8'));
   ok('re-scan after the pin does not report the package as unpinned or unknown', pinRescan.code === 0 && !(pinExported.configFindings || []).some(finding => finding.ruleId === 'BOPPI-UNPINNED-PACKAGE' || finding.ruleId === 'BOPPI-UNKNOWN-SERVER'));
   fs.rmSync(pinRoot, { recursive: true, force: true });
+
+  section('installer subcommands, exact pins, and arguments after the package');
+  function installPkg(work, name, version) {
+    const dir = path.join(work, 'node_modules', ...name.split('/'));
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name, version }));
+  }
+  function stage(servers, versions) {
+    const stageRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-pin-form-'));
+    const stageHome = path.join(stageRoot, 'home');
+    const stageWork = path.join(stageHome, 'work');
+    fs.mkdirSync(path.join(stageHome, '.cursor'), { recursive: true });
+    fs.mkdirSync(stageWork, { recursive: true });
+    for (const [name, version] of Object.entries(versions || {})) installPkg(stageWork, name, version);
+    const file = path.join(stageHome, '.cursor', 'mcp.json');
+    fs.writeFileSync(file, JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
+    fs.chmodSync(file, 0o600);
+    return { root: stageRoot, home: stageHome, work: stageWork, file };
+  }
+  function issueList(staged) {
+    return collectIssues({
+      home: staged.home,
+      cwd: staged.work,
+      discovery: { clients: [{ label: 'Cursor', clientKey: 'cursor', files: [{ path: staged.file, status: 'found', format: 'json' }] }] },
+      claudeSettings: [],
+      credentialNames: [],
+    });
+  }
+  function unpinnedTitles(staged) {
+    return issueList(staged).filter(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE').map(item => item.title);
+  }
+
+  const npmExec = stage({
+    fetch: { command: 'npm', args: ['exec', '--yes', 'mcp-server-fetch', '--package', 'leaked-value'] },
+    alias: { command: 'npm', args: ['x', '--yes', 'mcp-server-fetch'] },
+  }, { exec: '9.9.9', x: '7.7.7', 'mcp-server-fetch': '1.4.2', 'leaked-value': '8.8.8' });
+  const npmTitles = unpinnedTitles(npmExec);
+  ok('npm exec evaluates the package after the subcommand, not a later flag value', npmTitles.length === 2 && npmTitles.every(title => title.includes('mcp-server-fetch') && !title.includes('leaked-value') && !/\(exec\)/.test(title) && !/\(x\)/.test(title)));
+  const npmFix = runCli(['fix', '--yes'], npmExec.home, npmExec.work);
+  const npmArgs = JSON.parse(fs.readFileSync(npmExec.file, 'utf8')).mcpServers.fetch.args;
+  const npmAlias = JSON.parse(fs.readFileSync(npmExec.file, 'utf8')).mcpServers.alias.args;
+  ok('npm exec --yes pins mcp-server-fetch and leaves exec and the later flag', npmFix.code === 0 && npmArgs[0] === 'exec' && npmArgs.includes('mcp-server-fetch@1.4.2') && npmArgs.includes('leaked-value') && !npmArgs.some(arg => String(arg).startsWith('exec@') || String(arg).startsWith('leaked-value@')) && npmAlias[0] === 'x' && npmAlias.includes('mcp-server-fetch@1.4.2') && !npmAlias.some(arg => String(arg).startsWith('x@')));
+  fs.rmSync(npmExec.root, { recursive: true, force: true });
+
+  const yarnDlx = stage({
+    fetch: { command: 'yarn', args: ['dlx', 'mcp-server-fetch@latest'] },
+  }, { dlx: '8.8.8' });
+  const yarnTitles = unpinnedTitles(yarnDlx);
+  ok('yarn dlx does not treat dlx as the package name', yarnTitles.length === 1 && yarnTitles[0].includes('mcp-server-fetch') && !yarnTitles[0].includes('(dlx)') && !yarnTitles[0].includes('dlx@'));
+  runCli(['fix', '--yes'], yarnDlx.home, yarnDlx.work);
+  const yarnArgs = JSON.parse(fs.readFileSync(yarnDlx.file, 'utf8')).mcpServers.fetch.args;
+  ok('yarn dlx is not rewritten to the installed dlx version', yarnArgs[0] === 'dlx' && yarnArgs[1] === 'mcp-server-fetch@latest');
+  fs.rmSync(yarnDlx.root, { recursive: true, force: true });
+
+  const pnpmDlx = stage({
+    fetch: { command: 'pnpm', args: ['dlx', 'mcp-server-fetch'] },
+  }, { 'mcp-server-fetch': '1.4.2' });
+  const pnpmFix = runCli(['fix', '--yes'], pnpmDlx.home, pnpmDlx.work);
+  const pnpmArgs = JSON.parse(fs.readFileSync(pnpmDlx.file, 'utf8')).mcpServers.fetch.args;
+  ok('pnpm dlx pins the package after dlx', pnpmFix.code === 0 && pnpmArgs[0] === 'dlx' && pnpmArgs[1] === 'mcp-server-fetch@1.4.2');
+  const pnpmRescan = path.join(pnpmDlx.root, 'rescan.json');
+  const pnpmScan = runCli(['scan', '--quiet', '--json', pnpmRescan], pnpmDlx.home, pnpmDlx.work);
+  const pnpmExported = JSON.parse(fs.readFileSync(pnpmRescan, 'utf8'));
+  ok('pnpm dlx is not unpinned after the real package is pinned', pnpmScan.code === 0 && !(pnpmExported.configFindings || []).some(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE'));
+  fs.rmSync(pnpmDlx.root, { recursive: true, force: true });
+
+  const uvTool = stage({
+    clock: { command: 'uv', args: ['tool', 'run', 'mcp-server-time'] },
+    from: { command: 'uv', args: ['tool', 'run', '--from', 'mcp-server-time', 'extra-arg'] },
+  }, { tool: '1.0.0', run: '1.0.0', 'mcp-server-time': '9.9.9' });
+  const uvTitles = unpinnedTitles(uvTool);
+  ok('uv tool run does not treat tool or run as the package', !uvTitles.some(title => title.includes('(tool)') || title.includes('(run)') || title.includes('extra-arg')));
+  runCli(['fix', '--yes'], uvTool.home, uvTool.work);
+  const uvJson = JSON.parse(fs.readFileSync(uvTool.file, 'utf8')).mcpServers;
+  ok('uv tool run keeps the subcommand and does not pin from node_modules', uvJson.clock.args.join(' ') === 'tool run mcp-server-time' && uvJson.from.args.join(' ') === 'tool run --from mcp-server-time extra-arg');
+  fs.rmSync(uvTool.root, { recursive: true, force: true });
+
+  const uvxPin = stage({
+    exact: { command: 'uvx', args: ['mcp-server-fetch==1.2.3'] },
+    latest: { command: 'uvx', args: ['--yes', 'mcp-server-fetch@latest'] },
+  }, { 'mcp-server-fetch': '3.1.0' });
+  const uvxBefore = unpinnedTitles(uvxPin);
+  ok('an exact == pin is not an unpinned package', !uvxBefore.some(title => title.includes('==1.2.3') || title.includes('mcp-server-fetch==')));
+  runCli(['fix', '--yes'], uvxPin.home, uvxPin.work);
+  const uvxJson = JSON.parse(fs.readFileSync(uvxPin.file, 'utf8')).mcpServers;
+  ok('uvx == pins are not rewritten and uvx is not pinned from node_modules', uvxJson.exact.args.join(' ') === 'mcp-server-fetch==1.2.3' && uvxJson.latest.args.includes('mcp-server-fetch@latest') && !uvxJson.latest.args.some(arg => arg.includes('@3.1.0')));
+  fs.rmSync(uvxPin.root, { recursive: true, force: true });
+
+  const afterPkg = stage({
+    fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch', '--package', 'leaked-value'] },
+  }, { 'mcp-server-fetch': '1.4.2', 'leaked-value': '8.8.8' });
+  const afterTitles = unpinnedTitles(afterPkg);
+  ok('an argument after the package is not read as an installer flag', afterTitles.length === 1 && afterTitles[0].includes('mcp-server-fetch') && !afterTitles[0].includes('leaked-value'));
+  runCli(['fix', '--yes'], afterPkg.home, afterPkg.work);
+  const afterArgs = JSON.parse(fs.readFileSync(afterPkg.file, 'utf8')).mcpServers.fetch.args;
+  ok('fix --yes pins the real package and keeps the later flag value', afterArgs.includes('mcp-server-fetch@1.4.2') && afterArgs.includes('--package') && afterArgs.includes('leaked-value') && !afterArgs.some(arg => String(arg).startsWith('leaked-value@')));
+  fs.rmSync(afterPkg.root, { recursive: true, force: true });
 
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');

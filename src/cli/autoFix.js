@@ -8,7 +8,7 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, isArgumentSecret, packageArgument, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
 const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
 
 const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
@@ -16,6 +16,7 @@ const CONFIRM_RULES = new Set(['BOPPI-UNKNOWN-SERVER', 'BOPPI-PLAINTEXT-SECRET']
 
 const SENSITIVE_NAME = /(token|secret|password|private[_-]?key|api[_-]?key|authorization|cookie|credential)/i;
 const INSTALLERS = new Set(['npx', 'npm', 'uvx', 'uv', 'bunx', 'pnpm', 'pnpx', 'yarn']);
+const NODE_PIN_COMMANDS = new Set(['npx', 'npm', 'bunx', 'pnpm', 'pnpx', 'yarn']);
 const BROAD_TOOLS = new Set(['Bash', 'Bash(*)', 'PowerShell', 'PowerShell(*)', '*']);
 const LOOSE_MODES = Object.freeze({
   bypassPermissions: 'default',
@@ -220,14 +221,9 @@ function commandBase(command) {
   return command.split(/[\\/]/).pop().toLowerCase();
 }
 
-function packageSpec(arg) {
-  if (typeof arg !== 'string' || !arg || arg.startsWith('-')) return null;
-  if (arg.startsWith('/') || arg.startsWith('~') || /^[A-Za-z]:[\\/]/.test(arg)) return null;
-  if (/\s/.test(arg)) return null;
-  return arg;
-}
-
 function isPinnedSpec(spec) {
+  const eq = spec.lastIndexOf('==');
+  if (eq > 0) return !/^(?:latest|next|\*|x)$/i.test(spec.slice(eq + 2));
   if (spec.startsWith('@')) {
     const slash = spec.indexOf('/');
     if (slash === -1) return false;
@@ -282,6 +278,14 @@ function localPackageVersion(spec, cwd) {
 
 function pinnedPackageSpec(spec, version) {
   return `${barePackageName(spec)}@${version}`;
+}
+
+function pinToken(chosen, version) {
+  const pinned = pinnedPackageSpec(chosen.spec, version);
+  if (chosen.token.startsWith('-') && chosen.token.includes('=')) {
+    return `${chosen.token.slice(0, chosen.token.indexOf('='))}=${pinned}`;
+  }
+  return pinned;
 }
 
 function hasSecretArgument(spec) {
@@ -379,7 +383,7 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
       for (const [key, value] of Object.entries(spec.env)) {
         if (typeof value !== 'string' || !valueIsPresent(value)) continue;
         const exactKey = PROVIDER_KEYS.has(key);
-        const valueSecret = isInlineSecret(value);
+        const valueSecret = isEnvSecret(value);
         if (!exactKey && !valueSecret && !SENSITIVE_NAME.test(key)) continue;
         const page = providerPage(key);
         const auto = exactKey || valueSecret;
@@ -473,8 +477,8 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
     const known = catalogMatch(name, spec, home);
     const base = commandBase(spec.command);
     const argList = Array.isArray(spec.args) ? spec.args : [];
-    const specs = argList.map(packageSpec).filter(Boolean);
-    const floating = INSTALLERS.has(base) ? specs.find(isFloating) : null;
+    const chosen = INSTALLERS.has(base) ? installerPackage(spec.command, argList) : null;
+    const floating = chosen && isFloating(chosen.spec) ? chosen.spec : null;
     if (!known) {
       pushIssue(list, seen, issue({
         ruleId: 'BOPPI-UNKNOWN-SERVER',
@@ -496,9 +500,9 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
       }));
     } else if (floating) {
       const autoYes = argList.some(arg => arg === '-y' || arg === '--yes');
-      const floatingTag = /@(latest|next|\*|x)$/i.test(floating);
-      const version = localPackageVersion(floating, cwd);
-      const pinned = version ? pinnedPackageSpec(floating, version) : null;
+      const floatingTag = /(?:@|==)(latest|next|\*|x)$/i.test(floating);
+      const version = NODE_PIN_COMMANDS.has(base) ? localPackageVersion(floating, cwd) : null;
+      const pinned = version ? pinToken(chosen, version) : null;
       // Removing -y does not pin the package. Report that case only while -y
       // or a floating tag is still present, and pin when this project already
       // has an exact version on disk.
@@ -535,7 +539,7 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
           fileLabel,
           format: 'json',
           server: name,
-          detail: { autoYes, spec: floating, pinned },
+          detail: { autoYes, spec: chosen.token, pinned },
         }));
       }
     }

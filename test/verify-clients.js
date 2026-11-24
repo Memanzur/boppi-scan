@@ -70,6 +70,40 @@ function read(name) { return fs.readFileSync(path.join(FIX, name), 'utf8'); }
   const secretFindings = secretIssues.filter(item => item.ruleId === 'BOPPI-PLAINTEXT-SECRET');
   ok('config findings ignore env references and package names', !secretFindings.some(item => item.detail && (item.detail.name === 'OPENAI_API_KEY' || item.detail.name === 'API_TOKEN' || item.detail.kind === 'arg')));
   ok('config findings keep a real env token', secretFindings.some(item => item.detail && item.detail.name === 'REAL_KEY' && item.severity === 'critical'));
+  const packageEnv = path.join(secretRoot, 'package-env.json');
+  fs.writeFileSync(packageEnv, JSON.stringify({
+    mcpServers: {
+      fetch: { command: 'npx', args: ['-y', 'mcp-server-fetch'], env: { PACKAGE_NAME: 'skills-mcp-server', MIXED_TOKEN: 'SkAbCdEfGhIjKlMnOpQr', GITHUB_TOKEN: 'ghp_abcdefghijklmnopqrstuvwxyz123456' } },
+    },
+  }));
+  const packageEnvIssues = collectIssues({
+    home: secretRoot,
+    cwd: secretRoot,
+    discovery: { clients: [{ label: 'Cursor', clientKey: 'cursor', files: [{ path: packageEnv, status: 'found', format: 'json' }] }] },
+    claudeSettings: [],
+    credentialNames: [],
+  }).filter(item => item.ruleId === 'BOPPI-PLAINTEXT-SECRET');
+  ok('a package name in an env value is not a plaintext key', !packageEnvIssues.some(item => item.detail && item.detail.name === 'PACKAGE_NAME') && !secrets.inlineCredentialLabels({ env: { PACKAGE_NAME: 'skills-mcp-server' } }).includes('PACKAGE_NAME'));
+  ok('mixed case and high confidence env tokens stay critical', packageEnvIssues.some(item => item.detail && item.detail.name === 'MIXED_TOKEN' && item.severity === 'critical') && packageEnvIssues.some(item => item.detail && item.detail.name === 'GITHUB_TOKEN' && item.severity === 'critical'));
+  const lookalikeFile = path.join(secretRoot, 'lookalike.json');
+  fs.writeFileSync(lookalikeFile, JSON.stringify({
+    mcpServers: {
+      demo: { command: 'npx', args: ['-y', '@evil/server-everything'] },
+      memory: { command: 'node', args: ['server.js'] },
+      everything: { command: 'node', args: ['index.js'] },
+      official: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-everything'] },
+    },
+  }));
+  fs.chmodSync(lookalikeFile, 0o600);
+  const lookalikeIssues = collectIssues({
+    home: secretRoot,
+    cwd: secretRoot,
+    discovery: { clients: [{ label: 'Cursor', clientKey: 'cursor', files: [{ path: lookalikeFile, status: 'found', format: 'json' }] }] },
+    claudeSettings: [],
+    credentialNames: [],
+  });
+  const unknownNames = lookalikeIssues.filter(item => item.ruleId === 'BOPPI-UNKNOWN-SERVER').map(item => item.server);
+  ok('lookalike and name-only memory or everything servers stay unknown', ['demo', 'memory', 'everything'].every(name => unknownNames.includes(name)) && !unknownNames.includes('official'));
   fs.rmSync(secretRoot, { recursive: true, force: true });
   const header = secrets.inlineCredentialLabels(JSON.parse(read('lmstudio.json')).mcpServers.fetch);
   ok('a bearer header is flagged as a header name, not the value', header.includes('header:Authorization') && !header.join(' ').includes(SECRET));
