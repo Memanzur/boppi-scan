@@ -89,10 +89,10 @@ const rowOf = (out, server) => out.stdout.split('\n').find(l => l.includes(`remo
   runCli(['scan', '--config', FIXTURE, '--source', 'claude-desktop', '--json', rerouteBefore, '--quiet'], home);
   fs.writeFileSync(editedCopy, JSON.stringify({ mcpServers: without(reroute.mcpServers, 'fetch') }));
   const replay = runCli(['verify', rerouteBefore, '--config', editedCopy, '--source', 'claude-desktop'], home);
-  ok('every server on or beside the reroute path gets a prediction, including the unused slack route', JSON.parse(fs.readFileSync(rerouteBefore, 'utf8')).predictions.map(p => p.edit.server).sort().join() === 'fetch,filesystem,slack');
+  ok('every server on or beside the reroute path gets a prediction, including the unused webhook route', JSON.parse(fs.readFileSync(rerouteBefore, 'utf8')).predictions.map(p => p.edit.server).sort().join() === 'fetch,filesystem,webhook');
   ok('the single explicit client is matched by client key and flagged', replay.code === 0 && rowOf(replay, 'fetch').includes('agent_matched_by_client'));
   ok('removing fetch from the reroute fixture is CONFIRMED to eliminate nothing', statusOf(replay, 'fetch') === 'CONFIRMED' && rowOf(replay, 'fetch').includes('0 of 1 gone / 0 of 1 gone'));
-  ok('the edits not applied in the copy stay UNRESOLVED', ['filesystem', 'slack'].every(s => statusOf(replay, s) === 'UNRESOLVED'));
+  ok('the edits not applied in the copy stay UNRESOLVED', ['filesystem', 'webhook'].every(s => statusOf(replay, s) === 'UNRESOLVED'));
 
   section('Unusable input');
   ok('a missing file exits 2', runCli(['verify', path.join(root, 'nope.json')], home).code === 2);

@@ -58,10 +58,21 @@ function runCliAsync(args, home, env = {}) {
 }
 
 /** Run watch until `stopWhen` is true, then send a single Ctrl+C. Kills the process if it is still up after timeoutMs. */
+function requestStop(child, stopFile) {
+  if (process.platform === 'win32') {
+    fs.writeFileSync(stopFile, '1');
+    return;
+  }
+  child.kill('SIGINT');
+}
+
 function runUntilStop(args, home, stopWhen, env = {}, timeoutMs = 20000) {
   return new Promise(resolve => {
-    const child = spawn(process.execPath, [CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--platform', 'darwin'], {
-      env: cliEnv(env),
+    const stopFile = path.join(home, '.boppi-watch-stop');
+    try { fs.unlinkSync(stopFile); } catch (_) { /* absent until this run asks the child to stop */ }
+    const nodeArgs = process.platform === 'win32' ? ['--require', path.join(__dirname, 'win-stop-preload.js')] : [];
+    const child = spawn(process.execPath, [...nodeArgs, CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--platform', 'darwin'], {
+      env: cliEnv({ ...env, BOPPI_TEST_STOP_FILE: stopFile }),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '', stderr = '';
@@ -70,7 +81,7 @@ function runUntilStop(args, home, stopWhen, env = {}, timeoutMs = 20000) {
     const maybeStop = () => {
       if (stopping || !stopWhen(stdout, stderr)) return;
       stopping = true;
-      child.kill('SIGINT');
+      requestStop(child, stopFile);
     };
     child.stdout.on('data', d => { stdout += d; maybeStop(); });
     child.stderr.on('data', d => { stderr += d; maybeStop(); });

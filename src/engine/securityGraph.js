@@ -37,7 +37,7 @@
     'execute_code', 'run_shell_commands', 'browse_internet', 'call_external_api',
     'send_external_message', 'send_email', 'browser_automation', 'make_purchase',
     'create_or_modify_records', 'modify_source_code', 'modify_calendar',
-    'write_files', 'delete_files', 'untrusted_external_content',
+    'write_files', 'delete_files', 'untrusted_external_content', 'approval_bypass',
   ]);
   const DATA_CATEGORIES = new Set([
     'read_files', 'read_email', 'read_calendar', 'read_source_code',
@@ -144,6 +144,19 @@
     });
   }
 
+  function serverKey(record) {
+    if (!record || typeof record !== 'object') return null;
+    if (record.integrationId) return record.integrationId;
+    if (record.command || record.endpoint || record.exposedTools || record.serverId) return record.id || null;
+    return null;
+  }
+  function noteServer(node, record) {
+    const serverId = serverKey(record);
+    if (!node || !serverId) return;
+    const ids = node.metadata.serverIds || (node.metadata.serverIds = []);
+    if (!ids.includes(serverId)) ids.push(serverId);
+  }
+
   function attachCategory(builder, agentNode, fromNode, category, record) {
     if (!category || category === 'unknown') return; // unknown never creates graph reach
     const agentScope = agentNode.id;
@@ -158,6 +171,7 @@
       builder.addEdge(fromNode, capability, relationship, record, { category });
       if (EXTERNAL_FACING.has(category)) {
         const destination = derivedNode(builder, 'external', agentScope, 'external_destination', 'external_destination', 'External destination', record, {});
+        noteServer(destination, record);
         builder.addEdge(capability, destination, 'capability_reaches_external_destination', record, { category });
       }
       return;
@@ -166,6 +180,7 @@
       const data = derivedNode(builder, 'data', agentScope, category, 'data_category', category.replace(/_/g, ' '), record, {
         category, sensitive: SENSITIVE_DATA.has(category),
       });
+      noteServer(data, record);
       builder.addEdge(fromNode, data, 'permission_grants_data_access', record, { category });
       return;
     }
@@ -278,6 +293,9 @@
         builder.addEdge(serverNode, tool, 'mcp_exposes_tool', server);
       }
       for (const raw of server.capabilities || []) {
+        // Substring grades stay on the record for the inventory. They must not
+        // open a high-confidence edge that a critical path could use.
+        if (server.capabilityGrades && server.capabilityGrades[raw] === 'substring') continue;
         const category = normalizer ? normalizer.normalize(raw).normalizedCategory : 'unknown';
         attachCategory(builder, agentNode, serverNode, category, server);
       }

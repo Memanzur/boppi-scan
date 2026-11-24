@@ -5,7 +5,7 @@ See what your local AI agents can reach.
 `boppi scan` reads the MCP and tool configs for the AI clients on your machine (Claude Desktop, Claude Code, Cursor, VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains, Goose, LM Studio, plus installed chat apps and known browser extensions), builds a graph of what each agent can touch, and reports the potential exposure paths that fall out of it. The scan runs locally. No account, no telemetry, no dependencies.
 
 ```sh
-npx boppi scan
+npx @boppi/cli scan
 ```
 
 Node 18 or newer. **0.5.0** prints a security score (higher is safer), names installed AI tools even when they have no MCP servers, and adds `boppi watch`. It discovers VS Code, GitHub Copilot, Windsurf, Cline, Roo Code, Continue, Zed, Gemini CLI, Codex CLI, Amazon Q, JetBrains, Goose, and LM Studio, plus installed chat apps, known browser extensions, and provider-key names (values are never collected). Tested on macOS. Linux and Windows config locations are looked up but not yet verified on real machines.
@@ -15,16 +15,16 @@ Node 18 or newer. **0.5.0** prints a security score (higher is safer), names ins
 Boppi is useful without an account. The scanner reads supported MCP configuration locally, reports the agents, servers, capabilities, files, and evidence it examined, models configuration changes, and verifies a real change on the next scan.
 
 ```sh
-npx boppi scan --json boppi-scan.json --html boppi-report.html
+npx @boppi/cli scan --json boppi-scan.json --html boppi-report.html
 # edit the configuration using the recommended fix, then:
-npx boppi verify boppi-scan.json
-npx boppi history
+npx @boppi/cli verify boppi-scan.json
+npx @boppi/cli history
 ```
 
 Teams can create a free workspace at [app.boppi.io](https://app.boppi.io), generate a collector token on the Collectors page, and push scans from every machine:
 
 ```sh
-npx boppi push
+npx @boppi/cli push
 ```
 
 It asks for the collector token (typed input is hidden, so the token stays out of your shell history). `BOPPI_TOKEN` or `--token` work for scripts. `push` and `watch` are the commands that use the network. `push` sends the sanitized inventory of one scan and exits. `watch` repeats that same scan and push in the foreground until you press Ctrl+C, every 15 minutes by default. Intervals shorter than 60 seconds are rejected. Watch adds `expected_interval_seconds` to the payload so the workspace knows the cadence; a one-shot push does not. Neither command uploads `~/.boppi/history.json`. Watch does not protect the machine, and it does not observe what agents do at runtime (see [What leaves the machine](#what-leaves-the-machine)).
@@ -107,7 +107,7 @@ PRIVACY  Files read this run (metadata only, sanitized in memory, nothing left t
 JSON export written to boppi-scan.json
 ```
 
-A plain `npx boppi scan` with no export flags ends with one more line, `See history, teams and approvals: npx boppi push`.
+A plain `npx @boppi/cli scan` with no export flags ends with one more line, `See history, teams and approvals: npx @boppi/cli push`.
 
 The root cause section is computed, not guessed. The engine removes the grant from the graph, reruns the path search, and reports how many paths are gone. `boppi verify boppi-scan.json` then checks that prediction against the real machine after you make the edit.
 
@@ -152,12 +152,16 @@ boppi scan                     discover configs, scan, print the full report
 boppi agents                   inventory table only
 boppi paths                    exposure paths only
 boppi plan                     compare every candidate fix side by side and print the exact edits; changes nothing
+boppi fix                      show each fixable risk and apply the ones you accept
 boppi fix --server <name>      remove one server entry from its config file (backup first), rescan, grade
+boppi fix --undo               restore the last backup set
 boppi verify <previous.json>   rescan and grade the predictions in an earlier --json export
 boppi history                  recent local scan summaries, what changed, and verified exposure reduction
 boppi push                     scan once, then send the sanitized inventory to your Boppi workspace
 boppi watch                    repeat that scan and push in the foreground until Ctrl+C
 
+--format <name>     terminal (default), json, html, or sarif
+-o, --output <file> write that format to a file
 --json <file>       machine-readable export with full evidence per claim
 --html <file>       self-contained HTML report you can share
 --sarif <file>      SARIF 2.1.0 report for GitHub code scanning or any SARIF viewer
@@ -184,7 +188,9 @@ push and watch (the commands that use the network):
 fix only:
 --server <name>     the server entry to remove, as boppi scan names it
 --client <key>      which config to edit when the name exists in more than one client
---yes               apply without the terminal confirmation (required when stdin is not a terminal)
+--yes               apply the safe fixes without prompting. Unknown servers and plaintext secrets still need a terminal confirmation
+--dry-run           show each diff and change nothing
+--undo              restore files and permissions from the last backup set
 ```
 
 ### Plan and fix
@@ -202,6 +208,25 @@ CANDIDATE FIXES  best first
 Every row is a rescan of the configuration with that one edit applied. A move is rescanned on both clients, so the `new` column is what would appear on the target. `agent loses` lists capabilities no other server on that agent provides, which is the workflow cost of the edit.
 
 `boppi fix --server fetch` removes that entry from the file that holds it. It prints the file, the modeled effect, and the backup location, asks for confirmation (or takes `--yes`), copies the file to `~/.boppi/backups/` with mode 600, deletes the key, saves the predictions it used as `boppi-fix-<time>.json`, rescans, and grades the prediction. Exit 0 means CONFIRMED. Only removals are applied; a move is two edits you make by hand, and `boppi verify` grades the source side.
+
+### Automatic fixes
+
+`boppi fix` (with no `--server`) scans, then walks the risks it can change on disk without sending anything off the machine:
+
+* loose Claude Code permission modes (`bypassPermissions`, `dontAsk`, `acceptEdits`) go back to `default`, and unrestricted `Bash` / `PowerShell` / `*` allow rules are removed
+* Cline and Roo `autoApprove` lists are cleared
+* API keys and secret values stored in an MCP `env` block, header, or argument can be deleted from the file (the value is never printed). `--yes` does not delete them
+* config files that are readable by every account are set to mode 600
+* MCP servers the catalog does not recognize can be removed. `--yes` does not remove them
+* `npx -y` / `uvx` style auto-install flags on an unpinned package are removed
+* a filesystem server rooted at `/` or the home folder is pointed at the real current directory when that directory is narrower. A symlink to `/` or the home folder is not used
+* Codex `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` are tightened
+
+Each automatic risk is shown in plain language with a small diff. Answer `y`, `n`, `s` (skip), or `a` (apply this one and the rest). `--yes` applies the safe fixes and skips unknown-server removal and plaintext-secret deletion. `--dry-run` prints the diffs and writes nothing. The first change in a run is preceded by a timestamped backup under `~/.boppi/backups/` (mode 600), and `boppi fix --undo` restores that set, including file modes. A symlink is never followed.
+
+Rotating a key at the provider cannot be done from this machine. Those findings print the console to open and the file to edit. The same guidance is on every finding in `--json` and `--format json` as `remediation`: `{ summary, steps, autoFixable, fixId }`.
+
+When a scan finds automatic fixes, the report adds `3 risks can be fixed automatically. Run npx @boppi/cli fix`.
 
 ### Policy guard
 
@@ -234,10 +259,36 @@ Exit codes: 0 clean, 1 threshold hit under `--fail-on`, 2 bad arguments, 3 scan 
 ### Use it in CI
 
 ```
-npx boppi scan --config .mcp.json --source claude-code --fail-on high --sarif boppi.sarif
+npx @boppi/cli scan --config .mcp.json --source claude-code --fail-on high --sarif boppi.sarif
 ```
 
 Fails the job when a path or finding at or above the threshold exists in that file, when the policy is violated, or when the config could not be analyzed (exit 4, even without `--fail-on`). Without `--config` the scan reads the runner's user-level configs, which is rarely what CI wants.
+
+Upload SARIF from GitHub Actions:
+
+```yaml
+name: boppi
+on:
+  pull_request:
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npx @boppi/cli scan --config .mcp.json --source claude-code --format sarif -o boppi.sarif --fail-on high
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: boppi.sarif
+```
+
+The same report is `boppi scan --format sarif` (stdout) or `--sarif boppi.sarif`. Rules include help text and a `remediation` object (summary, steps, autoFixable, fixId).
 
 As a GitHub Action, with the SARIF uploaded to code scanning:
 
@@ -253,7 +304,7 @@ As a GitHub Action, with the SARIF uploaded to code scanning:
     sarif_file: boppi.sarif
 ```
 
-Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx boppi@<version>`; pin `version` for reproducible runs.
+Inputs: `config`, `source`, `fail-on`, `policy`, `sarif`, `version`. The action runs `npx @boppi/cli@<version>`; pin `version` for reproducible runs.
 
 ## What leaves the machine
 

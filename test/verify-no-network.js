@@ -22,6 +22,18 @@ dns.lookup = function () { refuse('dns.lookup'); };
 if (dns.promises) dns.promises.lookup = async function () { refuse('dns.promises.lookup'); };
 for (const mod of ['http', 'https']) { const m = require(mod); m.request = function () { refuse(mod + '.request'); }; m.get = function () { refuse(mod + '.get'); }; }
 globalThis.fetch = async function () { refuse('fetch'); };
+const stopFile = process.env.BOPPI_TEST_STOP_FILE;
+if (stopFile) {
+  const timer = setInterval(() => {
+    try {
+      if (fs.existsSync(stopFile)) {
+        clearInterval(timer);
+        process.emit('SIGINT');
+      }
+    } catch (error) {}
+  }, 30);
+  if (typeof timer.unref === 'function') timer.unref();
+}
 `;
 
 function makeHome(root) {
@@ -51,8 +63,10 @@ function makeHome(root) {
   function runSignal(args, stopWhen, extraEnv = {}) {
     return new Promise(resolve => {
       fs.writeFileSync(log, '');
+      const stopFile = path.join(root, 'watch-stop');
+      try { fs.unlinkSync(stopFile); } catch (_) { /* absent until this run asks the child to stop */ }
       const child = spawn(process.execPath, ['--require', preload, CLI, ...args, '--home', home, '--cwd', home, '--no-color', '--history-file', history], {
-        env: { ...process.env, BOPPI_NET_LOG: log, BOPPI_SCAN_PLATFORM: 'darwin', BOPPI_TOKEN: '', ...extraEnv },
+        env: { ...process.env, BOPPI_NET_LOG: log, BOPPI_SCAN_PLATFORM: 'darwin', BOPPI_TOKEN: '', BOPPI_TEST_STOP_FILE: stopFile, ...extraEnv },
       });
       let stdout = '', stderr = '';
       let stopping = false;
@@ -60,7 +74,8 @@ function makeHome(root) {
       const maybeStop = () => {
         if (stopping || !stopWhen(stdout, stderr)) return;
         stopping = true;
-        child.kill('SIGINT');
+        if (process.platform === 'win32') fs.writeFileSync(stopFile, '1');
+        else child.kill('SIGINT');
       };
       child.stdout.on('data', d => { stdout += d; maybeStop(); });
       child.stderr.on('data', d => { stderr += d; maybeStop(); });
@@ -83,6 +98,8 @@ function makeHome(root) {
   const scan = run(['scan', '--verbose', '--json', exportPath, '--html', path.join(root, 'report.html')]);
   ok('scan completes with the hooks installed', scan.code === 0 && scan.stdout.includes('INVENTORY'));
   ok('scan opens no socket, DNS lookup, or fetch', scan.attempts.length === 0);
+  const fixDry = run(['fix', '--dry-run']);
+  ok('fix --dry-run makes no network attempt', fixDry.code === 0 && fixDry.stdout.includes('Dry run') && fixDry.attempts.length === 0);
   ok('scan still finds exposure paths, so the hooks did not disable the engine', /\d+ exposure paths? \(\d+ critical\)/.test(scan.stdout) && !scan.stdout.includes('0 exposure paths'));
 
   for (const command of ['agents', 'paths', 'history']) {

@@ -99,7 +99,12 @@ function runCli(args, home) {
   const removals = predictions.filter(p => p.edit.action === 'remove_server');
   const moves = predictions.filter(p => p.edit.action === 'move_server');
   ok('move predictions name a target client that is a different scanned agent and list what would appear there', moves.length > 0 && moves.every(p => p.edit.toClient === p.target.key && p.target.agentId !== p.agentId && Array.isArray(p.target.predictedAppeared)));
-  ok('moving filesystem from Claude Desktop to Cursor removes the desktop exfiltration path but creates one on Cursor, which already reaches the network', (() => { const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor'); return m && m.predictedEliminated.length === 1 && m.target.predictedAppeared.some(k => k.startsWith('EP-A:')); })());
+  ok('moving filesystem off Claude Desktop removes its exfiltration path; Cursor already has one because Desktop Commander grants files and puppeteer reaches the network', (() => {
+    const m = moves.find(p => p.edit.server === 'filesystem' && p.edit.toClient === 'cursor');
+    const cursorAgent = exported.inventory.real.agents.find(a => a.name === 'Cursor');
+    const cursorAlready = exported.exposurePaths.some(p => p.agentId === cursorAgent.id && p.templateId === 'EP-A');
+    return m && m.predictedEliminated.length === 1 && m.predictedEliminated[0].startsWith('EP-A:') && cursorAlready;
+  })());
   ok('moves rank below a removal that breaks the same exposures without creating new ones', (() => { const ranked = require('../src/cli/predict').rankPredictions(predictions, exported.exposurePaths); const first = ranked.findIndex(e => e.prediction.edit.action === 'move_server'); const sameRemoval = ranked.findIndex(e => e.prediction.edit.action === 'remove_server' && e.prediction.edit.server === ranked[first].prediction.edit.server); return first > sameRemoval; })());
   ok('eliminated and surviving partition the before set', predictions.every(p => [...p.predictedEliminated, ...p.predictedSurviving].sort().join() === [...p.before.exposureKeys].sort().join() && !p.predictedEliminated.some(k => p.predictedSurviving.includes(k))));
   const keysByAgent = agentId => exported.exposurePaths.filter(x => x.agentId === agentId).map(x => x.exposureKey).sort();
@@ -174,7 +179,7 @@ function runCli(args, home) {
   ok('--only cursor limits the scan to one agent', onlyCursor.stdout.includes('1 AI tool') && !onlyCursor.stdout.includes('Claude Desktop'));
   const quiet = runCli(['scan', '--quiet'], home);
   ok('--quiet prints a compact summary', quiet.stdout.trim().split('\n').length <= 2 && quiet.stdout.includes('3 agents'));
-  const PUSH_HINT = 'See history, teams and approvals: npx boppi push';
+  const PUSH_HINT = 'See history, teams and approvals: npx @boppi/cli push';
   ok('a plain scan ends with the team dashboard hint', onlyCursor.stdout.trimEnd().split('\n').pop().startsWith(PUSH_HINT));
   ok('the hint stays out of exports, --quiet, and other commands', ![scan, quiet, agentsOnly, pathsOnly].some(r => r.stdout.includes(PUSH_HINT)));
 
@@ -217,7 +222,7 @@ function runCli(args, home) {
   const outsideExport = JSON.parse(fs.readFileSync(outsideJson, 'utf8'));
   ok('a config outside the home directory is fingerprinted in the export', outsideExport.discovery.filesRead.length === 1 && /^path_[0-9a-f]{16}$/.test(outsideExport.discovery.filesRead[0]) && !JSON.stringify(outsideExport).includes(root));
   const keyFile = path.join(home, '.boppi', 'fingerprint-key');
-  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (fs.statSync(keyFile).mode & 0o777) === 0o600);
+  ok('a per-machine fingerprint key is created with owner-only permissions', fs.existsSync(keyFile) && /^[0-9a-f]{64}$/.test(fs.readFileSync(keyFile, 'utf8').trim()) && (process.platform === 'win32' || (fs.statSync(keyFile).mode & 0o777) === 0o600));
   const otherHome = path.join(root, 'other-key-home');
   fs.mkdirSync(path.join(otherHome, '.cursor'), { recursive: true });
   fs.copyFileSync(path.join(home, '.cursor', 'mcp.json'), path.join(otherHome, '.cursor', 'mcp.json'));
@@ -235,7 +240,8 @@ function runCli(args, home) {
   fs.mkdirSync(path.join(linuxHome, '.config', 'Claude'), { recursive: true });
   fs.writeFileSync(path.join(linuxHome, '.config', 'Claude', 'claude_desktop_config.json'), JSON.stringify({ mcpServers: { fetch: { command: 'uvx', args: ['mcp-server-fetch'] } } }));
   const linux = runCli(['scan', '--verbose', '--only', 'claude-desktop', '--platform', 'linux', '--history-file', path.join(root, 'linux-history.json')], linuxHome);
-  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linux.stdout.includes('.config/Claude/claude_desktop_config.json') && linux.stdout.includes('1 MCP server'));
+  const linuxShown = linux.stdout.replace(/\\/g, '/');
+  ok('on linux Claude Desktop is read from ~/.config/Claude', linux.code === 0 && linuxShown.includes('.config/Claude/claude_desktop_config.json') && linuxShown.includes('1 MCP server'));
   const winHome = path.join(root, 'win-home');
   const appData = path.join(winHome, 'AppData', 'Roaming');
   fs.mkdirSync(path.join(appData, 'Claude'), { recursive: true });

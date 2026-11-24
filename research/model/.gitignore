@@ -1,0 +1,7 @@
+# Generated data, predictions, adapters and weights stay out of git.
+out/
+runs/
+*.gguf
+*.safetensors
+*.bin
+__pycache__/

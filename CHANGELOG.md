@@ -7,6 +7,7 @@ A security score on the first screen, a clearer report when no MCP servers are c
 - `boppi` and `boppi scan` print a security score from 0 to 100. Higher is safer. 100, grade A, means no risky exposure paths. The score counts exposure paths only.
 - A machine with AI tools installed and no MCP servers says what was found, instead of reading as an empty scan. Key names are shown with the file they were found in. Values are not collected.
 - `boppi watch`: foreground loop that repeats a local scan and push until Ctrl+C. The default interval is 15 minutes. Intervals shorter than 60 seconds are rejected. The ingest body includes `expected_interval_seconds` only when watch sends it. One-shot `boppi` and `boppi push` are unchanged and omit that field. `~/.boppi/history.json` is not uploaded. Watch does not protect the machine or observe agent activity.
+- The package is now published as `@boppi/cli`. The old `boppi` package is no longer updated.
 
 ## 0.4.0
 

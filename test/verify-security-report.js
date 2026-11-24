@@ -12,7 +12,7 @@ const { parseArgs } = require('../src/cli/boppi');
 
 const CLI = path.join(__dirname, '..', 'bin', 'boppi.js');
 const SECRET = 'sk-ant-plaintexttestvalue123456';
-const CLOSING = 'See history, teams and approvals: npx boppi push';
+const CLOSING = 'See history, teams and approvals: npx @boppi/cli push';
 
 let passed = 0, failed = 0;
 function ok(name, condition) { if (condition) { passed += 1; console.log(`  ✓ ${name}`); } else { failed += 1; console.log(`  ✗ ${name}`); } }

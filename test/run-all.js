@@ -23,6 +23,10 @@ const SUITES = [
   'verify-plan-fix.js',
   'verify-policy-sarif.js',
   'verify-guard.js',
+  'verify-auto-fix.js',
+  'verify-detection-gate.js',
+  'verify-exfil-shell.js',
+  'eval-corpus.js',
 ];
 
 let failures = 0;

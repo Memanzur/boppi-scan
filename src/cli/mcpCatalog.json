@@ -1,0 +1,3631 @@
+[
+ {
+  "id": "filesystem",
+  "packages": [
+   "@modelcontextprotocol/server-filesystem"
+  ],
+  "commands": [
+   "filesystem"
+  ],
+  "role": "files",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "memory",
+  "packages": [
+   "@modelcontextprotocol/server-memory"
+  ],
+  "commands": [
+   "memory"
+  ],
+  "role": "memory",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/memory/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "everything",
+  "packages": [
+   "@modelcontextprotocol/server-everything"
+  ],
+  "commands": [
+   "everything"
+  ],
+  "role": "reference",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/everything/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "sequential-thinking",
+  "packages": [
+   "@modelcontextprotocol/server-sequential-thinking"
+  ],
+  "commands": [
+   "sequential-thinking",
+   "sequentialthinking"
+  ],
+  "role": "memory",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "time",
+  "packages": [
+   "mcp-server-time"
+  ],
+  "commands": [
+   "time"
+  ],
+  "role": "memory",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/time/pyproject.toml",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "fetch",
+  "packages": [
+   "mcp-server-fetch"
+  ],
+  "commands": [
+   "fetch"
+  ],
+  "role": "search",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/pyproject.toml",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "git",
+  "packages": [
+   "mcp-server-git"
+  ],
+  "commands": [
+   "git"
+  ],
+  "role": "source-local",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/src/git/pyproject.toml",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "brave-search",
+  "packages": [
+   "@brave/brave-search-mcp-server",
+   "@modelcontextprotocol/server-brave-search"
+  ],
+  "commands": [
+   "brave-search"
+  ],
+  "role": "search",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "github",
+  "packages": [
+   "@modelcontextprotocol/server-github"
+  ],
+  "images": [
+   "ghcr.io/github/github-mcp-server"
+  ],
+  "hosts": [
+   "api.githubcopilot.com"
+  ],
+  "commands": [
+   "github"
+  ],
+  "role": "source",
+  "citation": "https://github.com/github/github-mcp-server/blob/main/README.md"
+ },
+ {
+  "id": "slack",
+  "packages": [
+   "@modelcontextprotocol/server-slack"
+  ],
+  "hosts": [
+   "mcp.slack.com"
+  ],
+  "commands": [
+   "slack"
+  ],
+  "role": "saas-message",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/slack/package.json",
+  "images": []
+ },
+ {
+  "id": "atlassian",
+  "packages": [],
+  "commands": [
+   "atlassian",
+   "confluence",
+   "jira"
+  ],
+  "hosts": [
+   "mcp.atlassian.com"
+  ],
+  "images": [],
+  "role": "issues",
+  "citation": "https://github.com/atlassian/atlassian-mcp-server"
+ },
+ {
+  "id": "gmail",
+  "packages": [
+   "mcparmory-google-gmail"
+  ],
+  "commands": [
+   "gmail"
+  ],
+  "images": [
+   "ghcr.io/mcparmory/google-gmail"
+  ],
+  "hosts": [],
+  "role": "email",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/google-gmail"
+ },
+ {
+  "id": "mysql",
+  "packages": [],
+  "commands": [
+   "mysql"
+  ],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=mysql"
+ },
+ {
+  "id": "notion",
+  "hosts": [
+   "mcp.notion.com"
+  ],
+  "commands": [
+   "notion"
+  ],
+  "packages": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.notion",
+  "images": []
+ },
+ {
+  "id": "gdrive",
+  "packages": [
+   "@modelcontextprotocol/server-gdrive"
+  ],
+  "commands": [
+   "gdrive",
+   "google-drive"
+  ],
+  "role": "saas",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/gdrive/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "google-maps",
+  "packages": [
+   "@modelcontextprotocol/server-google-maps"
+  ],
+  "commands": [
+   "google-maps"
+  ],
+  "role": "saas",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/google-maps/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "postgres",
+  "packages": [
+   "@modelcontextprotocol/server-postgres"
+  ],
+  "commands": [
+   "postgres",
+   "postgresql"
+  ],
+  "role": "data",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/postgres/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "sqlite",
+  "packages": [
+   "mcp-server-sqlite"
+  ],
+  "commands": [
+   "sqlite"
+  ],
+  "role": "data-local",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/sqlite/pyproject.toml",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "redis",
+  "packages": [
+   "@modelcontextprotocol/server-redis"
+  ],
+  "commands": [
+   "redis"
+  ],
+  "role": "data",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/redis/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "puppeteer",
+  "packages": [
+   "@modelcontextprotocol/server-puppeteer"
+  ],
+  "commands": [
+   "puppeteer"
+  ],
+  "role": "browser",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/puppeteer/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "sentry",
+  "packages": [
+   "mcp-server-sentry"
+  ],
+  "commands": [
+   "sentry"
+  ],
+  "role": "saas",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/sentry/pyproject.toml",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "everart",
+  "packages": [
+   "@modelcontextprotocol/server-everart"
+  ],
+  "commands": [
+   "everart"
+  ],
+  "role": "saas",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/everart/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "aws-kb",
+  "packages": [
+   "@modelcontextprotocol/server-aws-kb-retrieval"
+  ],
+  "commands": [
+   "aws-kb-retrieval"
+  ],
+  "role": "saas",
+  "citation": "https://github.com/modelcontextprotocol/servers-archived/blob/main/src/aws-kb-retrieval-server/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "playwright",
+  "packages": [
+   "@playwright/mcp"
+  ],
+  "commands": [
+   "playwright"
+  ],
+  "role": "browser",
+  "citation": "https://github.com/microsoft/playwright-mcp/blob/main/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "kubernetes",
+  "packages": [
+   "kubernetes-mcp-server"
+  ],
+  "commands": [
+   "kubernetes",
+   "kubernetes-mcp-server",
+   "kubectl"
+  ],
+  "role": "kube",
+  "citation": "https://github.com/containers/kubernetes-mcp-server/blob/main/README.md",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "desktop-commander",
+  "packages": [
+   "@wonderwhy-er/desktop-commander"
+  ],
+  "images": [
+   "mcp/desktop-commander"
+  ],
+  "commands": [
+   "desktop-commander"
+  ],
+  "role": "shell-files",
+  "citation": "https://github.com/wonderwhy-er/DesktopCommanderMCP/blob/main/README.md",
+  "hosts": []
+ },
+ {
+  "id": "commands",
+  "packages": [
+   "@agent-infra/mcp-server-commands",
+   "mcp-server-commands"
+  ],
+  "commands": [
+   "commands"
+  ],
+  "role": "commands",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=mcp-server-commands",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "firecrawl",
+  "packages": [
+   "firecrawl-mcp"
+  ],
+  "commands": [
+   "firecrawl"
+  ],
+  "role": "search",
+  "citation": "https://github.com/firecrawl/firecrawl-mcp-server/blob/main/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "tavily",
+  "packages": [
+   "tavily-mcp"
+  ],
+  "commands": [
+   "tavily"
+  ],
+  "role": "search",
+  "citation": "https://github.com/tavily-ai/tavily-mcp/blob/main/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "browserbase",
+  "packages": [
+   "@browserbasehq/mcp",
+   "@browserbasehq/mcp-server-browserbase"
+  ],
+  "commands": [
+   "browserbase"
+  ],
+  "role": "browser",
+  "citation": "https://github.com/browserbase/mcp-server-browserbase/blob/main/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "stripe",
+  "hosts": [
+   "mcp.stripe.com"
+  ],
+  "commands": [
+   "stripe"
+  ],
+  "packages": [],
+  "role": "payment",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.stripe",
+  "images": []
+ },
+ {
+  "id": "e2b",
+  "packages": [
+   "e2b-code-interpreter"
+  ],
+  "commands": [
+   "e2b",
+   "code-interpreter"
+  ],
+  "role": "code",
+  "citation": "https://github.com/e2b-dev/mcp-server/blob/main/package.json",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "azure",
+  "packages": [
+   "@azure/mcp"
+  ],
+  "commands": [
+   "azure",
+   "azure-mcp"
+  ],
+  "role": "saas",
+  "citation": "https://github.com/microsoft/mcp/blob/main/servers/Azure.Mcp.Server/README.md",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "shell",
+  "packages": [
+   "mcp-server-shell"
+  ],
+  "commands": [
+   "shell"
+  ],
+  "role": "commands",
+  "citation": "https://github.com/modelcontextprotocol/servers/blob/main/README.md",
+  "images": [],
+  "hosts": []
+ },
+ {
+  "id": "ac.inference.sh/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.inference.sh"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ac.inference.sh/mcp"
+ },
+ {
+  "id": "ac.mizan/registry",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mizan.ac"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ac.mizan/registry"
+ },
+ {
+  "id": "ac.snag/snag",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.snag.ac"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ac.snag/snag"
+ },
+ {
+  "id": "ac.tandem/docs-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "tandem.ac"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ac.tandem/docs-mcp"
+ },
+ {
+  "id": "academy.apexai/apex-ai-academy",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "apexai.academy"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=academy.apexai/apex-ai-academy"
+ },
+ {
+  "id": "academy.ase/periodic-system",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "ase.academy"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=academy.ase/periodic-system"
+ },
+ {
+  "id": "academy.serviceengineer/se-ai",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.serviceengineer.academy"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=academy.serviceengineer/se-ai"
+ },
+ {
+  "id": "ad.apogee/apogee",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "app.apogee.ad"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ad.apogee/apogee"
+ },
+ {
+  "id": "ad.getle/leads",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.getle.ad"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ad.getle/leads"
+ },
+ {
+  "id": "ad.inside/inside-ads",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "app.inside.ad"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ad.inside/inside-ads"
+ },
+ {
+  "id": "ad.pantheon/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.pantheon.ad"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ad.pantheon/mcp"
+ },
+ {
+  "id": "ad.tide/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.tide.ad"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ad.tide/mcp"
+ },
+ {
+  "id": "ad.tributs/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.tributs.ad"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ad.tributs/mcp"
+ },
+ {
+  "id": "ae.alexeysound/alexey-sound",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "alexeysound.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.alexeysound/alexey-sound"
+ },
+ {
+  "id": "ae.beachclubs/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.beachclubs.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.beachclubs/mcp"
+ },
+ {
+  "id": "ae.brainy.tipline/gta6",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "tipline.brainy.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.brainy.tipline/gta6"
+ },
+ {
+  "id": "ae.brainy/grocery-prices",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "prices.brainy.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.brainy/grocery-prices"
+ },
+ {
+  "id": "ae.datadubai/dubai-real-estate",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.datadubai.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.datadubai/dubai-real-estate"
+ },
+ {
+  "id": "ae.discond/discond",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.discond.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.discond/discond"
+ },
+ {
+  "id": "ae.easyvoice/tts",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "easyvoice.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.easyvoice/tts"
+ },
+ {
+  "id": "ae.employerofrecord/moha",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "employerofrecord.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.employerofrecord/moha"
+ },
+ {
+  "id": "ae.employerofrecord/moha-account",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "employerofrecord.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.employerofrecord/moha-account"
+ },
+ {
+  "id": "ae.framerfy/store-builder",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.framerfy.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.framerfy/store-builder"
+ },
+ {
+  "id": "ae.genosys/genosys",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "genosys.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.genosys/genosys"
+ },
+ {
+  "id": "ae.grovisor/grotax",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.grovisor.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.grovisor/grotax"
+ },
+ {
+  "id": "ae.mrk/dubai-property",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mrk.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.mrk/dubai-property"
+ },
+ {
+  "id": "ae.plantguide/dubai-gardening",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "plantguide.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.plantguide/dubai-gardening"
+ },
+ {
+  "id": "ae.projectory/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.projectory.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.projectory/mcp"
+ },
+ {
+  "id": "ae.propick/propick",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "propick.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.propick/propick"
+ },
+ {
+  "id": "ae.waggle/fenlight",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "fenlight.waggle.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.waggle/fenlight"
+ },
+ {
+  "id": "ae.waggle/vera",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "vera.waggle.ae"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ae.waggle/vera"
+ },
+ {
+  "id": "aero.events/events",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "events.aero"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=aero.events/events"
+ },
+ {
+  "id": "africa.lomi/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.lomi.africa",
+   "mcp.lomi.africa"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=africa.lomi/mcp"
+ },
+ {
+  "id": "africa.startuplist/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.startuplist.africa"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=africa.startuplist/mcp"
+ },
+ {
+  "id": "africa.ugc/ugc",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.ugc.africa"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=africa.ugc/ugc"
+ },
+ {
+  "id": "ag.hood/name-service",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.hood.ag"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ag.hood/name-service"
+ },
+ {
+  "id": "agency.almostimpossible/site",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.almostimpossible.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.almostimpossible/site"
+ },
+ {
+  "id": "agency.extremely/agency",
+  "packages": [
+   "@extremely-agency/mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.extremely/agency"
+ },
+ {
+  "id": "agency.goji/goji",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.goji.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.goji/goji"
+ },
+ {
+  "id": "agency.granek.signal/signal",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "signal.granek.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.granek.signal/signal"
+ },
+ {
+  "id": "agency.justidea/justidea-agency",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "justidea.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.justidea/justidea-agency"
+ },
+ {
+  "id": "agency.kesey/pretrip",
+  "packages": [
+   "pretrip-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.kesey/pretrip"
+ },
+ {
+  "id": "agency.lona/trading",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.lona.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.lona/trading"
+ },
+ {
+  "id": "agency.ottobot/business-contact-finder",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "business-contact-finder-mcp.ottobot2025.workers.dev"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.ottobot/business-contact-finder"
+ },
+ {
+  "id": "agency.ottobot/contractor-license-changes",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "license-changes-mcp.ottobot2025.workers.dev"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.ottobot/contractor-license-changes"
+ },
+ {
+  "id": "agency.ottobot/licensed-house-painters",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "house-painters.ottobot.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.ottobot/licensed-house-painters"
+ },
+ {
+  "id": "agency.thebureauoflostcontext/bureau-public",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "thebureauoflostcontext.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.thebureauoflostcontext/bureau-public"
+ },
+ {
+  "id": "agency.thirdhemisphere/ai-authority-index",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "thirdhemisphere.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.thirdhemisphere/ai-authority-index"
+ },
+ {
+  "id": "agency.zoll/ausfuhr",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "zoll.agency"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=agency.zoll/ausfuhr"
+ },
+ {
+  "id": "ai.0si/disclosures",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "app.0si.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.0si/disclosures"
+ },
+ {
+  "id": "ai.1325/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agoclnqfyinwjxdmjnns.supabase.co"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.1325/mcp"
+ },
+ {
+  "id": "ai.13f/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "13f.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.13f/mcp"
+ },
+ {
+  "id": "ai.1clickwebsite/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.1clickwebsite.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.1clickwebsite/mcp"
+ },
+ {
+  "id": "ai.1court.state/court-directory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "state.1court.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.1court.state/court-directory"
+ },
+ {
+  "id": "ai.28in28/agent-service-desk",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "28in28.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.28in28/agent-service-desk"
+ },
+ {
+  "id": "ai.2kw/mcp-server",
+  "packages": [
+   "@2kw/ai-mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.2kw/mcp-server"
+ },
+ {
+  "id": "ai.4ai/domains",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "4ai.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.4ai/domains"
+ },
+ {
+  "id": "ai.69ai/69ai",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "69ai.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.69ai/69ai"
+ },
+ {
+  "id": "ai.a1lane/a1lane",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "a1lane.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.a1lane/a1lane"
+ },
+ {
+  "id": "ai.a2uicatalog/catalog",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "a2uicatalog.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.a2uicatalog/catalog"
+ },
+ {
+  "id": "ai.a2uicatalog/docs",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "a2uicatalog.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.a2uicatalog/docs"
+ },
+ {
+  "id": "ai.aard/aard",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.aard.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aard/aard"
+ },
+ {
+  "id": "ai.aarna/atars-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.aarna.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aarna/atars-mcp"
+ },
+ {
+  "id": "ai.abmeter/abmeter",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.abmeter.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.abmeter/abmeter"
+ },
+ {
+  "id": "ai.achromat/mcp-server",
+  "packages": [
+   "@achromat-ai/mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "achromat.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.achromat/mcp-server"
+ },
+ {
+  "id": "ai.acquisity/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.acquisity.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.acquisity/mcp"
+ },
+ {
+  "id": "ai.actwise/ideation",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "actwise.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.actwise/ideation"
+ },
+ {
+  "id": "ai.acubic/acubic",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.acubic.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.acubic/acubic"
+ },
+ {
+  "id": "ai.adadvisor/mcp-server",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.adadvisor.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adadvisor/mcp-server"
+ },
+ {
+  "id": "ai.adako/ads",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "adako.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adako/ads"
+ },
+ {
+  "id": "ai.adeu/adeu",
+  "packages": [
+   "@adeu/mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adeu/adeu"
+ },
+ {
+  "id": "ai.adkix/adkix",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "adkix.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adkix/adkix"
+ },
+ {
+  "id": "ai.admux/admux",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.admux.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.admux/admux"
+ },
+ {
+  "id": "ai.adoraads/beauty",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.adoraads.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adoraads/beauty"
+ },
+ {
+  "id": "ai.adplane/google-ads",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.adplane.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adplane/google-ads"
+ },
+ {
+  "id": "ai.adrails/adrails",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "adrails.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adrails/adrails"
+ },
+ {
+  "id": "ai.adramp/google-ads",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.adramp.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adramp/google-ads"
+ },
+ {
+  "id": "ai.adrio/adrio",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.adrio.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adrio/adrio"
+ },
+ {
+  "id": "ai.adsap/adsap",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.adsap.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adsap/adsap"
+ },
+ {
+  "id": "ai.adside/adside",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.adside.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adside/adside"
+ },
+ {
+  "id": "ai.adtest/adtest-mcp",
+  "packages": [
+   "adtest-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adtest/adtest-mcp"
+ },
+ {
+  "id": "ai.advisorsai/service-navigator",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "advisorsai.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.advisorsai/service-navigator"
+ },
+ {
+  "id": "ai.advisorsai/store-readiness",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "advisorsai.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.advisorsai/store-readiness"
+ },
+ {
+  "id": "ai.adweave/meta-ads-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.adweave.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.adweave/meta-ads-mcp"
+ },
+ {
+  "id": "ai.aeoengine/best-ai-search-agency-aeo-report",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "aeoengine.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aeoengine/best-ai-search-agency-aeo-report"
+ },
+ {
+  "id": "ai.aetherwealth/mcp",
+  "packages": [
+   "@aetherwealth/mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aetherwealth/mcp"
+ },
+ {
+  "id": "ai.aetherya/mcp",
+  "packages": [
+   "@aetherya/mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.aetherya.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aetherya/mcp"
+ },
+ {
+  "id": "ai.aeviamodeler/aevia",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "app.aeviamodeler.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aeviamodeler/aevia"
+ },
+ {
+  "id": "ai.affogato/affogato",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.affogato.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.affogato/affogato"
+ },
+ {
+  "id": "ai.afg/afg",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "afg.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.afg/afg"
+ },
+ {
+  "id": "ai.afmr/discovery",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "afmr.ai",
+   "afmr.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.afmr/discovery"
+ },
+ {
+  "id": "ai.agenlify/catalog",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agenlify.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenlify/catalog"
+ },
+ {
+  "id": "ai.agent-bev/bev-door",
+  "packages": [
+   "@agent-bev/mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.bev-buyer.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agent-bev/bev-door"
+ },
+ {
+  "id": "ai.agent-bev/bevgtin",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "gtin-bev.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agent-bev/bevgtin"
+ },
+ {
+  "id": "ai.agent-bev/library",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.bev-cuvee.org"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agent-bev/library"
+ },
+ {
+  "id": "ai.agent-neo/neo",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agent-neo.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agent-neo/neo"
+ },
+ {
+  "id": "ai.agentasy/cronjob",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "cronjob.agentasy.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentasy/cronjob"
+ },
+ {
+  "id": "ai.agentberg/agentberg",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentberg.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentberg/agentberg"
+ },
+ {
+  "id": "ai.agentblueprint/agent-blueprint",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentblueprint.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentblueprint/agent-blueprint"
+ },
+ {
+  "id": "ai.agentboard/agentboard",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.agentboard.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentboard/agentboard"
+ },
+ {
+  "id": "ai.agentcv/registry",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentcv.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentcv/registry"
+ },
+ {
+  "id": "ai.agentdm/agentdm",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agentdm.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentdm/agentdm"
+ },
+ {
+  "id": "ai.agentese.lifeclaw/lifeclaw",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api-v2.lifeclaw.agentese.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentese.lifeclaw/lifeclaw"
+ },
+ {
+  "id": "ai.agentgates/compute",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.agentgates.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentgates/compute"
+ },
+ {
+  "id": "ai.agentgates/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.agentgates.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentgates/mcp"
+ },
+ {
+  "id": "ai.agentic-news/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agentic-news.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentic-news/mcp"
+ },
+ {
+  "id": "ai.agenticaffiliate/affiliate-networks-mcp",
+  "packages": [
+   "affiliate-networks-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.agenticaffiliate.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticaffiliate/affiliate-networks-mcp"
+ },
+ {
+  "id": "ai.agenticblue/agentic-blue",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agenticblue.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticblue/agentic-blue"
+ },
+ {
+  "id": "ai.agenticbooks/books",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.agenticbooks.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticbooks/books"
+ },
+ {
+  "id": "ai.agenticfabricationnetwork/ufp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agenticfabricationnetwork.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticfabricationnetwork/ufp"
+ },
+ {
+  "id": "ai.agenticplug/agent-ready-report",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "scan.agenticplug.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticplug/agent-ready-report"
+ },
+ {
+  "id": "ai.agenticshelf/graffeo",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agenticshelf.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticshelf/graffeo"
+ },
+ {
+  "id": "ai.agenticshelf/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agenticshelf.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticshelf/mcp"
+ },
+ {
+  "id": "ai.agenticshelf/puroair",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agenticshelf.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticshelf/puroair"
+ },
+ {
+  "id": "ai.agenticterminal/directory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.agenticterminal.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenticterminal/directory"
+ },
+ {
+  "id": "ai.agentlookups/counterscript",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "rx.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/counterscript"
+ },
+ {
+  "id": "ai.agentlookups/greenlight",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "solar.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/greenlight"
+ },
+ {
+  "id": "ai.agentlookups/groundrules",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "law.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/groundrules"
+ },
+ {
+  "id": "ai.agentlookups/groundtruth",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "env.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/groundtruth"
+ },
+ {
+  "id": "ai.agentlookups/overassessed",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "overassessed.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/overassessed"
+ },
+ {
+  "id": "ai.agentlookups/plumbline",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "contractors.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/plumbline"
+ },
+ {
+  "id": "ai.agentlookups/spoon-scout",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "food.agentlookups.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentlookups/spoon-scout"
+ },
+ {
+  "id": "ai.agentmash/agentmash",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentmash.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentmash/agentmash"
+ },
+ {
+  "id": "ai.agentmesh/mesh",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agentmesh.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentmesh/mesh"
+ },
+ {
+  "id": "ai.agentplaybooks/agentplaybooks",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentplaybooks.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentplaybooks/agentplaybooks"
+ },
+ {
+  "id": "ai.agentrapay/agentra",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agentrapay.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentrapay/agentra"
+ },
+ {
+  "id": "ai.agentroam/agentroam",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentroam.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentroam/agentroam"
+ },
+ {
+  "id": "ai.agentsindex/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentsindex.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentsindex/mcp"
+ },
+ {
+  "id": "ai.agentsrank/agentsrank",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentsrank.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentsrank/agentsrank"
+ },
+ {
+  "id": "ai.agenttrust/mcp-server",
+  "packages": [
+   "@agenttrust/mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agenttrust/mcp-server"
+ },
+ {
+  "id": "ai.agentui/apps",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.agentui.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentui/apps"
+ },
+ {
+  "id": "ai.agentutility/mcp-agentops",
+  "packages": [
+   "@agentutility/mcp-agentops"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-agentops"
+ },
+ {
+  "id": "ai.agentutility/mcp-bestiary",
+  "packages": [
+   "@agentutility/mcp-bestiary"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-bestiary"
+ },
+ {
+  "id": "ai.agentutility/mcp-browser-workflow",
+  "packages": [
+   "@agentutility/mcp-browser-workflow"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-browser-workflow"
+ },
+ {
+  "id": "ai.agentutility/mcp-compose",
+  "packages": [
+   "@agentutility/mcp-compose"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-compose"
+ },
+ {
+  "id": "ai.agentutility/mcp-edge-finance",
+  "packages": [
+   "@agentutility/mcp-edge-finance"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-edge-finance"
+ },
+ {
+  "id": "ai.agentutility/mcp-edge-market",
+  "packages": [
+   "@agentutility/mcp-edge-market"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-edge-market"
+ },
+ {
+  "id": "ai.agentutility/mcp-locale",
+  "packages": [
+   "@agentutility/mcp-locale"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-locale"
+ },
+ {
+  "id": "ai.agentutility/mcp-matchpoint",
+  "packages": [
+   "@agentutility/mcp-matchpoint"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-matchpoint"
+ },
+ {
+  "id": "ai.agentutility/mcp-mediakit",
+  "packages": [
+   "@agentutility/mcp-mediakit"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-mediakit"
+ },
+ {
+  "id": "ai.agentutility/mcp-model-router",
+  "packages": [
+   "@agentutility/mcp-model-router"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-model-router"
+ },
+ {
+  "id": "ai.agentutility/mcp-prooflayer",
+  "packages": [
+   "@agentutility/mcp-prooflayer"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-prooflayer"
+ },
+ {
+  "id": "ai.agentutility/mcp-retail",
+  "packages": [
+   "@agentutility/mcp-retail"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-retail"
+ },
+ {
+  "id": "ai.agentutility/mcp-rollforge",
+  "packages": [
+   "@agentutility/mcp-rollforge"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-rollforge"
+ },
+ {
+  "id": "ai.agentutility/mcp-statline",
+  "packages": [
+   "@agentutility/mcp-statline"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-statline"
+ },
+ {
+  "id": "ai.agentutility/mcp-synthforge",
+  "packages": [
+   "@agentutility/mcp-synthforge"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-synthforge"
+ },
+ {
+  "id": "ai.agentutility/mcp-web-probe",
+  "packages": [
+   "@agentutility/mcp-web-probe"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-web-probe"
+ },
+ {
+  "id": "ai.agentutility/mcp-wordmint",
+  "packages": [
+   "@agentutility/mcp-wordmint"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentutility/mcp-wordmint"
+ },
+ {
+  "id": "ai.agentxray/amazon-seller-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentxray.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentxray/amazon-seller-mcp"
+ },
+ {
+  "id": "ai.agentxray/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentxray.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agentxray/mcp"
+ },
+ {
+  "id": "ai.agilex.service/docs",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "service.agilex.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agilex.service/docs"
+ },
+ {
+  "id": "ai.agimon/agimon",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agimon.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agimon/agimon"
+ },
+ {
+  "id": "ai.aginera/preconstruction",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.aginera.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aginera/preconstruction"
+ },
+ {
+  "id": "ai.agothe.mcp-chatgpt/agent-contract-preflight",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp-chatgpt.agothe.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.agothe.mcp-chatgpt/agent-contract-preflight"
+ },
+ {
+  "id": "ai.ahel/ahel",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.ahel.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.ahel/ahel"
+ },
+ {
+  "id": "ai.ai-advisors/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "app.ai-advisors.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.ai-advisors/mcp"
+ },
+ {
+  "id": "ai.ai-akari/agent-trust-receipt",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "ai-akari.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.ai-akari/agent-trust-receipt"
+ },
+ {
+  "id": "ai.ai-akari/one-minute-akari",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "ai-akari.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.ai-akari/one-minute-akari"
+ },
+ {
+  "id": "ai.ai-portal/ai-portal",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.ai-portal.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.ai-portal/ai-portal"
+ },
+ {
+  "id": "ai.aiadvisorlab/teamops",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "teamops.aiadvisorlab.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aiadvisorlab/teamops"
+ },
+ {
+  "id": "ai.aibotoffice/bot-office",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "aibotoffice.ai",
+   "aibotoffice.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aibotoffice/bot-office"
+ },
+ {
+  "id": "ai.aidoo/aidoo",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.aidoo.ai",
+   "mcp.aidoo.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aidoo/aidoo"
+ },
+ {
+  "id": "ai.aient/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "aient.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aient/mcp"
+ },
+ {
+  "id": "ai.aigamedev/aigamedev",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "aigamedev.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.aigamedev/aigamedev"
+ },
+ {
+  "id": "ai.alexein/memory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.alexein.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.alexein/memory"
+ },
+ {
+  "id": "ai.brainmemory/brain",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.brainmemory.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.brainmemory/brain"
+ },
+ {
+  "id": "ai.chipp/chipp-memory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.chipp.ai"
+  ],
+  "role": "memory",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.chipp/chipp-memory"
+ },
+ {
+  "id": "ai.cirra/salesforce-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.cirra.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.cirra/salesforce-mcp"
+ },
+ {
+  "id": "ai.counterparts/memory",
+  "packages": [
+   "counterparts"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.counterparts/memory"
+ },
+ {
+  "id": "ai.delega/aws-pricing-calculator",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "calculator.delega.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.delega/aws-pricing-calculator"
+ },
+ {
+  "id": "ai.justonce/memory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.justonce.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.justonce/memory"
+ },
+ {
+  "id": "ai.konshus/memory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "konshus.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.konshus/memory"
+ },
+ {
+  "id": "ai.pakki/packaging-directory",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "pakki.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.pakki/packaging-directory"
+ },
+ {
+  "id": "ai.perplexity/mcp-server",
+  "packages": [
+   "@perplexity-ai/mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.perplexity/mcp-server"
+ },
+ {
+  "id": "ai.wakeshift/slackline",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "slackline.wakeshift.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.wakeshift/slackline"
+ },
+ {
+  "id": "ai.waystation/airtable",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "waystation.ai",
+   "waystation.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.waystation/airtable"
+ },
+ {
+  "id": "ai.waystation/jira",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "waystation.ai",
+   "waystation.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.waystation/jira"
+ },
+ {
+  "id": "ai.waystation/slack",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "waystation.ai",
+   "waystation.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.waystation/slack"
+ },
+ {
+  "id": "ai.waystation/supabase",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "waystation.ai",
+   "waystation.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.waystation/supabase"
+ },
+ {
+  "id": "ai.wondel/google-maps",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.wondel.ai"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=ai.wondel/google-maps"
+ },
+ {
+  "id": "app.awsel/daftra",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "daftra.awsel.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.awsel/daftra"
+ },
+ {
+  "id": "app.awsel/erpnext",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "erpnext.awsel.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.awsel/erpnext"
+ },
+ {
+  "id": "app.awsel/odoo",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "odoo.awsel.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.awsel/odoo"
+ },
+ {
+  "id": "app.eggtimer/server-timers",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "eggtimer.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.eggtimer/server-timers"
+ },
+ {
+  "id": "app.linear/linear",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.linear.app",
+   "mcp.linear.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.linear/linear"
+ },
+ {
+  "id": "app.tuper/github-repos",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.apify.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.tuper/github-repos"
+ },
+ {
+  "id": "app.vercel.stripecheckup/stripecheckup",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "stripecheckup.vercel.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=app.vercel.stripecheckup/stripecheckup"
+ },
+ {
+  "id": "click.myagents/google-drive",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "google-drive.mcp.myagents.click"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=click.myagents/google-drive"
+ },
+ {
+  "id": "cloud.serpent/salesforce-devops",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.serpent.cloud"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=cloud.serpent/salesforce-devops"
+ },
+ {
+  "id": "co.civai.nova/mcp-firecrawl",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "nova.civai.co"
+  ],
+  "role": "search",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=co.civai.nova/mcp-firecrawl"
+ },
+ {
+  "id": "co.civai.nova/mcp-linear",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "nova.civai.co"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=co.civai.nova/mcp-linear"
+ },
+ {
+  "id": "co.civai.nova/mcp-slack_android",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "nova.civai.co"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=co.civai.nova/mcp-slack_android"
+ },
+ {
+  "id": "com.0xpi.sdsentry/sds-lookup",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "sdsentry.0xpi.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.0xpi.sdsentry/sds-lookup"
+ },
+ {
+  "id": "com.a2awire/data-github-changelog-platform-change-announcement",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "a2awire.com"
+  ],
+  "role": "source",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.a2awire/data-github-changelog-platform-change-announcement"
+ },
+ {
+  "id": "com.airtable/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.airtable.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.airtable/mcp"
+ },
+ {
+  "id": "com.azurecarbon/kodiak",
+  "packages": [
+   "kodiak-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.azurecarbon/kodiak"
+ },
+ {
+  "id": "com.browser-use/browser-use",
+  "packages": [
+   "browser-use"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.browser-use.com"
+  ],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.browser-use/browser-use"
+ },
+ {
+  "id": "com.clauxel.playwrightselectorguard/playwrightselectorguard-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "playwrightselectorguard.clauxel.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.clauxel.playwrightselectorguard/playwrightselectorguard-mcp"
+ },
+ {
+  "id": "com.cloudflare.mcp/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "docs.mcp.cloudflare.com",
+   "observability.mcp.cloudflare.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.cloudflare.mcp/mcp"
+ },
+ {
+  "id": "com.creadal/packaging",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "creadal.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.creadal/packaging"
+ },
+ {
+  "id": "com.devart/mcp-postgresql",
+  "packages": [
+   "Devart.Mcp.PostgreSql"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.devart/mcp-postgresql"
+ },
+ {
+  "id": "com.devart/mcp-sqlite",
+  "packages": [
+   "Devart.Mcp.SQLite"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "data-local",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.devart/mcp-sqlite"
+ },
+ {
+  "id": "com.edgethirteen.www/hubspot-dbv",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "www.edgethirteen.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.edgethirteen.www/hubspot-dbv"
+ },
+ {
+  "id": "com.foreverworks/bitwarden",
+  "packages": [
+   "@foreverworks/mcp-bitwarden"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "credential",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.foreverworks/bitwarden"
+ },
+ {
+  "id": "com.foreverworks/notion",
+  "packages": [
+   "@foreverworks/mcp-notion"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.foreverworks/notion"
+ },
+ {
+  "id": "com.gmapsextractor/google-maps-scraper",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "cloud.gmapsextractor.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.gmapsextractor/google-maps-scraper"
+ },
+ {
+  "id": "com.hasdata/duckduckgo",
+  "packages": [
+   "@hasdata/duckduckgo-mcp",
+   "hasdata-duckduckgo-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.hasdata.com"
+  ],
+  "role": "search",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.hasdata/duckduckgo"
+ },
+ {
+  "id": "com.insightfulpipe/airtable",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "airtable.insightfulmcp.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.insightfulpipe/airtable"
+ },
+ {
+  "id": "com.insightfulpipe/mssql",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mssql.insightfulmcp.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.insightfulpipe/mssql"
+ },
+ {
+  "id": "com.insightfulpipe/notion",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "notion.insightfulmcp.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.insightfulpipe/notion"
+ },
+ {
+  "id": "com.insightfulpipe/postgresql",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "postgresql.insightfulmcp.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.insightfulpipe/postgresql"
+ },
+ {
+  "id": "com.insightfulpipe/slack",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "slack.insightfulmcp.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.insightfulpipe/slack"
+ },
+ {
+  "id": "com.insightfulpipe/stripe",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "stripe.insightfulmcp.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.insightfulpipe/stripe"
+ },
+ {
+  "id": "com.jojapi/bypass-cloudflare-api",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.jojapi.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.jojapi/bypass-cloudflare-api"
+ },
+ {
+  "id": "com.jojapi/cloudflare-solver",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.jojapi.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.jojapi/cloudflare-solver"
+ },
+ {
+  "id": "com.jojapi/duckduckgo",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.jojapi.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.jojapi/duckduckgo"
+ },
+ {
+  "id": "com.kubeez/kubeez",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.kubeez.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.kubeez/kubeez"
+ },
+ {
+  "id": "com.mcparmory/airtable",
+  "packages": [
+   "mcparmory-airtable",
+   "ghcr.io/mcparmory/airtable:1.0.3"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/airtable"
+ },
+ {
+  "id": "com.mcparmory/atlassian-jira",
+  "packages": [
+   "mcparmory-atlassian-jira",
+   "ghcr.io/mcparmory/atlassian-jira:1.0.3"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/atlassian-jira"
+ },
+ {
+  "id": "com.mcparmory/browserbase",
+  "packages": [
+   "mcparmory-browserbase",
+   "ghcr.io/mcparmory/browserbase:1.0.4"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/browserbase"
+ },
+ {
+  "id": "com.mcparmory/e2b",
+  "packages": [
+   "mcparmory-e2b",
+   "ghcr.io/mcparmory/e2b:1.0.5"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "code",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/e2b"
+ },
+ {
+  "id": "com.mcparmory/firecrawl",
+  "packages": [
+   "mcparmory-firecrawl",
+   "ghcr.io/mcparmory/firecrawl:1.0.3"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "search",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/firecrawl"
+ },
+ {
+  "id": "com.mcparmory/google-drive",
+  "packages": [
+   "mcparmory-google-drive",
+   "ghcr.io/mcparmory/google-drive:1.0.2"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/google-drive"
+ },
+ {
+  "id": "com.mcparmory/notion",
+  "packages": [
+   "mcparmory-notion",
+   "ghcr.io/mcparmory/notion:1.0.2"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/notion"
+ },
+ {
+  "id": "com.mcparmory/slack",
+  "packages": [
+   "mcparmory-slack",
+   "ghcr.io/mcparmory/slack:1.0.1"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.mcparmory/slack"
+ },
+ {
+  "id": "com.playwrightgen/playwrightgen",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "playwrightgen.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.playwrightgen/playwrightgen"
+ },
+ {
+  "id": "com.pronovahq/pronova-sales-hubspot",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.pronovahq.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.pronovahq/pronova-sales-hubspot"
+ },
+ {
+  "id": "com.pulsemcp/playwright-stealth",
+  "packages": [
+   "playwright-stealth-mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.pulsemcp/playwright-stealth"
+ },
+ {
+  "id": "com.pulsemcp/remote-filesystem",
+  "packages": [
+   "remote-filesystem-mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "files",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.pulsemcp/remote-filesystem"
+ },
+ {
+  "id": "com.renzojohnson/google-drive-mcp",
+  "packages": [
+   "@renzo.johnson/google-drive-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.renzojohnson/google-drive-mcp"
+ },
+ {
+  "id": "com.stripe/mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "mcp.stripe.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.stripe/mcp"
+ },
+ {
+  "id": "com.thenextgennexus/github-mcp-server",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "nexgendata-mcp-proxy.steve-corbeil.workers.dev"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.thenextgennexus/github-mcp-server"
+ },
+ {
+  "id": "com.thenextgennexus/playwright-mcp-server",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "nexgendata-mcp-proxy.steve-corbeil.workers.dev"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.thenextgennexus/playwright-mcp-server"
+ },
+ {
+  "id": "com.trycloudflare.annotated-lot-operational-tourism/kai-agi",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "annotated-lot-operational-tourism.trycloudflare.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.trycloudflare.annotated-lot-operational-tourism/kai-agi"
+ },
+ {
+  "id": "com.trycloudflare.barrier-sought-lbs-reader/quotes",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "barrier-sought-lbs-reader.trycloudflare.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=com.trycloudflare.barrier-sought-lbs-reader/quotes"
+ },
+ {
+  "id": "dev.wirecat/hubspot-cli",
+  "packages": [
+   "@wirecat/hubspot-cli"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=dev.wirecat/hubspot-cli"
+ },
+ {
+  "id": "dev.xakpc/sqlite-mcp-sidecar",
+  "packages": [
+   "ghcr.io/xakpc/sqlite-mcp-sidecar:0.1.3"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=dev.xakpc/sqlite-mcp-sidecar"
+ },
+ {
+  "id": "io.github.AbdulMuhaiminKhan/github-mcp",
+  "packages": [
+   "github-mcp-readonly"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "source",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.AbdulMuhaiminKhan/github-mcp"
+ },
+ {
+  "id": "io.github.Ansarii/firecrawl-stealth-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "neon_innovation_lab--firecrawl-stealth-mcp.apify.actor"
+  ],
+  "role": "search",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Ansarii/firecrawl-stealth-mcp"
+ },
+ {
+  "id": "io.github.Automations-Project/airtable-user-mcp",
+  "packages": [
+   "airtable-user-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Automations-Project/airtable-user-mcp"
+ },
+ {
+  "id": "io.github.BumiAtlas/mongolia-land-parcels",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "bumiatlas.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.BumiAtlas/mongolia-land-parcels"
+ },
+ {
+  "id": "io.github.CSOAI-ORG/meok-stripe-acp-checkout-mcp",
+  "packages": [
+   "meok-stripe-acp-checkout-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.meok.ai"
+  ],
+  "role": "payment",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.CSOAI-ORG/meok-stripe-acp-checkout-mcp"
+ },
+ {
+  "id": "io.github.CakeRepository/1password",
+  "packages": [
+   "@takescake/1password-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "credential",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.CakeRepository/1password"
+ },
+ {
+  "id": "io.github.Centrify-Internal/hubspot-integrations-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "n6k96b1ql7.execute-api.us-west-2.amazonaws.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Centrify-Internal/hubspot-integrations-mcp"
+ },
+ {
+  "id": "io.github.ChengJiale150/jupyter-mcp-server",
+  "packages": [
+   "better-jupyter-mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "code",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ChengJiale150/jupyter-mcp-server"
+ },
+ {
+  "id": "io.github.Choppaaahh/sendgrid-mcp-secure",
+  "packages": [
+   "sendgrid-mcp-secure"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Choppaaahh/sendgrid-mcp-secure"
+ },
+ {
+  "id": "io.github.ConnorBritain/mssql",
+  "packages": [
+   "@connorbritain/mssql-mcp-server"
+  ],
+  "commands": [
+   "mssql"
+  ],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ConnorBritain/mssql"
+ },
+ {
+  "id": "io.github.ConnorBritain/mssql-reader",
+  "packages": [
+   "@connorbritain/mssql-mcp-reader"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ConnorBritain/mssql-reader"
+ },
+ {
+  "id": "io.github.ConnorBritain/mssql-writer",
+  "packages": [
+   "@connorbritain/mssql-mcp-writer"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ConnorBritain/mssql-writer"
+ },
+ {
+  "id": "io.github.Digital-Defiance/mcp-filesystem",
+  "packages": [
+   "@ai-capabilities-suite/mcp-filesystem"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "files",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Digital-Defiance/mcp-filesystem"
+ },
+ {
+  "id": "io.github.EugeneNeverov/productops-jira",
+  "packages": [
+   "@productops-mcp/jira"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.EugeneNeverov/productops-jira"
+ },
+ {
+  "id": "io.github.Evozim/chroot-filesystem-jail-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "api.m2mcent.com"
+  ],
+  "role": "files",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Evozim/chroot-filesystem-jail-mcp"
+ },
+ {
+  "id": "io.github.Evozim/linear-broker",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "linear-broker-mcp.vercel.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Evozim/linear-broker"
+ },
+ {
+  "id": "io.github.FerhatDundar/github-mcp-connector",
+  "packages": [
+   "https://github.com/FerhatDundar/github-mcp-connector/releases/download/v0.1.1/github-mcp-connector-plugin-v0.1.1-darwin-arm64.zip",
+   "https://github.com/FerhatDundar/github-mcp-connector/releases/download/v0.1.1/github-mcp-connector-plugin-v0.1.1-darwin-amd64.zip"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.FerhatDundar/github-mcp-connector"
+ },
+ {
+  "id": "io.github.IamSAL/jira-easy-mcp",
+  "packages": [
+   "jira-easy-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.IamSAL/jira-easy-mcp"
+ },
+ {
+  "id": "io.github.Kubedoll-Heavy-Industries/helm-mcp",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "helm-mcp.kubedoll.com"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Kubedoll-Heavy-Industries/helm-mcp"
+ },
+ {
+  "id": "io.github.Kujirafu/agentlore",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agentlore.vercel.app"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Kujirafu/agentlore"
+ },
+ {
+  "id": "io.github.Neschadin/sendgrid-mcp",
+  "packages": [
+   "@neschadin/sendgrid-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Neschadin/sendgrid-mcp"
+ },
+ {
+  "id": "io.github.SarutobiSasuke8/obsidian-github-mcp",
+  "packages": [
+   "@sarutobi-sasuke/obsidian-github-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "source",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.SarutobiSasuke8/obsidian-github-mcp"
+ },
+ {
+  "id": "io.github.Seey215/tavily-mcp",
+  "packages": [
+   "@toolsdk.ai/tavily-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "search",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Seey215/tavily-mcp"
+ },
+ {
+  "id": "io.github.Snowflake-Labs/mcp",
+  "packages": [
+   "snowflake-labs-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Snowflake-Labs/mcp"
+ },
+ {
+  "id": "io.github.adelaidasofia/github-mcp",
+  "packages": [
+   "https://github.com/adelaidasofia/github-mcp/releases/download/v0.1.0/github-mcp.mcpb"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.adelaidasofia/github-mcp"
+ },
+ {
+  "id": "io.github.adelaidasofia/linear-mcp",
+  "packages": [
+   "adelaidasofia-linear-mcp",
+   "https://github.com/adelaidasofia/linear-mcp/releases/download/v0.3.2/linear-mcp.mcpb"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.adelaidasofia/linear-mcp"
+ },
+ {
+  "id": "io.github.alphaparkinc/genpark-distributed-id-snowflake-generator-skill",
+  "packages": [
+   "https://github.com/Alpha-Park/genpark-distributed-id-snowflake-generator-skill/releases/download/v1.0.1/genpark-distributed-id-snowflake-generator-skill-v1.0.1.mcpb"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.alphaparkinc/genpark-distributed-id-snowflake-generator-skill"
+ },
+ {
+  "id": "io.github.arben-adm/mcp-sequential-thinking",
+  "packages": [
+   "mcp-sequential-thinking"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "memory",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.arben-adm/mcp-sequential-thinking"
+ },
+ {
+  "id": "io.github.arifulislamat/database-mcp-sqlite",
+  "packages": [
+   "@database-mcp/sqlite",
+   "database-mcp-sqlite"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "data-local",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.arifulislamat/database-mcp-sqlite"
+ },
+ {
+  "id": "io.github.bluwork/mongo-scout-mcp",
+  "packages": [
+   "mongo-scout-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.bluwork/mongo-scout-mcp"
+ },
+ {
+  "id": "io.github.browserbase/mcp-server-browserbase",
+  "packages": [
+   "@browserbasehq/mcp-server-browserbase"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.browserbase/mcp-server-browserbase"
+ },
+ {
+  "id": "io.github.bytedance/mcp-server-commands",
+  "packages": [
+   "@agent-infra/mcp-server-commands",
+   "@agent-infra/mcp-server-commands"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "commands",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.bytedance/mcp-server-commands"
+ },
+ {
+  "id": "io.github.codespar/mcp-sendgrid",
+  "packages": [
+   "@codespar/mcp-sendgrid"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.codespar/mcp-sendgrid"
+ },
+ {
+  "id": "io.github.deyikong/sendgrid-mcp",
+  "packages": [
+   "sendgrid-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.deyikong/sendgrid-mcp"
+ },
+ {
+  "id": "io.github.infoinlet-marketplace/mcp-mongodb",
+  "packages": [
+   "@infoinlet/mcp-mongodb"
+  ],
+  "commands": [
+   "mongodb"
+  ],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.infoinlet-marketplace/mcp-mongodb"
+ },
+ {
+  "id": "io.github.lordbasilaiassistant-sudo/broke2built-skills-mcp",
+  "packages": [
+   "broke2built-skills-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lordbasilaiassistant-sudo/broke2built-skills-mcp"
+ },
+ {
+  "id": "io.github.magurelabs/linear",
+  "packages": [
+   "docker.io/magureai/mcp-linear:2.0.0"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.magurelabs/linear"
+ },
+ {
+  "id": "io.github.mguttmann/the-real-bitwarden-mcp",
+  "packages": [
+   "the-real-bitwarden-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "credential",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mguttmann/the-real-bitwarden-mcp"
+ },
+ {
+  "id": "io.github.mindstone/mcp-server-browserbase",
+  "packages": [
+   "@mindstone/mcp-server-browserbase"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mindstone/mcp-server-browserbase"
+ },
+ {
+  "id": "io.github.mrfentmen/linear-mcp",
+  "packages": [
+   "@mrfentmen/linear-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mrfentmen/linear-mcp"
+ },
+ {
+  "id": "io.github.mrfentmen/mailgun-mcp",
+  "packages": [
+   "mailgun-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mrfentmen/mailgun-mcp"
+ },
+ {
+  "id": "io.github.mrfentmen/packagist-mcp",
+  "packages": [
+   "packagist-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mrfentmen/packagist-mcp"
+ },
+ {
+  "id": "io.github.musaddiq-dev/postgresql-mcp-server",
+  "packages": [
+   "mdev-postgresql-mcp-server"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "data",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.musaddiq-dev/postgresql-mcp-server"
+ },
+ {
+  "id": "io.github.pedro-rivas/android-puppeteer-mcp",
+  "packages": [
+   "android-puppeteer-mcp"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.pedro-rivas/android-puppeteer-mcp"
+ },
+ {
+  "id": "io.github.pipeworx-io/tavily",
+  "packages": [
+   "@pipeworx/mcp-tavily"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "gateway.pipeworx.io"
+  ],
+  "role": "search",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.pipeworx-io/tavily"
+ },
+ {
+  "id": "io.github.sadri-dridi/blake2b-len",
+  "packages": [],
+  "commands": [],
+  "images": [],
+  "hosts": [
+   "agent-observatory-sensor.nolimit-observatory.workers.dev"
+  ],
+  "role": "saas",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.sadri-dridi/blake2b-len"
+ },
+ {
+  "id": "io.github.therealtimex/browser-use",
+  "packages": [
+   "realtimex-browser-use"
+  ],
+  "commands": [],
+  "images": [],
+  "hosts": [],
+  "role": "browser",
+  "citation": "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.therealtimex/browser-use"
+ }
+]

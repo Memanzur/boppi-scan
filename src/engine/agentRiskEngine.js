@@ -14,10 +14,27 @@
     { id:'AE-003', severity:'high', category:'supply_chain', title:'Sensitive business data is connected to an unverified MCP server', needs:['business_sensitive','unverified_mcp'], path:'An unverified tool server sits on a path to sensitive business data.', fix:'Verify the MCP server, restrict its data scope, or disconnect it.' },
     { id:'AE-004', severity:'critical', category:'software_supply_chain', title:'Source modification can reach production systems', needs:['source_modify','production'], path:'The agent can change code while also reaching production systems or credentials.', fix:'Separate source modification from production access and require approval for deployment actions.' },
     { id:'AE-005', severity:'high', category:'impersonation', title:'Email access and browser content create an impersonation path', needs:['read_email','external_message','browser_or_untrusted'], path:'Untrusted content could influence an agent that can read and send email.', fix:'Require approval for outbound mail and restrict browser or untrusted-content access.' },
-    { id:'AE-006', severity:'high', category:'data_governance', title:'Broad file access has unknown vendor data-training posture', needs:['broad_files','unknown_training'], path:'A broad file grant may expose company data to a vendor whose training posture is unknown.', fix:'Reduce the file scope or verify the vendor’s data-use controls.' },
+    { id:'AE-006', severity:'high', category:'data_governance', title:'Broad file access has unknown vendor data-training posture', needs:['broad_files','unknown_training'], path:'A file grant rooted at / or the home directory may expose the whole user environment to a vendor whose training posture is unknown.', fix:'Point the file server at a narrower directory or verify the vendor data-use controls.' },
     { id:'AE-007', severity:'critical', category:'prompt_injection_impact', title:'Shell and filesystem access can be influenced by untrusted content', needs:['shell','filesystem','untrusted'], path:'Instructions from external content could influence an agent with destructive local capabilities.', fix:'Disable shell access, restrict filesystem paths, and isolate untrusted content.' },
+    { id:'AE-008', severity:'medium', category:'sensitive_grant', title:'A single sensitive grant has no cross-boundary chain', needs:['bounded_sensitive'], path:'One sensitive grant is present and no execution or separate network leg was evidenced.', fix:'Keep the grant scoped, or remove it if the agent does not need it.' },
+    { id:'AE-009', severity:'critical', category:'command_boundary', title:'Command execution crosses a trust boundary', needs:['command_boundary'], path:'A shell or code interpreter is combined with an outbound leg, untrusted content, or an approval bypass. Command output can leave the machine, follow untrusted instructions, or run without a prompt.', fix:'Remove the shell or code server, turn prompting back on, or remove the outbound or untrusted server.' },
+    { id:'AE-010', severity:'high', category:'command_local', title:'Command execution still prompts', needs:['execution_alone'], path:'A shell or code interpreter can run commands on this machine. Prompting is still on, and no outbound leg or untrusted ingestion was evidenced.', fix:'Remove command execution the agent does not need.' },
+    { id:'AE-011', severity:'critical', category:'data_exfiltration', title:'Sensitive data can leave through an outbound leg', needs:['sensitive_read','outbound'], path:'A database or SaaS read plus an outbound leg (fetch, browser, messaging send, or shell) can move that data off the service.', fix:'Remove the outbound server, or remove the data server the agent does not need.' },
+    { id:'AE-012', severity:'critical', category:'data_exfiltration', title:'Local files can reach a remote MCP host', needs:['local_files','remote_host'], path:'Files this agent can read can be placed in tool calls to a remote MCP host, or written to a remote repository such as GitHub in its package, image, or URL form.', fix:'Remove the remote server, or narrow the file grant so those files are not in reach.' },
+    { id:'AE-013', severity:'high', category:'workspace_message', title:'One workspace can read and send its own data', needs:['workspace_loop'], path:'One SaaS server can read and send inside the same vendor workspace. That data is not shown leaving to a different destination.', fix:'Remove send access, or keep this server away from shells and other outbound tools.' },
+    { id:'AE-014', severity:'critical', category:'data_boundary', title:'Sensitive data meets untrusted content or an approval bypass', needs:['sensitive_read_boundary','boundary'], path:'A database or SaaS read combined with untrusted content, such as an issue tracker, or with an approval bypass, is a critical trust boundary. The read is reported at that higher severity.', fix:'Turn prompting back on, or remove the untrusted server or the data server the agent does not need.' },
   ];
   const categorySet = permissions => new Set((permissions || []).map(p => p.normalizedCategory || p.category || 'unknown'));
+  function remoteMcpHost(server) {
+    const raw = server && (server.endpoint || server.url);
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+    let url;
+    try { url = new URL(raw.includes('://') ? raw.trim() : `https://${raw.trim()}`); } catch (_) { return null; }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') return null;
+    return host;
+  }
   function has(set, ...values) { return values.some(v => set.has(v)); }
   function permissionEvidence(permissions, predicate) {
     return (permissions || []).filter(predicate).map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null }));
@@ -25,7 +42,53 @@
   function classify(permissions, mcpServers, agent) {
     const set = categorySet(permissions);
     const sensitive = has(set,'read_files','access_customer_data','access_financial_data','access_health_data','access_hr_data');
-    const broadFiles = (permissions || []).some(p => p.normalizedCategory === 'read_files' && /drive|all|full|filesystem|document/i.test(p.rawPermission || ''));
+    const broadFiles = (permissions || []).some(p => p.normalizedCategory === 'read_files' && p.accessLevel === 'broad');
+    const strongNetwork = (permissions || []).some(p => ['call_external_api','browse_internet','browser_automation'].includes(p.normalizedCategory));
+    const bounded = (permissions || []).some(p => {
+      if (p.normalizedCategory === 'read_files' && p.accessLevel === 'scoped') return true;
+      if (p.normalizedCategory === 'access_credentials') return true;
+      if (p.accessLevel === 'data' || p.accessLevel === 'payment') return true;
+      return false;
+    });
+    const separateNetwork = (permissions || []).some(p => ['call_external_api','browse_internet','browser_automation'].includes(p.normalizedCategory) && p.accessLevel !== 'data' && p.accessLevel !== 'payment');
+    const execution = (permissions || []).some(p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory));
+    const messaging = (permissions || []).some(p => ['send_external_message','send_email'].includes(p.normalizedCategory));
+    const untrustedHit = (permissions || []).some(p => p.normalizedCategory === 'untrusted_external_content');
+    const approvalBypass = (permissions || []).some(p => p.normalizedCategory === 'approval_bypass');
+    const reads = (permissions || []).filter(p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data');
+    const sends = (permissions || []).filter(p => ['send_external_message','send_email'].includes(p.normalizedCategory));
+    const sensitiveRead = reads.length > 0;
+    const sameServerSend = (read) => sends.some(send => send.integrationId && send.integrationId === read.integrationId);
+    const otherServer = (permission, sid) => permission.integrationId && permission.integrationId !== sid;
+    // A real outbound leg. Untrusted content and an approval bypass are not
+    // outbound legs, and they must not blank the data finding on their own.
+    const outboundLeg = (permission) => {
+      if (['send_external_message','send_email','execute_code','run_shell_commands'].includes(permission.normalizedCategory)) return true;
+      if (['call_external_api','browse_internet','browser_automation'].includes(permission.normalizedCategory) && permission.accessLevel !== 'data') return true;
+      return false;
+    };
+    const otherDestination = (read) => (permissions || []).some(permission => otherServer(permission, read.integrationId) && outboundLeg(permission));
+    const otherUntrusted = (read) => (permissions || []).some(permission => permission.normalizedCategory === 'untrusted_external_content' && otherServer(permission, read.integrationId));
+    const commandBoundary = execution && (strongNetwork || messaging || untrustedHit || approvalBypass);
+    const remoteHosts = (mcpServers || []).filter(server => remoteMcpHost(server));
+    const remoteIds = new Set(remoteHosts.map(server => server.id));
+    const localFilePerms = (permissions || []).filter(permission => permission.normalizedCategory === 'read_files' && permission.integrationId && [...remoteIds].some(id => id !== permission.integrationId));
+    const fileToRemote = localFilePerms.length > 0;
+    const remoteRepoWrite = (permission) => permission.normalizedCategory === 'modify_source_code' && permission.accessLevel !== 'local' && permission.integrationId;
+    const remoteRepoIds = new Set((permissions || []).filter(remoteRepoWrite).map(permission => permission.integrationId));
+    const filesToSourcePerms = (permissions || []).filter(permission => permission.normalizedCategory === 'read_files' && permission.integrationId && [...remoteRepoIds].some(id => id !== permission.integrationId));
+    const filesToSource = filesToSourcePerms.length > 0;
+    const fileExfilPerms = [];
+    const seenFileIds = new Set();
+    for (const permission of [...(fileToRemote ? localFilePerms : []), ...filesToSourcePerms]) {
+      if (seenFileIds.has(permission.id)) continue;
+      seenFileIds.add(permission.id);
+      fileExfilPerms.push(permission);
+    }
+    const fileExfil = fileExfilPerms.length > 0;
+    const dataLeaves = reads.some(read => execution || otherDestination(read));
+    const dataBoundary = reads.some(read => otherUntrusted(read) || approvalBypass);
+    const workspaceReads = reads.filter(read => sameServerSend(read) && !dataLeaves && !dataBoundary);
     const unknownTraining = (agent?.trainingPosture || 'unknown') === 'unknown';
     // AE-003 requires explicit evidence that the server is unverified. An
     // unknown trust state is uncertainty, not proof of supply-chain risk.
@@ -36,13 +99,40 @@
       external_message: permissionEvidence(permissions, p => ['send_external_message','send_email'].includes(p.normalizedCategory)),
       execution: permissionEvidence(permissions, p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory)),
       credential: permissionEvidence(permissions, p => ['access_credentials','access_environment_variables'].includes(p.normalizedCategory)),
-      network: permissionEvidence(permissions, p => ['call_external_api','browse_internet'].includes(p.normalizedCategory)),
+      network: permissionEvidence(permissions, p => ['call_external_api','browse_internet','browser_automation'].includes(p.normalizedCategory)),
       business_sensitive: permissionEvidence(permissions, p => ['access_customer_data','access_financial_data','access_health_data','access_hr_data'].includes(p.normalizedCategory)),
       source_modify: permissionEvidence(permissions, p => p.normalizedCategory === 'modify_source_code'),
       production: permissionEvidence(permissions, p => p.normalizedCategory === 'access_production_system'),
       read_email: permissionEvidence(permissions, p => p.normalizedCategory === 'read_email'),
       browser_or_untrusted: permissionEvidence(permissions, p => ['browser_automation','browse_internet','untrusted_external_content'].includes(p.normalizedCategory)),
-      broad_files: permissionEvidence(permissions, p => p.normalizedCategory === 'read_files' && /drive|all|full|filesystem|document/i.test(p.rawPermission || '')),
+      broad_files: permissionEvidence(permissions, p => p.normalizedCategory === 'read_files' && p.accessLevel === 'broad'),
+      bounded_sensitive: (!execution && !separateNetwork && !messaging && !broadFiles && !dataLeaves && !dataBoundary && !fileExfil && bounded)
+        ? permissionEvidence(permissions, p => (p.normalizedCategory === 'read_files' && p.accessLevel === 'scoped') || p.normalizedCategory === 'access_credentials' || p.accessLevel === 'data' || p.accessLevel === 'payment')
+        : [],
+      command_boundary: commandBoundary
+        ? permissionEvidence(permissions, p => ['execute_code','run_shell_commands','call_external_api','browse_internet','browser_automation','send_external_message','send_email','untrusted_external_content','approval_bypass'].includes(p.normalizedCategory))
+        : [],
+      execution_alone: (execution && !commandBoundary && !(sensitiveRead && execution))
+        ? permissionEvidence(permissions, p => ['execute_code','run_shell_commands'].includes(p.normalizedCategory))
+        : [],
+      sensitive_read: dataLeaves
+        ? permissionEvidence(permissions, p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data')
+        : [],
+      outbound: dataLeaves
+        ? permissionEvidence(permissions, p => ['call_external_api','browse_internet','browser_automation','send_external_message','send_email','execute_code','run_shell_commands'].includes(p.normalizedCategory))
+        : [],
+      sensitive_read_boundary: dataBoundary
+        ? permissionEvidence(permissions, p => p.normalizedCategory === 'access_customer_data' && p.accessLevel === 'data')
+        : [],
+      boundary: dataBoundary
+        ? permissionEvidence(permissions, p => p.normalizedCategory === 'untrusted_external_content' || p.normalizedCategory === 'approval_bypass')
+        : [],
+      local_files: fileExfil ? fileExfilPerms.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })) : [],
+      remote_host: fileExfil ? [
+        ...(fileToRemote ? remoteHosts.map(server => ({ id:server.id, name:server.name || server.endpoint, source:server.source?.id || null })) : []),
+        ...(filesToSource ? permissionEvidence(permissions, remoteRepoWrite) : []),
+      ] : [],
+      workspace_loop: workspaceReads.map(p => ({ id:p.id, category:p.normalizedCategory, rawPermission:p.rawPermission, source:p.source?.id || null })),
       shell: permissionEvidence(permissions, p => p.normalizedCategory === 'run_shell_commands'),
       filesystem: permissionEvidence(permissions, p => ['read_files','write_files','delete_files'].includes(p.normalizedCategory)),
       untrusted: permissionEvidence(permissions, p => p.normalizedCategory === 'untrusted_external_content'),
@@ -50,6 +140,16 @@
     };
     if (unknownTraining) groups.unknown_training = [{ id:agent?.id || 'agent', evidence:'training posture unknown' }];
     return groups;
+  }
+  // A substring match is stored at normalizationConfidence 0.35. It stays in
+  // the inventory and can support a non-critical rule. A critical rule is
+  // satisfied only by observed or allowlist evidence, which is recorded at
+  // 0.40 or higher. Callers that do not grade evidence keep the previous bar.
+  const CRITICAL_EVIDENCE_MIN = 0.4;
+  function supportsCritical(permission) {
+    const confidence = permission && permission.normalizationConfidence;
+    if (typeof confidence !== 'number') return true;
+    return confidence >= CRITICAL_EVIDENCE_MIN;
   }
   function triggered(rule, groups) {
     const g = groups;
@@ -63,11 +163,13 @@
   }
   function assess(agent, permissions = [], mcpServers = [], options = {}) {
     const groups = classify(permissions, mcpServers, agent);
+    const criticalGroups = classify((permissions || []).filter(supportsCritical), mcpServers, agent);
     const stale = !!options.stale;
     const confidence = confidenceFor(agent, permissions, mcpServers, stale);
     const inferredAt = options.now || agent?.updatedAt || agent?.createdAt || agent?.source?.observedAt || '1970-01-01T00:00:00.000Z';
-    const rawFindings = RULES.filter(rule => triggered(rule, groups)).map(rule => {
-      const evidence = rule.needs.flatMap(need => groups[need] || []);
+    const rawFindings = RULES.filter(rule => triggered(rule, rule.severity === 'low' ? groups : criticalGroups)).map(rule => {
+      const evidenceGroups = rule.severity === 'low' ? groups : criticalGroups;
+      const evidence = rule.needs.flatMap(need => evidenceGroups[need] || []);
       const evidenceIds = [...new Set(evidence.map(e => e.id).filter(Boolean))];
       const raw = {
         id: models ? models.stableId('finding', [agent?.id || 'unknown', rule.id, evidenceIds]) : `${rule.id}:${agent?.id || 'unknown'}`,

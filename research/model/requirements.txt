@@ -1,0 +1,7 @@
+# Tested on the box CPU smoke run with torch 2.15.0+cpu, transformers 5.23.0,
+# peft 0.22.0, accelerate 1.16.0. Qwen3 needs transformers 4.51 or newer.
+transformers>=4.51
+peft>=0.13
+accelerate>=1.0
+# GPU only (Kaggle or Colab T4), for 4 bit QLoRA:
+bitsandbytes>=0.45; platform_system == "Linux"
