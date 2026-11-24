@@ -108,9 +108,7 @@
     const ca = Number.isFinite(a.confidence) ? a.confidence : 0;
     const cb = Number.isFinite(b.confidence) ? b.confidence : 0;
     if (cb !== ca) return cb - ca;
-    const byLabel = edgeKey(a, nodesById).localeCompare(edgeKey(b, nodesById));
-    if (byLabel) return byLabel;
-    return String(a.id).localeCompare(String(b.id));
+    return edgeKey(a, nodesById).localeCompare(edgeKey(b, nodesById), 'en');
   }
 
   function buildAdjacency(graph) {
@@ -180,10 +178,11 @@
     }
     const chainConfidence = chain => (chain.length ? Math.min(...chain.map(edge => (Number.isFinite(edge.confidence) ? edge.confidence : 0))) : 0);
     for (const key of Object.keys(groups)) {
+      const chainContent = entry => (entry.chain || []).map(edge => edgeKey(edge, nodesById)).join('\n');
       groups[key].sort((a, b) => a.chain.length - b.chain.length
         || chainConfidence(b.chain) - chainConfidence(a.chain)
-        || nodeKey(nodesById.get(a.nodeId)).localeCompare(nodeKey(nodesById.get(b.nodeId)))
-        || String(a.nodeId).localeCompare(String(b.nodeId)));
+        || nodeKey(nodesById.get(a.nodeId)).localeCompare(nodeKey(nodesById.get(b.nodeId)), 'en')
+        || chainContent(a).localeCompare(chainContent(b), 'en'));
     }
     return groups;
   }
@@ -286,7 +285,7 @@
     }
     const agents = graph.nodes
       .filter(n => ['ai_application', 'ai_agent', 'coding_agent', 'autonomous_agent'].includes(n.entityType))
-      .sort((a, b) => nodeKey(a).localeCompare(nodeKey(b)) || String(a.id).localeCompare(String(b.id)));
+      .sort((a, b) => nodeKey(a).localeCompare(nodeKey(b), 'en'));
 
     const paths = [];
     for (const agentNode of agents) {
@@ -327,7 +326,7 @@
   function comparePaths(a, b) {
     return (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0)
       || (b.confidence - a.confidence)
-      || pathContentKey(a).localeCompare(pathContentKey(b));
+      || pathContentKey(a).localeCompare(pathContentKey(b), 'en');
   }
 
   /**
@@ -367,7 +366,7 @@
         privileged: !!node.metadata?.privileged,
       });
     }
-    reachable.sort((a, b) => a.depth - b.depth || a.nodeId.localeCompare(b.nodeId));
+    reachable.sort((a, b) => a.depth - b.depth || String(a.nodeId).localeCompare(String(b.nodeId), 'en'));
     const countsByType = {};
     for (const entry of reachable) countsByType[entry.entityType] = (countsByType[entry.entityType] || 0) + 1;
     return {

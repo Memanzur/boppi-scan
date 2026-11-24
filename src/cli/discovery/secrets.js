@@ -39,9 +39,16 @@ function isEnvReference(value) {
 
 const INSTALLERS = new Set(['npx', 'npm', 'uvx', 'uv', 'pip', 'pipx', 'bunx', 'pnpm', 'pnpx', 'yarn', 'deno']);
 
+/** Basename of an executable: strip quotes, a Windows or POSIX path, and .exe/.cmd/.bat/.ps1. */
+function commandStem(command) {
+  let base = String(command || '').trim();
+  if ((base.startsWith('"') && base.endsWith('"')) || (base.startsWith("'") && base.endsWith("'"))) base = base.slice(1, -1).trim();
+  base = base.split(/[\\/]/).pop().toLowerCase();
+  return base.replace(/\.(?:exe|cmd|bat|ps1)$/, '');
+}
+
 function commandBaseName(command) {
-  if (typeof command !== 'string') return '';
-  return command.trim().split(/[\\/]/).pop().toLowerCase();
+  return commandStem(command);
 }
 
 /** npm or Python package spec, with or without a version. Not a path, flag, or URL. */
@@ -100,7 +107,7 @@ const NPM_VALUE_FLAGS = [
   '--searchlimit', '--searchopts', '--searchexclude', '--searchstaleness',
   '--init-module', '--init-author-name', '--init-author-email', '--init-author-url',
   '--init-license', '--init-version', '--git', '--location', '--libc', '--os',
-  '--cpu', '--arch',
+  '--cpu', '--arch', '-C', '--dir',
 ];
 const NPM_BOOLEAN_FLAGS = [
   '-y', '--yes', '-q', '--quiet', '--offline', '--no-fund', '--no-install',
@@ -116,7 +123,7 @@ const INSTALLER_TABLE = Object.freeze({
   pnpx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache', '--loglevel', '--registry', '--prefix', '--workspace', '-w'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund'] },
   npm: { direct: false, subs: ['exec|x'], package: ['-p', '--package'], value: NPM_VALUE_FLAGS.concat(['--globalconfig']), boolean: NPM_BOOLEAN_FLAGS },
   yarn: { direct: false, subs: ['dlx'], package: ['--package'], value: [], boolean: ['-q', '--quiet', '--offline'] },
-  pnpm: { direct: false, subs: ['dlx'], package: ['--package'], value: ['--registry', '--store-dir', '--workspace', '-w'], boolean: ['-q', '--quiet', '--offline', '--prefer-offline'] },
+  pnpm: { direct: false, subs: ['dlx'], package: ['--package'], value: ['--registry', '--store-dir', '--workspace', '-w', '-C', '--dir', '--prefix'], boolean: ['-q', '--quiet', '--offline', '--prefer-offline'] },
   uvx: { direct: true, subs: [], package: ['--from'], value: ['-p', '--python', '--with', '--index', '--index-url', '--cache-dir'], boolean: ['-q', '--quiet', '--offline', '--no-progress', '--refresh', '--no-cache', '--isolated'] },
   uv: { direct: false, subs: ['tool', 'run'], package: ['--from'], value: ['-p', '--python', '--with', '--index', '--index-url', '--cache-dir'], boolean: ['-q', '--quiet', '--offline', '--no-progress', '--refresh', '--no-cache', '--isolated', '--no-project'] },
 });
@@ -185,7 +192,12 @@ function installerPackage(command, args) {
         let kind = 'boolean';
         if (packageFlags.has(parsed.flag)) kind = 'package';
         else if (valueFlags.has(parsed.flag)) kind = 'value';
-        else if (unknownAsValue && parsed.flag.startsWith('--') && !booleanFlags.has(parsed.flag)) kind = 'value';
+        else if (!booleanFlags.has(parsed.flag) && !booleanFlags.has(arg)) {
+          // An unrecognized short or long flag before the package makes the
+          // launch ambiguous. Do not pin the next token.
+          const candidates = list.slice(i + 1).filter(item => isPackageSpec(item)).slice(0, 2);
+          return { ambiguous: true, token: null, spec: null, candidates };
+        }
         if (kind === 'boolean') continue;
         let raw = arg;
         let name = parsed.inline;
@@ -214,7 +226,9 @@ function installerPackage(command, args) {
   }
 
   const strict = parse(false);
+  if (strict && strict.ambiguous) return strict;
   const greedy = parse(true);
+  if (greedy && greedy.ambiguous) return greedy;
   // An unknown flag whose next token is a different package than the one the
   // installer would launch is not a safe pin. Fail closed.
   if (strict && greedy && bareInstallName(strict.spec) !== bareInstallName(greedy.spec)) {
@@ -311,5 +325,5 @@ function namesInText(text, { ini = false } = {}) {
 
 module.exports = {
   PROVIDER_KEY_NAMES, valueIsPresent, isEnvReference, isPackageSpec, isPackageNameShape, isHighConfidenceSecret,
-  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
+  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
 };

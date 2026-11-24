@@ -8,7 +8,7 @@ const path = require('path');
 const scanner = require('../engine/localMcpScanner');
 const { inferCapabilities } = require('./knownServers');
 const parse = require('./discovery/parse');
-const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
+const { isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, commandStem, valueIsPresent, PROVIDER_KEY_NAMES } = require('./discovery/secrets');
 const { createBackupSet, parseChoice, replaceRegularFile, chmodNoFollow } = require('./fix');
 
 const PROVIDER_KEYS = new Set(PROVIDER_KEY_NAMES);
@@ -217,8 +217,7 @@ function catalogMatch(name, spec, home) {
 }
 
 function commandBase(command) {
-  if (typeof command !== 'string') return '';
-  return command.split(/[\\/]/).pop().toLowerCase();
+  return commandStem(command);
 }
 
 function isPinnedSpec(spec) {

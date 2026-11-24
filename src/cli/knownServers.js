@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { matchIdentity, matchHost, DATA_SOURCE_ROLES, exactPackageMatch } = require('./mcpCatalog');
-const { installerPackage } = require('./discovery/secrets');
+const { installerPackage, commandStem } = require('./discovery/secrets');
 
 const GRADE_RANK = Object.freeze({ substring: 1, allowlist: 2, observed: 3 });
 
@@ -140,18 +140,19 @@ function toolNameOf(value) {
   return '';
 }
 
-/** python3.11, node.exe, and /usr/bin/pythonw are interpreters, not packages. */
+/** python3.11rc1, node22, node.cmd, and a quoted Windows path are interpreters. */
 function normalizeInterpreter(command) {
-  let base = String(command || '').trim().split(/[\\/]/).pop().toLowerCase();
-  base = base.replace(/\.exe$/, '');
+  const base = commandStem(command);
   if (base === 'nodejs') return 'node';
-  if (base === 'pythonw') return 'python';
-  const stems = ['node', 'python', 'py', 'bun', 'deno', 'ruby', 'perl', 'bash', 'sh', 'zsh', 'pwsh', 'powershell'];
-  for (const stem of stems) {
-    if (base === stem) return stem === 'py' ? 'python' : stem;
-    if (base.startsWith(stem) && /^\d+(?:\.\d+)*$/.test(base.slice(stem.length))) return stem === 'py' ? 'python' : stem;
-  }
-  return null;
+  if (base === 'pythonw' || base === 'py') return 'python';
+  const shells = new Set(['bash', 'sh', 'zsh', 'pwsh', 'powershell']);
+  if (shells.has(base)) return base;
+  const match = base.match(/^(nodejs|node|pythonw|python|py|bun|deno|ruby|perl)(\d+(?:\.\d+)*[a-z]+\d*|\d+(?:\.\d+)*)?$/);
+  if (!match) return null;
+  const stem = match[1];
+  if (stem === 'nodejs' || stem === 'node') return 'node';
+  if (stem === 'pythonw' || stem === 'python' || stem === 'py') return 'python';
+  return stem;
 }
 
 function identityTokens(name, server) {
@@ -277,8 +278,8 @@ function inferCapabilities(name, server, options = {}) {
     }
   }
   const launched = installerPackage(spec.command, args);
-  const commandName = typeof spec.command === 'string' ? spec.command.trim().split(/[\\/]/).pop() : '';
-  const interpreter = normalizeInterpreter(commandName) != null;
+  const commandName = commandStem(spec.command);
+  const interpreter = normalizeInterpreter(spec.command) != null;
   for (const token of identityTokens(name, spec)) {
     const hit = matchIdentity(token);
     // An interpreter does not launch the package named in a later argument.

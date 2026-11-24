@@ -89,7 +89,7 @@ ok('a decoy official package argument is not an allowlist hit', !decoy.inference
 const nodeFetch = inferCapabilities('nodeFetch', { command: 'node', args: ['evil.js', 'mcp-server-fetch'] }, { home });
 const nodeFiles = inferCapabilities('nodeFiles', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
 ok('node evil.js does not inherit the official fetch or filesystem allowlist', !nodeFetch.inferences.some(item => item.grade === 'allowlist') && !nodeFiles.inferences.some(item => item.grade === 'allowlist'));
-for (const command of ['python3.11', 'python3', 'node.exe', 'nodejs', '/usr/bin/node.exe', 'bun.exe', 'deno', 'pythonw', 'py']) {
+for (const command of ['python3.11', 'python3.11rc1', 'python3.13t', 'python3', 'node22', 'node.exe', 'node.cmd', 'nodejs', '/usr/bin/node.exe', 'bun.exe', 'deno', 'pythonw', 'py', 'C:\\Program Files\\nodejs\\node.cmd']) {
   const inferred = inferCapabilities('tool', { command, args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
   ok(`${command} does not allowlist a script's later package`, !inferred.inferences.some(item => item.grade === 'allowlist'));
 }

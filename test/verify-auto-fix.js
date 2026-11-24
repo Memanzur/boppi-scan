@@ -354,6 +354,31 @@ function runCli(args, home, cwd, extra = {}) {
   ok('an unrecognized flag that disagrees with the launched package is not pinned', ambiguousParsed.ambiguous === true && ambiguousArgs.includes('warn') && ambiguousArgs.includes('mcp-server-fetch@latest') && !ambiguousArgs.some(arg => String(arg).startsWith('warn@')) && ambiguousFindings.some(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE'));
   fs.rmSync(ambiguous.root, { recursive: true, force: true });
 
+  const shortFlag = stage({
+    npm: { command: 'npm', args: ['exec', '-C', 'somepkg', 'mcp-server-fetch@latest'] },
+    pnpm: { command: 'pnpm', args: ['dlx', '-C', 'somepkg', 'mcp-server-fetch@latest'] },
+    unknown: { command: 'npx', args: ['-Z', 'somepkg', 'mcp-server-fetch@latest'] },
+  }, { somepkg: '2.2.2', 'mcp-server-fetch': '1.4.2' });
+  runCli(['fix', '--yes'], shortFlag.home, shortFlag.work);
+  const shortJson = JSON.parse(fs.readFileSync(shortFlag.file, 'utf8')).mcpServers;
+  const shortRescan = path.join(shortFlag.root, 'rescan.json');
+  runCli(['scan', '--quiet', '--json', shortRescan], shortFlag.home, shortFlag.work);
+  const shortFindings = JSON.parse(fs.readFileSync(shortRescan, 'utf8')).configFindings || [];
+  ok('npm exec -C pins the launched package, not the prefix value', shortJson.npm.args.includes('-C') && shortJson.npm.args.includes('somepkg') && shortJson.npm.args.includes('mcp-server-fetch@1.4.2') && !shortJson.npm.args.some(arg => String(arg).startsWith('somepkg@')));
+  ok('pnpm dlx -C pins the launched package, not the prefix value', shortJson.pnpm.args.includes('mcp-server-fetch@1.4.2') && !shortJson.pnpm.args.some(arg => String(arg).startsWith('somepkg@')));
+  ok('an unrecognized short flag is not pinned and stays unpinned', shortJson.unknown.args.includes('somepkg') && !shortJson.unknown.args.some(arg => String(arg).startsWith('somepkg@')) && shortFindings.some(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE'));
+  fs.rmSync(shortFlag.root, { recursive: true, force: true });
+
+  const shim = stage({
+    fetch: { command: 'C:\\Program Files\\nodejs\\npx.cmd', args: ['-y', 'mcp-server-fetch@latest'] },
+    quoted: { command: '"C:\\Program Files\\nodejs\\npx.exe"', args: ['-y', 'mcp-server-fetch@latest'] },
+  }, { 'mcp-server-fetch': '1.4.2' });
+  runCli(['fix', '--yes'], shim.home, shim.work);
+  const shimJson = JSON.parse(fs.readFileSync(shim.file, 'utf8')).mcpServers;
+  ok('a Windows npx.cmd path pins the same package as npx', shimJson.fetch.command === 'C:\\Program Files\\nodejs\\npx.cmd' && shimJson.fetch.args.includes('mcp-server-fetch@1.4.2') && !shimJson.fetch.args.includes('-y'));
+  ok('a quoted npx.exe path pins the same package as npx', shimJson.quoted.args.includes('mcp-server-fetch@1.4.2'));
+  fs.rmSync(shim.root, { recursive: true, force: true });
+
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');
   fs.writeFileSync(chosenFile, JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['pkg'], env: { OPENAI_API_KEY: SECRET, COOKIE_PATH: 'chocolate', API_KEY_FILE: '/tmp/keyfile' } } } }, null, 2) + '\n');

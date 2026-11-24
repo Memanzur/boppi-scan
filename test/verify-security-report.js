@@ -20,7 +20,10 @@ function section(name) { console.log(`\n── ${name} ──`); }
 
 function runCli(args, home) {
   const started = Date.now();
-  const result = spawnSync(process.execPath, [CLI, ...args, '--home', home, '--cwd', home, '--platform', 'darwin', '--no-color', '--history-file', path.join(home, '..', 'history.json')], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [CLI, ...args, '--home', home, '--cwd', home, '--platform', 'darwin', '--no-color', '--history-file', path.join(home, '..', 'history.json')], {
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, USERPROFILE: home, BOPPI_SCAN_HOME: home },
+  });
   return { code: result.status, stdout: result.stdout || '', stderr: result.stderr || '', ms: Date.now() - started };
 }
 
@@ -102,9 +105,11 @@ function runCli(args, home) {
     const jsonPath = path.join(root, 'out.json');
     const result = runCli(['scan', '--quiet', '--json', jsonPath, '--only', 'cursor'], home);
     const exported = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    const realHome = fs.realpathSync(home);
     fs.rmSync(root, { recursive: true, force: true });
-    const risks = (exported.securityReport && exported.securityReport.risks || []).map(risk => `${risk.severity}|${risk.templateId}|${risk.sentence}|${risk.fix || ''}`);
-    const paths = (exported.exposurePaths || []).map(item => `${item.severity}|${item.templateId}|${(item.nodes || []).map(node => `${node.entityType}:${node.label}`).join('>')}`);
+    const normalize = (text) => String(text).split(realHome).join('HOME').split(home).join('HOME').split(dirName).join('DIR');
+    const risks = (exported.securityReport && exported.securityReport.risks || []).map(risk => normalize(`${risk.severity}|${risk.templateId}|${risk.sentence}|${risk.fix || ''}`));
+    const paths = (exported.exposurePaths || []).map(item => normalize(`${item.severity}|${item.templateId}|${(item.nodes || []).map(node => `${node.entityType}:${node.label}`).join('>')}`));
     return { code: result.code, risks, paths };
   }
   const places = ['aaa', 'mmm', 'zzz', 'omega'].map(ranked);
