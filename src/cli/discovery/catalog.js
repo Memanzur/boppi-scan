@@ -302,7 +302,7 @@ function augmentProjectFiles(descriptors, home) {
   const cursor = descriptors.find(d => d.clientKey === 'cursor');
   const copilotClient = descriptors.find(d => d.clientKey === 'copilot');
   for (const hit of hits) {
-    if (hit.kind === 'blocked') {
+    if (hit.kind === 'blocked' || hit.kind === 'dropped') {
       const blocked = jsonFile(hit.path, 'project', () => ({}));
       if (claude) claude.files.push({ ...blocked });
       if (cursor) cursor.files.push({ ...blocked });

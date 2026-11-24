@@ -215,6 +215,107 @@ function runCli(args, home, cwd, extraEnv = {}) {
   ok('an unreadable project directory exits 4 and does not run the command', !projectBlocked || (refused(projectGuard, project.caseMarker) && refused(projectDry, project.caseMarker) && projectScan.status === 4));
   fs.chmodSync(secret, 0o755);
   fs.rmSync(project.caseRoot, { recursive: true, force: true });
+
+  section('project configs are covered the same way as home configs');
+  function projectHome() {
+    const made = freshHome();
+    fs.writeFileSync(made.config, JSON.stringify({ mcpServers: {} }));
+    return made;
+  }
+  function denied(result, marker) {
+    return result.status === 1 && result.stdout.includes('POL-DENY-SERVER') && result.stderr.includes('was not run') && !fs.existsSync(marker);
+  }
+
+  const cursorLink = projectHome();
+  const cursorDir = path.join(cursorLink.caseHome, 'Projects', 'app', '.cursor');
+  fs.mkdirSync(cursorDir, { recursive: true });
+  fs.writeFileSync(path.join(cursorDir, 'real.json'), filesystemConfig(cursorLink.caseHome));
+  fs.symlinkSync('real.json', path.join(cursorDir, 'mcp.json'));
+  const cursorLinked = hidden(['guard', '--policy', cursorLink.denyFile, '--', ...wrapped], cursorLink.caseHome, cursorLink.caseCwd, cursorLink.caseMarker);
+  ok('a project .cursor/mcp.json symlink to a denied config does not run the command', denied(cursorLinked, cursorLink.caseMarker));
+  fs.rmSync(cursorLink.caseRoot, { recursive: true, force: true });
+
+  const mcpLink = projectHome();
+  const mcpApp = path.join(mcpLink.caseHome, 'Projects', 'app');
+  fs.mkdirSync(mcpApp, { recursive: true });
+  fs.writeFileSync(path.join(mcpApp, 'real-mcp.json'), filesystemConfig(mcpLink.caseHome));
+  fs.symlinkSync('real-mcp.json', path.join(mcpApp, '.mcp.json'));
+  const mcpLinked = hidden(['guard', '--policy', mcpLink.denyFile, '--', ...wrapped], mcpLink.caseHome, mcpLink.caseCwd, mcpLink.caseMarker);
+  ok('a project .mcp.json symlink to a denied config does not run the command', denied(mcpLinked, mcpLink.caseMarker));
+  fs.rmSync(mcpLink.caseRoot, { recursive: true, force: true });
+
+  const homeLink = freshHome();
+  fs.writeFileSync(path.join(homeLink.configDir, 'real.json'), filesystemConfig(homeLink.caseHome));
+  fs.symlinkSync('real.json', homeLink.config);
+  const homeLinked = hidden(['guard', '--policy', homeLink.denyFile, '--', ...wrapped], homeLink.caseHome, homeLink.caseCwd, homeLink.caseMarker);
+  ok('a home config symlink to a denied config does not run the command', denied(homeLinked, homeLink.caseMarker));
+  fs.rmSync(homeLink.caseRoot, { recursive: true, force: true });
+
+  const cursorLoop = projectHome();
+  const cursorLoopFile = path.join(cursorLoop.caseHome, 'Projects', 'app', '.cursor', 'mcp.json');
+  fs.mkdirSync(path.dirname(cursorLoopFile), { recursive: true });
+  fs.symlinkSync('mcp.json', cursorLoopFile);
+  const cursorLoopRun = hidden(['guard', '--policy', cursorLoop.denyFile, '--', ...wrapped], cursorLoop.caseHome, cursorLoop.caseCwd, cursorLoop.caseMarker);
+  ok('a project .cursor/mcp.json symlink loop exits 4 and does not run the command', refused(cursorLoopRun, cursorLoop.caseMarker));
+  fs.rmSync(cursorLoop.caseRoot, { recursive: true, force: true });
+
+  const mcpLoop = projectHome();
+  const mcpLoopFile = path.join(mcpLoop.caseHome, 'Projects', 'app', '.mcp.json');
+  fs.mkdirSync(path.dirname(mcpLoopFile), { recursive: true });
+  fs.symlinkSync('.mcp.json', mcpLoopFile);
+  const mcpLoopRun = hidden(['guard', '--policy', mcpLoop.denyFile, '--', ...wrapped], mcpLoop.caseHome, mcpLoop.caseCwd, mcpLoop.caseMarker);
+  ok('a project .mcp.json symlink loop exits 4 and does not run the command', refused(mcpLoopRun, mcpLoop.caseMarker));
+  fs.rmSync(mcpLoop.caseRoot, { recursive: true, force: true });
+
+  const cursorHuge = projectHome();
+  const cursorHugeFile = path.join(cursorHuge.caseHome, 'Projects', 'app', '.cursor', 'mcp.json');
+  fs.mkdirSync(path.dirname(cursorHugeFile), { recursive: true });
+  fs.writeFileSync(cursorHugeFile, filesystemConfig(cursorHuge.caseHome) + ' '.repeat(2_000_001));
+  const cursorHugeRun = hidden(['guard', '--policy', cursorHuge.denyFile, '--', ...wrapped], cursorHuge.caseHome, cursorHuge.caseCwd, cursorHuge.caseMarker);
+  ok('an oversize project .cursor/mcp.json exits 4 and does not run the command', refused(cursorHugeRun, cursorHuge.caseMarker));
+  fs.rmSync(cursorHuge.caseRoot, { recursive: true, force: true });
+
+  const mcpHuge = projectHome();
+  const mcpHugeFile = path.join(mcpHuge.caseHome, 'Projects', 'app', '.mcp.json');
+  fs.mkdirSync(path.dirname(mcpHugeFile), { recursive: true });
+  fs.writeFileSync(mcpHugeFile, filesystemConfig(mcpHuge.caseHome) + ' '.repeat(2_000_001));
+  const mcpHugeRun = hidden(['guard', '--policy', mcpHuge.denyFile, '--', ...wrapped], mcpHuge.caseHome, mcpHuge.caseCwd, mcpHuge.caseMarker);
+  ok('an oversize project .mcp.json exits 4 and does not run the command', refused(mcpHugeRun, mcpHuge.caseMarker));
+  fs.rmSync(mcpHuge.caseRoot, { recursive: true, force: true });
+
+  const cursorLocked = projectHome();
+  const cursorLockedFile = path.join(cursorLocked.caseHome, 'Projects', 'app', '.cursor', 'mcp.json');
+  fs.mkdirSync(path.dirname(cursorLockedFile), { recursive: true });
+  fs.writeFileSync(cursorLockedFile, filesystemConfig(cursorLocked.caseHome));
+  fs.chmodSync(cursorLockedFile, 0o000);
+  let cursorLockedBlocked = false;
+  try { fs.readFileSync(cursorLockedFile); } catch (error) { cursorLockedBlocked = error.code === 'EACCES' || error.code === 'EPERM'; }
+  const cursorLockedRun = hidden(['guard', '--policy', cursorLocked.denyFile, '--', ...wrapped], cursorLocked.caseHome, cursorLocked.caseCwd, cursorLocked.caseMarker);
+  ok('an unreadable project .cursor/mcp.json exits 4 and does not run the command', !cursorLockedBlocked || refused(cursorLockedRun, cursorLocked.caseMarker));
+  fs.chmodSync(cursorLockedFile, 0o644);
+  fs.rmSync(cursorLocked.caseRoot, { recursive: true, force: true });
+
+  const linkedDir = projectHome();
+  const outside = path.join(linkedDir.caseHome, 'outside');
+  fs.mkdirSync(path.join(outside, '.cursor'), { recursive: true });
+  fs.writeFileSync(path.join(outside, '.cursor', 'mcp.json'), filesystemConfig(linkedDir.caseHome));
+  fs.mkdirSync(path.join(linkedDir.caseHome, 'Projects'), { recursive: true });
+  fs.symlinkSync(outside, path.join(linkedDir.caseHome, 'Projects', 'link'));
+  const linkedDirRun = hidden(['guard', '--policy', linkedDir.denyFile, '--', ...wrapped], linkedDir.caseHome, linkedDir.caseCwd, linkedDir.caseMarker);
+  ok('a symlinked project directory exits 4 and does not run the command', refused(linkedDirRun, linkedDir.caseMarker));
+  fs.rmSync(linkedDir.caseRoot, { recursive: true, force: true });
+
+  section('a large shell startup file is a warning, not an incomplete scan');
+  const shellHome = freshHome();
+  fs.writeFileSync(path.join(shellHome.caseHome, '.zshrc'), '# ' + 'x'.repeat(1_000_001));
+  const shellScanPath = path.join(shellHome.caseRoot, 'scan.json');
+  const shellScan = runCli(['scan', '--quiet', '--json', shellScanPath, '--policy', shellHome.denyFile], shellHome.caseHome, shellHome.caseCwd);
+  const shellExport = JSON.parse(fs.readFileSync(shellScanPath, 'utf8'));
+  const shellGuard = hidden(['guard', '--policy', shellHome.denyFile, '--', ...command], shellHome.caseHome, shellHome.caseCwd, shellHome.caseMarker);
+  ok('a .zshrc over 1MB does not fail the scan and warns', shellScan.status === 0 && (shellExport.configFindings || []).some(item => item.ruleId === 'BOPPI-SHELL-RC-SIZE' && /zshrc/.test(item.title || item.file || '')));
+  ok('guard still runs the command when the only gap is a large shell startup file', shellGuard.status === 7 && fs.readFileSync(shellHome.caseMarker, 'utf8') === 'ran');
+  fs.rmSync(shellHome.caseRoot, { recursive: true, force: true });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 })();

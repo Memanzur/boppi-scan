@@ -558,8 +558,10 @@ async function performScan(options) {
     }
     inventory = result.inventory;
   }
+  // MCP configs that exist but were not analyzed make the scan incomplete.
+  // Presence checks and shell startup files are best-effort and do not.
   const incomplete = discovery.clients
-    .filter(c => c.scanError || c.files.some(file => file.status === 'unreadable' || file.status === 'skipped'))
+    .filter(c => !c.presenceOnly && !c.inventoryOnly && (c.scanError || c.files.some(file => file.format !== 'text' && file.format !== 'presence' && (file.status === 'unreadable' || file.status === 'skipped'))))
     .map(c => c.label);
 
   const graph = securityGraph.buildGraph(inventory);

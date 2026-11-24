@@ -28,17 +28,20 @@ function walkProjectConfigs(home) {
   let visits = 0;
   const seen = new Set();
 
+  // A candidate that exists is always reported. Discovery follows a symlink
+  // to a real file. A path we cannot use is still reported so the scan is
+  // incomplete instead of looking empty.
   function considerFile(file, kind) {
     if (found.length >= MAX_FILES) return;
-    let resolved;
-    try { resolved = fs.realpathSync(file); } catch (_) { return; }
-    const root = fs.realpathSync(home);
-    if (resolved !== root && !resolved.startsWith(root + path.sep)) return;
-    if (seen.has(resolved)) return;
-    let stat;
-    try { stat = fs.lstatSync(file); } catch (_) { return; }
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2_000_000) return;
-    seen.add(resolved);
+    let listed;
+    try { listed = fs.lstatSync(file); } catch (error) {
+      if (error.code !== 'ENOENT') found.push({ path: file, kind: 'dropped', reason: 'unreadable' });
+      return;
+    }
+    let identity = file;
+    try { identity = fs.realpathSync(file); } catch (_) { identity = file; }
+    if (seen.has(identity)) return;
+    seen.add(identity);
     found.push({ path: file, kind });
   }
 
@@ -55,7 +58,16 @@ function walkProjectConfigs(home) {
     }
     for (const entry of entries) {
       if (visits >= MAX_DIRS || found.length >= MAX_FILES) return;
-      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      if (entry.isSymbolicLink()) {
+        const linked = path.join(dir, entry.name);
+        let linkedDir = true;
+        try { linkedDir = fs.statSync(linked).isDirectory(); } catch (_) { linkedDir = true; }
+        if (linkedDir && !SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
+          found.push({ path: linked, kind: 'dropped', reason: 'symlinked directory' });
+        }
+        continue;
+      }
+      if (!entry.isDirectory()) continue;
       if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
       walk(path.join(dir, entry.name), depth + 1);
     }
@@ -65,7 +77,11 @@ function walkProjectConfigs(home) {
     const root = path.join(home, ...parts);
     let stat;
     try { stat = fs.lstatSync(root); } catch (_) { continue; }
-    if (!stat.isDirectory() || stat.isSymbolicLink()) continue;
+    if (stat.isSymbolicLink()) {
+      found.push({ path: root, kind: 'dropped', reason: 'symlinked directory' });
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
     walk(root, 0);
   }
   return found;
