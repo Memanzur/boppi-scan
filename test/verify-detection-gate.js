@@ -86,6 +86,9 @@ ok('a server merely named memory or everything is not the official server', !all
 ok('a server named everything still keeps the fetch package capabilities', namedEverything.capabilities.includes('network_access') && namedEverything.capabilities.includes('untrusted_external_content'));
 const decoy = inferCapabilities('decoy', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-everything'] }, { home });
 ok('a decoy official package argument is not an allowlist hit', !decoy.inferences.some(item => item.grade === 'allowlist' && item.label === 'everything'));
+const nodeFetch = inferCapabilities('nodeFetch', { command: 'node', args: ['evil.js', 'mcp-server-fetch'] }, { home });
+const nodeFiles = inferCapabilities('nodeFiles', { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] }, { home });
+ok('node evil.js does not inherit the official fetch or filesystem allowlist', !nodeFetch.inferences.some(item => item.grade === 'allowlist') && !nodeFiles.inferences.some(item => item.grade === 'allowlist'));
 
 fs.mkdirSync(path.join(home, 'Library', 'Application Support', 'Claude'), { recursive: true });
 fs.mkdirSync(path.join(home, '.cursor'), { recursive: true });

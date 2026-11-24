@@ -213,7 +213,7 @@ function eachSpec(json, cwd, visit) {
 function catalogMatch(name, spec, home) {
   const normalized = parse.normalizeSpec(spec);
   const inference = inferCapabilities(name, normalized, { home });
-  return inference.inferences.some(item => item.label !== 'directory arguments' && item.label !== 'remote MCP server');
+  return inference.inferences.some(item => item.grade === 'allowlist' && item.label !== 'directory arguments' && item.label !== 'remote MCP server');
 }
 
 function commandBase(command) {

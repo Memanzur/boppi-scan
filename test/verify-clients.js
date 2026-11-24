@@ -93,6 +93,8 @@ function read(name) { return fs.readFileSync(path.join(FIX, name), 'utf8'); }
       everything: { command: 'node', args: ['index.js'] },
       official: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-everything'] },
       decoy: { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-everything'] },
+      nodeFetch: { command: 'node', args: ['evil.js', 'mcp-server-fetch'] },
+      nodeFiles: { command: 'node', args: ['evil.js', '@modelcontextprotocol/server-filesystem'] },
     },
   }));
   fs.chmodSync(lookalikeFile, 0o600);
@@ -106,6 +108,7 @@ function read(name) { return fs.readFileSync(path.join(FIX, name), 'utf8'); }
   const unknownNames = lookalikeIssues.filter(item => item.ruleId === 'BOPPI-UNKNOWN-SERVER').map(item => item.server);
   ok('lookalike and name-only memory or everything servers stay unknown', ['demo', 'memory', 'everything'].every(name => unknownNames.includes(name)) && !unknownNames.includes('official'));
   ok('a decoy official package argument does not mark another server known', unknownNames.includes('decoy'));
+  ok('node evil.js with an official package argument stays unknown', unknownNames.includes('nodeFetch') && unknownNames.includes('nodeFiles'));
   fs.rmSync(secretRoot, { recursive: true, force: true });
   const header = secrets.inlineCredentialLabels(JSON.parse(read('lmstudio.json')).mcpServers.fetch);
   ok('a bearer header is flagged as a header name, not the value', header.includes('header:Authorization') && !header.join(' ').includes(SECRET));

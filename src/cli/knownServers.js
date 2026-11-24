@@ -264,8 +264,12 @@ function inferCapabilities(name, server, options = {}) {
   }
   const launched = installerPackage(spec.command, args);
   const commandName = typeof spec.command === 'string' ? spec.command.trim().split(/[\\/]/).pop() : '';
+  const interpreters = new Set(['node', 'nodejs', 'python', 'python3', 'python2', 'bun', 'deno', 'ruby', 'perl', 'bash', 'sh', 'zsh', 'pwsh', 'powershell']);
+  const interpreter = interpreters.has(commandName.toLowerCase());
   for (const token of identityTokens(name, spec)) {
     const hit = matchIdentity(token);
+    // An interpreter does not launch the package named in a later argument.
+    if (interpreter) continue;
     // A zero-capability row is known only from the package this command launches,
     // scope included. A later argument, or a server name, does not inherit it.
     if (hit && !hit.capabilities.length) {

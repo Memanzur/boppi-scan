@@ -82,20 +82,21 @@ function isEnvSecret(raw) {
   return true;
 }
 
-const DIRECT_INSTALLERS = new Set(['npx', 'bunx', 'pnpx', 'uvx']);
-const INSTALL_SUBS = Object.freeze({
-  npm: ['exec|x'],
-  yarn: ['dlx'],
-  pnpm: ['dlx'],
-  uv: ['tool', 'run'],
+/**
+ * Per installer: package flags name the package, value flags consume the next
+ * token, boolean flags do not. A flag that is not in the table is boolean,
+ * so it does not swallow the package.
+ */
+const INSTALLER_TABLE = Object.freeze({
+  npx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache', '--userconfig', '--registry', '--prefix', '--call'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund', '--no-install', '--ignore-existing', '--prefer-offline', '--prefer-online'] },
+  bunx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache'], boolean: ['-y', '--yes', '-q', '--quiet'] },
+  pnpx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline'] },
+  npm: { direct: false, subs: ['exec|x'], package: ['-p', '--package'], value: ['--cache', '--userconfig', '--registry', '--prefix', '--globalconfig'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund', '--ignore-scripts', '--foreground-scripts'] },
+  yarn: { direct: false, subs: ['dlx'], package: ['--package'], value: [], boolean: ['-q', '--quiet', '--offline'] },
+  pnpm: { direct: false, subs: ['dlx'], package: ['--package'], value: [], boolean: ['-q', '--quiet', '--offline', '--prefer-offline'] },
+  uvx: { direct: true, subs: [], package: ['--from'], value: ['-p', '--python', '--with', '--index', '--index-url', '--cache-dir'], boolean: ['-q', '--quiet', '--offline', '--no-progress', '--refresh', '--no-cache', '--isolated'] },
+  uv: { direct: false, subs: ['tool', 'run'], package: ['--from'], value: ['-p', '--python', '--with', '--index', '--index-url', '--cache-dir'], boolean: ['-q', '--quiet', '--offline', '--no-progress', '--refresh', '--no-cache', '--isolated', '--no-project'] },
 });
-const PACKAGE_FLAGS = new Set(['-p', '--package', '--from']);
-const BOOLEAN_FLAGS = new Set([
-  '-y', '--yes', '-q', '--quiet', '-s', '--silent', '-n', '--no',
-  '--offline', '--prefer-offline', '--prefer-online', '--no-install', '--ignore-existing',
-  '--global', '--shell', '--no-cache', '--refresh', '--isolated', '--ignore-scripts',
-  '--foreground-scripts', '--no-project',
-]);
 
 function splitInstallerFlag(arg) {
   if (arg.startsWith('--')) {
@@ -109,18 +110,21 @@ function splitInstallerFlag(arg) {
 
 /**
  * The package an installer will fetch. Subcommands (npm exec, npm x, yarn dlx,
- * pnpm dlx, uv tool run) are not packages. -p, --package, and --from supply
- * the package only before it has been chosen. `--` does not hide the package
- * that follows it. Other long flags consume their value. Anything after the
- * package belongs to the server, including a later flag of the same shape.
+ * pnpm dlx, uv tool run) are not packages. Package flags and value flags come
+ * from INSTALLER_TABLE. Any other flag is boolean and does not swallow the
+ * next token. `--` does not hide the package that follows it. Anything after
+ * the package belongs to the server.
  * Returns { token, spec } or null. token is the argv string to rewrite.
  */
 function installerPackage(command, args) {
   const base = commandBaseName(command);
+  const table = INSTALLER_TABLE[base];
   const list = Array.isArray(args) ? args.filter(item => typeof item === 'string') : [];
-  const direct = DIRECT_INSTALLERS.has(base);
-  const subs = INSTALL_SUBS[base];
-  if (!direct && !subs) return null;
+  if (!table) return null;
+  const direct = table.direct;
+  const subs = table.subs;
+  const packageFlags = new Set(table.package);
+  const valueFlags = new Set(table.value);
 
   let subIndex = 0;
   let token = null;
@@ -142,26 +146,18 @@ function installerPackage(command, args) {
     if (!endOfFlags && arg.startsWith('-')) {
       const parsed = splitInstallerFlag(arg);
       if (spec) break;
-      if (PACKAGE_FLAGS.has(parsed.flag)) {
-        let raw = arg;
-        let name = parsed.inline;
-        if (parsed.inline == null) {
-          const next = list[i + 1];
-          if (typeof next !== 'string' || next === '--' || next.startsWith('-')) continue;
-          raw = next;
-          name = next;
-          i += 1;
-        }
-        if (!take(raw, name)) continue;
-        if (direct || subIndex >= subs.length) break;
-        continue;
-      }
-      if (BOOLEAN_FLAGS.has(parsed.flag) || BOOLEAN_FLAGS.has(arg)) continue;
-      const takesValue = parsed.flag.startsWith('--') || parsed.inline != null;
-      if (takesValue && parsed.inline == null) {
+      const kind = packageFlags.has(parsed.flag) ? 'package' : valueFlags.has(parsed.flag) ? 'value' : 'boolean';
+      if (kind === 'boolean') continue;
+      let raw = arg;
+      let name = parsed.inline;
+      if (parsed.inline == null) {
         const next = list[i + 1];
-        if (typeof next === 'string' && next !== '--' && !next.startsWith('-')) i += 1;
+        if (typeof next !== 'string' || next === '--' || next.startsWith('-')) continue;
+        raw = next;
+        name = next;
+        i += 1;
       }
+      if (kind === 'package' && take(raw, name) && (direct || subIndex >= subs.length)) break;
       continue;
     }
     if (!direct && subIndex < subs.length) {
@@ -266,5 +262,5 @@ function namesInText(text, { ini = false } = {}) {
 
 module.exports = {
   PROVIDER_KEY_NAMES, valueIsPresent, isEnvReference, isPackageSpec, isPackageNameShape, isHighConfidenceSecret,
-  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, inlineCredentialLabels, envKeyPresence, namesInText,
+  isInlineSecret, isEnvSecret, isArgumentSecret, packageArgument, installerPackage, INSTALLER_TABLE, inlineCredentialLabels, envKeyPresence, namesInText,
 };

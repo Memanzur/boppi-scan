@@ -314,6 +314,20 @@ function runCli(args, home, cwd, extra = {}) {
   ok('uvx --python does not treat 3.11 as the package and is not rewritten', flagJson.uv.args.join(' ') === '--python 3.11 mcp-server-fetch@latest');
   fs.rmSync(flagValue.root, { recursive: true, force: true });
 
+  const { installerPackage } = require('../src/cli/discovery/secrets');
+  ok('npx --no-fund does not swallow the package', installerPackage('npx', ['--no-fund', 'mcp-server-fetch@latest']).spec === 'mcp-server-fetch@latest');
+  ok('uvx --no-progress does not swallow the package', installerPackage('uvx', ['--no-progress', 'mcp-server-fetch']).spec === 'mcp-server-fetch');
+  ok('uvx -p consumes the python version and evaluates the package', installerPackage('uvx', ['-p', '3.11', 'mcp-server-fetch']).spec === 'mcp-server-fetch');
+  const noFund = stage({
+    fetch: { command: 'npx', args: ['--no-fund', 'mcp-server-fetch@latest'] },
+  }, { 'mcp-server-fetch': '1.4.2' });
+  const noFundTitles = unpinnedTitles(noFund);
+  ok('npx --no-fund reports mcp-server-fetch, not the flag', noFundTitles.length === 1 && noFundTitles[0].includes('mcp-server-fetch') && !noFundTitles[0].includes('no-fund'));
+  runCli(['fix', '--yes'], noFund.home, noFund.work);
+  const noFundArgs = JSON.parse(fs.readFileSync(noFund.file, 'utf8')).mcpServers.fetch.args;
+  ok('npx --no-fund pins the package and keeps the boolean flag', noFundArgs.includes('--no-fund') && noFundArgs.includes('mcp-server-fetch@1.4.2'));
+  fs.rmSync(noFund.root, { recursive: true, force: true });
+
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');
   fs.writeFileSync(chosenFile, JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['pkg'], env: { OPENAI_API_KEY: SECRET, COOKIE_PATH: 'chocolate', API_KEY_FILE: '/tmp/keyfile' } } } }, null, 2) + '\n');
