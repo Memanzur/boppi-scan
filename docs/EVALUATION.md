@@ -82,3 +82,35 @@ These are the changes in what a scan calls critical:
 - A database or SaaS server is a sensitive read. Postgres plus fetch, Drive plus a browser, or a database plus Slack send is critical. Postgres alone is medium. Postgres plus Jira, or a database or Notion server plus an approval bypass, is critical, and the read is still emitted.
 - Slack history plus Slack send on that one server is high (AE-013). Email send is a messaging leg. A tool named `reply_to_thread` or `post_message` keeps messaging send.
 - A bare shell stays high. Shell plus fetch, an issue tracker, or an approval bypass (`autoApprove`, Claude Code `bypassPermissions`, Codex `approval_policy` `never`, Cursor `approvalMode` `unrestricted`) is critical.
+
+## Sealed held-out v2
+
+The corpus above is the development set. It runs in `npm test`. The 105 case held-out set on `cursor/heldout-detection-eval-5eec` was then used to judge rule changes, so it is no longer a clean release check. `test/heldout-v2/` is a new sealed set. It is not part of `npm test`.
+
+`node test/heldout-v2/harness.js` scans each home locally and prints only aggregate precision and recall by severity, critical combo recall, and p95. It does not print case ids or per-case diffs. A case's predicted severity is the highest open finding or exposure path. Precision and recall use that single label. Combo recall is the share of homes with a non-empty critical combo list whose predicted highest is critical. Fixer hygiene notes are not scored.
+
+Labels were written from `test/heldout-v2/RUBRIC.md` on 2026-11-24, before the harness ran. The rubric restates the clauses in this file and in the README: catalog identity, disabled entries, approval bypass, and the critical combinations AE-009, AE-011, AE-012, AE-014, EP-A, and EP-B. Cases are new homes modeled on public MCP server READMEs and the client config formats cited in the rubric. They are not copies of `test/corpus` or of the earlier held-out set. `LABEL_CHANGELOG.md` records any later label correction. No label was changed after this run.
+
+The set has 128 homes: 48 critical, 24 high, 20 medium, and 36 none. 56 are benign, meaning the expected highest is none or medium. The homes cover several clients at once, disabled servers, approval bypass settings, remote URLs, `npx`, `uvx`, and `docker` forms, and adversarial names.
+
+### Papers
+
+Each page below was fetched on 2026-11-24. Peer reviewed means the venue page or the DOI record names a journal or conference.
+
+Dwork, Feldman, Hardt, Pitassi, Reingold, and Roth, The reusable holdout: Preserving validity in adaptive data analysis, Science 2015, volume 349, issue 6248, pages 636-638. DOI [10.1126/science.aaa9375](https://doi.org/10.1126/science.aaa9375). Adaptive reuse of one holdout set makes later checks look stronger than they are. The earlier held-out set had already guided rule changes, so release decisions need a new set.
+
+Recht, Roelofs, Schmidt, and Shankar, Do ImageNet Classifiers Generalize to ImageNet?, ICML 2019, PMLR 97. [Proceedings](https://proceedings.mlr.press/v97/recht19a.html). They built a fresh test set because the original had been reused, and they scored existing models on it. This directory is that kind of fresh draw for the detection rules.
+
+Oren, Meister, Chatterji, Ladhak, and Hashimoto, Proving Test Set Contamination in Black-Box Language Models, ICLR 2024. [Proceedings](https://proceedings.iclr.cc/paper_files/paper/2024/hash/46e624c244cff669223d488defd4e835-Abstract-Conference.html). A benchmark that has leaked into the thing being measured no longer measures generalization. These homes were written for this set and were not used to edit rules.
+
+Artstein and Poesio, Inter-Coder Agreement for Computational Linguistics, Computational Linguistics 2008, volume 34, issue 4, pages 555-596. DOI [10.1162/coli.07-034-R2](https://doi.org/10.1162/coli.07-034-R2). Labels are reliable only against a written scheme. The rubric is that scheme. One pass applied it, so no agreement coefficient is claimed. Corrections, if any, go in the changelog instead of being edited to match the scanner.
+
+### First result on beta
+
+Scored once on 2026-11-24 against the beta detection engine. No rule was edited from this set. Low has no labeled homes and no predictions, so both rates are not applicable. p95 is the scan of one home on this machine.
+
+| Critical precision | Critical recall | Combo recall | High precision | High recall | Medium precision | Medium recall | None precision | None recall | p95 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1.000 (47/47) | 0.979 (47/48) | 0.979 (47/48) | 0.923 (24/26) | 1.000 (24/24) | 0.947 (18/19) | 0.900 (18/20) | 1.000 (36/36) | 1.000 (36/36) | 6.06 ms |
+
+Critical recall is above the 0.80 release bar. One critical home was not predicted critical. That label was left as written.
