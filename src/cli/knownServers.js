@@ -140,6 +140,20 @@ function toolNameOf(value) {
   return '';
 }
 
+/** python3.11, node.exe, and /usr/bin/pythonw are interpreters, not packages. */
+function normalizeInterpreter(command) {
+  let base = String(command || '').trim().split(/[\\/]/).pop().toLowerCase();
+  base = base.replace(/\.exe$/, '');
+  if (base === 'nodejs') return 'node';
+  if (base === 'pythonw') return 'python';
+  const stems = ['node', 'python', 'py', 'bun', 'deno', 'ruby', 'perl', 'bash', 'sh', 'zsh', 'pwsh', 'powershell'];
+  for (const stem of stems) {
+    if (base === stem) return stem === 'py' ? 'python' : stem;
+    if (base.startsWith(stem) && /^\d+(?:\.\d+)*$/.test(base.slice(stem.length))) return stem === 'py' ? 'python' : stem;
+  }
+  return null;
+}
+
 function identityTokens(name, server) {
   const tokens = [];
   if (typeof name === 'string' && name.trim()) tokens.push(name.trim());
@@ -264,8 +278,7 @@ function inferCapabilities(name, server, options = {}) {
   }
   const launched = installerPackage(spec.command, args);
   const commandName = typeof spec.command === 'string' ? spec.command.trim().split(/[\\/]/).pop() : '';
-  const interpreters = new Set(['node', 'nodejs', 'python', 'python3', 'python2', 'bun', 'deno', 'ruby', 'perl', 'bash', 'sh', 'zsh', 'pwsh', 'powershell']);
-  const interpreter = interpreters.has(commandName.toLowerCase());
+  const interpreter = normalizeInterpreter(commandName) != null;
   for (const token of identityTokens(name, spec)) {
     const hit = matchIdentity(token);
     // An interpreter does not launch the package named in a later argument.

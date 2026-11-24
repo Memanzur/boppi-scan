@@ -478,8 +478,29 @@ function collectFromJsonServers(list, seen, { json, file, fileLabel, tool, home,
     const base = commandBase(spec.command);
     const argList = Array.isArray(spec.args) ? spec.args : [];
     const chosen = INSTALLERS.has(base) ? installerPackage(spec.command, argList) : null;
-    const floating = chosen && isFloating(chosen.spec) ? chosen.spec : null;
-    if (!known) {
+    const floating = chosen && !chosen.ambiguous && isFloating(chosen.spec) ? chosen.spec : null;
+    if (chosen && chosen.ambiguous) {
+      const shown = (chosen.candidates || []).filter(Boolean).join(' or ') || 'more than one package';
+      pushIssue(list, seen, issue({
+        ruleId: 'BOPPI-UNPINNED-PACKAGE',
+        fixId: `unpinned-package:${where}`,
+        severity: 'medium',
+        category: 'unpinned_package',
+        tool,
+        title: `The ${name} server's installer flags do not identify one package (${shown}).`,
+        summary: `Boppi will not rewrite this command. The package it would pin is not the package ${base} will launch.`,
+        steps: [
+          `Edit ${fileLabel} so the package ${base} runs is written as one exact version.`,
+          'Boppi does not guess which token is the package when a flag could take the next token as a value.',
+        ],
+        autoFixable: false,
+        file,
+        fileLabel,
+        format: 'json',
+        server: name,
+        detail: { autoYes: false, spec: null, pinned: null, ambiguous: true },
+      }));
+    } else if (!known) {
       pushIssue(list, seen, issue({
         ruleId: 'BOPPI-UNKNOWN-SERVER',
         fixId: `unknown-server:${where}`,

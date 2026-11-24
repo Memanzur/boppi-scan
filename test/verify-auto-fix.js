@@ -328,6 +328,32 @@ function runCli(args, home, cwd, extra = {}) {
   ok('npx --no-fund pins the package and keeps the boolean flag', noFundArgs.includes('--no-fund') && noFundArgs.includes('mcp-server-fetch@1.4.2'));
   fs.rmSync(noFund.root, { recursive: true, force: true });
 
+  const loglevel = stage({
+    fetch: { command: 'npx', args: ['--loglevel', 'warn', 'mcp-server-fetch@latest'] },
+    exec: { command: 'npm', args: ['exec', '--loglevel', 'warn', 'mcp-server-fetch@latest'] },
+  }, { warn: '9.9.9' });
+  runCli(['fix', '--yes'], loglevel.home, loglevel.work);
+  const logJson = JSON.parse(fs.readFileSync(loglevel.file, 'utf8')).mcpServers;
+  const logRescanPath = path.join(loglevel.root, 'rescan.json');
+  const logRescan = runCli(['scan', '--quiet', '--json', logRescanPath], loglevel.home, loglevel.work);
+  const logFindings = JSON.parse(fs.readFileSync(logRescanPath, 'utf8')).configFindings || [];
+  ok('npx --loglevel does not pin the log level as the package', logJson.fetch.args.includes('--loglevel') && logJson.fetch.args.includes('warn') && logJson.fetch.args.includes('mcp-server-fetch@latest') && !logJson.fetch.args.some(arg => String(arg).startsWith('warn@')));
+  ok('npm exec --loglevel does not pin the log level as the package', logJson.exec.args.includes('mcp-server-fetch@latest') && !logJson.exec.args.some(arg => String(arg).startsWith('warn@')));
+  ok('a loglevel command is not a clean rescan while @latest still runs', logRescan.code === 0 && logFindings.some(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE' && /mcp-server-fetch/.test(item.title)));
+  fs.rmSync(loglevel.root, { recursive: true, force: true });
+
+  const ambiguous = stage({
+    fetch: { command: 'npx', args: ['--not-a-real-npm-flag', 'warn', 'mcp-server-fetch@latest'] },
+  }, { warn: '9.9.9' });
+  const ambiguousParsed = installerPackage('npx', ['--not-a-real-npm-flag', 'warn', 'mcp-server-fetch@latest']);
+  runCli(['fix', '--yes'], ambiguous.home, ambiguous.work);
+  const ambiguousArgs = JSON.parse(fs.readFileSync(ambiguous.file, 'utf8')).mcpServers.fetch.args;
+  const ambiguousRescan = path.join(ambiguous.root, 'rescan.json');
+  runCli(['scan', '--quiet', '--json', ambiguousRescan], ambiguous.home, ambiguous.work);
+  const ambiguousFindings = JSON.parse(fs.readFileSync(ambiguousRescan, 'utf8')).configFindings || [];
+  ok('an unrecognized flag that disagrees with the launched package is not pinned', ambiguousParsed.ambiguous === true && ambiguousArgs.includes('warn') && ambiguousArgs.includes('mcp-server-fetch@latest') && !ambiguousArgs.some(arg => String(arg).startsWith('warn@')) && ambiguousFindings.some(item => item.ruleId === 'BOPPI-UNPINNED-PACKAGE'));
+  fs.rmSync(ambiguous.root, { recursive: true, force: true });
+
   section('destructive fixes apply only when chosen');
   const chosenFile = path.join(root, 'chosen.json');
   fs.writeFileSync(chosenFile, JSON.stringify({ mcpServers: { fetch: { command: 'npx', args: ['pkg'], env: { OPENAI_API_KEY: SECRET, COOKIE_PATH: 'chocolate', API_KEY_FILE: '/tmp/keyfile' } } } }, null, 2) + '\n');

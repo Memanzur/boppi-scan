@@ -87,13 +87,36 @@ function isEnvSecret(raw) {
  * token, boolean flags do not. A flag that is not in the table is boolean,
  * so it does not swallow the package.
  */
+const NPM_VALUE_FLAGS = [
+  '--registry', '--cache', '--userconfig', '--globalconfig', '--prefix', '--loglevel',
+  '--workspace', '-w', '--call', '-c', '--tag', '--scope', '--otp', '--user-agent',
+  '--script-shell', '--depth', '--fetch-retries', '--fetch-retry-factor',
+  '--fetch-retry-mintimeout', '--fetch-retry-maxtimeout', '--fetch-timeout',
+  '--maxsockets', '--tmp', '--umask', '--proxy', '--https-proxy', '--noproxy',
+  '--local-address', '--cert', '--key', '--ca', '--cafile', '--before',
+  '--node-options', '--nodedir', '--viewer', '--editor', '--message', '-m',
+  '--save-prefix', '--logs-max', '--logs-dir', '--replace-registry-host',
+  '--install-strategy', '--omit', '--include', '--cache-min', '--cache-max',
+  '--searchlimit', '--searchopts', '--searchexclude', '--searchstaleness',
+  '--init-module', '--init-author-name', '--init-author-email', '--init-author-url',
+  '--init-license', '--init-version', '--git', '--location', '--libc', '--os',
+  '--cpu', '--arch',
+];
+const NPM_BOOLEAN_FLAGS = [
+  '-y', '--yes', '-q', '--quiet', '--offline', '--no-fund', '--no-install',
+  '--ignore-existing', '--prefer-offline', '--prefer-online', '--ignore-scripts',
+  '--foreground-scripts', '--fund', '--audit', '--json', '--parseable', '--long',
+  '--global', '-g', '--force', '-f', '--dry-run', '--save-exact', '--strict-ssl',
+  '--engine-strict', '--package-lock', '--legacy-peer-deps', '--strict-peer-deps',
+];
+
 const INSTALLER_TABLE = Object.freeze({
-  npx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache', '--userconfig', '--registry', '--prefix', '--call'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund', '--no-install', '--ignore-existing', '--prefer-offline', '--prefer-online'] },
-  bunx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache'], boolean: ['-y', '--yes', '-q', '--quiet'] },
-  pnpx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline'] },
-  npm: { direct: false, subs: ['exec|x'], package: ['-p', '--package'], value: ['--cache', '--userconfig', '--registry', '--prefix', '--globalconfig'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund', '--ignore-scripts', '--foreground-scripts'] },
+  npx: { direct: true, subs: [], package: ['-p', '--package'], value: NPM_VALUE_FLAGS, boolean: NPM_BOOLEAN_FLAGS },
+  bunx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache', '--loglevel', '--registry', '--prefix'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund'] },
+  pnpx: { direct: true, subs: [], package: ['-p', '--package'], value: ['--cache', '--loglevel', '--registry', '--prefix', '--workspace', '-w'], boolean: ['-y', '--yes', '-q', '--quiet', '--offline', '--no-fund'] },
+  npm: { direct: false, subs: ['exec|x'], package: ['-p', '--package'], value: NPM_VALUE_FLAGS.concat(['--globalconfig']), boolean: NPM_BOOLEAN_FLAGS },
   yarn: { direct: false, subs: ['dlx'], package: ['--package'], value: [], boolean: ['-q', '--quiet', '--offline'] },
-  pnpm: { direct: false, subs: ['dlx'], package: ['--package'], value: [], boolean: ['-q', '--quiet', '--offline', '--prefer-offline'] },
+  pnpm: { direct: false, subs: ['dlx'], package: ['--package'], value: ['--registry', '--store-dir', '--workspace', '-w'], boolean: ['-q', '--quiet', '--offline', '--prefer-offline'] },
   uvx: { direct: true, subs: [], package: ['--from'], value: ['-p', '--python', '--with', '--index', '--index-url', '--cache-dir'], boolean: ['-q', '--quiet', '--offline', '--no-progress', '--refresh', '--no-cache', '--isolated'] },
   uv: { direct: false, subs: ['tool', 'run'], package: ['--from'], value: ['-p', '--python', '--with', '--index', '--index-url', '--cache-dir'], boolean: ['-q', '--quiet', '--offline', '--no-progress', '--refresh', '--no-cache', '--isolated', '--no-project'] },
 });
@@ -116,6 +139,18 @@ function splitInstallerFlag(arg) {
  * the package belongs to the server.
  * Returns { token, spec } or null. token is the argv string to rewrite.
  */
+function bareInstallName(spec) {
+  let text = String(spec || '').trim();
+  text = text.replace(/==[^\s]+$/, '');
+  if (text.startsWith('@')) {
+    const slash = text.indexOf('/');
+    const at = slash === -1 ? -1 : text.indexOf('@', slash + 1);
+    return (at === -1 ? text : text.slice(0, at)).toLowerCase();
+  }
+  const at = text.lastIndexOf('@');
+  return (at > 0 ? text.slice(0, at) : text).toLowerCase();
+}
+
 function installerPackage(command, args) {
   const base = commandBaseName(command);
   const table = INSTALLER_TABLE[base];
@@ -125,59 +160,73 @@ function installerPackage(command, args) {
   const subs = table.subs;
   const packageFlags = new Set(table.package);
   const valueFlags = new Set(table.value);
+  const booleanFlags = new Set(table.boolean);
 
-  let subIndex = 0;
-  let token = null;
-  let spec = null;
-  let endOfFlags = false;
-  const take = (raw, name) => {
-    if (!isPackageSpec(name)) return false;
-    token = raw;
-    spec = name;
-    return true;
-  };
-
-  for (let i = 0; i < list.length; i++) {
-    const arg = list[i];
-    if (arg === '--') {
-      endOfFlags = true;
-      continue;
-    }
-    if (!endOfFlags && arg.startsWith('-')) {
-      const parsed = splitInstallerFlag(arg);
-      if (spec) break;
-      const kind = packageFlags.has(parsed.flag) ? 'package' : valueFlags.has(parsed.flag) ? 'value' : 'boolean';
-      if (kind === 'boolean') continue;
-      let raw = arg;
-      let name = parsed.inline;
-      if (parsed.inline == null) {
-        const next = list[i + 1];
-        if (typeof next !== 'string' || next === '--' || next.startsWith('-')) continue;
-        raw = next;
-        name = next;
-        i += 1;
+  function parse(unknownAsValue) {
+    let subIndex = 0;
+    let token = null;
+    let spec = null;
+    let endOfFlags = false;
+    const take = (raw, name) => {
+      if (!isPackageSpec(name)) return false;
+      token = raw;
+      spec = name;
+      return true;
+    };
+    for (let i = 0; i < list.length; i++) {
+      const arg = list[i];
+      if (arg === '--') {
+        endOfFlags = true;
+        continue;
       }
-      if (kind === 'package' && take(raw, name) && (direct || subIndex >= subs.length)) break;
-      continue;
+      if (!endOfFlags && arg.startsWith('-')) {
+        const parsed = splitInstallerFlag(arg);
+        if (spec) break;
+        let kind = 'boolean';
+        if (packageFlags.has(parsed.flag)) kind = 'package';
+        else if (valueFlags.has(parsed.flag)) kind = 'value';
+        else if (unknownAsValue && parsed.flag.startsWith('--') && !booleanFlags.has(parsed.flag)) kind = 'value';
+        if (kind === 'boolean') continue;
+        let raw = arg;
+        let name = parsed.inline;
+        if (parsed.inline == null) {
+          const next = list[i + 1];
+          if (typeof next !== 'string' || next === '--' || next.startsWith('-')) continue;
+          raw = next;
+          name = next;
+          i += 1;
+        }
+        if (kind === 'package' && take(raw, name) && (direct || subIndex >= subs.length)) break;
+        continue;
+      }
+      if (!direct && subIndex < subs.length) {
+        const choices = subs[subIndex].split('|');
+        if (!choices.includes(arg)) return null;
+        subIndex += 1;
+        continue;
+      }
+      if (!spec && !take(arg, arg)) continue;
+      break;
     }
-    if (!direct && subIndex < subs.length) {
-      const choices = subs[subIndex].split('|');
-      if (!choices.includes(arg)) return null;
-      subIndex += 1;
-      continue;
-    }
-    if (!spec && !take(arg, arg)) continue;
-    break;
+    if (!direct && subIndex < subs.length) return null;
+    if (!spec) return null;
+    return { token, spec, ambiguous: false };
   }
-  if (!direct && subIndex < subs.length) return null;
-  if (!spec) return null;
-  return { token, spec };
+
+  const strict = parse(false);
+  const greedy = parse(true);
+  // An unknown flag whose next token is a different package than the one the
+  // installer would launch is not a safe pin. Fail closed.
+  if (strict && greedy && bareInstallName(strict.spec) !== bareInstallName(greedy.spec)) {
+    return { ambiguous: true, token: null, spec: null, candidates: [strict.spec, greedy.spec] };
+  }
+  return strict;
 }
 
 function packageArgument(server) {
   if (!server || typeof server !== 'object') return null;
   const chosen = installerPackage(server.command, server.args);
-  return chosen ? chosen.token : null;
+  return chosen && !chosen.ambiguous ? chosen.token : null;
 }
 
 function valueIsPresent(raw) {
