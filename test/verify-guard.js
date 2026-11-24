@@ -78,7 +78,56 @@ function runCli(args, home, cwd, extraEnv = {}) {
   const check = runCli(['guard', '--policy', allow], home, cwd);
   ok('a passing guard with no command exits 0', check.status === 0 && check.stdout.includes('No command was wrapped'));
 
+  section('an incomplete scan does not run the command');
+  const brokenRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boppi-guard-broken-'));
+  const brokenHome = path.join(brokenRoot, 'home');
+  const brokenCwd = path.join(brokenRoot, 'project');
+  const brokenConfigDir = path.join(brokenHome, 'Library', 'Application Support', 'Claude');
+  fs.mkdirSync(brokenConfigDir, { recursive: true });
+  fs.mkdirSync(brokenCwd, { recursive: true });
+  const brokenConfig = path.join(brokenConfigDir, 'claude_desktop_config.json');
+  const brokenMarker = path.join(brokenRoot, 'ran.txt');
+  const brokenDeny = path.join(brokenCwd, 'deny.json');
+  fs.writeFileSync(brokenDeny, JSON.stringify({ denyServers: ['filesystem'] }));
+  const wrapped = [process.execPath, '-e', 'require("fs").writeFileSync(process.env.BOPPI_GUARD_MARKER, "ran")'];
+
+  function makeUnreadable(file) {
+    fs.writeFileSync(file, JSON.stringify({
+      mcpServers: { filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', brokenHome] } },
+    }));
+    fs.chmodSync(file, 0o000);
+    try {
+      fs.readFileSync(file);
+      fs.chmodSync(file, 0o644);
+      fs.rmSync(file);
+      fs.mkdirSync(file);
+    } catch (error) {
+      if (error.code !== 'EACCES' && error.code !== 'EPERM') throw error;
+    }
+  }
+  function restoreConfig(file) {
+    try { fs.chmodSync(file, 0o644); } catch (_) { /* a directory has no mode we need */ }
+    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) fs.rmdirSync(file);
+  }
+
+  makeUnreadable(brokenConfig);
+  const unreadable = runCli(['guard', '--policy', brokenDeny, '--', ...wrapped], brokenHome, brokenCwd, { BOPPI_GUARD_MARKER: brokenMarker });
+  ok('an unreadable config exits 4 and does not run the command', unreadable.status === 4 && /Scan incomplete:/.test(unreadable.stderr) && unreadable.stderr.includes('Claude Desktop') && !fs.existsSync(brokenMarker) && !unreadable.stdout.includes('POLICY  passed') && !unreadable.stdout.includes('Would run:'));
+  restoreConfig(brokenConfig);
+
+  fs.writeFileSync(brokenConfig, '{ not json');
+  const malformed = runCli(['guard', '--policy', brokenDeny, '--', ...wrapped], brokenHome, brokenCwd, { BOPPI_GUARD_MARKER: brokenMarker });
+  ok('malformed JSON exits 4 and does not run the command', malformed.status === 4 && /Scan incomplete:/.test(malformed.stderr) && malformed.stderr.includes('Claude Desktop') && !fs.existsSync(brokenMarker) && !malformed.stdout.includes('POLICY  passed'));
+
+  fs.writeFileSync(brokenConfig, '{ "mcpServers": { "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"] } ');
+  const deniedBroken = runCli(['guard', '--policy', brokenDeny, '--', ...wrapped], brokenHome, brokenCwd, { BOPPI_GUARD_MARKER: brokenMarker });
+  const deniedScan = runCli(['scan', '--policy', brokenDeny, '--quiet'], brokenHome, brokenCwd);
+  ok('a denied server inside a broken config exits 4 and does not run the command', deniedBroken.status === 4 && deniedScan.status === 4 && /Scan incomplete:/.test(deniedBroken.stderr) && !fs.existsSync(brokenMarker) && !deniedBroken.stdout.includes('POLICY  passed') && !deniedBroken.stdout.includes('RAN'));
+  const dryBroken = runCli(['guard', '--dry-run', '--policy', brokenDeny, '--', ...wrapped], brokenHome, brokenCwd, { BOPPI_GUARD_MARKER: brokenMarker });
+  ok('dry-run on an incomplete scan exits 4 and does not run the command', dryBroken.status === 4 && !fs.existsSync(brokenMarker) && !dryBroken.stdout.includes('Would run:') && /Scan incomplete:/.test(dryBroken.stderr));
+
   fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(brokenRoot, { recursive: true, force: true });
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 })();

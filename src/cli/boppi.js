@@ -990,6 +990,10 @@ async function runGuard(options) {
     process.stderr.write(`${error.message}\n`);
     return 2;
   }
+  if (scan.incomplete && scan.incomplete.length) {
+    process.stderr.write(`Scan incomplete: ${scan.incomplete.join(', ')} could not be analyzed. The wrapped command was not run.\n`);
+    return 4;
+  }
   const result = policyModule.evaluatePolicy(loaded, scan.inventory, scan.paths);
   process.stdout.write(policyModule.renderPolicy(result, options.color) + '\n');
   if (!result.passed) {
